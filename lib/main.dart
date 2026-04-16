@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'database/database_helper.dart';
 
 void main() => runApp(const MyApp());
 
@@ -79,15 +81,12 @@ class _MainScreenState extends State<MainScreen> {
   late PageController _calendarPageController;
   late PageController _timelinePageController;
 
-  Map<String, List<Map<String, dynamic>>> allSchedules = {
-    '2026-03-30': [{'time': '09:10~12:00', 'title': '專題討論會議', 'color': 0xFFFFE082}],
-  };
-  List<Map<String, dynamic>> allTodos = [
-    {'id': '1', 'title': '確認 AutoCAD 圓角圖層', 'isDone': false, 'doneDate': null},
-  ];
-  List<Map<String, dynamic>> socialPosts = [
-    {'id': 1, 'author': 'Sharon', 'time': '10分鐘前', 'content': '準備來寫 Flutter 專題啦🚀', 'likes': 12, 'replies': 3, 'isLiked': true},
-  ];
+  bool _isLoading = true;
+
+  Map<String, List<Map<String, dynamic>>> allSchedules = {};
+  List<Map<String, dynamic>> allTodos = [];
+  List<Map<String, dynamic>> socialPosts = [];
+  List<Map<String, dynamic>> questionBank = [];
 
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分'];
   Map<String, List<String>> subjectChapters = {
@@ -95,12 +94,6 @@ class _MainScreenState extends State<MainScreen> {
     '國文': ['師說', '出師表'],
     '數學': ['面積', '機率'],
   };
-
-  List<Map<String, dynamic>> questionBank = [
-    {'id': 'q1', 'subject': '資訊管理', 'chapter': '第二章 資料庫管理', 'difficulty': '中', 'type': '單選題', 'question': '下列何者不是關聯式資料庫的特性？', 'options': ['支援 SQL 語法', '具備 ACID 特性', '採用樹狀結構存放', '資料以二維表格呈現'], 'answerIndex': 2, 'explanation': '樹狀結構屬於階層式資料庫，而非關聯式。', 'isFavorite': true, 'author': '陳教授', 'replies': 2, 'isWrong': true},
-    {'id': 'q2', 'subject': '國文', 'chapter': '師說', 'difficulty': '易', 'type': '單選題', 'question': '《師說》的作者是誰？', 'options': ['柳宗元', '韓愈', '歐陽脩', '蘇軾'], 'answerIndex': 1, 'explanation': '韓愈倡導古文運動，作《師說》。', 'isFavorite': false, 'author': 'Sharon', 'replies': 0, 'isWrong': false},
-    {'id': 'q3', 'subject': '數學', 'chapter': '面積', 'difficulty': '易', 'type': '單選題', 'question': '長方形長5寬4，面積為何？', 'options': ['18', '20', '25', '9'], 'answerIndex': 1, 'explanation': '5x4=20', 'isFavorite': false, 'author': '系統', 'replies': 0, 'isWrong': true},
-  ];
 
   // --- 狀態控制區 ---
   int _quizStep = 0; 
@@ -127,6 +120,112 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _calendarPageController = PageController(initialPage: 12);
     _timelinePageController = PageController(initialPage: 1000);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final db = await DatabaseHelper.instance.database;
+
+    // Fetch schedules
+    final schedulesList = await db.query('calendar_events');
+    Map<String, List<Map<String, dynamic>>> schedulesMap = {};
+    for (var s in schedulesList) {
+      String date = (s['start_time'] as String).split(' ')[0];
+      String startHr = (s['start_time'] as String).split(' ')[1].substring(0, 5);
+      String endHr = (s['end_time'] as String).split(' ')[1].substring(0, 5);
+      String colorStr = s['color'] as String;
+      int colorVal = int.parse(colorStr.replaceAll('0x', ''), radix: 16);
+      schedulesMap.putIfAbsent(date, () => []).add({
+        'time': '$startHr~$endHr',
+        'title': s['title'],
+        'color': colorVal
+      });
+    }
+
+    // Fetch todos
+    final tododb = await db.query('todos');
+    List<Map<String, dynamic>> todosList = tododb.map((t) => {
+      'id': t['id'].toString(),
+      'title': t['text'],
+      'isDone': (t['done'] as int) == 1,
+      'doneDate': null,
+    }).toList();
+
+    // Fetch posts
+    final postsdb = await db.query('posts', orderBy: 'created_at DESC');
+    List<Map<String, dynamic>> pList = [];
+    for (var p in postsdb) {
+       final u = await db.query('users', where: 'id = ?', whereArgs: [p['user_id']]);
+       String author = u.isNotEmpty ? u.first['display_name'] as String : '未知用戶';
+       
+       final resCount = await db.rawQuery('SELECT COUNT(*) as c FROM comments WHERE post_id = ?', [p['id']]);
+       int replies = (resCount.first['c'] as int?) ?? 0;
+       
+       pList.add({
+         'id': p['id'],
+         'author': author,
+         'time': '最新貼文',
+         'content': p['content'],
+         'likes': p['likes'],
+         'replies': replies,
+         'isLiked': true 
+       });
+    }
+
+    // Fetch Questions
+    final questionsdb = await db.rawQuery('''
+      SELECT q.*, u.display_name
+      FROM questions q
+      JOIN users u ON q.user_id = u.id
+    ''');
+    List<Map<String, dynamic>> qList = [];
+    for (var q in questionsdb) {
+       final tagsdb = await db.rawQuery('''
+         SELECT t.name FROM tags t
+         JOIN question_tag_map qm ON t.id = qm.tag_id
+         WHERE qm.question_id = ?
+       ''', [q['id']]);
+       String chapter = tagsdb.isNotEmpty ? tagsdb.first['name'] as String : '';
+
+       qList.add({
+         'id': 'q${q['id']}',
+         'subject': q['subject'],
+         'chapter': chapter,
+         'difficulty': q['difficulty'],
+         'type': '單選題',
+         'question': q['text'],
+         'options': jsonDecode(q['options'] as String),
+         'answerIndex': int.parse((q['answer'] as String)),
+         'explanation': q['explanation'],
+         'isFavorite': (q['bookmarked'] as int) == 1,
+         'author': q['display_name'],
+         'replies': 2,
+         'isWrong': false,
+       });
+    }
+
+    // Match wrong items
+    final res = await db.query('quiz_results');
+    List<dynamic> wrongIds = [];
+    for (var r in res) {
+      if (r['wrong_question_ids'] != null) {
+        wrongIds.addAll(jsonDecode(r['wrong_question_ids'] as String));
+      }
+    }
+    for (var q in qList) {
+      int numericId = int.parse((q['id'] as String).replaceAll('q', ''));
+      if (wrongIds.contains(numericId)) {
+        q['isWrong'] = true;
+      }
+    }
+
+    setState(() {
+      allSchedules = schedulesMap;
+      allTodos = todosList;
+      socialPosts = pList;
+      questionBank = qList;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -148,17 +247,31 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   // 補回：手動新增行程
-  void _addSchedule(String timeRange, String title, int color) { 
-    setState(() { 
-      String key = _selectedDate.toString().split(' ')[0]; 
-      (allSchedules[key] ??= []).add({'time': timeRange, 'title': title, 'color': color}); 
-      allSchedules[key]!.sort((a, b) => a['time'].toString().compareTo(b['time'].toString())); 
-    }); 
+  void _addSchedule(String timeRange, String title, int color) async { 
+    final db = await DatabaseHelper.instance.database;
+    String key = _selectedDate.toString().split(' ')[0]; 
+    String startStr = "$key ${timeRange.split('~')[0]}:00";
+    String endStr = "$key ${timeRange.split('~')[1]}:00";
+    await db.insert('calendar_events', {
+      'user_id': 'u1',
+      'title': title,
+      'start_time': startStr,
+      'end_time': endStr,
+      'color': '0x${color.toRadixString(16)}',
+    });
+    await _loadData();
   }
 
   // 補回：手動新增待辦事項
-  void _addTodo(String title) { 
-    setState(() => allTodos.add({'id': DateTime.now().millisecondsSinceEpoch.toString(), 'title': title, 'isDone': false, 'doneDate': null})); 
+  void _addTodo(String title) async { 
+    final db = await DatabaseHelper.instance.database;
+    await db.insert('todos', {
+      'user_id': 'u1',
+      'text': title,
+      'done': 0,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+    await _loadData();
   }
 
   // --- 測驗精靈邏輯 ---
@@ -327,7 +440,13 @@ class _MainScreenState extends State<MainScreen> {
     List<Map<String, dynamic>> displayTodos = allTodos.where((todo) { if (todo['isDone']) return todo['doneDate'] == dateKey; return !isPast; }).toList();
     if (schedules.isEmpty && displayTodos.isEmpty) return const Padding(padding: EdgeInsets.only(top: 20), child: Center(child: Text('本日尚無行程與待辦', style: TextStyle(color: Colors.grey))));
     return ListView(padding: const EdgeInsets.symmetric(horizontal: 25), physics: const NeverScrollableScrollPhysics(), children: [
-      ...displayTodos.map((item) => GestureDetector(onTap: () { if (isPast) return; setState(() { item['isDone'] = !item['isDone']; item['doneDate'] = item['isDone'] ? simTodayKey : null; }); }, child: Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)), child: Row(children: [Icon(item['isDone'] ? Icons.check_circle : Icons.radio_button_unchecked, color: item['isDone'] ? const Color(0xFF8D6E63) : Colors.grey, size: 20), const SizedBox(width: 15), Expanded(child: Text(item['title'], style: TextStyle(decoration: item['isDone'] ? TextDecoration.lineThrough : null, color: item['isDone'] ? Colors.grey : Colors.black87))), if (isPast) const Icon(Icons.lock, size: 14, color: Colors.grey)])))),
+      ...displayTodos.map((item) => GestureDetector(onTap: () async { 
+          if (isPast) return; 
+          final db = await DatabaseHelper.instance.database;
+          bool newDone = !item['isDone'];
+          await db.update('todos', {'done': newDone ? 1 : 0}, where: 'id = ?', whereArgs: [int.parse(item['id'])]);
+          await _loadData();
+        }, child: Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)), child: Row(children: [Icon(item['isDone'] ? Icons.check_circle : Icons.radio_button_unchecked, color: item['isDone'] ? const Color(0xFF8D6E63) : Colors.grey, size: 20), const SizedBox(width: 15), Expanded(child: Text(item['title'], style: TextStyle(decoration: item['isDone'] ? TextDecoration.lineThrough : null, color: item['isDone'] ? Colors.grey : Colors.black87))), if (isPast) const Icon(Icons.lock, size: 14, color: Colors.grey)])))),
       ...schedules.map((event) => Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Color(event['color']), borderRadius: BorderRadius.circular(15)), child: Row(children: [SizedBox(width: 95, child: Text(event['time'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))), Expanded(child: Text(event['title']))]))),
     ]);
   }
