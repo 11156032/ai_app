@@ -14,31 +14,40 @@ class DatabaseHelper {
   Future<Database> get database async {
     if (_database != null) return _database!;
     
+    DatabaseFactory factory;
     if (kIsWeb) {
-      databaseFactory = databaseFactoryFfiWeb;
-    } else if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux) {
+      // 在本機開發或未設定 COOP/COEP header 的伺服器上，必須停用 WebWorker 才能避免載入異常 (unsupported result null)
+      factory = databaseFactoryFfiWebNoWebWorker;
+    } else if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS) {
       sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
+      factory = databaseFactoryFfi;
+    } else {
+      factory = databaseFactory; // default sqflite on android/ios
     }
+    
+    // Set global factory to be safe
+    databaseFactory = factory;
 
-    _database = await _initDB('app_database.db');
+    _database = await _initDB('app_database.db', factory);
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
+  Future<Database> _initDB(String filePath, DatabaseFactory factory) async {
     String path;
     if (kIsWeb) {
       path = filePath;
     } else {
-      final dbPath = await getDatabasesPath();
+      final dbPath = await factory.getDatabasesPath();
       path = join(dbPath, filePath);
     }
 
-    return await openDatabase(
+    return await factory.openDatabase(
       path,
-      version: 1,
-      onCreate: _createDB,
-      onConfigure: _onConfigure,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: _createDB,
+        onConfigure: _onConfigure,
+      ),
     );
   }
 
