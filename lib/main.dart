@@ -390,7 +390,7 @@ class _MainScreenState extends State<MainScreen> {
   String _appBarTitle = "題庫";
 
   // --- 資料庫區 ---
-  DateTime _simulatedToday = DateTime(2026, 3, 30);
+  final DateTime _simulatedToday = DateTime(2026, 3, 30);
   DateTime _selectedDate = DateTime(2026, 3, 30);
   DateTime _calendarMonth = DateTime(2026, 3, 1);
   late PageController _calendarPageController;
@@ -413,15 +413,15 @@ class _MainScreenState extends State<MainScreen> {
   // --- 狀態控制區 ---
   int _quizStep = 0;
   String _quizSelectedSubject = "";
-  List<String> _quizSelectedChapters = [];
+  final List<String> _quizSelectedChapters = [];
   Map<String, Map<String, int>> _quizPickedCounts = {
     '單選題': {'易': 0, '中': 0, '難': 0},
     '是非題': {'易': 0, '中': 0, '難': 0},
     '申論題': {'易': 0, '中': 0, '難': 0}
   };
   Map<String, Map<String, int>> _availableCounts = {};
-  List<Map<String, dynamic>> _currentQuizQuestions = [];
-  Map<int, int> _userAnswers = {};
+  final List<Map<String, dynamic>> _currentQuizQuestions = [];
+  final Map<int, int> _userAnswers = {};
   Timer? _quizTimer;
   int _remainingSeconds = 1800;
   final ScrollController _quizScrollController = ScrollController();
@@ -874,9 +874,10 @@ class _MainScreenState extends State<MainScreen> {
                         itemCount: chatLogs.length,
                         itemBuilder: (context, i) {
                           var msg = chatLogs[i];
-                          if (msg['isCard'] == true)
+                          if (msg['isCard'] == true) {
                             return _buildConfirmationCard(
                                 msg['pendingData'], setModalState);
+                          }
                           return Align(
                             alignment: msg['isAI']
                                 ? Alignment.centerLeft
@@ -1164,11 +1165,12 @@ class _MainScreenState extends State<MainScreen> {
       if (todo['isDone']) return todo['doneDate'] == dateKey;
       return !isPast;
     }).toList();
-    if (schedules.isEmpty && displayTodos.isEmpty)
+    if (schedules.isEmpty && displayTodos.isEmpty) {
       return const Padding(
           padding: EdgeInsets.only(top: 20),
           child: Center(
               child: Text('本日尚無行程與待辦', style: TextStyle(color: Colors.grey))));
+    }
     return ListView(
         padding: const EdgeInsets.symmetric(horizontal: 25),
         physics: const NeverScrollableScrollPhysics(),
@@ -1311,8 +1313,9 @@ class _MainScreenState extends State<MainScreen> {
                         _quizSelectedChapters.clear();
                       }),
                   fieldViewBuilder: (ctx, ctrl, focus, onSub) {
-                    if (_quizSelectedSubject.isNotEmpty && ctrl.text.isEmpty)
+                    if (_quizSelectedSubject.isNotEmpty && ctrl.text.isEmpty) {
                       ctrl.text = _quizSelectedSubject;
+                    }
                     return TextField(
                         controller: ctrl,
                         focusNode: focus,
@@ -1403,9 +1406,10 @@ class _MainScreenState extends State<MainScreen> {
         Row(children: [
           GestureDetector(
               onTap: () => setState(() {
-                    if (_quizPickedCounts[type]![diff]! > 0)
+                    if (_quizPickedCounts[type]![diff]! > 0) {
                       _quizPickedCounts[type]![diff] =
                           _quizPickedCounts[type]![diff]! - 1;
+                    }
                   }),
               child: Icon(Icons.remove_circle_outline,
                   color: avail > 0 ? Colors.grey : Colors.grey.shade200)),
@@ -1417,9 +1421,10 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(width: 8),
           GestureDetector(
               onTap: () => setState(() {
-                    if (_quizPickedCounts[type]![diff]! < avail)
+                    if (_quizPickedCounts[type]![diff]! < avail) {
                       _quizPickedCounts[type]![diff] =
                           _quizPickedCounts[type]![diff]! + 1;
+                    }
                   }),
               child: Icon(Icons.add_circle_outline,
                   color: avail > 0
@@ -1452,8 +1457,9 @@ class _MainScreenState extends State<MainScreen> {
                 _generateQuizPaper();
                 setState(() {
                   _userAnswers.clear();
-                  for (int i = 0; i < _currentQuizQuestions.length; i++)
+                  for (int i = 0; i < _currentQuizQuestions.length; i++) {
                     _userAnswers[i] = -1;
+                  }
                   _remainingSeconds = 1800;
                   _quizStep = 2;
                 });
@@ -1465,9 +1471,9 @@ class _MainScreenState extends State<MainScreen> {
 
   void _startTimer() {
     _quizTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_remainingSeconds > 0)
+      if (_remainingSeconds > 0) {
         setState(() => _remainingSeconds--);
-      else {
+      } else {
         t.cancel();
         setState(() => _quizStep = 3);
       }
@@ -1566,8 +1572,9 @@ class _MainScreenState extends State<MainScreen> {
     int correctCount = 0;
     for (int i = 0; i < _currentQuizQuestions.length; i++) {
       if (_currentQuizQuestions[i]['type'] != '申論題' &&
-          _userAnswers[i] == _currentQuizQuestions[i]['answerIndex'])
+          _userAnswers[i] == _currentQuizQuestions[i]['answerIndex']) {
         correctCount++;
+      }
     }
     int score = _currentQuizQuestions.isEmpty
         ? 0
@@ -1736,14 +1743,17 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildPersonalMode() {
     if (_selectedFolder != null) {
       List<Map<String, dynamic>> folderQuestions = questionBank.where((q) {
-        if (_personalFilterIndex == 0)
+        if (_personalFilterIndex == 0) {
           return q['isWrong'] == true && q['subject'] == _selectedFolder;
-        if (_personalFilterIndex == 1)
+        }
+        if (_personalFilterIndex == 1) {
           return (q['author'] == widget.currentUser['display_name'] ||
                   q['author'] == 'Sharon') &&
               q['subject'] == _selectedFolder;
-        if (_personalFilterIndex == 2)
+        }
+        if (_personalFilterIndex == 2) {
           return q['isFavorite'] == true && q['subject'] == _selectedFolder;
+        }
         return false;
       }).toList();
       return Column(children: [
@@ -1800,8 +1810,9 @@ class _MainScreenState extends State<MainScreen> {
           (q['author'] == widget.currentUser['display_name'] ||
               q['author'] == 'Sharon')) match = true;
       if (_personalFilterIndex == 2 && q['isFavorite'] == true) match = true;
-      if (match)
+      if (match) {
         folderCounts[q['subject']] = (folderCounts[q['subject']] ?? 0) + 1;
+      }
     }
 
     return Column(children: [
@@ -1925,16 +1936,16 @@ class _MainScreenState extends State<MainScreen> {
   // --- 手動新增行程 (含 Padding 修正) ---
   void _showManualAddDialog() {
     TextEditingController titleController = TextEditingController();
-    int _selectedType = 0;
+    int selectedType = 0;
     TimeOfDay pickedStartTime = const TimeOfDay(hour: 10, minute: 0);
     TimeOfDay pickedEndTime = const TimeOfDay(hour: 11, minute: 0);
-    StateSetter? _dialogSetState;
-    Future<void> _selectTime(bool isStart) async {
+    StateSetter? dialogSetState;
+    Future<void> selectTime(bool isStart) async {
       final TimeOfDay? picked = await showTimePicker(
           context: context,
           initialTime: isStart ? pickedStartTime : pickedEndTime);
       if (picked != null) {
-        _dialogSetState!(() {
+        dialogSetState!(() {
           if (isStart) {
             pickedStartTime = picked;
           } else {
@@ -1944,7 +1955,7 @@ class _MainScreenState extends State<MainScreen> {
       }
     }
 
-    String _formatTime(TimeOfDay time) {
+    String formatTime(TimeOfDay time) {
       final h = time.hour.toString().padLeft(2, '0');
       final m = time.minute.toString().padLeft(2, '0');
       return '$h:$m';
@@ -1955,7 +1966,7 @@ class _MainScreenState extends State<MainScreen> {
         builder: (ctx) => AlertDialog(
                 title: const Text('手動新增項目'),
                 content: StatefulBuilder(builder: (context, setDialogState) {
-                  _dialogSetState = setDialogState;
+                  dialogSetState = setDialogState;
                   return Column(mainAxisSize: MainAxisSize.min, children: [
                     TextField(
                         controller: titleController,
@@ -1964,32 +1975,32 @@ class _MainScreenState extends State<MainScreen> {
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       ChoiceChip(
                           label: const Text('時間行程'),
-                          selected: _selectedType == 0,
+                          selected: selectedType == 0,
                           selectedColor: const Color(0xFFD7CCC8),
                           onSelected: (v) =>
-                              setDialogState(() => _selectedType = 0)),
+                              setDialogState(() => selectedType = 0)),
                       const SizedBox(width: 10),
                       ChoiceChip(
                           label: const Text('待辦事項'),
-                          selected: _selectedType == 1,
+                          selected: selectedType == 1,
                           selectedColor: const Color(0xFFD7CCC8),
                           onSelected: (v) =>
-                              setDialogState(() => _selectedType = 1))
+                              setDialogState(() => selectedType = 1))
                     ]),
-                    if (_selectedType == 0) ...[
+                    if (selectedType == 0) ...[
                       const SizedBox(height: 15),
                       Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             TextButton.icon(
                                 icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(_formatTime(pickedStartTime)),
-                                onPressed: () => _selectTime(true)),
+                                label: Text(formatTime(pickedStartTime)),
+                                onPressed: () => selectTime(true)),
                             const Text('~'),
                             TextButton.icon(
                                 icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(_formatTime(pickedEndTime)),
-                                onPressed: () => _selectTime(false))
+                                label: Text(formatTime(pickedEndTime)),
+                                onPressed: () => selectTime(false))
                           ])
                     ]
                   ]);
@@ -1998,9 +2009,9 @@ class _MainScreenState extends State<MainScreen> {
                   ElevatedButton(
                       onPressed: () {
                         if (titleController.text.isEmpty) return;
-                        if (_selectedType == 0) {
+                        if (selectedType == 0) {
                           String range =
-                              "${_formatTime(pickedStartTime)}~${_formatTime(pickedEndTime)}";
+                              "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
                           _addSchedule(range, titleController.text, 0xFFFFCC80);
                         } else {
                           _addTodo(titleController.text);
