@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 import 'package:google_sign_in_web/google_sign_in_web.dart' as web;
 import '../database/database_helper.dart';
+import '../main.dart' show googleSignIn;
 
 class LoginScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) onLogin;
@@ -309,11 +309,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     side: BorderSide(color: Colors.grey.shade300),
                   ),
-                  // 非 Web 平台：直接呼叫 authenticate()
-                  // 結果由 AuthWrapper 的 authenticationEvents 監聽器處理
+                  // 非 Web 平台：直接呼叫 signIn()
+                  // 結果由 AuthWrapper 的 onCurrentUserChanged 監聽器處理
                   onPressed: () async {
                     try {
-                      await GoogleSignIn.instance.authenticate();
+                      await googleSignIn.signIn();
                     } catch (e) {
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(

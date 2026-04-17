@@ -7,6 +7,9 @@ import 'screens/main_screen.dart';
 
 void main() => runApp(const MyApp());
 
+final GoogleSignIn googleSignIn = GoogleSignIn(
+  clientId: '789026077383-i60srf9lqr1gmcv48801umce3vfgecv8.apps.googleusercontent.com',
+);
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
@@ -34,40 +37,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Map<String, dynamic>? _currentUser;
   StreamSubscription? _googleAuthSubscription;
 
-  // 靜態旗標：整個 App 生命週期只初始化一次
-  static bool _googleInitialized = false;
-
   @override
   void initState() {
     super.initState();
-    _initGoogleSignIn();
-  }
-
-  Future<void> _initGoogleSignIn() async {
-    try {
-      if (!_googleInitialized) {
-        await GoogleSignIn.instance.initialize(
-          clientId:
-              '789026077383-i60srf9lqr1gmcv48801umce3vfgecv8.apps.googleusercontent.com',
-        );
-        _googleInitialized = true;
-      }
-      // 每次 AuthWrapper 啟動都重新訂閱（登出後仍能監聽）
-      _subscribeGoogleEvents();
-    } catch (e) {
-      debugPrint('Google Sign-In 初始化失敗: $e');
-    }
+    _subscribeGoogleEvents();
   }
 
   void _subscribeGoogleEvents() {
     _googleAuthSubscription?.cancel();
-    _googleAuthSubscription =
-        GoogleSignIn.instance.authenticationEvents.listen((event) {
-      if (event is GoogleSignInAuthenticationEventSignIn &&
-          _currentUser == null) {
-        _processGoogleUser(event.user);
+    _googleAuthSubscription = googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) {
+      if (account != null && _currentUser == null) {
+        _processGoogleUser(account);
       }
     });
+    googleSignIn.signInSilently();
   }
 
   Future<void> _processGoogleUser(GoogleSignInAccount googleUser) async {
@@ -140,7 +123,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _logout() async {
     _googleAuthSubscription?.cancel();
     try {
-      await GoogleSignIn.instance.signOut();
+      await googleSignIn.signOut();
     } catch (_) {}
     setState(() => _currentUser = null);
     // 登出後重新訂閱，確保下次按鈕點擊仍能觸發
