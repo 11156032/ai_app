@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path/path.dart';
@@ -13,18 +12,20 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    
+
     DatabaseFactory factory;
     if (kIsWeb) {
       // 在本機開發或未設定 COOP/COEP header 的伺服器上，必須停用 WebWorker 才能避免載入異常 (unsupported result null)
       factory = databaseFactoryFfiWebNoWebWorker;
-    } else if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS) {
+    } else if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
       sqfliteFfiInit();
       factory = databaseFactoryFfi;
     } else {
       factory = databaseFactory; // default sqflite on android/ios
     }
-    
+
     // Set global factory to be safe
     databaseFactory = factory;
 
@@ -204,11 +205,16 @@ class DatabaseHelper {
     ''');
 
     // Indexes
-    await db.execute('CREATE INDEX idx_events_user_id ON calendar_events (user_id)');
-    await db.execute('CREATE INDEX idx_events_start_time ON calendar_events (start_time)');
-    await db.execute('CREATE INDEX idx_questions_user_id ON questions (user_id)');
-    await db.execute('CREATE INDEX idx_questions_subject ON questions (subject)');
-    await db.execute('CREATE INDEX idx_questions_difficulty ON questions (difficulty)');
+    await db.execute(
+        'CREATE INDEX idx_events_user_id ON calendar_events (user_id)');
+    await db.execute(
+        'CREATE INDEX idx_events_start_time ON calendar_events (start_time)');
+    await db
+        .execute('CREATE INDEX idx_questions_user_id ON questions (user_id)');
+    await db
+        .execute('CREATE INDEX idx_questions_subject ON questions (subject)');
+    await db.execute(
+        'CREATE INDEX idx_questions_difficulty ON questions (difficulty)');
     await db.execute('CREATE INDEX idx_notes_user_id ON notes (user_id)');
     await db.execute('CREATE INDEX idx_todos_user_id ON todos (user_id)');
     await db.execute('CREATE INDEX idx_posts_user_id ON posts (user_id)');
@@ -248,7 +254,7 @@ class DatabaseHelper {
       'hashed_password': 'mock_password',
       'display_name': '訪客',
     });
-    
+
     await db.insert('users', {
       'id': 'u5',
       'username': '李同學',
@@ -256,7 +262,7 @@ class DatabaseHelper {
       'hashed_password': 'mock_password',
       'display_name': '李同學',
     });
-    
+
     await db.insert('users', {
       'id': 'u6',
       'username': '陳助教',
@@ -289,25 +295,40 @@ class DatabaseHelper {
       'content': '準備來寫 Flutter 專題啦🚀',
       'likes': 12,
       'type': 'text',
-      'created_at': DateTime.now().subtract(const Duration(minutes: 10)).toIso8601String(),
+      'created_at': DateTime.now()
+          .subtract(const Duration(minutes: 10))
+          .toIso8601String(),
     });
     await db.insert('post_likes', {'post_id': 1, 'user_id': 'u1'});
-    await db.insert('comments', {'post_id': 1, 'user_id': 'u5', 'text': '加油！推一個', 'created_at': DateTime.now().subtract(const Duration(hours: 1)).toIso8601String()});
-    await db.insert('comments', {'post_id': 1, 'user_id': 'u6', 'text': '排序逻辑我发系上群組囉', 'created_at': DateTime.now().subtract(const Duration(minutes: 30)).toIso8601String()});
+    await db.insert('comments', {
+      'post_id': 1,
+      'user_id': 'u5',
+      'text': '加油！推一個',
+      'created_at':
+          DateTime.now().subtract(const Duration(hours: 1)).toIso8601String()
+    });
+    await db.insert('comments', {
+      'post_id': 1,
+      'user_id': 'u6',
+      'text': '排序逻辑我发系上群組囉',
+      'created_at':
+          DateTime.now().subtract(const Duration(minutes: 30)).toIso8601String()
+    });
 
     // 5. Questions
     await db.insert('questions', {
       'id': 1,
       'user_id': 'u2',
       'text': '下列何者不是關聯式資料庫的特性？',
-      'options': jsonEncode(['支援 SQL 語法', '具備 ACID 特性', '採用樹狀結構存放', '資料以二維表格呈現']),
+      'options':
+          jsonEncode(['支援 SQL 語法', '具備 ACID 特性', '採用樹狀結構存放', '資料以二維表格呈現']),
       'answer': '2',
       'explanation': '樹狀結構屬於階層式資料庫，而非關聯式。',
       'subject': '資訊管理',
       'difficulty': '中',
       'bookmarked': 1,
     });
-    
+
     await db.insert('questions', {
       'id': 2,
       'user_id': 'u1',
@@ -319,7 +340,7 @@ class DatabaseHelper {
       'difficulty': '易',
       'bookmarked': 0,
     });
-    
+
     await db.insert('questions', {
       'id': 3,
       'user_id': 'u3',
@@ -336,7 +357,7 @@ class DatabaseHelper {
     await db.insert('tags', {'id': 1, 'name': '第二章 資料庫管理'});
     await db.insert('tags', {'id': 2, 'name': '師說'});
     await db.insert('tags', {'id': 3, 'name': '面積'});
-    
+
     await db.insert('question_tag_map', {'question_id': 1, 'tag_id': 1});
     await db.insert('question_tag_map', {'question_id': 2, 'tag_id': 2});
     await db.insert('question_tag_map', {'question_id': 3, 'tag_id': 3});
