@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ai_app (Chrome on Port 5000)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "args": [
+        "--web-port=5000"
+      ]
+    },
+    {
+      "name": "ai_app (Android/iOS)",
+      "request": "launch",
+      "type": "dart"
+    }
+  ]
+}
