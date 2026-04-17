@@ -86,8 +86,17 @@ class _MainScreenState extends State<MainScreen> {
         String startHr =
             (s['start_time'] as String).split(' ')[1].substring(0, 5);
         String endHr = (s['end_time'] as String).split(' ')[1].substring(0, 5);
-        String colorStr = s['color'] as String;
-        int colorVal = int.parse(colorStr.replaceAll('0x', ''), radix: 16);
+        String colorStr = s['color'] as String? ?? '';
+        int colorVal = 0xFFFFCC80; // Default color
+        try {
+          if (colorStr.isNotEmpty) {
+            String hex = colorStr.replaceAll('0x', '');
+            if (hex.length == 6) hex = 'FF$hex';
+            colorVal = int.parse(hex, radix: 16);
+          }
+        } catch (e) {
+          debugPrint('顏色解析失敗: $e');
+        }
         schedulesMap.putIfAbsent(date, () => []).add({
           'time': '$startHr~$endHr',
           'title': s['title'],
@@ -234,30 +243,60 @@ class _MainScreenState extends State<MainScreen> {
 
   // 補回：手動新增行程
   void _addSchedule(String timeRange, String title, int color) async {
-    final db = await DatabaseHelper.instance.database;
-    String key = _selectedDate.toString().split(' ')[0];
-    String startStr = "$key ${timeRange.split('~')[0]}:00";
-    String endStr = "$key ${timeRange.split('~')[1]}:00";
-    await db.insert('calendar_events', {
-      'user_id': widget.currentUser['id'],
-      'title': title,
-      'start_time': startStr,
-      'end_time': endStr,
-      'color': '0x${color.toRadixString(16)}',
-    });
-    await _loadData();
+    try {
+      final db = await DatabaseHelper.instance.database;
+      String key = _selectedDate.toString().split(' ')[0];
+      String startStr = "$key ${timeRange.split('~')[0]}:00";
+      String endStr = "$key ${timeRange.split('~')[1]}:00";
+      await db.insert('calendar_events', {
+        'user_id': widget.currentUser['id'],
+        'title': title,
+        'start_time': startStr,
+        'end_time': endStr,
+        'color': '0x${color.toRadixString(16)}',
+      });
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已新增行程：$title'),
+          backgroundColor: const Color(0xFF8D6E63),
+        ),
+      );
+    } catch (e) {
+      debugPrint('新增行程失敗: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('新增行程失敗，請稍後再試')),
+      );
+    }
   }
 
   // 補回：手動新增待辦事項
   void _addTodo(String title) async {
-    final db = await DatabaseHelper.instance.database;
-    await db.insert('todos', {
-      'user_id': widget.currentUser['id'],
-      'text': title,
-      'done': 0,
-      'created_at': DateTime.now().toIso8601String(),
-    });
-    await _loadData();
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.insert('todos', {
+        'user_id': widget.currentUser['id'],
+        'text': title,
+        'done': 0,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已新增待辦：$title'),
+          backgroundColor: const Color(0xFF8D6E63),
+        ),
+      );
+    } catch (e) {
+      debugPrint('新增待辦失敗: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('新增待辦失敗，請稍後再試')),
+      );
+    }
   }
 
   void _showMonthYearPicker() {
