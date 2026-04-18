@@ -121,6 +121,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
       setState(() => _currentUser = user);
 
   Future<void> _logout() async {
+    // 若是訪客登出，先清除其在資料庫留下的所有資料
+    if (_currentUser != null && _currentUser!['id'] == 'u4') {
+      try {
+        final db = await DatabaseHelper.instance.database;
+        await db.delete('calendar_events', where: 'user_id = ?', whereArgs: ['u4']);
+        await db.delete('todos', where: 'user_id = ?', whereArgs: ['u4']);
+        debugPrint('訪客資料已清除');
+      } catch (e) {
+        debugPrint('清除訪客資料失敗: $e');
+      }
+    }
+
     _googleAuthSubscription?.cancel();
     try {
       await googleSignIn.signOut();

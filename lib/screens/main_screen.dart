@@ -17,9 +17,10 @@ class _MainScreenState extends State<MainScreen> {
   String _appBarTitle = "題庫";
 
   // --- 資料庫區 ---
-  final DateTime _simulatedToday = DateTime(2026, 3, 30);
-  DateTime _selectedDate = DateTime(2026, 3, 30);
-  DateTime _calendarMonth = DateTime(2026, 3, 1);
+  // 使用真實今天（只取年月日，去掉時分秒）
+  late final DateTime _simulatedToday;
+  late DateTime _selectedDate;
+  late DateTime _calendarMonth;
   late PageController _calendarPageController;
   late PageController _timelinePageController;
 
@@ -66,7 +67,17 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _calendarPageController = PageController(initialPage: 12);
+    // 初始化為真實今天（去掉時分秒）
+    final now = DateTime.now();
+    _simulatedToday = DateTime(now.year, now.month, now.day);
+    _selectedDate = _simulatedToday;
+    _calendarMonth = DateTime(now.year, now.month, 1);
+
+    // 以 2026年3月 為基準 (page 12)，計算今天所在月份的頁碼
+    const baseYear = 2026;
+    const baseMonth = 3;
+    final monthOffset = (now.year - baseYear) * 12 + (now.month - baseMonth);
+    _calendarPageController = PageController(initialPage: 12 + monthOffset);
     _timelinePageController = PageController(initialPage: 1000);
     _loadData();
   }
@@ -97,6 +108,7 @@ class _MainScreenState extends State<MainScreen> {
           debugPrint('顏色解析失敗: $e');
         }
         schedulesMap.putIfAbsent(date, () => []).add({
+          'id': s['id'],
           'time': '$startHr~$endHr',
           'title': s['title'],
           'color': colorVal
@@ -271,6 +283,48 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  // 新增：編輯現有行程
+  void _editSchedule(int id, String timeRange, String title, int color) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      String key = _selectedDate.toString().split(' ')[0];
+      String startStr = "$key ${timeRange.split('~')[0]}:00";
+      String endStr = "$key ${timeRange.split('~')[1]}:00";
+      await db.update(
+          'calendar_events',
+          {
+            'title': title,
+            'start_time': startStr,
+            'end_time': endStr,
+            'color': '0x${color.toRadixString(16)}',
+          },
+          where: 'id = ?',
+          whereArgs: [id]);
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已更新行程：$title')),
+      );
+    } catch (e) {
+      debugPrint('更新行程失敗: $e');
+    }
+  }
+
+  // 新增：刪除現有行程
+  void _deleteSchedule(int id) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.delete('calendar_events', where: 'id = ?', whereArgs: [id]);
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('行程已刪除')),
+      );
+    } catch (e) {
+      debugPrint('刪除行程失敗: $e');
+    }
+  }
+
   // 補回：手動新增待辦事項
   void _addTodo(String title) async {
     try {
@@ -340,6 +394,7 @@ class _MainScreenState extends State<MainScreen> {
                           foregroundColor: Colors.white),
                       onPressed: () {
                         Navigator.pop(ctx);
+                        // 同樣以 2026年3月 = page 12 為基準計算目標頁
                         int deltaMonths =
                             (selectedYear - 2026) * 12 + (selectedMonth - 3);
                         int targetPage = 12 + deltaMonths;
@@ -732,6 +787,7 @@ class _MainScreenState extends State<MainScreen> {
             height: 330,
             child: PageView.builder(
                 controller: _calendarPageController,
+                // page 12 固定 = 2026年3月（全域基準），initialPage 動態偏移以跳到今月
                 onPageChanged: (i) => setState(
                     () => _calendarMonth = DateTime(2026, 3 + (i - 12), 1)),
                 itemBuilder: (ctx, i) =>
@@ -757,7 +813,12 @@ class _MainScreenState extends State<MainScreen> {
                 onPageChanged: (i) {
                   DateTime newDate =
                       _simulatedToday.add(Duration(days: i - 1000));
-                  if (newDate.day != _selectedDate.day) _syncDate(newDate);
+                  // 用完整日期（年月日）比較，避免跨月時月份顯示錯誤
+                  if (newDate.year != _selectedDate.year ||
+                      newDate.month != _selectedDate.month ||
+                      newDate.day != _selectedDate.day) {
+                    _syncDate(newDate);
+                  }
                 },
                 itemBuilder: (ctx, i) => _buildUnifiedDayEvents(
                     _simulatedToday.add(Duration(days: i - 1000))))),
@@ -768,7 +829,8 @@ class _MainScreenState extends State<MainScreen> {
     int days = DateTime(date.year, date.month + 1, 0).day;
     return LayoutBuilder(builder: (context, constraints) {
       double itemWidth = (constraints.maxWidth - 40 - 48) / 7;
-      double childAspectRatio = itemWidth / 40.0;
+      // 增加高度比例 (40 -> 50)，避免內容過多造成溢出
+      double childAspectRatio = itemWidth / 50.0;
       if (childAspectRatio <= 0.1) childAspectRatio = 0.1;
 
       return Column(children: [
@@ -797,26 +859,74 @@ class _MainScreenState extends State<MainScreen> {
             itemBuilder: (ctx, i) {
               if (i < empty) return const SizedBox();
               int d = i - empty + 1;
+              DateTime cellDate = DateTime(date.year, date.month, d);
+              String key = cellDate.toString().split(' ')[0];
               bool isSel = _selectedDate.day == d &&
                   _selectedDate.month == date.month &&
                   _selectedDate.year == date.year;
+
+              // 檢查該日期是否有行程
+              List<Map<String, dynamic>> dayEvents = allSchedules[key] ?? [];
+
               return GestureDetector(
-                  onTap: () => _syncDate(DateTime(date.year, date.month, d),
-                      fromCalendar: true),
-                  child: Container(
-                      decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isSel
-                              ? const Color(0xFF8D6E63)
-                              : Colors.transparent,
-                          border: Border.all(color: Colors.grey.shade100)),
-                      child: Center(
-                          child: Text('$d',
-                              style: TextStyle(
-                                  fontSize: 14,
+                  onTap: () => _syncDate(cellDate, fromCalendar: true),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isSel
+                                  ? const Color(0xFF8D6E63)
+                                  : Colors.transparent,
+                              border: Border.all(
                                   color: isSel
-                                      ? Colors.white
-                                      : Colors.black87)))));
+                                      ? const Color(0xFF8D6E63)
+                                      : Colors.grey.shade100)),
+                          child: Center(
+                              child: Text('$d',
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isSel
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: isSel
+                                          ? Colors.white
+                                          : Colors.black87)))),
+                      // 行程標記：改用膠囊型色條 (Pills)，外觀更現代且色彩鮮明
+                      if (dayEvents.isNotEmpty)
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(top: 2, left: 4, right: 4),
+                          child: Wrap(
+                            spacing: 2,
+                            runSpacing: 2,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              ...dayEvents.take(3).map((e) => Container(
+                                    width: 8,
+                                    height: 3,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(2),
+                                      color: Color(
+                                          e['color'] as int? ?? 0xFF8D6E63),
+                                    ),
+                                  )),
+                              if (dayEvents.length > 3)
+                                Text('+${dayEvents.length - 3}',
+                                    style: const TextStyle(
+                                        fontSize: 7,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey))
+                            ],
+                          ),
+                        )
+                      else
+                        const SizedBox(height: 5), // 減少預留高度，避免溢出
+                    ],
+                  ));
             })
       ]);
     });
@@ -879,21 +989,166 @@ class _MainScreenState extends State<MainScreen> {
                     if (isPast)
                       const Icon(Icons.lock, size: 14, color: Colors.grey)
                   ])))),
-          ...schedules.map((event) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: Color(event['color']),
-                  borderRadius: BorderRadius.circular(15)),
-              child: Row(children: [
-                SizedBox(
-                    width: 95,
-                    child: Text(event['time'],
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13))),
-                Expanded(child: Text(event['title']))
-              ]))),
+          ...schedules.map((event) => GestureDetector(
+              onTap: () => _showEditScheduleDialog(event),
+              onLongPress: () {
+                showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                            title: const Text('刪除行程'),
+                            content: Text('確定要刪除「${event['title']}」嗎？'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('取消')),
+                              ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.redAccent,
+                                      foregroundColor: Colors.white),
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _deleteSchedule(event['id']);
+                                  },
+                                  child: const Text('確定刪除'))
+                            ]));
+              },
+              child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                      color: Color(event['color']),
+                      borderRadius: BorderRadius.circular(15)),
+                  child: Row(children: [
+                    SizedBox(
+                        width: 95,
+                        child: Text(event['time'],
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13))),
+                    Expanded(child: Text(event['title'])),
+                    const Icon(Icons.edit, size: 16, color: Colors.black38)
+                  ])))),
         ]);
+  }
+
+  // 新增：編輯行程對話框 (修改自 _showManualAddDialog)
+  void _showEditScheduleDialog(Map<String, dynamic> event) {
+    TextEditingController titleController =
+        TextEditingController(text: event['title']);
+    // 解析原本的時間
+    String timeRange = event['time'];
+    String startPart = timeRange.split('~')[0];
+    String endPart = timeRange.split('~')[1];
+    TimeOfDay pickedStartTime = TimeOfDay(
+        hour: int.parse(startPart.split(':')[0]),
+        minute: int.parse(startPart.split(':')[1]));
+    TimeOfDay pickedEndTime = TimeOfDay(
+        hour: int.parse(endPart.split(':')[0]),
+        minute: int.parse(endPart.split(':')[1]));
+
+    final List<int> vibrantColors = [
+      0xFFFFCC80,
+      0xFF90CAF9,
+      0xFFA5D6A7,
+      0xFFF48FB1,
+      0xFFCE93D8,
+      0xFF80CBC4,
+    ];
+    int selectedColor = event['color'];
+    // 確保選中的顏色在清單中，若不在（如初始資料）則預設第一個
+    if (!vibrantColors.contains(selectedColor)) {
+      selectedColor = vibrantColors[0];
+    }
+
+    StateSetter? dialogSetState;
+    Future<void> selectTime(bool isStart) async {
+      final TimeOfDay? picked = await showTimePicker(
+          context: context,
+          initialTime: isStart ? pickedStartTime : pickedEndTime);
+      if (picked != null) {
+        dialogSetState!(() {
+          if (isStart)
+            pickedStartTime = picked;
+          else
+            pickedEndTime = picked;
+        });
+      }
+    }
+
+    String formatTime(TimeOfDay time) {
+      final h = time.hour.toString().padLeft(2, '0');
+      final m = time.minute.toString().padLeft(2, '0');
+      return '$h:$m';
+    }
+
+    showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+                title: const Text('編輯行程'),
+                content: StatefulBuilder(builder: (context, setDialogState) {
+                  dialogSetState = setDialogState;
+                  return Column(mainAxisSize: MainAxisSize.min, children: [
+                    TextField(
+                        controller: titleController,
+                        decoration: const InputDecoration(labelText: '行程名稱')),
+                    const SizedBox(height: 20),
+                    const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('選擇顏色標籤',
+                            style:
+                                TextStyle(fontSize: 12, color: Colors.grey))),
+                    const SizedBox(height: 8),
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: vibrantColors
+                            .map((c) => GestureDetector(
+                                onTap: () =>
+                                    setDialogState(() => selectedColor = c),
+                                child: Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                        color: Color(c),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: selectedColor == c
+                                                ? Colors.black87
+                                                : Colors.transparent,
+                                            width: 2)))))
+                            .toList()),
+                    const SizedBox(height: 20),
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton.icon(
+                              icon: const Icon(Icons.access_time, size: 16),
+                              label: Text(formatTime(pickedStartTime)),
+                              onPressed: () => selectTime(true)),
+                          const Text('~'),
+                          TextButton.icon(
+                              icon: const Icon(Icons.access_time, size: 16),
+                              label: Text(formatTime(pickedEndTime)),
+                              onPressed: () => selectTime(false))
+                        ])
+                  ]);
+                }),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('取消')),
+                  ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF8D6E63),
+                          foregroundColor: Colors.white),
+                      onPressed: () {
+                        if (titleController.text.isEmpty) return;
+                        String range =
+                            "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
+                        _editSchedule(event['id'], range, titleController.text,
+                            selectedColor);
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('儲存修改'))
+                ]));
   }
 
   // --- 2. 題庫系統 (測驗/題庫/個人) ---
@@ -1627,6 +1882,16 @@ class _MainScreenState extends State<MainScreen> {
       return '$h:$m';
     }
 
+    final List<int> vibrantColors = [
+      0xFFFFCC80, // 亮橙
+      0xFF90CAF9, // 亮藍
+      0xFFA5D6A7, // 嫩綠
+      0xFFF48FB1, // 嫩粉
+      0xFFCE93D8, // 柔紫
+      0xFF80CBC4, // 青蔥
+    ];
+    int selectedColor = vibrantColors[0];
+
     showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -1655,6 +1920,31 @@ class _MainScreenState extends State<MainScreen> {
                     ]),
                     if (selectedType == 0) ...[
                       const SizedBox(height: 15),
+                      const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('選擇顏色標籤',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey))),
+                      const SizedBox(height: 8),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: vibrantColors
+                              .map((c) => GestureDetector(
+                                  onTap: () =>
+                                      setDialogState(() => selectedColor = c),
+                                  child: Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                          color: Color(c),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: selectedColor == c
+                                                  ? Colors.black87
+                                                  : Colors.transparent,
+                                              width: 2)))))
+                              .toList()),
+                      const SizedBox(height: 15),
                       Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -1678,7 +1968,8 @@ class _MainScreenState extends State<MainScreen> {
                         if (selectedType == 0) {
                           String range =
                               "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
-                          _addSchedule(range, titleController.text, 0xFFFFCC80);
+                          _addSchedule(
+                              range, titleController.text, selectedColor);
                         } else {
                           _addTodo(titleController.text);
                         }
