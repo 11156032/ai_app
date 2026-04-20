@@ -123,7 +123,9 @@ class _MainScreenState extends State<MainScreen> {
                 'id': t['id'].toString(),
                 'title': t['text'],
                 'isDone': (t['done'] as int) == 1,
-                'doneDate': null,
+                'doneDate': t['done_at'] != null
+                    ? (t['done_at'] as String).substring(0, 10)
+                    : null,
               })
           .toList();
 
@@ -781,8 +783,7 @@ class _MainScreenState extends State<MainScreen> {
               ]))));
 
   // --- 1. 日曆行程 (含待辦) ---
-  Widget _buildCalendarTab() => SingleChildScrollView(
-          child: Column(children: [
+  Widget _buildCalendarTab() => Column(children: [
         SizedBox(
             height: 330,
             child: PageView.builder(
@@ -806,8 +807,7 @@ class _MainScreenState extends State<MainScreen> {
                           color: Color(0xFFD7CCC8), size: 30),
                       onPressed: _showManualAddDialog)
                 ])),
-        SizedBox(
-            height: 450,
+        Expanded(
             child: PageView.builder(
                 controller: _timelinePageController,
                 onPageChanged: (i) {
@@ -822,7 +822,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
                 itemBuilder: (ctx, i) => _buildUnifiedDayEvents(
                     _simulatedToday.add(Duration(days: i - 1000))))),
-      ]));
+      ]);
 
   Widget _buildMonthGrid(DateTime date) {
     int empty = DateTime(date.year, date.month, 1).weekday - 1;
@@ -934,100 +934,204 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildUnifiedDayEvents(DateTime targetDate) {
     String dateKey = targetDate.toString().split(' ')[0];
-    String simTodayKey = _simulatedToday.toString().split(' ')[0];
+    String nowKey = DateTime.now().toString().split(' ')[0];
     bool isPast = targetDate.isBefore(_simulatedToday);
-    List<Map<String, dynamic>> schedules = allSchedules[dateKey] ?? [];
-    List<Map<String, dynamic>> displayTodos = allTodos.where((todo) {
-      if (todo['isDone']) return todo['doneDate'] == dateKey;
-      return !isPast;
+
+    // Itinerary Logic: Sort by time
+    List<Map<String, dynamic>> schedules =
+        List.from(allSchedules[dateKey] ?? []);
+    schedules.sort((a, b) => (a['time'] as String).compareTo(b['time']));
+
+    // Todo Logic: Separation and Restoration
+    // Show uncompleted todos if today or future, and completed todos if they were done on this date
+    List<Map<String, dynamic>> uncompletedTodos = allTodos.where((todo) {
+      return !todo['isDone'] && !isPast;
     }).toList();
-    if (schedules.isEmpty && displayTodos.isEmpty) {
+
+    List<Map<String, dynamic>> completedTodos = allTodos.where((todo) {
+      return todo['isDone'] && todo['doneDate'] == dateKey;
+    }).toList();
+
+    if (schedules.isEmpty &&
+        uncompletedTodos.isEmpty &&
+        completedTodos.isEmpty) {
       return const Padding(
           padding: EdgeInsets.only(top: 20),
           child: Center(
               child: Text('本日尚無行程與待辦', style: TextStyle(color: Colors.grey))));
     }
+
     return ListView(
         padding: const EdgeInsets.symmetric(horizontal: 25),
-        physics: const NeverScrollableScrollPhysics(),
         children: [
-          ...displayTodos.map((item) => GestureDetector(
-              onTap: () async {
-                if (isPast) return;
-                final db = await DatabaseHelper.instance.database;
-                bool newDone = !item['isDone'];
-                await db.update('todos', {'done': newDone ? 1 : 0},
-                    where: 'id = ?', whereArgs: [int.parse(item['id'])]);
-                await _loadData();
-              },
-              child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                      border: Border.all(color: Colors.grey.shade200)),
-                  child: Row(children: [
-                    Icon(
-                        item['isDone']
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked,
-                        color: item['isDone']
-                            ? const Color(0xFF8D6E63)
-                            : Colors.grey,
-                        size: 20),
-                    const SizedBox(width: 15),
-                    Expanded(
-                        child: Text(item['title'],
-                            style: TextStyle(
-                                decoration: item['isDone']
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                                color: item['isDone']
-                                    ? Colors.grey
-                                    : Colors.black87))),
-                    if (isPast)
-                      const Icon(Icons.lock, size: 14, color: Colors.grey)
-                  ])))),
-          ...schedules.map((event) => GestureDetector(
-              onTap: () => _showEditScheduleDialog(event),
-              onLongPress: () {
-                showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                            title: const Text('刪除行程'),
-                            content: Text('確定要刪除「${event['title']}」嗎？'),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('取消')),
-                              ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.redAccent,
-                                      foregroundColor: Colors.white),
-                                  onPressed: () {
-                                    Navigator.pop(ctx);
-                                    _deleteSchedule(event['id']);
-                                  },
-                                  child: const Text('確定刪除'))
-                            ]));
-              },
-              child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                      color: Color(event['color']),
-                      borderRadius: BorderRadius.circular(15)),
-                  child: Row(children: [
-                    SizedBox(
-                        width: 95,
-                        child: Text(event['time'],
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13))),
-                    Expanded(child: Text(event['title'])),
-                    const Icon(Icons.edit, size: 16, color: Colors.black38)
-                  ])))),
+          // --- Itinerary Section ---
+          if (schedules.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(children: [
+                const Icon(Icons.event_note,
+                    size: 18, color: Color(0xFF8D6E63)),
+                const SizedBox(width: 8),
+                const Text('今日行程',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8D6E63),
+                        fontSize: 15)),
+              ]),
+            ),
+            ...schedules.map((event) => _buildScheduleItem(event)),
+            const SizedBox(height: 10),
+          ],
+
+          // --- Todo Section ---
+          if (uncompletedTodos.isNotEmpty || completedTodos.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(children: [
+                const Icon(Icons.check_box_outlined,
+                    size: 18, color: Color(0xFF8D6E63)),
+                const SizedBox(width: 8),
+                const Text('待辦事項',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8D6E63),
+                        fontSize: 15)),
+              ]),
+            ),
+            ...uncompletedTodos.map((item) => _buildTodoItem(item, isPast)),
+            if (completedTodos.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.only(top: 10, bottom: 5),
+                child: Text('已完成',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.bold)),
+              ),
+              ...completedTodos.map((item) => _buildTodoItem(item, isPast)),
+            ],
+          ],
+          const SizedBox(height: 50), // bottom padding
         ]);
+  }
+
+  Widget _buildScheduleItem(Map<String, dynamic> event) {
+    return GestureDetector(
+        onTap: () => _showEditScheduleDialog(event),
+        onLongPress: () {
+          showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                      title: const Text('刪除行程'),
+                      content: Text('確定要刪除「${event['title']}」嗎？'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('取消')),
+                        ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                foregroundColor: Colors.white),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _deleteSchedule(event['id']);
+                            },
+                            child: const Text('確定刪除'))
+                      ]));
+        },
+        child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: Color(event['color']),
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.05), blurRadius: 4)
+                ]),
+            child: Row(children: [
+              SizedBox(
+                  width: 95,
+                  child: Text(event['time'],
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13))),
+              Expanded(
+                  child: Text(event['title'],
+                      style: const TextStyle(fontWeight: FontWeight.w500))),
+              const Icon(Icons.edit, size: 16, color: Colors.black38)
+            ])));
+  }
+
+  Widget _buildTodoItem(Map<String, dynamic> item, bool isPast) {
+    bool done = item['isDone'];
+    return GestureDetector(
+        onTap: () async {
+          try {
+            // If it's done, we can always un-done (undo). 
+            // If it's not done and it's past, we lock it.
+            if (isPast && !done) return; 
+
+            final db = await DatabaseHelper.instance.database;
+            bool newDone = !done;
+            // Use current time for done_at to ensure it matches current date key
+            String? doneAt = newDone ? DateTime.now().toIso8601String() : null;
+            
+            int count = await db.update('todos', {'done': newDone ? 1 : 0, 'done_at': doneAt},
+                where: 'id = ?', whereArgs: [int.parse(item['id'])]);
+            
+            debugPrint('Todo Toggle: ID ${item['id']}, New Status: $newDone, Updated: $count');
+            await _loadData();
+          } catch (e) {
+            debugPrint('勾選待辦時出錯: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('操作失敗: $e'))
+              );
+            }
+          }
+        },
+        child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: done ? const Color(0xFFF5F5F5) : Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                    color: done ? Colors.transparent : Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(done ? 0.01 : 0.03),
+                      blurRadius: 4)
+                ]),
+            child: Row(children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: done ? const Color(0xFF8D6E63) : Colors.transparent,
+                  border: Border.all(
+                    color: done ? const Color(0xFF8D6E63) : Colors.grey,
+                    width: 1.5,
+                  ),
+                ),
+                child: done
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                  child: Text(item['title'],
+                      style: TextStyle(
+                          fontSize: 14,
+                          decoration:
+                              done ? TextDecoration.lineThrough : null,
+                          color: done ? Colors.grey.shade500 : Colors.black87,
+                          fontWeight: done ? FontWeight.normal : FontWeight.w500))),
+              if (isPast && !done)
+                const Icon(Icons.lock, size: 14, color: Colors.grey)
+            ])));
   }
 
   // 新增：編輯行程對話框 (修改自 _showManualAddDialog)

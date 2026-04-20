@@ -45,11 +45,23 @@ class DatabaseHelper {
     return await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: _createDB,
+        onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
       ),
     );
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Check if column exists first to be idempotent
+      var columns = await db.rawQuery('PRAGMA table_info(todos)');
+      bool columnExists = columns.any((column) => column['name'] == 'done_at');
+      if (!columnExists) {
+        await db.execute('ALTER TABLE todos ADD COLUMN done_at DATETIME');
+      }
+    }
   }
 
   Future _onConfigure(Database db) async {
@@ -147,6 +159,7 @@ class DatabaseHelper {
         user_id VARCHAR NOT NULL,
         text TEXT NOT NULL,
         done BOOLEAN DEFAULT 0,
+        done_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
