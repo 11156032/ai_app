@@ -45,7 +45,7 @@ class DatabaseHelper {
     return await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 4,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -55,11 +55,27 @@ class DatabaseHelper {
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Check if column exists first to be idempotent
+      // Check for done_at in todos
       var columns = await db.rawQuery('PRAGMA table_info(todos)');
       bool columnExists = columns.any((column) => column['name'] == 'done_at');
       if (!columnExists) {
         await db.execute('ALTER TABLE todos ADD COLUMN done_at DATETIME');
+      }
+    }
+    if (oldVersion < 3) {
+      // Check for parent_id in comments
+      var columns = await db.rawQuery('PRAGMA table_info(comments)');
+      bool parentExists = columns.any((column) => column['name'] == 'parent_id');
+      if (!parentExists) {
+        await db.execute('ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT 0');
+      }
+    }
+    if (oldVersion < 4) {
+      // Add media_blob to posts for reliable binary storage
+      var columns = await db.rawQuery('PRAGMA table_info(posts)');
+      bool blobExists = columns.any((column) => column['name'] == 'media_blob');
+      if (!blobExists) {
+        await db.execute('ALTER TABLE posts ADD COLUMN media_blob BLOB');
       }
     }
   }
@@ -173,6 +189,7 @@ class DatabaseHelper {
         content TEXT NOT NULL,
         type VARCHAR DEFAULT 'text',
         attached_data TEXT DEFAULT '{}',
+        media_blob BLOB,
         likes INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
@@ -198,6 +215,7 @@ class DatabaseHelper {
         post_id INTEGER NOT NULL,
         user_id VARCHAR NOT NULL,
         text TEXT NOT NULL,
+        parent_id INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
@@ -301,31 +319,14 @@ class DatabaseHelper {
       'created_at': '2026-03-30 00:00:00',
     });
 
-    // 4. Posts
+    // 4. Posts (Seed a real functional post, but no hardcoded test strings from Sharon)
     await db.insert('posts', {
       'id': 1,
-      'user_id': 'u1',
-      'content': '準備來寫 Flutter 專題啦🚀',
-      'likes': 12,
+      'user_id': 'u2',
+      'content': '歡迎大家在社群分享學習心得與專題進度！✨',
+      'likes': 5,
       'type': 'text',
-      'created_at': DateTime.now()
-          .subtract(const Duration(minutes: 10))
-          .toIso8601String(),
-    });
-    await db.insert('post_likes', {'post_id': 1, 'user_id': 'u1'});
-    await db.insert('comments', {
-      'post_id': 1,
-      'user_id': 'u5',
-      'text': '加油！推一個',
-      'created_at':
-          DateTime.now().subtract(const Duration(hours: 1)).toIso8601String()
-    });
-    await db.insert('comments', {
-      'post_id': 1,
-      'user_id': 'u6',
-      'text': '排序逻辑我发系上群組囉',
-      'created_at':
-          DateTime.now().subtract(const Duration(minutes: 30)).toIso8601String()
+      'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
     });
 
     // 5. Questions

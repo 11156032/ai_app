@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show File;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import '../database/database_helper.dart';
 
 class MainScreen extends StatefulWidget {
@@ -82,10 +87,31 @@ class _MainScreenState extends State<MainScreen> {
     _loadData();
   }
 
+  String _formatRelativeTime(dynamic timeStr) {
+    if (timeStr == null) return '';
+    try {
+      DateTime dt = DateTime.parse(timeStr.toString());
+      Duration diff = DateTime.now().difference(dt);
+      if (diff.inSeconds < 60) return '剛剛';
+      if (diff.inMinutes < 60) return '${diff.inMinutes} 分鐘前';
+      if (diff.inHours < 24) return '${diff.inHours} 小時前';
+      if (diff.inDays < 30) return '${diff.inDays} 天前';
+      return '${dt.month}/${dt.day}';
+    } catch (e) {
+      return timeStr.toString();
+    }
+  }
+
   Future<void> _loadData() async {
     try {
       final db = await DatabaseHelper.instance.database;
-      String currentUserId = widget.currentUser['id'];
+      // One-time cleanup for Sharon's legacy data if it persists locally
+      await db.delete('comments', where: 'user_id = ?', whereArgs: ['u1']);
+      await db.delete('posts', where: 'user_id = ?', whereArgs: ['u1']);
+      
+      final currentUserId = widget.currentUser['id'];
+      debugPrint("--- Social Loading Diagnostic ---");
+      debugPrint("Current User ID: $currentUserId");
 
       // Fetch schedules
       final schedulesList = await db.query('calendar_events',
@@ -138,18 +164,31 @@ class _MainScreenState extends State<MainScreen> {
         String author =
             u.isNotEmpty ? u.first['display_name'] as String : '未知用戶';
 
+        final likesCount = await db.query('post_likes',
+            where: 'post_id = ? AND user_id = ?',
+            whereArgs: [p['id'], currentUserId]);
         final resCount = await db.rawQuery(
             'SELECT COUNT(*) as c FROM comments WHERE post_id = ?', [p['id']]);
         int replies = (resCount.first['c'] as int?) ?? 0;
 
+        Map<String, dynamic> attached = jsonDecode((p['attached_data'] as String?) ?? '{}');
+        Uint8List? blobData = p['media_blob'] as Uint8List?;
+        if (blobData != null) {
+          debugPrint("Post ${p['id']} has BLOB data. Size: ${blobData.length} bytes");
+        } else if (attached['media_url'] != null) {
+          debugPrint("Post ${p['id']} has URL/Base64 data.");
+        }
+
         pList.add({
           'id': p['id'],
+          'userId': p['user_id'],
           'author': author,
-          'time': '最新貼文',
+          'time': _formatRelativeTime(p['created_at']),
           'content': p['content'],
-          'likes': p['likes'],
+          'isLiked': likesCount.isNotEmpty,
+          'likes': p['likes'] ?? 0,
           'replies': replies,
-          'isLiked': true
+          'media': attached['media_url'],
         });
       }
 
@@ -1772,8 +1811,7 @@ class _MainScreenState extends State<MainScreen> {
           return q['isWrong'] == true && q['subject'] == _selectedFolder;
         }
         if (_personalFilterIndex == 1) {
-          return (q['author'] == widget.currentUser['display_name'] ||
-                  q['author'] == 'Sharon') &&
+          return q['author'] == widget.currentUser['display_name'] &&
               q['subject'] == _selectedFolder;
         }
         if (_personalFilterIndex == 2) {
@@ -1832,8 +1870,7 @@ class _MainScreenState extends State<MainScreen> {
       bool match = false;
       if (_personalFilterIndex == 0 && q['isWrong'] == true) match = true;
       if (_personalFilterIndex == 1 &&
-          (q['author'] == widget.currentUser['display_name'] ||
-              q['author'] == 'Sharon')) match = true;
+          q['author'] == widget.currentUser['display_name']) match = true;
       if (_personalFilterIndex == 2 && q['isFavorite'] == true) match = true;
       if (match) {
         folderCounts[q['subject']] = (folderCounts[q['subject']] ?? 0) + 1;
@@ -2084,10 +2121,41 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   // --- 3. 社群 & 檔案 (Threads 風格) ---
-  Widget _buildSocialTab() => ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: socialPosts.length,
-      itemBuilder: (ctx, i) => _buildPostItem(socialPosts[i]));
+  Widget _buildSocialTab() => Column(children: [
+        Padding(
+            padding: const EdgeInsets.all(16),
+            child: GestureDetector(
+                onTap: _showCreatePostScreen,
+                child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(color: Colors.grey.shade200)),
+                    child: Row(children: [
+                      const CircleAvatar(
+                          radius: 15,
+                          backgroundColor: Color(0xFFD7CCC8),
+                          child: Icon(Icons.person, color: Colors.white, size: 18)),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                          child: Text('分享學習心得...',
+                              style: TextStyle(color: Colors.grey))),
+                      const Icon(Icons.image_outlined, color: Colors.grey),
+                    ])))),
+        Expanded(
+            child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: socialPosts.length,
+                itemBuilder: (ctx, i) => _buildPostItem(socialPosts[i])))
+      ]);
+
+  void _showCreatePostScreen() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePostPage(
+      currentUser: widget.currentUser,
+      onPosted: _loadData,
+    )));
+  }
   Widget _buildProfileTab() => DefaultTabController(
       length: 2,
       child: Column(children: [
@@ -2136,124 +2204,545 @@ class _MainScreenState extends State<MainScreen> {
           ]),
           const SizedBox(height: 5),
           Text(p['content']),
+          if ((p['media_blob'] != null) || (p['media'] != null && p['media'].toString().isNotEmpty)) ...[
+            const SizedBox(height: 10),
+            Container(
+              height: 250,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.grey.shade50,
+                border: Border.all(color: Colors.grey.shade100),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: (p['media_blob'] != null)
+                    ? Image.memory(
+                        p['media_blob'],
+                        fit: BoxFit.contain,
+                        errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                      )
+                    : (p['media'].toString().startsWith('data:image'))
+                        ? Builder(builder: (context) {
+                            try {
+                              String base64Str = p['media'].toString().split(',').last.replaceAll('\n', '').replaceAll('\r', '');
+                              return Image.memory(
+                                base64Decode(base64Str),
+                                fit: BoxFit.contain,
+                                errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                              );
+                            } catch (e) {
+                              return const Center(child: Icon(Icons.broken_image, color: Colors.grey));
+                            }
+                          })
+                        : (p['media'].toString().startsWith('http') || kIsWeb)
+                            ? Image.network(
+                                p['media'],
+                                fit: BoxFit.contain,
+                                errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                              )
+                            : Image.file(
+                                File(p['media']),
+                                fit: BoxFit.contain,
+                                errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                              ),
+              ),
+            ),
+          ],
           Row(children: [
             IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
                 icon: Icon(
                     p['isLiked'] ? Icons.favorite : Icons.favorite_border,
-                    size: 18,
+                    size: 20,
                     color: p['isLiked'] ? Colors.redAccent : Colors.grey),
-                onPressed: () {}),
+                onPressed: () => _toggleLike(p)),
+            const SizedBox(width: 4),
+            Text('${p['likes']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(width: 20),
             IconButton(
-                icon: const Icon(Icons.mode_comment_outlined, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.mode_comment_outlined, size: 20, color: Colors.grey),
                 onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => PostReplyPage(originalPost: p))))
+                        builder: (_) => PostReplyPage(
+                          originalPost: p,
+                          currentUser: widget.currentUser,
+                        )))),
+            const SizedBox(width: 4),
+            Text('${p['replies']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ])
         ]))
       ]));
+
+  Future<void> _toggleLike(Map<String, dynamic> p) async {
+    final db = await DatabaseHelper.instance.database;
+    final currentUserId = widget.currentUser['id'];
+    int currentLikes = p['likes'] ?? 0;
+
+    if (p['isLiked']) {
+      await db.delete('post_likes', where: 'post_id = ? AND user_id = ?', whereArgs: [p['id'], currentUserId]);
+      currentLikes = (currentLikes > 0) ? currentLikes - 1 : 0;
+      await db.execute('UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
+    } else {
+      await db.insert('post_likes', {'post_id': p['id'], 'user_id': currentUserId});
+      currentLikes = currentLikes + 1;
+      await db.execute('UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
+    }
+    _loadData();
+  }
+}
+
+// --- 貼文發佈頁面 ---
+class CreatePostPage extends StatefulWidget {
+  final Map<String, dynamic> currentUser;
+  final VoidCallback onPosted;
+  const CreatePostPage({super.key, required this.currentUser, required this.onPosted});
+  @override
+  State<CreatePostPage> createState() => _CreatePostPageState();
+}
+
+class _CreatePostPageState extends State<CreatePostPage> {
+  final TextEditingController _contentController = TextEditingController();
+  XFile? _selectedImageX;
+  String? _selectedFileName;
+  bool _isSubmitting = false;
+
+  void _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    // Limit size to 1024px and use 85% quality to ensure DB stability and upload success
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (image != null) {
+      setState(() => _selectedImageX = image);
+    }
+  }
+
+  void _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    if (result != null) {
+      setState(() => _selectedFileName = result.files.single.name);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已選取檔案：$_selectedFileName'))
+      );
+    }
+  }
+
+  void _submitPost() async {
+    if (_contentController.text.isEmpty && _selectedImageX == null) return;
+    if (_isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+    
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final userId = widget.currentUser['id'];
+      Uint8List? blobData;
+
+      if (_selectedImageX != null) {
+        blobData = await _selectedImageX!.readAsBytes();
+        debugPrint("Image processed for storage. Size: ${blobData.length} bytes");
+      }
+
+      await db.insert('posts', {
+        'user_id': userId,
+        'content': _contentController.text,
+        'type': blobData != null ? 'image' : 'text',
+        'media_blob': blobData,
+        'attached_data': jsonEncode({
+          'file_name': _selectedFileName
+        }),
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      widget.onPosted();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint("Error submitting post: $e");
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('發佈失敗: $e'))
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: const Text('新增貼文', style: TextStyle(fontSize: 16)),
+          actions: [
+            TextButton(
+                onPressed: _isSubmitting ? null : _submitPost,
+                child: Text(_isSubmitting ? '處理中...' : '發佈',
+                    style: TextStyle(
+                        color: _isSubmitting ? Colors.grey : const Color(0xFF8D6E63), 
+                        fontWeight: FontWeight.bold)))
+          ],
+        ),
+        body: Stack(children: [
+          Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(children: [
+                Expanded(
+                    child: TextField(
+                  controller: _contentController,
+                  maxLines: null,
+                  decoration: const InputDecoration(
+                      hintText: '想分享什麼呢？', border: InputBorder.none),
+                )),
+                if (_selectedImageX != null)
+                  Stack(children: [
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 250),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.grey.shade50,
+                      ),
+                      child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: kIsWeb
+                              ? Image.network(_selectedImageX!.path, fit: BoxFit.contain)
+                              : Image.file(File(_selectedImageX!.path), fit: BoxFit.contain)),
+                    ),
+                    Positioned(
+                        right: 5,
+                        top: 5,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedImageX = null),
+                          child: CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.black.withOpacity(0.5),
+                            child: const Icon(Icons.close, color: Colors.white, size: 16),
+                          ),
+                        ))
+                  ]),
+                if (_selectedFileName != null)...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8)
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.attach_file, size: 16, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_selectedFileName!, style: const TextStyle(fontSize: 12))),
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedFileName = null),
+                        child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                      )
+                    ]),
+                  )
+                ],
+                const Divider(),
+                Row(children: [
+                  IconButton(
+                      icon: const Icon(Icons.image_outlined, color: Colors.grey),
+                      onPressed: _isSubmitting ? null : _pickImage),
+                  IconButton(
+                      icon: const Icon(Icons.attach_file, color: Colors.grey),
+                      onPressed: _isSubmitting ? null : _pickFile),
+                ])
+              ])),
+          if (_isSubmitting)
+            const Center(child: CircularProgressIndicator(color: Color(0xFF8D6E63)))
+        ]));
+  }
 }
 
 // --- 3. 額外頁面 ---
-class PostReplyPage extends StatelessWidget {
+class PostReplyPage extends StatefulWidget {
   final Map<String, dynamic> originalPost;
-  const PostReplyPage({super.key, required this.originalPost});
+  final Map<String, dynamic> currentUser;
+  const PostReplyPage({super.key, required this.originalPost, required this.currentUser});
+  @override
+  State<PostReplyPage> createState() => _PostReplyPageState();
+}
+
+class _PostReplyPageState extends State<PostReplyPage> {
+  final TextEditingController _commentController = TextEditingController();
+  List<Map<String, dynamic>> _comments = [];
+  int? _replyToId;
+  String _replyToName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  Future<void> _loadComments() async {
+    final db = await DatabaseHelper.instance.database;
+    final data = await db.query('comments',
+        where: 'post_id = ?',
+        whereArgs: [widget.originalPost['id']],
+        orderBy: 'created_at ASC');
+
+    List<Map<String, dynamic>> loaded = [];
+    for (var c in data) {
+      final user = await db.query('users', where: 'id = ?', whereArgs: [c['user_id']]);
+      String name = user.isNotEmpty ? user.first['display_name'] as String : '未知用戶';
+      loaded.add({
+        ...c,
+        'userId': c['user_id'],
+        'author': name,
+        'time': _formatRelativeTime(c['created_at'])
+      });
+    }
+
+    setState(() => _comments = loaded);
+  }
+
+  String _formatRelativeTime(dynamic timeStr) {
+    if (timeStr == null) return '';
+    try {
+      DateTime dt = DateTime.parse(timeStr.toString());
+      Duration diff = DateTime.now().difference(dt);
+      if (diff.inSeconds < 60) return '剛剛';
+      if (diff.inMinutes < 60) return '${diff.inMinutes} 分鐘前';
+      if (diff.inHours < 24) return '${diff.inHours} 小時前';
+      if (diff.inDays < 30) return '${diff.inDays} 天前';
+      return '${dt.month}/${dt.day}';
+    } catch (e) {
+      return timeStr.toString();
+    }
+  }
+
+  void _submitComment() async {
+    if (_commentController.text.isEmpty) return;
+    final db = await DatabaseHelper.instance.database;
+    final userId = widget.currentUser['id'];
+
+    await db.insert('comments', {
+      'post_id': widget.originalPost['id'],
+      'user_id': userId,
+      'text': _commentController.text,
+      'parent_id': _replyToId ?? 0,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
+    _commentController.clear();
+    setState(() {
+      _replyToId = null;
+      _replyToName = '';
+    });
+    _loadComments();
+  }
+
+  void _deleteComment(int commentId) async {
+    final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('刪除留言', style: TextStyle(fontSize: 16)),
+              content: const Text('確定要刪除這則留言嗎？'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('取消', style: TextStyle(color: Colors.grey))),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('刪除', style: TextStyle(color: Colors.red))),
+              ],
+            ));
+
+    if (confirm == true) {
+      final db = await DatabaseHelper.instance.database;
+      await db.delete('comments', where: 'id = ?', whereArgs: [commentId]);
+      _loadComments();
+    }
+  }
+
+  void _editComment(int commentId, String currentText) async {
+    final editController = TextEditingController(text: currentText);
+    final newText = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('編輯留言', style: TextStyle(fontSize: 16)),
+              content: TextField(
+                controller: editController,
+                maxLines: null,
+                decoration: const InputDecoration(hintText: '修改您的留言...'),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('取消', style: TextStyle(color: Colors.grey))),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, editController.text),
+                    child: const Text('儲存', style: TextStyle(color: Color(0xFF8D6E63)))),
+              ],
+            ));
+
+    if (newText != null && newText.isNotEmpty && newText != currentText) {
+      final db = await DatabaseHelper.instance.database;
+      await db.update('comments', {'text': newText}, where: 'id = ?', whereArgs: [commentId]);
+      _loadComments();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    List<Map<String, dynamic>> replies = [
-      {'author': '李同學', 'time': '1小時前', 'content': '加油！推一個'},
-      {'author': '陳助教', 'time': '30分鐘前', 'content': '排序逻辑我发系上群組囉'}
-    ];
+    // Group comments by parent_id
+    Map<int, List<Map<String, dynamic>>> rootComments = {};
+    for (var c in _comments) {
+      int pid = c['parent_id'] as int;
+      rootComments.putIfAbsent(pid, () => []).add(c);
+    }
+
     return Scaffold(
         backgroundColor: Colors.white,
-        appBar:
-            AppBar(title: const Text('文章回覆', style: TextStyle(fontSize: 16))),
+        appBar: AppBar(title: const Text('文章回覆', style: TextStyle(fontSize: 16))),
         body: SafeArea(
             child: Column(children: [
           Expanded(
               child: ListView(padding: const EdgeInsets.all(16), children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const CircleAvatar(
-                  backgroundColor: Color(0xFFD7CCC8),
-                  child: Icon(Icons.person, color: Colors.white, size: 18)),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Row(children: [
-                      Text(originalPost['author'],
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 10),
-                      Text(originalPost['time'],
-                          style:
-                              const TextStyle(color: Colors.grey, fontSize: 12))
-                    ]),
-                    const SizedBox(height: 5),
-                    Text(originalPost['content'],
-                        style: const TextStyle(fontSize: 15)),
-                    const SizedBox(height: 12)
-                  ]))
-            ]),
+            _buildPostHeader(),
             const Divider(),
             const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('最新回覆',
-                    style: TextStyle(color: Colors.grey, fontSize: 13))),
-            ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: replies.length,
-                itemBuilder: (c, i) => Container(
-                    margin: const EdgeInsets.only(bottom: 15),
-                    child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                              radius: 15,
-                              backgroundColor: Colors.grey.shade200,
-                              child: Text(replies[i]['author'][0])),
-                          const SizedBox(width: 10),
-                          Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                Row(children: [
-                                  Text(replies[i]['author'],
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13)),
-                                  const SizedBox(width: 8),
-                                  Text(replies[i]['time'],
-                                      style: const TextStyle(
-                                          color: Colors.grey, fontSize: 11))
-                                ]),
-                                Text(replies[i]['content'],
-                                    style: const TextStyle(fontSize: 13))
-                              ]))
-                        ])))
+                child: Text('精彩回覆',
+                    style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold))),
+            if (_comments.isEmpty)
+              const Center(child: Padding(
+                padding: EdgeInsets.all(40),
+                child: Text('還沒有人回覆，快來沙發吧！', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              )),
+            ...rootComments[0]?.map((c) => _buildCommentTree(c, rootComments)) ?? []
           ])),
+          
+          if (_replyToId != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.grey.shade100,
+              child: Row(children: [
+                Text('正在回覆 ${_replyToName}:', style: const TextStyle(fontSize: 12, color: Color(0xFF8D6E63))),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(() { _replyToId = null; _replyToName = ''; }),
+                  child: const Icon(Icons.close, size: 14, color: Colors.grey),
+                )
+              ]),
+            ),
+
           Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border(top: BorderSide(color: Colors.grey.shade100))),
               child: Row(children: [
-                const Expanded(
+                Expanded(
                     child: TextField(
+                        controller: _commentController,
                         decoration: InputDecoration(
-                            hintText: '回覆...',
+                            hintText: _replyToId != null ? '寫下你的見解...' : '留個言吧...',
                             filled: true,
-                            fillColor: Color(0xFFF5F5F5),
+                            fillColor: const Color(0xFFF5F5F5),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                             border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
                                 borderSide: BorderSide.none)))),
                 const SizedBox(width: 8),
                 TextButton(
-                    onPressed: () {},
+                    onPressed: _submitComment,
                     child: const Text('發佈',
-                        style: TextStyle(color: Color(0xFF8D6E63))))
+                        style: TextStyle(color: Color(0xFF8D6E63), fontWeight: FontWeight.bold)))
               ]))
         ])));
+  }
+
+  Widget _buildPostHeader() {
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const CircleAvatar(
+          backgroundColor: Color(0xFFD7CCC8),
+          child: Icon(Icons.person, color: Colors.white, size: 18)),
+      const SizedBox(width: 12),
+      Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text(widget.originalPost['author'],
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 10),
+          Text(widget.originalPost['time'],
+              style: const TextStyle(color: Colors.grey, fontSize: 12))
+        ]),
+        const SizedBox(height: 8),
+        Text(widget.originalPost['content'], style: const TextStyle(fontSize: 15)),
+        const SizedBox(height: 12)
+      ]))
+    ]);
+  }
+
+  Widget _buildCommentTree(Map<String, dynamic> comment, Map<int, List<Map<String, dynamic>>> group) {
+    List<Map<String, dynamic>> sub = group[comment['id']] ?? [];
+    return Column(children: [
+      _buildSingleComment(comment),
+      ...sub.map((sc) => Padding(
+        padding: const EdgeInsets.only(left: 40),
+        child: _buildSingleComment(sc, isSub: true),
+      ))
+    ]);
+  }
+
+  Widget _buildSingleComment(Map<String, dynamic> c, {bool isSub = false}) {
+    return Container(
+        margin: const EdgeInsets.only(bottom: 12, top: 4),
+        child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                  radius: isSub ? 12 : 15,
+                  backgroundColor: Colors.grey.shade200,
+                  child: Text(c['author'][0], style: TextStyle(fontSize: isSub ? 10 : 12))),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Row(children: [
+                      Text(c['author'],
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: isSub ? 12 : 13)),
+                      const SizedBox(width: 8),
+                      Text(c['time'],
+                          style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                      const Spacer(),
+                      if (c['userId'] == widget.currentUser['id']) ...[
+                        GestureDetector(
+                          onTap: () => _editComment(c['id'], c['text']),
+                          child: const Icon(Icons.edit_outlined, size: 14, color: Colors.grey),
+                        ),
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: () => _deleteComment(c['id']),
+                          child: const Icon(Icons.delete_outline, size: 14, color: Colors.grey),
+                        ),
+                      ] else if (!isSub)
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _replyToId = c['id'];
+                            _replyToName = c['author'];
+                          }),
+                          child: const Text('回覆', style: TextStyle(fontSize: 11, color: Color(0xFF8D6E63))),
+                        )
+                    ]),
+                    const SizedBox(height: 4),
+                    Text(c['text'], style: TextStyle(fontSize: isSub ? 12 : 13)),
+                  ]))
+            ]));
   }
 }
 

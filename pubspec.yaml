@@ -42,6 +42,8 @@ dependencies:
   sqlite3_flutter_libs: any
   google_sign_in: any
   google_sign_in_web: any
+  image_picker: ^1.1.2
+  file_picker: ^8.1.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
