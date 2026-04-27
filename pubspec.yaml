@@ -40,8 +40,6 @@ dependencies:
   sqflite_common_ffi: ^2.3.0
   sqflite_common_ffi_web: ^0.4.0
   sqlite3_flutter_libs: any
-  google_sign_in: any
-  google_sign_in_web: any
   image_picker: ^1.1.2
   file_picker: ^8.1.2
 dev_dependencies:

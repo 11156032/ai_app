@@ -1,9 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
-import 'package:google_sign_in_web/google_sign_in_web.dart' as web;
 import '../database/database_helper.dart';
-import '../main.dart' show googleSignIn;
 
 class LoginScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) onLogin;
@@ -258,69 +254,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: const TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 20),
-              // 分隔線
-              Row(
-                children: [
-                  Expanded(
-                      child:
-                          Divider(color: Colors.grey.shade300, thickness: 1)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child:
-                        Text('或使用以下方式登入', style: TextStyle(color: Colors.grey)),
-                  ),
-                  Expanded(
-                      child:
-                          Divider(color: Colors.grey.shade300, thickness: 1)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Google 登入按鈕
-              // Web：renderButton（由 Google GIS SDK 渲染，點擊觸發事件由 AuthWrapper 監聽）
-              // 非 Web：自定義按鈕，呼叫 authenticate()
-              if (kIsWeb)
-                SizedBox(
-                  width: double.infinity,
-                  child: Center(
-                    child: (GoogleSignInPlatform.instance
-                            as web.GoogleSignInPlugin)
-                        .renderButton(
-                      configuration: web.GSIButtonConfiguration(
-                        type: web.GSIButtonType.standard,
-                        theme: web.GSIButtonTheme.outline,
-                        size: web.GSIButtonSize.large,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                OutlinedButton.icon(
-                  icon: Image.network(
-                    'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
-                    height: 24,
-                  ),
-                  label: const Text('使用 Google 繼續',
-                      style: TextStyle(color: Colors.black87, fontSize: 16)),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  // 非 Web 平台：直接呼叫 signIn()
-                  // 結果由 AuthWrapper 的 onCurrentUserChanged 監聽器處理
-                  onPressed: () async {
-                    try {
-                      await googleSignIn.signIn();
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Google 登入失敗：$e')));
-                    }
-                  },
-                ),
               const SizedBox(height: 20),
               // 切換登入 / 註冊
               TextButton(
