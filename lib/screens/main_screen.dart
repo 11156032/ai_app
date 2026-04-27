@@ -108,7 +108,7 @@ class _MainScreenState extends State<MainScreen> {
       // One-time cleanup for Sharon's legacy data if it persists locally
       await db.delete('comments', where: 'user_id = ?', whereArgs: ['u1']);
       await db.delete('posts', where: 'user_id = ?', whereArgs: ['u1']);
-      
+
       final currentUserId = widget.currentUser['id'];
       debugPrint("--- Social Loading Diagnostic ---");
       debugPrint("Current User ID: $currentUserId");
@@ -171,10 +171,12 @@ class _MainScreenState extends State<MainScreen> {
             'SELECT COUNT(*) as c FROM comments WHERE post_id = ?', [p['id']]);
         int replies = (resCount.first['c'] as int?) ?? 0;
 
-        Map<String, dynamic> attached = jsonDecode((p['attached_data'] as String?) ?? '{}');
+        Map<String, dynamic> attached =
+            jsonDecode((p['attached_data'] as String?) ?? '{}');
         Uint8List? blobData = p['media_blob'] as Uint8List?;
         if (blobData != null) {
-          debugPrint("Post ${p['id']} has BLOB data. Size: ${blobData.length} bytes");
+          debugPrint(
+              "Post ${p['id']} has BLOB data. Size: ${blobData.length} bytes");
         } else if (attached['media_url'] != null) {
           debugPrint("Post ${p['id']} has URL/Base64 data.");
         }
@@ -447,6 +449,18 @@ class _MainScreenState extends State<MainScreen> {
                 ]));
   }
 
+  void _returnToToday() {
+    setState(() {
+      _syncDate(_simulatedToday, fromCalendar: true);
+      _calendarMonth = DateTime(_simulatedToday.year, _simulatedToday.month, 1);
+    });
+    int deltaMonths =
+        (_simulatedToday.year - 2026) * 12 + (_simulatedToday.month - 3);
+    int targetPage = 12 + deltaMonths;
+    _calendarPageController.animateToPage(targetPage,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+  }
+
   void _showLogoutDialog() {
     showDialog(
         context: context,
@@ -540,6 +554,11 @@ class _MainScreenState extends State<MainScreen> {
               backgroundColor: Colors.white,
               elevation: 0,
               actions: [
+                  if (_currentIndex == 0)
+                    IconButton(
+                        icon: const Icon(Icons.today, color: Colors.black87),
+                        onPressed: _returnToToday,
+                        tooltip: '回到今日'),
                   IconButton(
                       icon: const Icon(Icons.logout, color: Colors.black87),
                       onPressed: _showLogoutDialog)
@@ -866,11 +885,24 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildMonthGrid(DateTime date) {
     int empty = DateTime(date.year, date.month, 1).weekday - 1;
     int days = DateTime(date.year, date.month + 1, 0).day;
+    int rows = ((empty + days) / 7).ceil();
+
     return LayoutBuilder(builder: (context, constraints) {
       double itemWidth = (constraints.maxWidth - 40 - 48) / 7;
-      // 增加高度比例 (40 -> 50)，避免內容過多造成溢出
-      double childAspectRatio = itemWidth / 50.0;
-      if (childAspectRatio <= 0.1) childAspectRatio = 0.1;
+
+      // 動態計算需要的高度比例，避免跨越 6 列的月份溢出 (例如 2026年3月)
+      double headerHeight = 36.0; // 星期列約略佔用高度
+      double mainAxisSpacing = 8.0;
+      double availableHeight = constraints.maxHeight > 0
+          ? constraints.maxHeight -
+              headerHeight -
+              ((rows - 1) * mainAxisSpacing)
+          : rows * 50.0;
+
+      double itemHeight = availableHeight / rows;
+      if (itemHeight < 38.0) itemHeight = 38.0; // 保護機制，確保內容塞得下
+
+      double childAspectRatio = itemWidth / itemHeight;
 
       return Column(children: [
         Padding(
@@ -903,6 +935,9 @@ class _MainScreenState extends State<MainScreen> {
               bool isSel = _selectedDate.day == d &&
                   _selectedDate.month == date.month &&
                   _selectedDate.year == date.year;
+              bool isToday = _simulatedToday.day == d &&
+                  _simulatedToday.month == date.month &&
+                  _simulatedToday.year == date.year;
 
               // 檢查該日期是否有行程
               List<Map<String, dynamic>> dayEvents = allSchedules[key] ?? [];
@@ -919,21 +954,27 @@ class _MainScreenState extends State<MainScreen> {
                               shape: BoxShape.circle,
                               color: isSel
                                   ? const Color(0xFF8D6E63)
-                                  : Colors.transparent,
+                                  : (isToday
+                                      ? const Color(0xFFF5E6E6)
+                                      : Colors.transparent),
                               border: Border.all(
                                   color: isSel
                                       ? const Color(0xFF8D6E63)
-                                      : Colors.grey.shade100)),
+                                      : (isToday
+                                          ? Colors.redAccent.withOpacity(0.5)
+                                          : Colors.grey.shade100))),
                           child: Center(
                               child: Text('$d',
                                   style: TextStyle(
                                       fontSize: 14,
-                                      fontWeight: isSel
+                                      fontWeight: isSel || isToday
                                           ? FontWeight.bold
                                           : FontWeight.normal,
                                       color: isSel
                                           ? Colors.white
-                                          : Colors.black87)))),
+                                          : (isToday
+                                              ? Colors.redAccent
+                                              : Colors.black87))))),
                       // 行程標記：改用膠囊型色條 (Pills)，外觀更現代且色彩鮮明
                       if (dayEvents.isNotEmpty)
                         Padding(
@@ -1106,26 +1147,27 @@ class _MainScreenState extends State<MainScreen> {
     return GestureDetector(
         onTap: () async {
           try {
-            // If it's done, we can always un-done (undo). 
+            // If it's done, we can always un-done (undo).
             // If it's not done and it's past, we lock it.
-            if (isPast && !done) return; 
+            if (isPast && !done) return;
 
             final db = await DatabaseHelper.instance.database;
             bool newDone = !done;
             // Use current time for done_at to ensure it matches current date key
             String? doneAt = newDone ? DateTime.now().toIso8601String() : null;
-            
-            int count = await db.update('todos', {'done': newDone ? 1 : 0, 'done_at': doneAt},
+
+            int count = await db.update(
+                'todos', {'done': newDone ? 1 : 0, 'done_at': doneAt},
                 where: 'id = ?', whereArgs: [int.parse(item['id'])]);
-            
-            debugPrint('Todo Toggle: ID ${item['id']}, New Status: $newDone, Updated: $count');
+
+            debugPrint(
+                'Todo Toggle: ID ${item['id']}, New Status: $newDone, Updated: $count');
             await _loadData();
           } catch (e) {
             debugPrint('勾選待辦時出錯: $e');
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('操作失敗: $e'))
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text('操作失敗: $e')));
             }
           }
         },
@@ -1164,10 +1206,10 @@ class _MainScreenState extends State<MainScreen> {
                   child: Text(item['title'],
                       style: TextStyle(
                           fontSize: 14,
-                          decoration:
-                              done ? TextDecoration.lineThrough : null,
+                          decoration: done ? TextDecoration.lineThrough : null,
                           color: done ? Colors.grey.shade500 : Colors.black87,
-                          fontWeight: done ? FontWeight.normal : FontWeight.w500))),
+                          fontWeight:
+                              done ? FontWeight.normal : FontWeight.w500))),
               if (isPast && !done)
                 const Icon(Icons.lock, size: 14, color: Colors.grey)
             ])));
@@ -2127,7 +2169,8 @@ class _MainScreenState extends State<MainScreen> {
             child: GestureDetector(
                 onTap: _showCreatePostScreen,
                 child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(25),
@@ -2136,7 +2179,8 @@ class _MainScreenState extends State<MainScreen> {
                       const CircleAvatar(
                           radius: 15,
                           backgroundColor: Color(0xFFD7CCC8),
-                          child: Icon(Icons.person, color: Colors.white, size: 18)),
+                          child: Icon(Icons.person,
+                              color: Colors.white, size: 18)),
                       const SizedBox(width: 12),
                       const Expanded(
                           child: Text('分享學習心得...',
@@ -2151,11 +2195,15 @@ class _MainScreenState extends State<MainScreen> {
       ]);
 
   void _showCreatePostScreen() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePostPage(
-      currentUser: widget.currentUser,
-      onPosted: _loadData,
-    )));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => CreatePostPage(
+                  currentUser: widget.currentUser,
+                  onPosted: _loadData,
+                )));
   }
+
   Widget _buildProfileTab() => DefaultTabController(
       length: 2,
       child: Column(children: [
@@ -2204,7 +2252,8 @@ class _MainScreenState extends State<MainScreen> {
           ]),
           const SizedBox(height: 5),
           Text(p['content']),
-          if ((p['media_blob'] != null) || (p['media'] != null && p['media'].toString().isNotEmpty)) ...[
+          if ((p['media_blob'] != null) ||
+              (p['media'] != null && p['media'].toString().isNotEmpty)) ...[
             const SizedBox(height: 10),
             Container(
               height: 250,
@@ -2220,31 +2269,46 @@ class _MainScreenState extends State<MainScreen> {
                     ? Image.memory(
                         p['media_blob'],
                         fit: BoxFit.contain,
-                        errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                        errorBuilder: (c, e, s) => const Center(
+                            child:
+                                Icon(Icons.broken_image, color: Colors.grey)),
                       )
                     : (p['media'].toString().startsWith('data:image'))
                         ? Builder(builder: (context) {
                             try {
-                              String base64Str = p['media'].toString().split(',').last.replaceAll('\n', '').replaceAll('\r', '');
+                              String base64Str = p['media']
+                                  .toString()
+                                  .split(',')
+                                  .last
+                                  .replaceAll('\n', '')
+                                  .replaceAll('\r', '');
                               return Image.memory(
                                 base64Decode(base64Str),
                                 fit: BoxFit.contain,
-                                errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                                errorBuilder: (c, e, s) => const Center(
+                                    child: Icon(Icons.broken_image,
+                                        color: Colors.grey)),
                               );
                             } catch (e) {
-                              return const Center(child: Icon(Icons.broken_image, color: Colors.grey));
+                              return const Center(
+                                  child: Icon(Icons.broken_image,
+                                      color: Colors.grey));
                             }
                           })
                         : (p['media'].toString().startsWith('http') || kIsWeb)
                             ? Image.network(
                                 p['media'],
                                 fit: BoxFit.contain,
-                                errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                                errorBuilder: (c, e, s) => const Center(
+                                    child: Icon(Icons.broken_image,
+                                        color: Colors.grey)),
                               )
                             : Image.file(
                                 File(p['media']),
                                 fit: BoxFit.contain,
-                                errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                                errorBuilder: (c, e, s) => const Center(
+                                    child: Icon(Icons.broken_image,
+                                        color: Colors.grey)),
                               ),
               ),
             ),
@@ -2259,21 +2323,24 @@ class _MainScreenState extends State<MainScreen> {
                     color: p['isLiked'] ? Colors.redAccent : Colors.grey),
                 onPressed: () => _toggleLike(p)),
             const SizedBox(width: 4),
-            Text('${p['likes']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text('${p['likes']}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(width: 20),
             IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.mode_comment_outlined, size: 20, color: Colors.grey),
+                icon: const Icon(Icons.mode_comment_outlined,
+                    size: 20, color: Colors.grey),
                 onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
                         builder: (_) => PostReplyPage(
-                          originalPost: p,
-                          currentUser: widget.currentUser,
-                        )))),
+                              originalPost: p,
+                              currentUser: widget.currentUser,
+                            )))),
             const SizedBox(width: 4),
-            Text('${p['replies']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text('${p['replies']}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ])
         ]))
       ]));
@@ -2284,13 +2351,18 @@ class _MainScreenState extends State<MainScreen> {
     int currentLikes = p['likes'] ?? 0;
 
     if (p['isLiked']) {
-      await db.delete('post_likes', where: 'post_id = ? AND user_id = ?', whereArgs: [p['id'], currentUserId]);
+      await db.delete('post_likes',
+          where: 'post_id = ? AND user_id = ?',
+          whereArgs: [p['id'], currentUserId]);
       currentLikes = (currentLikes > 0) ? currentLikes - 1 : 0;
-      await db.execute('UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
+      await db.execute(
+          'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
     } else {
-      await db.insert('post_likes', {'post_id': p['id'], 'user_id': currentUserId});
+      await db
+          .insert('post_likes', {'post_id': p['id'], 'user_id': currentUserId});
       currentLikes = currentLikes + 1;
-      await db.execute('UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
+      await db.execute(
+          'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
     }
     _loadData();
   }
@@ -2300,7 +2372,8 @@ class _MainScreenState extends State<MainScreen> {
 class CreatePostPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
   final VoidCallback onPosted;
-  const CreatePostPage({super.key, required this.currentUser, required this.onPosted});
+  const CreatePostPage(
+      {super.key, required this.currentUser, required this.onPosted});
   @override
   State<CreatePostPage> createState() => _CreatePostPageState();
 }
@@ -2329,9 +2402,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
     if (result != null) {
       setState(() => _selectedFileName = result.files.single.name);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已選取檔案：$_selectedFileName'))
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已選取檔案：$_selectedFileName')));
     }
   }
 
@@ -2340,7 +2412,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     if (_isSubmitting) return;
 
     setState(() => _isSubmitting = true);
-    
+
     try {
       final db = await DatabaseHelper.instance.database;
       final userId = widget.currentUser['id'];
@@ -2348,7 +2420,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
       if (_selectedImageX != null) {
         blobData = await _selectedImageX!.readAsBytes();
-        debugPrint("Image processed for storage. Size: ${blobData.length} bytes");
+        debugPrint(
+            "Image processed for storage. Size: ${blobData.length} bytes");
       }
 
       await db.insert('posts', {
@@ -2356,9 +2429,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         'content': _contentController.text,
         'type': blobData != null ? 'image' : 'text',
         'media_blob': blobData,
-        'attached_data': jsonEncode({
-          'file_name': _selectedFileName
-        }),
+        'attached_data': jsonEncode({'file_name': _selectedFileName}),
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -2368,9 +2439,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
       debugPrint("Error submitting post: $e");
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('發佈失敗: $e'))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('發佈失敗: $e')));
       }
     }
   }
@@ -2386,7 +2456,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 onPressed: _isSubmitting ? null : _submitPost,
                 child: Text(_isSubmitting ? '處理中...' : '發佈',
                     style: TextStyle(
-                        color: _isSubmitting ? Colors.grey : const Color(0xFF8D6E63), 
+                        color: _isSubmitting
+                            ? Colors.grey
+                            : const Color(0xFF8D6E63),
                         fontWeight: FontWeight.bold)))
           ],
         ),
@@ -2413,8 +2485,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: kIsWeb
-                              ? Image.network(_selectedImageX!.path, fit: BoxFit.contain)
-                              : Image.file(File(_selectedImageX!.path), fit: BoxFit.contain)),
+                              ? Image.network(_selectedImageX!.path,
+                                  fit: BoxFit.contain)
+                              : Image.file(File(_selectedImageX!.path),
+                                  fit: BoxFit.contain)),
                     ),
                     Positioned(
                         right: 5,
@@ -2424,25 +2498,29 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           child: CircleAvatar(
                             radius: 12,
                             backgroundColor: Colors.black.withOpacity(0.5),
-                            child: const Icon(Icons.close, color: Colors.white, size: 16),
+                            child: const Icon(Icons.close,
+                                color: Colors.white, size: 16),
                           ),
                         ))
                   ]),
-                if (_selectedFileName != null)...[
+                if (_selectedFileName != null) ...[
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8)
-                    ),
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8)),
                     child: Row(children: [
-                      const Icon(Icons.attach_file, size: 16, color: Colors.blue),
+                      const Icon(Icons.attach_file,
+                          size: 16, color: Colors.blue),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(_selectedFileName!, style: const TextStyle(fontSize: 12))),
+                      Expanded(
+                          child: Text(_selectedFileName!,
+                              style: const TextStyle(fontSize: 12))),
                       GestureDetector(
                         onTap: () => setState(() => _selectedFileName = null),
-                        child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                        child: const Icon(Icons.close,
+                            size: 16, color: Colors.grey),
                       )
                     ]),
                   )
@@ -2450,7 +2528,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 const Divider(),
                 Row(children: [
                   IconButton(
-                      icon: const Icon(Icons.image_outlined, color: Colors.grey),
+                      icon:
+                          const Icon(Icons.image_outlined, color: Colors.grey),
                       onPressed: _isSubmitting ? null : _pickImage),
                   IconButton(
                       icon: const Icon(Icons.attach_file, color: Colors.grey),
@@ -2458,7 +2537,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ])
               ])),
           if (_isSubmitting)
-            const Center(child: CircularProgressIndicator(color: Color(0xFF8D6E63)))
+            const Center(
+                child: CircularProgressIndicator(color: Color(0xFF8D6E63)))
         ]));
   }
 }
@@ -2467,7 +2547,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
 class PostReplyPage extends StatefulWidget {
   final Map<String, dynamic> originalPost;
   final Map<String, dynamic> currentUser;
-  const PostReplyPage({super.key, required this.originalPost, required this.currentUser});
+  const PostReplyPage(
+      {super.key, required this.originalPost, required this.currentUser});
   @override
   State<PostReplyPage> createState() => _PostReplyPageState();
 }
@@ -2493,8 +2574,10 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
     List<Map<String, dynamic>> loaded = [];
     for (var c in data) {
-      final user = await db.query('users', where: 'id = ?', whereArgs: [c['user_id']]);
-      String name = user.isNotEmpty ? user.first['display_name'] as String : '未知用戶';
+      final user =
+          await db.query('users', where: 'id = ?', whereArgs: [c['user_id']]);
+      String name =
+          user.isNotEmpty ? user.first['display_name'] as String : '未知用戶';
       loaded.add({
         ...c,
         'userId': c['user_id'],
@@ -2551,10 +2634,12 @@ class _PostReplyPageState extends State<PostReplyPage> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('取消', style: TextStyle(color: Colors.grey))),
+                    child:
+                        const Text('取消', style: TextStyle(color: Colors.grey))),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('刪除', style: TextStyle(color: Colors.red))),
+                    child:
+                        const Text('刪除', style: TextStyle(color: Colors.red))),
               ],
             ));
 
@@ -2579,16 +2664,19 @@ class _PostReplyPageState extends State<PostReplyPage> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('取消', style: TextStyle(color: Colors.grey))),
+                    child:
+                        const Text('取消', style: TextStyle(color: Colors.grey))),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, editController.text),
-                    child: const Text('儲存', style: TextStyle(color: Color(0xFF8D6E63)))),
+                    child: const Text('儲存',
+                        style: TextStyle(color: Color(0xFF8D6E63)))),
               ],
             ));
 
     if (newText != null && newText.isNotEmpty && newText != currentText) {
       final db = await DatabaseHelper.instance.database;
-      await db.update('comments', {'text': newText}, where: 'id = ?', whereArgs: [commentId]);
+      await db.update('comments', {'text': newText},
+          where: 'id = ?', whereArgs: [commentId]);
       _loadComments();
     }
   }
@@ -2604,7 +2692,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
     return Scaffold(
         backgroundColor: Colors.white,
-        appBar: AppBar(title: const Text('文章回覆', style: TextStyle(fontSize: 16))),
+        appBar:
+            AppBar(title: const Text('文章回覆', style: TextStyle(fontSize: 16))),
         body: SafeArea(
             child: Column(children: [
           Expanded(
@@ -2614,29 +2703,39 @@ class _PostReplyPageState extends State<PostReplyPage> {
             const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text('精彩回覆',
-                    style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold))),
+                    style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold))),
             if (_comments.isEmpty)
-              const Center(child: Padding(
+              const Center(
+                  child: Padding(
                 padding: EdgeInsets.all(40),
-                child: Text('還沒有人回覆，快來沙發吧！', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text('還沒有人回覆，快來沙發吧！',
+                    style: TextStyle(color: Colors.grey, fontSize: 13)),
               )),
-            ...rootComments[0]?.map((c) => _buildCommentTree(c, rootComments)) ?? []
+            ...rootComments[0]
+                    ?.map((c) => _buildCommentTree(c, rootComments)) ??
+                []
           ])),
-          
           if (_replyToId != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: Colors.grey.shade100,
               child: Row(children: [
-                Text('正在回覆 ${_replyToName}:', style: const TextStyle(fontSize: 12, color: Color(0xFF8D6E63))),
+                Text('正在回覆 ${_replyToName}:',
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF8D6E63))),
                 const Spacer(),
                 GestureDetector(
-                  onTap: () => setState(() { _replyToId = null; _replyToName = ''; }),
+                  onTap: () => setState(() {
+                    _replyToId = null;
+                    _replyToName = '';
+                  }),
                   child: const Icon(Icons.close, size: 14, color: Colors.grey),
                 )
               ]),
             ),
-
           Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -2647,10 +2746,12 @@ class _PostReplyPageState extends State<PostReplyPage> {
                     child: TextField(
                         controller: _commentController,
                         decoration: InputDecoration(
-                            hintText: _replyToId != null ? '寫下你的見解...' : '留個言吧...',
+                            hintText:
+                                _replyToId != null ? '寫下你的見解...' : '留個言吧...',
                             filled: true,
                             fillColor: const Color(0xFFF5F5F5),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 15, vertical: 10),
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(20),
                                 borderSide: BorderSide.none)))),
@@ -2658,7 +2759,9 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 TextButton(
                     onPressed: _submitComment,
                     child: const Text('發佈',
-                        style: TextStyle(color: Color(0xFF8D6E63), fontWeight: FontWeight.bold)))
+                        style: TextStyle(
+                            color: Color(0xFF8D6E63),
+                            fontWeight: FontWeight.bold)))
               ]))
         ])));
   }
@@ -2670,7 +2773,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
           child: Icon(Icons.person, color: Colors.white, size: 18)),
       const SizedBox(width: 12),
       Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(widget.originalPost['author'],
               style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -2679,70 +2783,75 @@ class _PostReplyPageState extends State<PostReplyPage> {
               style: const TextStyle(color: Colors.grey, fontSize: 12))
         ]),
         const SizedBox(height: 8),
-        Text(widget.originalPost['content'], style: const TextStyle(fontSize: 15)),
+        Text(widget.originalPost['content'],
+            style: const TextStyle(fontSize: 15)),
         const SizedBox(height: 12)
       ]))
     ]);
   }
 
-  Widget _buildCommentTree(Map<String, dynamic> comment, Map<int, List<Map<String, dynamic>>> group) {
+  Widget _buildCommentTree(Map<String, dynamic> comment,
+      Map<int, List<Map<String, dynamic>>> group) {
     List<Map<String, dynamic>> sub = group[comment['id']] ?? [];
     return Column(children: [
       _buildSingleComment(comment),
       ...sub.map((sc) => Padding(
-        padding: const EdgeInsets.only(left: 40),
-        child: _buildSingleComment(sc, isSub: true),
-      ))
+            padding: const EdgeInsets.only(left: 40),
+            child: _buildSingleComment(sc, isSub: true),
+          ))
     ]);
   }
 
   Widget _buildSingleComment(Map<String, dynamic> c, {bool isSub = false}) {
     return Container(
         margin: const EdgeInsets.only(bottom: 12, top: 4),
-        child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                  radius: isSub ? 12 : 15,
-                  backgroundColor: Colors.grey.shade200,
-                  child: Text(c['author'][0], style: TextStyle(fontSize: isSub ? 10 : 12))),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Row(children: [
-                      Text(c['author'],
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          CircleAvatar(
+              radius: isSub ? 12 : 15,
+              backgroundColor: Colors.grey.shade200,
+              child: Text(c['author'][0],
+                  style: TextStyle(fontSize: isSub ? 10 : 12))),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Row(children: [
+                  Text(c['author'],
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: isSub ? 12 : 13)),
+                  const SizedBox(width: 8),
+                  Text(c['time'],
+                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  const Spacer(),
+                  if (c['userId'] == widget.currentUser['id']) ...[
+                    GestureDetector(
+                      onTap: () => _editComment(c['id'], c['text']),
+                      child: const Icon(Icons.edit_outlined,
+                          size: 14, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () => _deleteComment(c['id']),
+                      child: const Icon(Icons.delete_outline,
+                          size: 14, color: Colors.grey),
+                    ),
+                  ] else if (!isSub)
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _replyToId = c['id'];
+                        _replyToName = c['author'];
+                      }),
+                      child: const Text('回覆',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: isSub ? 12 : 13)),
-                      const SizedBox(width: 8),
-                      Text(c['time'],
-                          style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                      const Spacer(),
-                      if (c['userId'] == widget.currentUser['id']) ...[
-                        GestureDetector(
-                          onTap: () => _editComment(c['id'], c['text']),
-                          child: const Icon(Icons.edit_outlined, size: 14, color: Colors.grey),
-                        ),
-                        const SizedBox(width: 10),
-                        GestureDetector(
-                          onTap: () => _deleteComment(c['id']),
-                          child: const Icon(Icons.delete_outline, size: 14, color: Colors.grey),
-                        ),
-                      ] else if (!isSub)
-                        GestureDetector(
-                          onTap: () => setState(() {
-                            _replyToId = c['id'];
-                            _replyToName = c['author'];
-                          }),
-                          child: const Text('回覆', style: TextStyle(fontSize: 11, color: Color(0xFF8D6E63))),
-                        )
-                    ]),
-                    const SizedBox(height: 4),
-                    Text(c['text'], style: TextStyle(fontSize: isSub ? 12 : 13)),
-                  ]))
-            ]));
+                              fontSize: 11, color: Color(0xFF8D6E63))),
+                    )
+                ]),
+                const SizedBox(height: 4),
+                Text(c['text'], style: TextStyle(fontSize: isSub ? 12 : 13)),
+              ]))
+        ]));
   }
 }
 
