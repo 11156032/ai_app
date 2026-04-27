@@ -31,14 +31,14 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   Map<String, dynamic>? _currentUser;
 
-  void _login(Map<String, dynamic> user) =>
-      setState(() => _currentUser = user);
+  void _login(Map<String, dynamic> user) => setState(() => _currentUser = user);
 
   Future<void> _logout() async {
     if (_currentUser != null && _currentUser!['id'] == 'u4') {
       try {
         final db = await DatabaseHelper.instance.database;
-        await db.delete('calendar_events', where: 'user_id = ?', whereArgs: ['u4']);
+        await db
+            .delete('calendar_events', where: 'user_id = ?', whereArgs: ['u4']);
         await db.delete('todos', where: 'user_id = ?', whereArgs: ['u4']);
         debugPrint('訪客資料已清除');
       } catch (e) {
