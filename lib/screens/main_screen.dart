@@ -8,6 +8,52 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../database/database_helper.dart';
 
+// 預設插圖頭像（emoji 角色 + 背景色）
+const List<Map<String, dynamic>> kPresetAvatars = [
+  {'emoji': '😊', 'color': Color(0xFFFFD54F), 'label': '開心'},
+  {'emoji': '🐱', 'color': Color(0xFFFFAB91), 'label': '小貓'},
+  {'emoji': '🐶', 'color': Color(0xFFA5D6A7), 'label': '小狗'},
+  {'emoji': '🦊', 'color': Color(0xFFFFCC80), 'label': '狐狸'},
+  {'emoji': '🐼', 'color': Color(0xFF90A4AE), 'label': '熊貓'},
+  {'emoji': '🦁', 'color': Color(0xFFFFF176), 'label': '獅子'},
+  {'emoji': '🐸', 'color': Color(0xFF80CBC4), 'label': '青蛙'},
+  {'emoji': '🐧', 'color': Color(0xFF90CAF9), 'label': '企鹅'},
+];
+
+/// 根據名稱字串推算頭像顏色索引（hash 值 mod 數量）
+int _avatarColorIdx(String name) => name.isEmpty
+    ? 0
+    : name.codeUnits.fold(0, (a, b) => a + b) % kPresetAvatars.length;
+
+/// 通用頭像 Widget：優先顯示自訂圖片，再顯示 emoji 預設，最後顯示預設人頭圖示
+Widget _buildAvatar({
+  Uint8List? blob,
+  int colorIdx = 0,
+  String initial = '',
+  double radius = 18,
+  bool usePreset = false,
+}) {
+  if (blob != null) {
+    return CircleAvatar(radius: radius, backgroundImage: MemoryImage(blob));
+  }
+  if (usePreset) {
+    final preset = kPresetAvatars[colorIdx % kPresetAvatars.length];
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: preset['color'] as Color,
+      child: Text(preset['emoji'] as String,
+          style: TextStyle(fontSize: radius * 0.95)),
+    );
+  }
+  // 未選取頭像：顯示預設灰色人頭圖示
+  return CircleAvatar(
+    radius: radius,
+    backgroundColor: const Color(0xFFBDBDBD),
+    child: Icon(Icons.person, color: Colors.white, size: radius),
+  );
+}
+// ─────────────────────────────────────────────────────────────────
+
 class MainScreen extends StatefulWidget {
   final Map<String, dynamic> currentUser;
   final Future<void> Function() onLogout;
@@ -30,6 +76,10 @@ class _MainScreenState extends State<MainScreen> {
   late PageController _timelinePageController;
 
   bool _isLoading = true;
+  Uint8List? _userAvatarBlob;
+  int _userAvatarColor = 0;
+  bool _userAvatarSelected = false; // 是否已明確選取頭像
+  String _socialFilter = '全部'; // 社群貼文分類筛選狀態
 
   Map<String, List<Map<String, dynamic>>> allSchedules = {};
   List<Map<String, dynamic>> allTodos = [];
@@ -110,8 +160,6 @@ class _MainScreenState extends State<MainScreen> {
       await db.delete('posts', where: 'user_id = ?', whereArgs: ['u1']);
 
       final currentUserId = widget.currentUser['id'];
-      debugPrint("--- Social Loading Diagnostic ---");
-      debugPrint("Current User ID: $currentUserId");
 
       // Fetch schedules
       final schedulesList = await db.query('calendar_events',
@@ -155,42 +203,51 @@ class _MainScreenState extends State<MainScreen> {
               })
           .toList();
 
-      // Fetch posts
+      // ── 載入貼文（含作者頭像資料與貼文分類）──────────────────────
       final postsdb = await db.query('posts', orderBy: 'created_at DESC');
       List<Map<String, dynamic>> pList = [];
       for (var p in postsdb) {
         final u =
             await db.query('users', where: 'id = ?', whereArgs: [p['user_id']]);
-        String author =
+        final String author =
             u.isNotEmpty ? u.first['display_name'] as String : '未知用戶';
+        // 作者頭像（emoji 預設索引 或 自訂圖片）
+        final int authorAvatarColor =
+            u.isNotEmpty ? ((u.first['avatar_color'] as int?) ?? 0) : 0;
+        final Uint8List? authorAvatarBlob =
+            u.isNotEmpty ? u.first['avatar_blob'] as Uint8List? : null;
+        // avatar_selected=1 表示使用者已明確選取頭像
+        final int authorAvatarSelected =
+            u.isNotEmpty ? ((u.first['avatar_selected'] as int?) ?? 0) : 0;
 
         final likesCount = await db.query('post_likes',
             where: 'post_id = ? AND user_id = ?',
             whereArgs: [p['id'], currentUserId]);
         final resCount = await db.rawQuery(
             'SELECT COUNT(*) as c FROM comments WHERE post_id = ?', [p['id']]);
-        int replies = (resCount.first['c'] as int?) ?? 0;
+        final int replies = (resCount.first['c'] as int?) ?? 0;
 
-        Map<String, dynamic> attached =
+        final Map<String, dynamic> attached =
             jsonDecode((p['attached_data'] as String?) ?? '{}');
-        Uint8List? blobData = p['media_blob'] as Uint8List?;
-        if (blobData != null) {
-          debugPrint(
-              "Post ${p['id']} has BLOB data. Size: ${blobData.length} bytes");
-        } else if (attached['media_url'] != null) {
-          debugPrint("Post ${p['id']} has URL/Base64 data.");
-        }
+        final Uint8List? blobData = p['media_blob'] as Uint8List?;
 
         pList.add({
           'id': p['id'],
           'userId': p['user_id'],
           'author': author,
+          'authorAvatarColor': authorAvatarColor,
+          'authorAvatarBlob': authorAvatarBlob,
+          'authorAvatarSelected': authorAvatarSelected,
           'time': _formatRelativeTime(p['created_at']),
           'content': p['content'],
+          'postType': p['type'] ?? 'text',
+          'isEdited': (p['is_edited'] as int?) ?? 0,
           'isLiked': likesCount.isNotEmpty,
           'likes': p['likes'] ?? 0,
           'replies': replies,
           'media': attached['media_url'],
+          'media_blob': blobData,
+          'fileName': attached['file_name'],
         });
       }
 
@@ -242,12 +299,27 @@ class _MainScreenState extends State<MainScreen> {
         }
       }
 
+      // 載入當前使用者頭像
+      final userRows =
+          await db.query('users', where: 'id = ?', whereArgs: [currentUserId]);
+      Uint8List? userAvatar;
+      int userAvatarColor = 0;
+      int userAvatarSelected = 0;
+      if (userRows.isNotEmpty) {
+        userAvatar = userRows.first['avatar_blob'] as Uint8List?;
+        userAvatarColor = (userRows.first['avatar_color'] as int?) ?? 0;
+        userAvatarSelected = (userRows.first['avatar_selected'] as int?) ?? 0;
+      }
+
       setState(() {
         allSchedules = schedulesMap;
         allTodos = todosList;
         socialPosts = pList;
         questionBank = qList;
         _isLoading = false;
+        _userAvatarBlob = userAvatar;
+        _userAvatarColor = userAvatarColor;
+        _userAvatarSelected = userAvatarSelected == 1;
       });
     } catch (e) {
       print('載入資料庫發生錯誤: $e');
@@ -2162,37 +2234,335 @@ class _MainScreenState extends State<MainScreen> {
                 ]));
   }
 
-  // --- 3. 社群 & 檔案 (Threads 風格) ---
-  Widget _buildSocialTab() => Column(children: [
-        Padding(
-            padding: const EdgeInsets.all(16),
-            child: GestureDetector(
-                onTap: _showCreatePostScreen,
-                child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+  // ── 貼文編輯（僅貼文作者可操作）───────────────────────────────
+  void _editPost(Map<String, dynamic> p) async {
+    final controller = TextEditingController(text: p['content']);
+    final result = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('編輯貼文', style: TextStyle(fontSize: 16)),
+              content: TextField(
+                controller: controller,
+                maxLines: null,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: '修改貼文內容...'),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child:
+                        const Text('取消', style: TextStyle(color: Colors.grey))),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, controller.text),
+                    child: const Text('儲存',
+                        style: TextStyle(color: Color(0xFF8D6E63)))),
+              ],
+            ));
+    if (result != null &&
+        result.isNotEmpty &&
+        result != p['content'] &&
+        mounted) {
+      final db = await DatabaseHelper.instance.database;
+      await db.update('posts', {'content': result, 'is_edited': 1},
+          where: 'id = ?', whereArgs: [p['id']]);
+      await _loadData();
+    }
+  }
+
+  void _deletePost(Map<String, dynamic> p) async {
+    final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('刪除貼文', style: TextStyle(fontSize: 16)),
+              content: const Text('確定要刪除這篇貼文嗎？刪除後無法復原。'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child:
+                        const Text('取消', style: TextStyle(color: Colors.grey))),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child:
+                        const Text('刪除', style: TextStyle(color: Colors.red))),
+              ],
+            ));
+    if (confirm == true && mounted) {
+      final db = await DatabaseHelper.instance.database;
+      await db.delete('posts', where: 'id = ?', whereArgs: [p['id']]);
+      await _loadData();
+    }
+  }
+  // ───────────────────────────────────────────────────────────────
+
+  // ── 頭像選擇器 ─────────────────────────────────────────────────
+  void _showAvatarPicker() {
+    // 訪客使用者需先登入才能更改頭像
+    if ((widget.currentUser['username'] ?? '') == '訪客') {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('需要登入',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: const Text('請先登入帳號，才能設定個人頭像。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child:
+                  const Text('了解', style: TextStyle(color: Color(0xFF8D6E63))),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx2, setSheet) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(color: Colors.grey.shade200)),
-                    child: Row(children: [
-                      const CircleAvatar(
-                          radius: 15,
-                          backgroundColor: Color(0xFFD7CCC8),
-                          child: Icon(Icons.person,
-                              color: Colors.white, size: 18)),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                          child: Text('分享學習心得...',
-                              style: TextStyle(color: Colors.grey))),
-                      const Icon(Icons.image_outlined, color: Colors.grey),
-                    ])))),
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+                const Text('選擇頭像插圖',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 6),
+                const Text('選擇一個預設角色作為你的專屬頭像',
+                    style: TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 16),
+                // 4x2 emoji grid
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: kPresetAvatars.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemBuilder: (_, i) {
+                    final preset = kPresetAvatars[i];
+                    final isSelected = _userAvatarColor == i &&
+                        _userAvatarBlob == null &&
+                        _userAvatarSelected;
+                    return GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        await _saveAvatar(colorIdx: i, blob: null);
+                      },
+                      child: Column(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: isSelected
+                                  ? Border.all(
+                                      color: const Color(0xFF8D6E63), width: 3)
+                                  : null,
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                          color: const Color(0xFF8D6E63)
+                                              .withOpacity(0.35),
+                                          blurRadius: 8,
+                                          spreadRadius: 1)
+                                    ]
+                                  : [],
+                            ),
+                            child: CircleAvatar(
+                              radius: 32,
+                              backgroundColor: preset['color'] as Color,
+                              child: Text(preset['emoji'] as String,
+                                  style: const TextStyle(fontSize: 28)),
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(preset['label'] as String,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: isSelected
+                                      ? const Color(0xFF8D6E63)
+                                      : Colors.grey.shade600,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFEDE7F6),
+                      child: Icon(Icons.photo_library_outlined,
+                          color: Colors.deepPurple)),
+                  title: const Text('上傳我的圖片'),
+                  subtitle: const Text('從本機選取圖片（JPG、PNG）'),
+                  trailing: const Icon(Icons.arrow_forward_ios,
+                      size: 14, color: Colors.grey),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _pickAvatarFromLocal();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Future<void> _pickAvatarFromLocal() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (result != null && result.files.single.bytes != null) {
+        await _saveAvatar(
+            blob: result.files.single.bytes!, colorIdx: _userAvatarColor);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('選取圖片失敗，請再試一次')));
+      }
+    }
+  }
+
+  Future<void> _saveAvatar({required int colorIdx, Uint8List? blob}) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.update(
+        'users',
+        {'avatar_color': colorIdx, 'avatar_blob': blob, 'avatar_selected': 1},
+        where: 'id = ?',
+        whereArgs: [widget.currentUser['id']],
+      );
+      if (mounted) {
+        setState(() {
+          _userAvatarColor = colorIdx;
+          _userAvatarBlob = blob;
+          _userAvatarSelected = true;
+        });
+        // 重新載入資料，讓社群貼文的頭像也同步更新
+        await _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('✅ 頭像已更新！'), duration: Duration(seconds: 2)));
+      }
+    } catch (e) {
+      debugPrint('儲存頭像失敗: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('頭像儲存失敗，請再試一次')));
+      }
+    }
+  }
+  // ───────────────────────────────────────────────────────────────
+
+  // ── 3. 社群貼文頁（含分類筛選 + 浮動新增鈕）───────────────────
+  // 筛選選項與對應的 DB type 欄位元
+  static const Map<String, String?> _filterMap = {
+    '全部': null,
+    '📝 學習筆記': 'note',
+    '💭 心情文章': 'mood',
+    '📄 分享資料': 'doc',
+  };
+
+  Widget _buildSocialTab() {
+    // 根據當前筛選條件過濾貼文
+    final typeFilter = _filterMap[_socialFilter];
+    final filtered = typeFilter == null
+        ? socialPosts
+        : socialPosts.where((p) => p['postType'] == typeFilter).toList();
+
+    return Stack(children: [
+      Column(children: [
+        // ― 分類筛選標籤列
+        SizedBox(
+          height: 50,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            children: _filterMap.keys.map((label) {
+              final isSelected = _socialFilter == label;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _socialFilter = label),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF8D6E63)
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(label,
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.grey.shade700,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal)),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        // ― 貼文列表
         Expanded(
-            child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: socialPosts.length,
-                itemBuilder: (ctx, i) => _buildPostItem(socialPosts[i])))
-      ]);
+          child: filtered.isEmpty
+              ? Center(
+                  child: Text(
+                  _socialFilter == '全部' ? '還沒有任何貼文，快來發表第一篇！' : '此分類目前沒有貼文',
+                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                ))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                  itemCount: filtered.length,
+                  itemBuilder: (ctx, i) => _buildPostItem(filtered[i])),
+        ),
+      ]),
+      // ― 浮動新增貼文鈕
+      Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+              heroTag: 'add_post',
+              backgroundColor: const Color(0xFF8D6E63),
+              onPressed: _showCreatePostScreen,
+              child: const Icon(Icons.add, color: Colors.white)))
+    ]);
+  }
 
   void _showCreatePostScreen() {
     Navigator.push(
@@ -2210,10 +2580,27 @@ class _MainScreenState extends State<MainScreen> {
         Padding(
             padding: const EdgeInsets.all(25),
             child: Row(children: [
-              const CircleAvatar(
-                  radius: 35,
-                  backgroundColor: Color(0xFFD7CCC8),
-                  child: Icon(Icons.person, color: Colors.white)),
+              Stack(children: [
+                _buildAvatar(
+                    blob: _userAvatarBlob,
+                    colorIdx: _userAvatarColor,
+                    initial: (widget.currentUser['display_name'] ?? '?')
+                        .substring(0, 1),
+                    radius: 35,
+                    usePreset: _userAvatarSelected && _userAvatarBlob == null),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: GestureDetector(
+                    onTap: _showAvatarPicker,
+                    child: const CircleAvatar(
+                      radius: 11,
+                      backgroundColor: Color(0xFF8D6E63),
+                      child: Icon(Icons.edit, color: Colors.white, size: 13),
+                    ),
+                  ),
+                ),
+              ]),
               const SizedBox(width: 20),
               Text(widget.currentUser['display_name'] ?? '使用者',
                   style: const TextStyle(
@@ -2225,20 +2612,49 @@ class _MainScreenState extends State<MainScreen> {
             tabs: [Tab(text: '發佈'), Tab(text: '收藏')]),
         Expanded(
             child: TabBarView(children: [
-          ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: 1,
-              itemBuilder: (ctx, i) => _buildPostItem(socialPosts[0])),
+          // 我的貼文
+          Builder(builder: (ctx) {
+            if ((widget.currentUser['username'] ?? '') == '訪客') {
+              return const Center(
+                  child: Text('訪客帳號不保留個人發佈紀錄',
+                      style: TextStyle(color: Colors.grey)));
+            }
+            final myPosts = socialPosts
+                .where((p) => p['userId'] == widget.currentUser['id'])
+                .toList();
+            if (myPosts.isEmpty) {
+              return const Center(
+                  child:
+                      Text('還沒有發佈任何貼文', style: TextStyle(color: Colors.grey)));
+            }
+            return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: myPosts.length,
+                itemBuilder: (ctx, i) => _buildPostItem(myPosts[i]));
+          }),
           const Center(child: Text('尚無收藏'))
         ]))
       ]));
 
+  // 貼文分類對應標籤
+  static const Map<String, String> _postTypeLabel = {
+    'note': '📝 學習筆記',
+    'mood': '💭 心情文章',
+    'doc': '📄 分享資料',
+  };
+
   Widget _buildPostItem(Map<String, dynamic> p) => Container(
       margin: const EdgeInsets.only(bottom: 20),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const CircleAvatar(
-            backgroundColor: Color(0xFFD7CCC8),
-            child: Icon(Icons.person, color: Colors.white, size: 18)),
+        // 使用作者儲存的頭像資料
+        _buildAvatar(
+            blob: p['authorAvatarBlob'] as Uint8List?,
+            colorIdx: (p['authorAvatarColor'] as int?) ??
+                _avatarColorIdx(p['author'] ?? ''),
+            initial: (p['author'] ?? '?').substring(0, 1),
+            radius: 18,
+            usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                p['authorAvatarBlob'] == null),
         const SizedBox(width: 12),
         Expanded(
             child:
@@ -2248,16 +2664,66 @@ class _MainScreenState extends State<MainScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(width: 10),
             Text(p['time'],
-                style: const TextStyle(color: Colors.grey, fontSize: 12))
+                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            if ((p['isEdited'] as int? ?? 0) == 1) ...[
+              const SizedBox(width: 5),
+              const Text('已編輯',
+                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+            ],
+            const Spacer(),
+            // 貼文作者才顯示編輯／刪除選區
+            if (p['userId'] == widget.currentUser['id'] &&
+                ((widget.currentUser['username'] ?? '') != '訪客' ||
+                    ((widget.currentUser['session_post_ids'] as Set<int>?)
+                            ?.contains(p['id']) ??
+                        false)))
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                iconSize: 18,
+                icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                onSelected: (val) {
+                  if (val == 'edit') _editPost(p);
+                  if (val == 'delete') _deletePost(p);
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(children: [
+                        Icon(Icons.edit_outlined, size: 16, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Text('編輯貼文'),
+                      ])),
+                  const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(children: [
+                        Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('刪除貼文', style: TextStyle(color: Colors.red)),
+                      ])),
+                ],
+              ),
           ]),
+          // 貼文分類標籤（若有）
+          if (_postTypeLabel.containsKey(p['postType'])) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF5F0EE),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Text(_postTypeLabel[p['postType']]!,
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF8D6E63))),
+            ),
+          ],
           const SizedBox(height: 5),
           Text(p['content']),
           if ((p['media_blob'] != null) ||
               (p['media'] != null && p['media'].toString().isNotEmpty)) ...[
             const SizedBox(height: 10),
             Container(
-              height: 250,
-              width: double.infinity,
+              height: 200,
+              width: 200,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 color: Colors.grey.shade50,
@@ -2268,7 +2734,7 @@ class _MainScreenState extends State<MainScreen> {
                 child: (p['media_blob'] != null)
                     ? Image.memory(
                         p['media_blob'],
-                        fit: BoxFit.contain,
+                        fit: BoxFit.cover,
                         errorBuilder: (c, e, s) => const Center(
                             child:
                                 Icon(Icons.broken_image, color: Colors.grey)),
@@ -2284,7 +2750,7 @@ class _MainScreenState extends State<MainScreen> {
                                   .replaceAll('\r', '');
                               return Image.memory(
                                 base64Decode(base64Str),
-                                fit: BoxFit.contain,
+                                fit: BoxFit.cover,
                                 errorBuilder: (c, e, s) => const Center(
                                     child: Icon(Icons.broken_image,
                                         color: Colors.grey)),
@@ -2298,20 +2764,36 @@ class _MainScreenState extends State<MainScreen> {
                         : (p['media'].toString().startsWith('http') || kIsWeb)
                             ? Image.network(
                                 p['media'],
-                                fit: BoxFit.contain,
+                                fit: BoxFit.cover,
                                 errorBuilder: (c, e, s) => const Center(
                                     child: Icon(Icons.broken_image,
                                         color: Colors.grey)),
                               )
                             : Image.file(
                                 File(p['media']),
-                                fit: BoxFit.contain,
+                                fit: BoxFit.cover,
                                 errorBuilder: (c, e, s) => const Center(
                                     child: Icon(Icons.broken_image,
                                         color: Colors.grey)),
                               ),
               ),
             ),
+          ],
+          if (p['fileName'] != null && p['fileName'].toString().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8)),
+              child: Row(children: [
+                const Icon(Icons.attach_file, size: 16, color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(p['fileName'],
+                        style: const TextStyle(fontSize: 12))),
+              ]),
+            )
           ],
           Row(children: [
             IconButton(
@@ -2337,7 +2819,7 @@ class _MainScreenState extends State<MainScreen> {
                         builder: (_) => PostReplyPage(
                               originalPost: p,
                               currentUser: widget.currentUser,
-                            )))),
+                            ))).then((_) => _loadData())),
             const SizedBox(width: 4),
             Text('${p['replies']}',
                 style: const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -2382,28 +2864,102 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _contentController = TextEditingController();
   XFile? _selectedImageX;
   String? _selectedFileName;
+  String? _postType;
   bool _isSubmitting = false;
 
   void _pickImage() async {
     final ImagePicker picker = ImagePicker();
-    // Limit size to 1024px and use 85% quality to ensure DB stability and upload success
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
       maxWidth: 1024,
       maxHeight: 1024,
       imageQuality: 85,
     );
-    if (image != null) {
+    if (image != null && mounted) {
       setState(() => _selectedImageX = image);
     }
   }
 
-  void _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles();
-    if (result != null) {
-      setState(() => _selectedFileName = result.files.single.name);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('已選取檔案：$_selectedFileName')));
+  void _showFileTypeSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                child: Text('選擇附件類型',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE8F5E9),
+                    child: Icon(Icons.sticky_note_2_outlined,
+                        color: Colors.green)),
+                title: const Text('學習筆記 (.txt)'),
+                subtitle: const Text('上傳純文字筆記'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFileWithType(['txt']);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE3F2FD),
+                    child:
+                        Icon(Icons.description_outlined, color: Colors.blue)),
+                title: const Text('Word 文件 (.doc / .docx)'),
+                subtitle: const Text('上傳 Word 格式報告'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFileWithType(['doc', 'docx']);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFFFEBEE),
+                    child:
+                        Icon(Icons.picture_as_pdf_outlined, color: Colors.red)),
+                title: const Text('PDF 文件 (.pdf)'),
+                subtitle: const Text('上傳 PDF 格式檔案'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFileWithType(['pdf']);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _pickFileWithType(List<String> extensions) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: extensions,
+      );
+      if (result != null && mounted) {
+        setState(() => _selectedFileName = result.files.single.name);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已附加檔案：$_selectedFileName')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('選取檔案失敗，請再試一次')));
+      }
     }
   }
 
@@ -2417,21 +2973,22 @@ class _CreatePostPageState extends State<CreatePostPage> {
       final db = await DatabaseHelper.instance.database;
       final userId = widget.currentUser['id'];
       Uint8List? blobData;
-
       if (_selectedImageX != null) {
         blobData = await _selectedImageX!.readAsBytes();
-        debugPrint(
-            "Image processed for storage. Size: ${blobData.length} bytes");
       }
 
-      await db.insert('posts', {
+      final newId = await db.insert('posts', {
         'user_id': userId,
         'content': _contentController.text,
-        'type': blobData != null ? 'image' : 'text',
+        'type': _postType ?? (blobData != null ? 'image' : 'text'),
         'media_blob': blobData,
         'attached_data': jsonEncode({'file_name': _selectedFileName}),
         'created_at': DateTime.now().toIso8601String(),
       });
+
+      if ((widget.currentUser['username'] ?? '') == '訪客') {
+        (widget.currentUser['session_post_ids'] as Set<int>?)?.add(newId);
+      }
 
       widget.onPosted();
       if (mounted) Navigator.pop(context);
@@ -2450,96 +3007,163 @@ class _CreatePostPageState extends State<CreatePostPage> {
     return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          title: const Text('新增貼文', style: TextStyle(fontSize: 16)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black87),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text('新增貼文',
+              style: TextStyle(fontSize: 16, color: Colors.black87)),
           actions: [
-            TextButton(
-                onPressed: _isSubmitting ? null : _submitPost,
-                child: Text(_isSubmitting ? '處理中...' : '發佈',
-                    style: TextStyle(
-                        color: _isSubmitting
-                            ? Colors.grey
-                            : const Color(0xFF8D6E63),
-                        fontWeight: FontWeight.bold)))
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton(
+                  onPressed: _isSubmitting ? null : _submitPost,
+                  style: TextButton.styleFrom(
+                      backgroundColor: const Color(0xFF8D6E63),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20))),
+                  child: Text(_isSubmitting ? '處理中...' : '發佈',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14))),
+            )
           ],
         ),
         body: Stack(children: [
           Padding(
               padding: const EdgeInsets.all(20),
-              child: Column(children: [
-                Expanded(
-                    child: TextField(
-                  controller: _contentController,
-                  maxLines: null,
-                  decoration: const InputDecoration(
-                      hintText: '想分享什麼呢？', border: InputBorder.none),
-                )),
-                if (_selectedImageX != null)
-                  Stack(children: [
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 250),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey.shade50,
-                      ),
-                      child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: kIsWeb
-                              ? Image.network(_selectedImageX!.path,
-                                  fit: BoxFit.contain)
-                              : Image.file(File(_selectedImageX!.path),
-                                  fit: BoxFit.contain)),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 貼文類型標籤列
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _buildTypeChip('📝  學習筆記', 'note'),
+                        const SizedBox(width: 8),
+                        _buildTypeChip('💭  心情文章', 'mood'),
+                        const SizedBox(width: 8),
+                        _buildTypeChip('📄  分享資料', 'doc'),
+                      ]),
                     ),
-                    Positioned(
-                        right: 5,
-                        top: 5,
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selectedImageX = null),
-                          child: CircleAvatar(
-                            radius: 12,
-                            backgroundColor: Colors.black.withOpacity(0.5),
-                            child: const Icon(Icons.close,
-                                color: Colors.white, size: 16),
+                    const SizedBox(height: 16),
+                    Expanded(
+                        child: TextField(
+                      controller: _contentController,
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      decoration: InputDecoration(
+                          hintText: _postType == 'note'
+                              ? '寫下你的學習筆記...'
+                              : _postType == 'mood'
+                                  ? '今天的心情是...'
+                                  : '想分享什麼呢？',
+                          border: InputBorder.none),
+                    )),
+                    // 已選圖片預覽
+                    if (_selectedImageX != null)
+                      Stack(children: [
+                        Container(
+                          constraints: const BoxConstraints(
+                              maxHeight: 200, maxWidth: 200),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.grey.shade50,
                           ),
-                        ))
-                  ]),
-                if (_selectedFileName != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8)),
-                    child: Row(children: [
-                      const Icon(Icons.attach_file,
-                          size: 16, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(_selectedFileName!,
-                              style: const TextStyle(fontSize: 12))),
-                      GestureDetector(
-                        onTap: () => setState(() => _selectedFileName = null),
-                        child: const Icon(Icons.close,
-                            size: 16, color: Colors.grey),
+                          child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(File(_selectedImageX!.path),
+                                  fit: BoxFit.cover)),
+                        ),
+                        Positioned(
+                            right: 5,
+                            top: 5,
+                            child: GestureDetector(
+                              onTap: () => setState(() {
+                                _selectedImageX = null;
+                              }),
+                              child: CircleAvatar(
+                                radius: 12,
+                                backgroundColor: Colors.black.withOpacity(0.5),
+                                child: const Icon(Icons.close,
+                                    color: Colors.white, size: 16),
+                              ),
+                            ))
+                      ]),
+                    // 已選檔案顯示
+                    if (_selectedFileName != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Row(children: [
+                          const Icon(Icons.attach_file,
+                              size: 16, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: Text(_selectedFileName!,
+                                  style: const TextStyle(fontSize: 12))),
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _selectedFileName = null),
+                            child: const Icon(Icons.close,
+                                size: 16, color: Colors.grey),
+                          )
+                        ]),
                       )
-                    ]),
-                  )
-                ],
-                const Divider(),
-                Row(children: [
-                  IconButton(
-                      icon:
-                          const Icon(Icons.image_outlined, color: Colors.grey),
-                      onPressed: _isSubmitting ? null : _pickImage),
-                  IconButton(
-                      icon: const Icon(Icons.attach_file, color: Colors.grey),
-                      onPressed: _isSubmitting ? null : _pickFile),
-                ])
-              ])),
+                    ],
+                    const Divider(height: 24),
+                    // 底部工具列
+                    Row(children: [
+                      const Text('附加：',
+                          style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: '附加圖片',
+                        child: IconButton(
+                            icon: const Icon(Icons.image_outlined,
+                                color: Color(0xFF8D6E63)),
+                            onPressed: _isSubmitting ? null : _pickImage),
+                      ),
+                      Tooltip(
+                        message: '附加文件（筆記/Word/PDF）',
+                        child: IconButton(
+                            icon: const Icon(Icons.attach_file,
+                                color: Color(0xFF8D6E63)),
+                            onPressed:
+                                _isSubmitting ? null : _showFileTypeSheet),
+                      ),
+                    ])
+                  ])),
           if (_isSubmitting)
             const Center(
                 child: CircularProgressIndicator(color: Color(0xFF8D6E63)))
         ]));
+  }
+
+  Widget _buildTypeChip(String label, String type) {
+    final bool isSelected = _postType == type;
+    return GestureDetector(
+      onTap: () => setState(() => _postType = isSelected ? null : type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(20)),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 13,
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+      ),
+    );
   }
 }
 
@@ -2559,6 +3183,9 @@ class _PostReplyPageState extends State<PostReplyPage> {
   int? _replyToId;
   String _replyToName = '';
 
+  /// 留言排序方式: '所有留言'(ASC)、'由新到舊'(DESC)、'最相關'(依回覆數)
+  String _commentSort = '所有留言';
+
   @override
   void initState() {
     super.initState();
@@ -2576,12 +3203,23 @@ class _PostReplyPageState extends State<PostReplyPage> {
     for (var c in data) {
       final user =
           await db.query('users', where: 'id = ?', whereArgs: [c['user_id']]);
-      String name =
+      final String name =
           user.isNotEmpty ? user.first['display_name'] as String : '未知用戶';
+      // 載入留言者頭像資料
+      final int avatarColor =
+          user.isNotEmpty ? ((user.first['avatar_color'] as int?) ?? 0) : 0;
+      final Uint8List? avatarBlob =
+          user.isNotEmpty ? user.first['avatar_blob'] as Uint8List? : null;
+      final int avatarSelected =
+          user.isNotEmpty ? ((user.first['avatar_selected'] as int?) ?? 0) : 0;
+
       loaded.add({
         ...c,
         'userId': c['user_id'],
         'author': name,
+        'authorAvatarColor': avatarColor,
+        'authorAvatarBlob': avatarBlob,
+        'authorAvatarSelected': avatarSelected,
         'time': _formatRelativeTime(c['created_at'])
       });
     }
@@ -2609,13 +3247,17 @@ class _PostReplyPageState extends State<PostReplyPage> {
     final db = await DatabaseHelper.instance.database;
     final userId = widget.currentUser['id'];
 
-    await db.insert('comments', {
+    final newId = await db.insert('comments', {
       'post_id': widget.originalPost['id'],
       'user_id': userId,
       'text': _commentController.text,
       'parent_id': _replyToId ?? 0,
       'created_at': DateTime.now().toIso8601String(),
     });
+
+    if ((widget.currentUser['username'] ?? '') == '訪客') {
+      (widget.currentUser['session_comment_ids'] as Set<int>?)?.add(newId);
+    }
 
     _commentController.clear();
     setState(() {
@@ -2690,6 +3332,29 @@ class _PostReplyPageState extends State<PostReplyPage> {
       rootComments.putIfAbsent(pid, () => []).add(c);
     }
 
+    // 將根留言依們選定的排序方式排序
+    List<Map<String, dynamic>> rootList = List.from(rootComments[0] ?? []);
+    switch (_commentSort) {
+      case '由新到舊':
+        rootList.sort((a, b) {
+          final ta =
+              DateTime.tryParse(a['created_at'].toString()) ?? DateTime(0);
+          final tb =
+              DateTime.tryParse(b['created_at'].toString()) ?? DateTime(0);
+          return tb.compareTo(ta);
+        });
+        break;
+      case '最相關':
+        rootList.sort((a, b) {
+          final ra = rootComments[a['id'] as int]?.length ?? 0;
+          final rb = rootComments[b['id'] as int]?.length ?? 0;
+          return rb.compareTo(ra); // 回覆數多的排在前面
+        });
+        break;
+      default:
+        break; // '所有留言': 預設由舊到新 ASC
+    }
+
     return Scaffold(
         backgroundColor: Colors.white,
         appBar:
@@ -2700,13 +3365,41 @@ class _PostReplyPageState extends State<PostReplyPage> {
               child: ListView(padding: const EdgeInsets.all(16), children: [
             _buildPostHeader(),
             const Divider(),
-            const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('精彩回覆',
-                    style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold))),
+            // ─ 留言排序選項
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  for (final label in ['所有留言', '由新到舊', '最相關'])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _commentSort = label),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _commentSort == label
+                                ? const Color(0xFF8D6E63)
+                                : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(label,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: _commentSort == label
+                                      ? Colors.white
+                                      : Colors.grey.shade700,
+                                  fontWeight: _commentSort == label
+                                      ? FontWeight.bold
+                                      : FontWeight.normal)),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             if (_comments.isEmpty)
               const Center(
                   child: Padding(
@@ -2714,9 +3407,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 child: Text('還沒有人回覆，快來沙發吧！',
                     style: TextStyle(color: Colors.grey, fontSize: 13)),
               )),
-            ...rootComments[0]
-                    ?.map((c) => _buildCommentTree(c, rootComments)) ??
-                []
+            ...rootList.map((c) => _buildCommentTree(c, rootComments))
           ])),
           if (_replyToId != null)
             Container(
@@ -2767,10 +3458,17 @@ class _PostReplyPageState extends State<PostReplyPage> {
   }
 
   Widget _buildPostHeader() {
+    final author = widget.originalPost['author'] ?? '?';
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const CircleAvatar(
-          backgroundColor: Color(0xFFD7CCC8),
-          child: Icon(Icons.person, color: Colors.white, size: 18)),
+      _buildAvatar(
+          blob: widget.originalPost['authorAvatarBlob'] as Uint8List?,
+          colorIdx: (widget.originalPost['authorAvatarColor'] as int?) ??
+              _avatarColorIdx(author),
+          initial: author.substring(0, 1),
+          radius: 18,
+          usePreset:
+              (widget.originalPost['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                  widget.originalPost['authorAvatarBlob'] == null),
       const SizedBox(width: 12),
       Expanded(
           child:
@@ -2790,27 +3488,33 @@ class _PostReplyPageState extends State<PostReplyPage> {
     ]);
   }
 
-  Widget _buildCommentTree(Map<String, dynamic> comment,
-      Map<int, List<Map<String, dynamic>>> group) {
+  Widget _buildCommentTree(
+      Map<String, dynamic> comment, Map<int, List<Map<String, dynamic>>> group,
+      {int depth = 0}) {
     List<Map<String, dynamic>> sub = group[comment['id']] ?? [];
     return Column(children: [
-      _buildSingleComment(comment),
+      _buildSingleComment(comment, isSub: depth > 0),
       ...sub.map((sc) => Padding(
-            padding: const EdgeInsets.only(left: 40),
-            child: _buildSingleComment(sc, isSub: true),
+            padding: EdgeInsets.only(
+                left: depth < 3 ? 30.0 : 0.0), // 遞迴縮排，最多縮排3層避免過度向右擠壓
+            child: _buildCommentTree(sc, group, depth: depth + 1),
           ))
     ]);
   }
 
   Widget _buildSingleComment(Map<String, dynamic> c, {bool isSub = false}) {
+    final author = (c['author'] ?? '?') as String;
     return Container(
         margin: const EdgeInsets.only(bottom: 12, top: 4),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          CircleAvatar(
+          _buildAvatar(
+              blob: c['authorAvatarBlob'] as Uint8List?,
+              colorIdx:
+                  (c['authorAvatarColor'] as int?) ?? _avatarColorIdx(author),
+              initial: author.substring(0, 1),
               radius: isSub ? 12 : 15,
-              backgroundColor: Colors.grey.shade200,
-              child: Text(c['author'][0],
-                  style: TextStyle(fontSize: isSub ? 10 : 12))),
+              usePreset: (c['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                  c['authorAvatarBlob'] == null),
           const SizedBox(width: 10),
           Expanded(
               child: Column(
@@ -2825,7 +3529,12 @@ class _PostReplyPageState extends State<PostReplyPage> {
                   Text(c['time'],
                       style: const TextStyle(color: Colors.grey, fontSize: 11)),
                   const Spacer(),
-                  if (c['userId'] == widget.currentUser['id']) ...[
+                  if (c['userId'] == widget.currentUser['id'] &&
+                      ((widget.currentUser['username'] ?? '') != '訪客' ||
+                          ((widget.currentUser['session_comment_ids']
+                                      as Set<int>?)
+                                  ?.contains(c['id']) ??
+                              false))) ...[
                     GestureDetector(
                       onTap: () => _editComment(c['id'], c['text']),
                       child: const Icon(Icons.edit_outlined,
@@ -2837,9 +3546,13 @@ class _PostReplyPageState extends State<PostReplyPage> {
                       child: const Icon(Icons.delete_outline,
                           size: 14, color: Colors.grey),
                     ),
-                  ] else if (!isSub)
+                    const SizedBox(width: 10),
+                  ],
+                  if (c['userId'] != widget.currentUser['id'] ||
+                      (widget.currentUser['username'] ?? '') == '訪客')
                     GestureDetector(
                       onTap: () => setState(() {
+                        // 直接將該留言設為 parent_id，形成多層樹狀結構
                         _replyToId = c['id'];
                         _replyToName = c['author'];
                       }),

@@ -67,8 +67,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextButton(
                             onPressed: () {
                               Navigator.pop(ctx);
-                              widget.onLogin(
-                                  Map<String, dynamic>.from(res.first));
+                              final userMap =
+                                  Map<String, dynamic>.from(res.first);
+                              userMap['session_post_ids'] = <int>{};
+                              userMap['session_comment_ids'] = <int>{};
+                              widget.onLogin(userMap);
                             },
                             child: const Text('進入系統'))
                       ]));
@@ -261,6 +264,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   isLogin = !isLogin;
                   _passwordCtrl.clear();
                   _confirmPasswordCtrl.clear();
+                  if (!isLogin && _emailCtrl.text.isEmpty) {
+                    _emailCtrl.text = '@gmail.com';
+                  } else if (isLogin && _emailCtrl.text == '@gmail.com') {
+                    _emailCtrl.clear();
+                  }
                 }),
                 child: Text(isLogin ? '還沒有帳號？點此註冊' : '已有帳號？點此登入',
                     style: const TextStyle(color: Colors.grey)),
@@ -290,21 +298,35 @@ class _LoginScreenState extends State<LoginScreen> {
                                     TextButton(
                                         onPressed: () {
                                           Navigator.pop(ctx);
-                                          widget.onLogin(
+                                          final userMap =
                                               Map<String, dynamic>.from(
-                                                  res.first));
+                                                  res.first);
+                                          userMap['session_post_ids'] = <int>{};
+                                          userMap['session_comment_ids'] =
+                                              <int>{};
+                                          widget.onLogin(userMap);
                                         },
                                         child: const Text('進入系統'))
                                   ]));
                     } else {
-                      widget.onLogin(
-                          {'id': 'u4', 'username': '訪客', 'display_name': '訪客'});
+                      widget.onLogin({
+                        'id': 'u4',
+                        'username': '訪客',
+                        'display_name': '訪客',
+                        'session_post_ids': <int>{},
+                        'session_comment_ids': <int>{}
+                      });
                     }
                   } catch (e) {
                     debugPrint('訪客登入失敗: $e');
                     if (!mounted) return;
-                    widget.onLogin(
-                        {'id': 'u4', 'username': '訪客', 'display_name': '訪客'});
+                    widget.onLogin({
+                      'id': 'u4',
+                      'username': '訪客',
+                      'display_name': '訪客',
+                      'session_post_ids': <int>{},
+                      'session_comment_ids': <int>{}
+                    });
                   }
                 },
                 child: const Text('以訪客身份直接登入',

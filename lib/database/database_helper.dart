@@ -45,7 +45,7 @@ class DatabaseHelper {
     return await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 6,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -76,6 +76,28 @@ class DatabaseHelper {
       bool blobExists = columns.any((column) => column['name'] == 'media_blob');
       if (!blobExists) {
         await db.execute('ALTER TABLE posts ADD COLUMN media_blob BLOB');
+      }
+    }
+    if (oldVersion < 5) {
+      // Add avatar columns to users
+      var cols = await db.rawQuery('PRAGMA table_info(users)');
+      bool hasBlob = cols.any((c) => c['name'] == 'avatar_blob');
+      bool hasColor = cols.any((c) => c['name'] == 'avatar_color');
+      if (!hasBlob) await db.execute('ALTER TABLE users ADD COLUMN avatar_blob BLOB');
+      if (!hasColor) await db.execute('ALTER TABLE users ADD COLUMN avatar_color INTEGER DEFAULT 0');
+    }
+    if (oldVersion < 6) {
+      // avatar_selected: 0=未選取(顯示預設人頭), 1=已明確選取
+      var userCols = await db.rawQuery('PRAGMA table_info(users)');
+      if (!userCols.any((c) => c['name'] == 'avatar_selected')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN avatar_selected INTEGER DEFAULT 0');
+      }
+      // is_edited: 0=未編輯, 1=已編輯後發佈
+      var postCols = await db.rawQuery('PRAGMA table_info(posts)');
+      if (!postCols.any((c) => c['name'] == 'is_edited')) {
+        await db
+            .execute('ALTER TABLE posts ADD COLUMN is_edited INTEGER DEFAULT 0');
       }
     }
   }
