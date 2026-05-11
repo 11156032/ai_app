@@ -44,6 +44,7 @@ dependencies:
   sqlite3_flutter_libs: any
   image_picker: ^1.1.2
   file_picker: ^8.1.2
+  animate_do: ^3.3.4
 dev_dependencies:
   flutter_test:
     sdk: flutter

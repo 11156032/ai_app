@@ -65,8 +65,8 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 1; // 預設進題庫
-  String _appBarTitle = "題庫";
+  int _currentIndex = 0; // 預設進日曆
+  String _appBarTitle = "日曆行程";
 
   // --- 資料庫區 ---
   // 使用真實今天（只取年月日，去掉時分秒）
@@ -110,6 +110,15 @@ class _MainScreenState extends State<MainScreen> {
   final Map<int, int> _userAnswers = {};
   Timer? _quizTimer;
   Timer? _scheduleTimer;
+  final List<Timer> _postTimers = [];
+
+  void _clearPostTimers() {
+    for (var t in _postTimers) {
+      t.cancel();
+    }
+    _postTimers.clear();
+  }
+
   int _remainingSeconds = 1800;
   final ScrollController _quizScrollController = ScrollController();
 
@@ -165,11 +174,11 @@ class _MainScreenState extends State<MainScreen> {
       debugPrint('清理舊資料失敗: $e');
     }
 
-    await _loadData();
-
     _scheduleTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       _loadData();
     });
+
+    await _loadData();
   }
 
   String _formatRelativeTime(dynamic timeStr) {
@@ -188,6 +197,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _loadData() async {
+    _clearPostTimers();
     try {
       final db = await DatabaseHelper.instance.database;
       final currentUserId = widget.currentUser['id'];
@@ -283,45 +293,59 @@ class _MainScreenState extends State<MainScreen> {
           'scheduled_at': attached['scheduled_at'],
         };
 
-        if (attached.containsKey('scheduled_at') &&
-            attached['scheduled_at'] != null) {
-          String rawTime = attached['scheduled_at'].toString().trim();
-          // 將 "2026-05-11 12:04" 格式轉為 ISO 8601 "2026-05-11T12:04:00"
-          if (rawTime.contains(' ') && !rawTime.contains('T')) {
-            rawTime = rawTime.replaceFirst(' ', 'T');
-          }
-          if (rawTime.length <= 16 && rawTime.contains('T')) {
-            rawTime = '$rawTime:00';
-          }
-          DateTime? sTime = DateTime.tryParse(rawTime);
-          if (sTime != null) {
-            if (sTime.isAfter(DateTime.now())) {
-              // 如果是「我自己的」排程貼文，放入待發佈清單
-              if (p['user_id'] == currentUserId) {
-                sList.add(postData);
-              }
-              // 時間還沒到，直接跳過不加入主動態牆
-              continue;
-            } else {
-              // 時間已到，自動轉為正式發佈
-              attached.remove('scheduled_at');
-              String nowStr = DateTime.now().toIso8601String();
-              await db.update(
-                  'posts',
-                  {
-                    'attached_data': jsonEncode(attached),
-                    'created_at': nowStr,
-                  },
-                  where: 'id = ?',
-                  whereArgs: [p['id']]);
+        try {
+          if (attached.containsKey('scheduled_at') &&
+              attached['scheduled_at'] != null) {
+            String rawTime = attached['scheduled_at'].toString().trim();
+            // 增強格式相容性：支援 / 換成 -
+            rawTime = rawTime.replaceAll('/', '-');
+            if (rawTime.contains(' ') && !rawTime.contains('T')) {
+              rawTime = rawTime.replaceFirst(' ', 'T');
+            }
+            if (rawTime.length <= 16 &&
+                rawTime.contains('T') &&
+                rawTime.split('T')[1].length <= 5) {
+              rawTime = '$rawTime:00';
+            }
 
-              // 同步更新當前物件狀態，確保它能進入下方的 pList.add
-              postData['scheduled_at'] = null;
-              postData['time'] = '剛剛';
+            DateTime? sTime = DateTime.tryParse(rawTime);
+            if (sTime != null) {
+              // 確保兩者都在同一個時區（本地）進行比較
+              final now = DateTime.now();
+              if (sTime.isAfter(now)) {
+                if (p['user_id'] == currentUserId) {
+                  sList.add(postData);
+                  Duration diff = sTime.difference(now);
+                  if (!diff.isNegative && diff.inDays <= 1) {
+                    _postTimers.add(Timer(diff, () {
+                      if (mounted) _loadData();
+                    }));
+                  }
+                }
+                continue;
+              } else {
+                // 自動發佈邏輯
+                attached.remove('scheduled_at');
+                String nowStr = now.toIso8601String();
+                await db.update(
+                    'posts',
+                    {
+                      'attached_data': jsonEncode(attached),
+                      'created_at': nowStr,
+                    },
+                    where: 'id = ?',
+                    whereArgs: [p['id']]);
+                postData['scheduled_at'] = null;
+                postData['time'] = '剛剛';
+              }
             }
           }
+          pList.add(postData);
+        } catch (e) {
+          debugPrint('處理單篇貼文失敗 (ID: ${p['id']}): $e');
+          // 即使出錯也盡量加入列表，避免遺漏
+          pList.add(postData);
         }
-        pList.add(postData);
       }
 
       // Fetch Questions
@@ -407,6 +431,7 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     _quizTimer?.cancel();
     _scheduleTimer?.cancel();
+    _clearPostTimers();
     _quizScrollController.dispose();
     super.dispose();
   }
@@ -622,7 +647,7 @@ class _MainScreenState extends State<MainScreen> {
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(isScheduled ? '✨ AI 代理人已為您完成貼文排程！' : '✨ 貼文已立即發佈！')));
+          content: Text(isScheduled ? 'AI 代理人已為您完成貼文排程！' : '貼文已立即發佈！')));
     }
   }
 
@@ -1599,8 +1624,8 @@ class _MainScreenState extends State<MainScreen> {
         });
         await _loadData();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('✨ AI 代理人已為您成功加入行程！')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('AI 代理人已為您成功加入行程！')));
         }
       });
       _aiFlowState = 'none';
@@ -3621,7 +3646,7 @@ class _MainScreenState extends State<MainScreen> {
                                             },
                                           ),
                                           const SizedBox(width: 4),
-                                          // 立即發佈按鈕
+                                          // 立即發佈按鈕 (保留作為手動保險)
                                           TextButton.icon(
                                             style: TextButton.styleFrom(
                                                 padding:
@@ -4354,7 +4379,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
     if (!mounted) return;
     _submitComment();
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('✨ AI 代理人已為您自動輸入並送出！')));
+        .showSnackBar(const SnackBar(content: Text('AI 代理人已為您自動輸入並送出！')));
     await Future.delayed(const Duration(milliseconds: 1500));
     if (mounted) {
       Navigator.pop(context);
