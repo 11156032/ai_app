@@ -79,8 +79,15 @@ class _MainScreenState extends State<MainScreen> {
   bool _isLoading = true;
   Uint8List? _userAvatarBlob;
   int _userAvatarColor = 0;
-  bool _userAvatarSelected = false; // 是否已明確選取頭像
+  bool _userAvatarSelected = false;
+  String? _userBio;
+  double _fontSizeFactor = 1.0;
+  int _themeColorIdx = 0;
+  bool _isDarkMode = false;
   String _socialFilter = '全部'; // 社群貼文分類筛選狀態
+  DateTime? _nicknameUpdatedAt;
+  bool _isEmailVerified = false;
+  String? _displayName;
 
   Map<String, List<Map<String, dynamic>>> allSchedules = {};
   List<Map<String, dynamic>> allTodos = [];
@@ -161,6 +168,7 @@ class _MainScreenState extends State<MainScreen> {
     final monthOffset = (now.year - baseYear) * 12 + (now.month - baseMonth);
     _calendarPageController = PageController(initialPage: 12 + monthOffset);
     _timelinePageController = PageController(initialPage: 1000);
+    _displayName = widget.currentUser['display_name'];
     _initApp();
   }
 
@@ -399,6 +407,9 @@ class _MainScreenState extends State<MainScreen> {
       // 載入當前使用者頭像
       final userRows =
           await db.query('users', where: 'id = ?', whereArgs: [currentUserId]);
+      DateTime? nicknameUpdatedAt;
+      bool isEmailVerified = false;
+      String? displayName;
       Uint8List? userAvatar;
       int userAvatarColor = 0;
       int userAvatarSelected = 0;
@@ -406,6 +417,13 @@ class _MainScreenState extends State<MainScreen> {
         userAvatar = userRows.first['avatar_blob'] as Uint8List?;
         userAvatarColor = (userRows.first['avatar_color'] as int?) ?? 0;
         userAvatarSelected = (userRows.first['avatar_selected'] as int?) ?? 0;
+        displayName = userRows.first['display_name'] as String?;
+        if (userRows.first['nickname_updated_at'] != null) {
+          nicknameUpdatedAt = DateTime.tryParse(
+              userRows.first['nickname_updated_at'].toString());
+        }
+        isEmailVerified =
+            (userRows.first['is_email_verified'] as int? ?? 0) == 1;
       }
 
       setState(() {
@@ -418,6 +436,20 @@ class _MainScreenState extends State<MainScreen> {
         _userAvatarBlob = userAvatar;
         _userAvatarColor = userAvatarColor;
         _userAvatarSelected = userAvatarSelected == 1;
+        _nicknameUpdatedAt = nicknameUpdatedAt;
+        _isEmailVerified = isEmailVerified;
+        _displayName = displayName;
+
+        // 個人化設定：安全處理資料類型並觸發 UI 更新
+        if (userRows.isNotEmpty) {
+          _userBio = userRows.first['bio'] as String?;
+          _fontSizeFactor =
+              ((userRows.first['font_size_factor'] ?? 1.0) as num).toDouble();
+          _themeColorIdx = (userRows.first['theme_color_idx'] ?? 0) as int;
+          _isDarkMode = (userRows.first['is_dark_mode'] ?? 0) == 1;
+          debugPrint(
+              'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode');
+        }
       });
     } catch (e) {
       print('載入資料庫發生錯誤: $e');
@@ -888,87 +920,138 @@ class _MainScreenState extends State<MainScreen> {
   // --- UI 組件區 ---
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: _quizStep == 2
-          ? null
-          : AppBar(
-              title: _currentIndex == 0
-                  ? TextButton(
-                      onPressed: _showMonthYearPicker,
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text("${_calendarMonth.year}年 ${_calendarMonth.month}月",
+    // 根據使用者設定建立主題
+    final baseTheme = _isDarkMode ? ThemeData.dark() : ThemeData.light();
+    final primaryColor = _themeColorIdx == 1
+        ? const Color(0xFF6B8A96) // 孔雀藍 (霧霾藍，淡雅且內斂)
+        : (_themeColorIdx == 2
+            ? const Color(0xFF8AA682) // 森林綠 (鼠尾草綠，柔和且自然)
+            : const Color(0xFF9E8E81)); // 經典暖棕 (莫蘭迪棕，溫潤且協調)
+
+    return Theme(
+      data: baseTheme.copyWith(
+        primaryColor: primaryColor,
+        colorScheme: baseTheme.colorScheme.copyWith(
+          primary: primaryColor,
+          secondary: primaryColor.withOpacity(0.8),
+        ),
+      ),
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(_fontSizeFactor),
+        ),
+        child: Builder(builder: (context) {
+          return Scaffold(
+            backgroundColor: _isDarkMode ? Colors.black87 : Colors.white,
+            appBar: _quizStep == 2
+                ? null
+                : AppBar(
+                    title: _currentIndex == 0
+                        ? TextButton(
+                            onPressed: _showMonthYearPicker,
+                            child:
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                              Text(
+                                  "${_calendarMonth.year}年 ${_calendarMonth.month}月",
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold)),
+                              const Icon(Icons.arrow_drop_down,
+                                  color: Colors.black)
+                            ]))
+                        : Text(_appBarTitle,
                             style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold)),
-                        const Icon(Icons.arrow_drop_down, color: Colors.black)
-                      ]))
-                  : Text(_appBarTitle,
-                      style:
-                          const TextStyle(fontSize: 16, color: Colors.black)),
-              backgroundColor: Colors.white,
-              elevation: 0,
-              actions: [
-                  if (_currentIndex == 0)
-                    IconButton(
-                        icon: const Icon(Icons.today, color: Colors.black87),
-                        onPressed: _returnToToday,
-                        tooltip: '回到今日'),
-                  IconButton(
-                      icon: const Icon(Icons.logout, color: Colors.black87),
-                      onPressed: _showLogoutDialog)
-                ]),
-      drawer: Drawer(
-          child: SafeArea(
-              child: ListView(children: [
-        const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Text('系統選單',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF8D6E63)))),
-        ListTile(
-            leading: const Icon(Icons.calendar_month),
-            title: const Text('日曆行程'),
-            onTap: () {
-              _changePage(0, '日曆行程');
-              Navigator.pop(context);
-            }),
-        ListTile(
-            leading: const Icon(Icons.menu_book),
-            title: const Text('題庫'),
-            onTap: () {
-              _changePage(1, '題庫');
-              Navigator.pop(context);
-            }),
-        ListTile(
-            leading: const Icon(Icons.forum),
-            title: const Text('社群'),
-            onTap: () {
-              _changePage(2, '社群');
-              Navigator.pop(context);
-            }),
-        ListTile(
-            leading: const Icon(Icons.account_circle),
-            title: const Text('社群檔案'),
-            onTap: () {
-              _changePage(3, '社群檔案');
-              Navigator.pop(context);
-            }),
-      ]))),
-      body: SafeArea(
-        child: Column(children: [
-          Expanded(
-              child: IndexedStack(index: _currentIndex, children: [
-            _buildCalendarTab(),
-            _buildQuestionBankTab(),
-            _buildSocialTab(),
-            _buildProfileTab()
-          ])),
-          if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
-        ]),
+                                fontSize: 16, color: Colors.black)),
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    actions: [
+                        if (_currentIndex == 0)
+                          IconButton(
+                              icon: const Icon(Icons.today,
+                                  color: Colors.black87),
+                              onPressed: _returnToToday,
+                              tooltip: '回到今日'),
+                        IconButton(
+                            icon:
+                                const Icon(Icons.logout, color: Colors.black87),
+                            onPressed: _showLogoutDialog)
+                      ]),
+            drawer: Drawer(
+                child: SafeArea(
+                    child: ListView(children: [
+              Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Text('系統選單',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor))),
+              ListTile(
+                  leading: Icon(Icons.calendar_month,
+                      color: Theme.of(context).primaryColor),
+                  title: const Text('日曆行程'),
+                  onTap: () {
+                    _changePage(0, '日曆行程');
+                    Navigator.pop(context);
+                  }),
+              ListTile(
+                  leading: Icon(Icons.menu_book,
+                      color: Theme.of(context).primaryColor),
+                  title: const Text('題庫'),
+                  onTap: () {
+                    _changePage(1, '題庫');
+                    Navigator.pop(context);
+                  }),
+              ListTile(
+                  leading:
+                      Icon(Icons.forum, color: Theme.of(context).primaryColor),
+                  title: const Text('社群'),
+                  onTap: () {
+                    _changePage(2, '社群');
+                    Navigator.pop(context);
+                  }),
+              const Divider(indent: 20, endIndent: 20),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text('互動與管理',
+                    style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold)),
+              ),
+              ListTile(
+                  leading: Icon(Icons.groups_rounded,
+                      color: Theme.of(context).primaryColor),
+                  title: const Text('社群動態'),
+                  onTap: () {
+                    _changePage(3, '社群動態');
+                    Navigator.pop(context);
+                  }),
+              ListTile(
+                  leading: Icon(Icons.settings_suggest_rounded,
+                      color: Theme.of(context).primaryColor),
+                  title: const Text('個人資料'),
+                  onTap: () {
+                    _changePage(4, '個人資料');
+                    Navigator.pop(context);
+                  }),
+            ]))),
+            body: SafeArea(
+              child: Column(children: [
+                Expanded(
+                    child: IndexedStack(index: _currentIndex, children: [
+                  _buildCalendarTab(),
+                  _buildQuestionBankTab(),
+                  _buildSocialTab(),
+                  _buildProfileTab(),
+                  _buildPersonalProfileTab(context)
+                ])),
+                if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
+              ]),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -3269,146 +3352,7 @@ class _MainScreenState extends State<MainScreen> {
   }
   // ───────────────────────────────────────────────────────────────
 
-  // ── 頭像選擇器 ─────────────────────────────────────────────────
-  void _showAvatarPicker() {
-    // 訪客使用者需先登入才能更改頭像
-    if ((widget.currentUser['username'] ?? '') == '訪客') {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('需要登入',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          content: const Text('請先登入帳號，才能設定個人頭像。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child:
-                  const Text('了解', style: TextStyle(color: Color(0xFF8D6E63))),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => StatefulBuilder(builder: (ctx2, setSheet) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // handle bar
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(4)),
-                  ),
-                ),
-                const Text('選擇頭像插圖',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 6),
-                const Text('選擇一個預設角色作為你的專屬頭像',
-                    style: TextStyle(color: Colors.grey, fontSize: 12)),
-                const SizedBox(height: 16),
-                // 4x2 emoji grid
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: kPresetAvatars.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.85,
-                  ),
-                  itemBuilder: (_, i) {
-                    final preset = kPresetAvatars[i];
-                    final isSelected = _userAvatarColor == i &&
-                        _userAvatarBlob == null &&
-                        _userAvatarSelected;
-                    return GestureDetector(
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        await _saveAvatar(colorIdx: i, blob: null);
-                      },
-                      child: Column(
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: isSelected
-                                  ? Border.all(
-                                      color: const Color(0xFF8D6E63), width: 3)
-                                  : null,
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                          color: const Color(0xFF8D6E63)
-                                              .withOpacity(0.35),
-                                          blurRadius: 8,
-                                          spreadRadius: 1)
-                                    ]
-                                  : [],
-                            ),
-                            child: CircleAvatar(
-                              radius: 32,
-                              backgroundColor: preset['color'] as Color,
-                              child: Text(preset['emoji'] as String,
-                                  style: const TextStyle(fontSize: 28)),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(preset['label'] as String,
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: isSelected
-                                      ? const Color(0xFF8D6E63)
-                                      : Colors.grey.shade600,
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal)),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(
-                      backgroundColor: Color(0xFFEDE7F6),
-                      child: Icon(Icons.photo_library_outlined,
-                          color: Colors.deepPurple)),
-                  title: const Text('上傳我的圖片'),
-                  subtitle: const Text('從本機選取圖片（JPG、PNG）'),
-                  trailing: const Icon(Icons.arrow_forward_ios,
-                      size: 14, color: Colors.grey),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await _pickAvatarFromLocal();
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      }),
-    );
-  }
+  // ── 預設插圖選擇器 ─────────────────────────────────────────────────
 
   Future<void> _pickAvatarFromLocal() async {
     try {
@@ -3419,6 +3363,10 @@ class _MainScreenState extends State<MainScreen> {
       if (result != null && result.files.single.bytes != null) {
         await _saveAvatar(
             blob: result.files.single.bytes!, colorIdx: _userAvatarColor);
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('頭像已更新')));
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -3710,7 +3658,7 @@ class _MainScreenState extends State<MainScreen> {
           bottom: 16,
           child: FloatingActionButton(
               heroTag: 'add_post',
-              backgroundColor: const Color(0xFF8D6E63),
+              backgroundColor: Theme.of(context).primaryColor,
               onPressed: _showCreatePostScreen,
               child: const Icon(Icons.add, color: Colors.white)))
     ]);
@@ -3744,7 +3692,7 @@ class _MainScreenState extends State<MainScreen> {
                   right: 0,
                   bottom: 0,
                   child: GestureDetector(
-                    onTap: _showAvatarPicker,
+                    onTap: _showUnifiedAvatarPicker,
                     child: const CircleAvatar(
                       radius: 11,
                       backgroundColor: Color(0xFF8D6E63),
@@ -3999,6 +3947,859 @@ class _MainScreenState extends State<MainScreen> {
           'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
     }
     _loadData();
+  }
+
+  // --- 個人資料頁面 (模組化) ---
+  Widget _buildPersonalProfileTab(BuildContext context) {
+    return Container(
+      color: _isDarkMode ? Colors.black87 : const Color(0xFFFAFAFA),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+        children: [
+          // 頂部標題與說明
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '個人資料',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: _isDarkMode
+                        ? Colors.white
+                        : Theme.of(context).primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '管理你的帳號安全與個性化體驗',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildProfileDashboardHeader(context),
+          const SizedBox(height: 20),
+          _buildPersonalizedDashboard(context),
+          const SizedBox(height: 20),
+          _buildPersonalizationModule(context),
+          const SizedBox(height: 20),
+          _buildBasicInfoModule(context),
+          const SizedBox(height: 16),
+          _buildSecurityModule(context),
+          const SizedBox(height: 16),
+          _buildInteractionModule(context),
+          const SizedBox(height: 16),
+          _buildLearningProgressModule(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileDashboardHeader(BuildContext context) {
+    return Row(
+      children: [
+        Stack(
+          children: [
+            _buildAvatar(
+              blob: _userAvatarBlob,
+              colorIdx: _userAvatarColor,
+              initial: (_displayName ?? '?').substring(0, 1),
+              radius: 40,
+              usePreset: _userAvatarSelected && _userAvatarBlob == null,
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: GestureDetector(
+                onTap: _showUnifiedAvatarPicker,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF8D6E63),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt,
+                      color: Colors.white, size: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _displayName ?? '使用者',
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '學習等級：Lv. 5',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPersonalizedDashboard(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primaryColor, primaryColor.withOpacity(0.7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '今日學習摘要',
+            style: TextStyle(
+                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildDashboardItem(Icons.timer_outlined, '學習時數', '2.5h'),
+              _buildDashboardItem(Icons.check_circle_outline, '完成題目', '15 題'),
+              _buildDashboardItem(Icons.local_fire_department, '連續天數', '7 天'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardItem(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white, size: 20),
+        const SizedBox(height: 8),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
+      ],
+    );
+  }
+
+  Widget _buildModuleContainer(
+      {required String title,
+      required Widget child,
+      required BuildContext context}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor)),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBasicInfoModule(BuildContext context) {
+    return _buildModuleContainer(
+      context: context,
+      title: '基本資訊',
+      child: Column(
+        children: [
+          _buildProfileTile(
+            context: context,
+            icon: Icons.person_outline,
+            label: '暱稱',
+            value: _displayName ?? '未設定',
+            onTap: _showEditNicknameDialog,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.assignment_ind_outlined,
+            label: '個人簡介',
+            value: (_userBio == null || _userBio!.isEmpty)
+                ? '點擊設定簡介...'
+                : _userBio!,
+            onTap: _showEditBioDialog,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonalizationModule(BuildContext context) {
+    return _buildModuleContainer(
+      context: context,
+      title: '個人化設定',
+      child: Column(
+        children: [
+          _buildProfileTile(
+            context: context,
+            icon: Icons.format_size,
+            label: '字體大小',
+            value: _fontSizeFactor == 0.9
+                ? '較小'
+                : _fontSizeFactor == 1.1
+                    ? '較大'
+                    : '標準',
+            onTap: _showFontSizeDialog,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.palette_outlined,
+            label: '主題顏色',
+            value: _themeColorIdx == 1
+                ? '孔雀藍'
+                : _themeColorIdx == 2
+                    ? '森林綠'
+                    : '經典暖棕',
+            onTap: _showThemeColorDialog,
+          ),
+          const Divider(height: 24),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('深色模式',
+                style: TextStyle(fontSize: 14, color: Colors.black87)),
+            secondary: Icon(Icons.dark_mode_outlined,
+                size: 20, color: Colors.grey.shade600),
+            value: _isDarkMode,
+            activeColor: const Color(0xFF8D6E63),
+            onChanged: (val) async {
+              setState(() => _isDarkMode = val);
+              await _updatePersonalization();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecurityModule(BuildContext context) {
+    return _buildModuleContainer(
+      context: context,
+      title: '帳號安全',
+      child: Column(
+        children: [
+          _buildProfileTile(
+            context: context,
+            icon: Icons.email_outlined,
+            label: '綁定 Email',
+            value: widget.currentUser['email'] ?? '未設定',
+            valueColor: Colors.grey,
+            onTap: () {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('註冊信箱不可更改')));
+            },
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.lock_outline,
+            label: '修改密碼',
+            value: '定期修改更安全',
+            onTap: _showChangePasswordDialog,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInteractionModule(BuildContext context) {
+    return _buildModuleContainer(
+      context: context,
+      title: '互動紀錄',
+      child: Column(
+        children: [
+          _buildProfileTile(
+            context: context,
+            icon: Icons.bookmark_border,
+            label: '我的收藏',
+            value: '查看已收藏的題目與文章',
+            onTap: _showMyCollectionsPage,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.history,
+            label: '測驗歷史',
+            value: '最近一次：100分',
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLearningProgressModule(BuildContext context) {
+    return _buildModuleContainer(
+      context: context,
+      title: '學習歷程 (本週時數)',
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          _buildSimpleChart(context),
+          const SizedBox(height: 16),
+          const Text('本週累計：12.5 小時',
+              style: TextStyle(color: Colors.grey, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimpleChart(BuildContext context) {
+    final List<double> values = [1.2, 2.5, 0.8, 3.2, 1.5, 2.0, 1.3];
+    final List<String> days = ['一', '二', '三', '四', '五', '六', '日'];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(7, (i) {
+        return Column(
+          children: [
+            Container(
+              width: 12,
+              height: values[i] * 30,
+              decoration: BoxDecoration(
+                color: i == DateTime.now().weekday - 1
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(days[i],
+                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildProfileTile({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String value,
+    Color? valueColor,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Theme.of(context).primaryColor),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 4),
+                Text(value,
+                    style: TextStyle(
+                        fontSize: 14, color: valueColor ?? Colors.black87)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+        ],
+      ),
+    );
+  }
+
+  // --- 功能彈窗 ---
+  void _showUnifiedAvatarPicker() {
+    bool showPresets = false;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx2, setSheet) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+                if (!showPresets) ...[
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 8, 20, 20),
+                    child: Column(
+                      children: [
+                        Text('更新大頭貼',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 4),
+                        Text('選擇你喜歡的方式展現個人風格',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                  _buildPickerOption(
+                    icon: Icons.photo_library_rounded,
+                    label: '從相簿選擇',
+                    subtitle: '選取你裝置中的精彩圖片',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickAvatarFromLocal();
+                    },
+                  ),
+                  _buildPickerOption(
+                    icon: Icons.camera_alt_rounded,
+                    label: '拍照',
+                    subtitle: '立即捕捉最真實的瞬間',
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final ImagePicker picker = ImagePicker();
+                      final XFile? image =
+                          await picker.pickImage(source: ImageSource.camera);
+                      if (image != null) {
+                        final bytes = await image.readAsBytes();
+                        await _saveAvatar(
+                            colorIdx: _userAvatarColor, blob: bytes);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('頭像已更新')));
+                        }
+                      }
+                    },
+                  ),
+                  _buildPickerOption(
+                    icon: Icons.face_rounded,
+                    label: '使用內建插圖',
+                    subtitle: '選擇可愛的預設角色與表情',
+                    onTap: () {
+                      setSheet(() => showPresets = true);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 20, 16),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                          onPressed: () => setSheet(() => showPresets = false),
+                        ),
+                        const Text('選擇內建插圖',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    height: 280,
+                    child: GridView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.8,
+                      ),
+                      itemCount: kPresetAvatars.length,
+                      itemBuilder: (_, i) {
+                        final preset = kPresetAvatars[i];
+                        return InkWell(
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            await _saveAvatar(colorIdx: i, blob: null);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('頭像已更新')));
+                            }
+                          },
+                          child: Column(
+                            children: [
+                              _buildAvatar(
+                                usePreset: true,
+                                colorIdx: i,
+                                radius: 28,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(preset['label'] as String,
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Colors.grey)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildPickerOption({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8D6E63).withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: const Color(0xFF8D6E63), size: 24),
+      ),
+      title: Text(label,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+      subtitle: Text(subtitle,
+          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
+      onTap: onTap,
+    );
+  }
+
+  void _showEditBioDialog() {
+    final controller = TextEditingController(text: _userBio);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('編輯個人簡介'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+              hintText: '介紹一下自己吧...', border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8D6E63),
+                foregroundColor: Colors.white),
+            onPressed: () async {
+              final newBio = controller.text.trim();
+              Navigator.pop(ctx);
+              await _updateBio(newBio);
+            },
+            child: const Text('儲存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateBio(String newBio) async {
+    final db = await DatabaseHelper.instance.database;
+    await db.update(
+      'users',
+      {'bio': newBio},
+      where: 'id = ?',
+      whereArgs: [widget.currentUser['id']],
+    );
+    await _loadData();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('簡介已更新')));
+  }
+
+  void _showFontSizeDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('選擇字體大小'),
+        children: [
+          _buildFontSizeOption(ctx, '較小', 0.9),
+          _buildFontSizeOption(ctx, '標準', 1.0),
+          _buildFontSizeOption(ctx, '較大', 1.1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFontSizeOption(BuildContext ctx, String label, double factor) {
+    return SimpleDialogOption(
+      onPressed: () async {
+        Navigator.pop(ctx);
+        setState(() => _fontSizeFactor = factor);
+        await _updatePersonalization();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(label,
+            style: TextStyle(
+                fontWeight: _fontSizeFactor == factor
+                    ? FontWeight.bold
+                    : FontWeight.normal)),
+      ),
+    );
+  }
+
+  void _showThemeColorDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('選擇主題顏色'),
+        children: [
+          _buildThemeOption(ctx, '經典暖棕 (預設)', 0, const Color(0xFF8D6E63)),
+          _buildThemeOption(ctx, '孔雀藍', 1, Colors.blueGrey),
+          _buildThemeOption(ctx, '森林綠', 2, Colors.teal),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThemeOption(
+      BuildContext ctx, String label, int idx, Color color) {
+    return SimpleDialogOption(
+      onPressed: () async {
+        Navigator.pop(ctx);
+        setState(() => _themeColorIdx = idx);
+        await _updatePersonalization();
+      },
+      child: Row(
+        children: [
+          Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 12),
+          Text(label,
+              style: TextStyle(
+                  fontWeight: _themeColorIdx == idx
+                      ? FontWeight.bold
+                      : FontWeight.normal)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updatePersonalization() async {
+    final db = await DatabaseHelper.instance.database;
+    await db.update(
+      'users',
+      {
+        'font_size_factor': _fontSizeFactor,
+        'theme_color_idx': _themeColorIdx,
+        'is_dark_mode': _isDarkMode ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [widget.currentUser['id']],
+    );
+    await _loadData();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('偏好設定已儲存')));
+    }
+  }
+
+  void _showEditNicknameDialog() {
+    if (_nicknameUpdatedAt != null) {
+      final now = DateTime.now();
+      final diff = now.difference(_nicknameUpdatedAt!);
+      if (diff.inHours < 24) {
+        final remaining = 24 - diff.inHours;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('距離下次更改暱稱還需等待 $remaining 小時')),
+        );
+        return;
+      }
+    }
+
+    final controller = TextEditingController(text: _displayName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('更改暱稱'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: '請輸入新的暱稱'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8D6E63),
+                foregroundColor: Colors.white),
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isEmpty) return;
+              Navigator.pop(ctx);
+              await _updateNickname(newName);
+            },
+            child: const Text('儲存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateNickname(String newName) async {
+    final db = await DatabaseHelper.instance.database;
+    final nowStr = DateTime.now().toIso8601String();
+    await db.update(
+      'users',
+      {'display_name': newName, 'nickname_updated_at': nowStr},
+      where: 'id = ?',
+      whereArgs: [widget.currentUser['id']],
+    );
+    await _loadData();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('暱稱已更新')));
+    }
+  }
+
+  void _showEmailVerificationFlow() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Email 驗證'),
+        content: Text(_isEmailVerified ? '您的 Email 已驗證成功！' : '點擊下方按鈕發送驗證信。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          if (!_isEmailVerified)
+            ElevatedButton(
+              onPressed: () async {
+                final db = await DatabaseHelper.instance.database;
+                await db.update('users', {'is_email_verified': 1},
+                    where: 'id = ?', whereArgs: [widget.currentUser['id']]);
+                await _loadData();
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(const SnackBar(content: Text('驗證成功！')));
+                }
+              },
+              child: const Text('發送驗證信'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog() {
+    final oldCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('修改密碼'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+                controller: oldCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '目前的密碼')),
+            TextField(
+                controller: newCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '新的密碼')),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('密碼已修改')));
+            },
+            child: const Text('確認修改'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMyCollectionsPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => Scaffold(
+          appBar: AppBar(title: const Text('我的收藏')),
+          body: _buildCollectionsList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollectionsList() {
+    final List<Map<String, dynamic>> collections =
+        questionBank.where((q) => q['isFavorite'] == true).toList();
+    if (collections.isEmpty) return const Center(child: Text('尚無收藏項目'));
+    return ListView.builder(
+      itemCount: collections.length,
+      itemBuilder: (ctx, i) => ListTile(
+        leading: const Icon(Icons.quiz_outlined, color: Color(0xFF8D6E63)),
+        title: Text(collections[i]['question']),
+        subtitle: Text(collections[i]['subject']),
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
   }
 }
 

@@ -45,7 +45,7 @@ class DatabaseHelper {
     return await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 8,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -65,9 +65,11 @@ class DatabaseHelper {
     if (oldVersion < 3) {
       // Check for parent_id in comments
       var columns = await db.rawQuery('PRAGMA table_info(comments)');
-      bool parentExists = columns.any((column) => column['name'] == 'parent_id');
+      bool parentExists =
+          columns.any((column) => column['name'] == 'parent_id');
       if (!parentExists) {
-        await db.execute('ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT 0');
       }
     }
     if (oldVersion < 4) {
@@ -83,8 +85,11 @@ class DatabaseHelper {
       var cols = await db.rawQuery('PRAGMA table_info(users)');
       bool hasBlob = cols.any((c) => c['name'] == 'avatar_blob');
       bool hasColor = cols.any((c) => c['name'] == 'avatar_color');
-      if (!hasBlob) await db.execute('ALTER TABLE users ADD COLUMN avatar_blob BLOB');
-      if (!hasColor) await db.execute('ALTER TABLE users ADD COLUMN avatar_color INTEGER DEFAULT 0');
+      if (!hasBlob)
+        await db.execute('ALTER TABLE users ADD COLUMN avatar_blob BLOB');
+      if (!hasColor)
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN avatar_color INTEGER DEFAULT 0');
     }
     if (oldVersion < 6) {
       // avatar_selected: 0=未選取(顯示預設人頭), 1=已明確選取
@@ -96,8 +101,37 @@ class DatabaseHelper {
       // is_edited: 0=未編輯, 1=已編輯後發佈
       var postCols = await db.rawQuery('PRAGMA table_info(posts)');
       if (!postCols.any((c) => c['name'] == 'is_edited')) {
-        await db
-            .execute('ALTER TABLE posts ADD COLUMN is_edited INTEGER DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE posts ADD COLUMN is_edited INTEGER DEFAULT 0');
+      }
+    }
+    if (oldVersion < 7) {
+      var userCols = await db.rawQuery('PRAGMA table_info(users)');
+      if (!userCols.any((c) => c['name'] == 'nickname_updated_at')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN nickname_updated_at DATETIME');
+      }
+      if (!userCols.any((c) => c['name'] == 'is_email_verified')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN is_email_verified INTEGER DEFAULT 0');
+      }
+    }
+    if (oldVersion < 8) {
+      var userCols = await db.rawQuery('PRAGMA table_info(users)');
+      if (!userCols.any((c) => c['name'] == 'bio')) {
+        await db.execute('ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ""');
+      }
+      if (!userCols.any((c) => c['name'] == 'font_size_factor')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN font_size_factor REAL DEFAULT 1.0');
+      }
+      if (!userCols.any((c) => c['name'] == 'theme_color_idx')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN theme_color_idx INTEGER DEFAULT 0');
+      }
+      if (!userCols.any((c) => c['name'] == 'is_dark_mode')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN is_dark_mode INTEGER DEFAULT 0');
       }
     }
   }
@@ -118,6 +152,14 @@ class DatabaseHelper {
         display_name VARCHAR DEFAULT '',
         bio TEXT DEFAULT '',
         tags TEXT DEFAULT '[]',
+        avatar_blob BLOB,
+        avatar_color INTEGER DEFAULT 0,
+        avatar_selected INTEGER DEFAULT 0,
+        nickname_updated_at DATETIME,
+        is_email_verified INTEGER DEFAULT 0,
+        font_size_factor REAL DEFAULT 1.0,
+        theme_color_idx INTEGER DEFAULT 0,
+        is_dark_mode INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -345,10 +387,11 @@ class DatabaseHelper {
     await db.insert('posts', {
       'id': 1,
       'user_id': 'u2',
-      'content': '歡迎大家在社群分享學習心得與專題進度！✨',
+      'content': '歡迎大家在社群分享學習心得與專題進度！',
       'likes': 5,
       'type': 'text',
-      'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      'created_at':
+          DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
     });
 
     // 5. Questions

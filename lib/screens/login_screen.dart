@@ -9,13 +9,13 @@ Widget _exquisiteFadeIn({
   double from = 40,
 }) {
   return FadeInUp(
-    delay: Duration(milliseconds: delayMs),
-    duration: const Duration(milliseconds: 800),
+    delay: Duration(milliseconds: (delayMs * 0.7).toInt()), // 縮短延遲時間
+    duration: const Duration(milliseconds: 500), // 從 800ms 縮短
     curve: Curves.easeOutExpo,
     from: from,
     child: ZoomIn(
-      delay: Duration(milliseconds: delayMs),
-      duration: const Duration(milliseconds: 700),
+      delay: Duration(milliseconds: (delayMs * 0.7).toInt()), // 縮短延遲時間
+      duration: const Duration(milliseconds: 400), // 從 700ms 縮短
       curve: Curves.easeOutBack,
       child: child,
     ),
@@ -30,8 +30,7 @@ class _BrandMark extends StatefulWidget {
   State<_BrandMark> createState() => _BrandMarkState();
 }
 
-class _BrandMarkState extends State<_BrandMark>
-    with TickerProviderStateMixin {
+class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
   late AnimationController _ctrl;
   late AnimationController _introCtrl;
 
@@ -63,11 +62,15 @@ class _BrandMarkState extends State<_BrandMark>
     ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
 
     _drawAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _introCtrl, curve: const Interval(0.0, 0.7, curve: Curves.easeInOutCubic)),
+      CurvedAnimation(
+          parent: _introCtrl,
+          curve: const Interval(0.0, 0.7, curve: Curves.easeInOutCubic)),
     );
 
     _dotScaleAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _introCtrl, curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack)),
+      CurvedAnimation(
+          parent: _introCtrl,
+          curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack)),
     );
 
     _introCtrl.forward();
@@ -190,7 +193,7 @@ class _YeBangLogoPainter extends CustomPainter {
     final fillPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    
+
     final strokePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
@@ -210,21 +213,23 @@ class _YeBangLogoPainter extends CustomPainter {
       final metrics = path.computeMetrics();
       final animPath = Path();
       for (final metric in metrics) {
-        animPath.addPath(metric.extractPath(0.0, metric.length * progress), Offset.zero);
+        animPath.addPath(
+            metric.extractPath(0.0, metric.length * progress), Offset.zero);
       }
       canvas.drawPath(animPath, strokePaint);
     } else {
       canvas.drawPath(path, strokePaint);
     }
-    
+
     // 核心智慧圓點
     if (dotScale > 0) {
-      canvas.drawCircle(Offset(w * 0.5, h * 0.35), w * 0.12 * dotScale, fillPaint);
+      canvas.drawCircle(
+          Offset(w * 0.5, h * 0.35), w * 0.12 * dotScale, fillPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _YeBangLogoPainter oldDelegate) => 
+  bool shouldRepaint(covariant _YeBangLogoPainter oldDelegate) =>
       oldDelegate.progress != progress || oldDelegate.dotScale != dotScale;
 }
 
@@ -279,7 +284,7 @@ class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
         CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOutExpo));
     _rippleOpacity = Tween<double>(begin: 0.6, end: 0)
         .animate(CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeIn));
-    
+
     _bloomProgress = Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(parent: _bloomCtrl, curve: Curves.easeOutBack));
 
@@ -461,7 +466,10 @@ class _BloomingLogoPainter extends CustomPainter {
       canvas.translate(w * 0.32, h * 0.48);
       canvas.scale(leafScale);
       canvas.rotate(-0.8);
-      canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: w * 0.15, height: w * 0.08), bloomPaint);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset.zero, width: w * 0.15, height: w * 0.08),
+          bloomPaint);
       canvas.restore();
 
       // 右葉
@@ -469,7 +477,10 @@ class _BloomingLogoPainter extends CustomPainter {
       canvas.translate(w * 0.68, h * 0.48);
       canvas.scale(leafScale);
       canvas.rotate(0.8);
-      canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: w * 0.15, height: w * 0.08), bloomPaint);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset.zero, width: w * 0.15, height: w * 0.08),
+          bloomPaint);
       canvas.restore();
 
       // 中心點綻放花瓣
@@ -478,20 +489,24 @@ class _BloomingLogoPainter extends CustomPainter {
         canvas.save();
         canvas.translate(w * 0.5, h * 0.35);
         canvas.rotate(i * 3.14159 * 2 / 5 + bloomProgress);
-        canvas.drawCircle(Offset(0, -baseDotRadius * 1.1), petalRadius, bloomPaint);
+        canvas.drawCircle(
+            Offset(0, -baseDotRadius * 1.1), petalRadius, bloomPaint);
         canvas.restore();
       }
 
       // 核心發光/變色
       final centerPaint = Paint()
-        ..color = const Color(0xFFFFD54F).withOpacity(bloomProgress.clamp(0.0, 1.0))
+        ..color =
+            const Color(0xFFFFD54F).withOpacity(bloomProgress.clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(w * 0.5, h * 0.35), baseDotRadius * 0.6 * bloomProgress, centerPaint);
+      canvas.drawCircle(Offset(w * 0.5, h * 0.35),
+          baseDotRadius * 0.6 * bloomProgress, centerPaint);
     }
   }
 
   @override
-  bool shouldRepaint(_BloomingLogoPainter old) => old.bloomProgress != bloomProgress;
+  bool shouldRepaint(_BloomingLogoPainter old) =>
+      old.bloomProgress != bloomProgress;
 }
 
 // ── 主體 ─────────────────────────────────────────────────────────────────────
@@ -668,11 +683,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   ));
         } catch (e) {
           if (!mounted) return;
+          String errorMsg = '帳號或信箱可能已被使用，請換一個試試。';
+          // 如果不是 UNIQUE constraint 錯誤，才顯示詳細訊息，或者是乾脆不顯示詳細訊息以維持簡潔
+          if (!e.toString().contains('UNIQUE constraint failed')) {
+            errorMsg += '\n錯誤詳情：$e';
+          }
+
           showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
                     title: const Text('註冊失敗'),
-                    content: Text('帳號或信箱可能已被使用，請換一個試試。\n詳細：$e'),
+                    content: Text(errorMsg),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(ctx),
@@ -739,7 +760,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // 標題
                   _exquisiteFadeIn(
-                    delayMs: 800 + 120,
+                    delayMs: 500 + 100,
                     child: Column(
                       children: [
                         Text(
@@ -762,82 +783,78 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 36),
 
-                  // 帳號欄
+                  // 欄位組（帳號、Email、密碼、確認密碼）同步出現
                   _exquisiteFadeIn(
-                    delayMs: 800 + 240,
-                    child: TextField(
-                      controller: _usernameCtrl,
-                      decoration: _inputDeco('帳號',
-                          suffix: const Icon(Icons.person_outline_rounded,
-                              color: Color(0xFFBCAAA4))),
+                    delayMs: 500 + 200,
+                    child: Column(
+                      children: [
+                        // 帳號欄
+                        TextField(
+                          controller: _usernameCtrl,
+                          decoration: _inputDeco('帳號',
+                              suffix: const Icon(Icons.person_outline_rounded,
+                                  color: Color(0xFFBCAAA4))),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Email（僅註冊）
+                        if (!isLogin) ...[
+                          TextField(
+                            controller: _emailCtrl,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: _inputDeco('電子郵件',
+                                suffix: const Icon(Icons.email_outlined,
+                                    color: Color(0xFFBCAAA4))),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+
+                        // 密碼欄
+                        TextField(
+                          controller: _passwordCtrl,
+                          obscureText: _obscurePassword,
+                          decoration: _inputDeco('密碼',
+                              suffix: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  color: const Color(0xFFBCAAA4),
+                                ),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
+                              )),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 確認密碼（僅註冊）
+                        if (!isLogin) ...[
+                          TextField(
+                            controller: _confirmPasswordCtrl,
+                            obscureText: _obscureConfirm,
+                            decoration: _inputDeco('確認密碼',
+                                suffix: IconButton(
+                                  icon: Icon(
+                                    _obscureConfirm
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: const Color(0xFFBCAAA4),
+                                  ),
+                                  onPressed: () => setState(
+                                      () => _obscureConfirm = !_obscureConfirm),
+                                )),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-
-                  // Email（僅註冊）
-                  if (!isLogin) ...[
-                    _exquisiteFadeIn(
-                      delayMs: 800 + 360,
-                      child: TextField(
-                        controller: _emailCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: _inputDeco('電子郵件',
-                            suffix: const Icon(Icons.email_outlined,
-                                color: Color(0xFFBCAAA4))),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-
-                  // 密碼欄
-                  _exquisiteFadeIn(
-                    delayMs: 800 + (isLogin ? 360 : 480),
-                    child: TextField(
-                      controller: _passwordCtrl,
-                      obscureText: _obscurePassword,
-                      decoration: _inputDeco('密碼',
-                          suffix: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: const Color(0xFFBCAAA4),
-                            ),
-                            onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
-                          )),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // 確認密碼（僅註冊）
-                  if (!isLogin) ...[
-                    _exquisiteFadeIn(
-                      delayMs: 800 + 600,
-                      child: TextField(
-                        controller: _confirmPasswordCtrl,
-                        obscureText: _obscureConfirm,
-                        decoration: _inputDeco('確認密碼',
-                            suffix: IconButton(
-                              icon: Icon(
-                                _obscureConfirm
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                color: const Color(0xFFBCAAA4),
-                              ),
-                              onPressed: () => setState(
-                                  () => _obscureConfirm = !_obscureConfirm),
-                            )),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
 
                   const SizedBox(height: 10),
 
                   // 主按鈕（登入 / 註冊）
                   _exquisiteFadeIn(
-                    delayMs: 800 + (isLogin ? 480 : 720),
+                    delayMs: 500 + (isLogin ? 350 : 450),
                     child: SizedBox(
                       width: double.infinity,
                       height: 54,
@@ -863,7 +880,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // 切換登入 / 註冊
                   _exquisiteFadeIn(
-                    delayMs: 800 + (isLogin ? 560 : 800),
+                    delayMs: 500 + (isLogin ? 400 : 500),
                     child: TextButton(
                       onPressed: () => setState(() {
                         isLogin = !isLogin;
@@ -886,7 +903,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // 分隔線
                   _exquisiteFadeIn(
-                    delayMs: 800 + (isLogin ? 620 : 860),
+                    delayMs: 500 + (isLogin ? 540 : 740),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 6),
                       child: Row(children: [
@@ -905,7 +922,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // 訪客登入
                   _exquisiteFadeIn(
-                    delayMs: 800 + (isLogin ? 700 : 940),
+                    delayMs: 500 + (isLogin ? 600 : 800),
                     child: SizedBox(
                       width: double.infinity,
                       height: 54,
