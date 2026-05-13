@@ -8,52 +8,30 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../database/database_helper.dart';
+import '../widgets/common_widgets.dart';
+import '../services/ai_intent_service.dart';
 
-// 預設插圖頭像（emoji 角色 + 背景色）
-const List<Map<String, dynamic>> kPresetAvatars = [
-  {'emoji': '😊', 'color': Color(0xFFFFD54F), 'label': '開心'},
-  {'emoji': '🐱', 'color': Color(0xFFFFAB91), 'label': '小貓'},
-  {'emoji': '🐶', 'color': Color(0xFFA5D6A7), 'label': '小狗'},
-  {'emoji': '🦊', 'color': Color(0xFFFFCC80), 'label': '狐狸'},
-  {'emoji': '🐼', 'color': Color(0xFF90A4AE), 'label': '熊貓'},
-  {'emoji': '🦁', 'color': Color(0xFFFFF176), 'label': '獅子'},
-  {'emoji': '🐸', 'color': Color(0xFF80CBC4), 'label': '青蛙'},
-  {'emoji': '🐧', 'color': Color(0xFF90CAF9), 'label': '企鹅'},
-];
+part 'main_screen_profile_tab.part.dart';
+part 'main_screen_social_tab.part.dart';
 
-/// 根據名稱字串推算頭像顏色索引（hash 值 mod 數量）
-int _avatarColorIdx(String name) => name.isEmpty
-    ? 0
-    : name.codeUnits.fold(0, (a, b) => a + b) % kPresetAvatars.length;
+// 移除原本在這裡的 kPresetAvatars 與 _buildAvatar，已移至 common_widgets.dart
 
-/// 通用頭像 Widget：優先顯示自訂圖片，再顯示 emoji 預設，最後顯示預設人頭圖示
-Widget _buildAvatar({
-  Uint8List? blob,
-  int colorIdx = 0,
-  String initial = '',
-  double radius = 18,
-  bool usePreset = false,
-}) {
-  if (blob != null) {
-    return CircleAvatar(radius: radius, backgroundImage: MemoryImage(blob));
-  }
-  if (usePreset) {
-    final preset = kPresetAvatars[colorIdx % kPresetAvatars.length];
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: preset['color'] as Color,
-      child: Text(preset['emoji'] as String,
-          style: TextStyle(fontSize: radius * 0.95)),
-    );
-  }
-  // 未選取頭像：顯示預設灰色人頭圖示
-  return CircleAvatar(
-    radius: radius,
-    backgroundColor: const Color(0xFFBDBDBD),
-    child: Icon(Icons.person, color: Colors.white, size: radius),
-  );
-}
 // ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+
+// ── 社群貼文相關常量 (移至頂層以便分片檔案存取) ──
+const Map<String, String?> kSocialFilterMap = {
+  '全部': null,
+  '📝 學習筆記': 'note',
+  '💭 心情文章': 'mood',
+  '📄 分享資料': 'doc',
+};
+
+const Map<String, String> kPostTypeLabel = {
+  'note': '📝 學習筆記',
+  'mood': '💭 心情文章',
+  'doc': '📄 分享資料',
+};
 
 class MainScreen extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -95,6 +73,7 @@ class _MainScreenState extends State<MainScreen> {
   List<Map<String, dynamic>> scheduledPosts = [];
   List<Map<String, dynamic>> questionBank = [];
   final ScrollController _chatScrollController = ScrollController();
+  final ScrollController _profileScrollController = ScrollController();
 
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分'];
   Map<String, List<String>> subjectChapters = {
@@ -148,9 +127,11 @@ class _MainScreenState extends State<MainScreen> {
   List<Map<String, dynamic>> chatLogs = [
     {
       'isAI': true,
-      'text': '哈囉👋 我是你的專屬 AI 代理人!\n我可以協助你加行程 📅、發佈貼文，以及自動回覆社群留言。',
+      'text':
+          '哈囉👋 我是你的專屬 AI 代理人！很高興為您服務。😊\n\n我可以協助您管理行程、發佈貼文、回覆留言以及調整個人設定。您可以隨時輸入「幫助」或點擊下方功能來了解更多！',
       'isCard': false
-    }
+    },
+    {'isAI': true, 'text': '', 'isCard': false, 'widgetType': 'help_options'}
   ];
 
   @override
@@ -189,20 +170,12 @@ class _MainScreenState extends State<MainScreen> {
     await _loadData();
   }
 
-  String _formatRelativeTime(dynamic timeStr) {
-    if (timeStr == null) return '';
-    try {
-      DateTime dt = DateTime.parse(timeStr.toString());
-      Duration diff = DateTime.now().difference(dt);
-      if (diff.inSeconds < 60) return '剛剛';
-      if (diff.inMinutes < 60) return '${diff.inMinutes} 分鐘前';
-      if (diff.inHours < 24) return '${diff.inHours} 小時前';
-      if (diff.inDays < 30) return '${diff.inDays} 天前';
-      return '${dt.month}/${dt.day}';
-    } catch (e) {
-      return timeStr.toString();
-    }
+  /// 供分片檔案（Extensions）呼叫 setState 的輔助方法
+  void _update(VoidCallback fn) {
+    if (mounted) setState(fn);
   }
+
+  // _formatRelativeTime 已移至 common_widgets.dart
 
   Future<void> _loadData() async {
     _clearPostTimers();
@@ -288,7 +261,7 @@ class _MainScreenState extends State<MainScreen> {
           'authorAvatarColor': authorAvatarColor,
           'authorAvatarBlob': authorAvatarBlob,
           'authorAvatarSelected': authorAvatarSelected,
-          'time': _formatRelativeTime(p['created_at']),
+          'time': formatRelativeTime(p['created_at']),
           'content': p['content'],
           'postType': p['type'] ?? 'text',
           'isEdited': (p['is_edited'] as int?) ?? 0,
@@ -465,6 +438,10 @@ class _MainScreenState extends State<MainScreen> {
     _scheduleTimer?.cancel();
     _clearPostTimers();
     _quizScrollController.dispose();
+    _profileScrollController.dispose();
+    _chatScrollController.dispose();
+    _calendarPageController.dispose();
+    _timelinePageController.dispose();
     super.dispose();
   }
 
@@ -478,6 +455,11 @@ class _MainScreenState extends State<MainScreen> {
       _resetQuiz();
       _selectedFolder = null;
     });
+
+    // 當切換到個人檔案分頁時，重置捲動位置到頂部
+    if (index == 3 && _profileScrollController.hasClients) {
+      _profileScrollController.jumpTo(0);
+    }
   }
 
   void _resetQuiz() {
@@ -1025,7 +1007,7 @@ class _MainScreenState extends State<MainScreen> {
                       color: Theme.of(context).primaryColor),
                   title: const Text('社群動態'),
                   onTap: () {
-                    _changePage(3, '社群動態');
+                    _changePage(2, '社群動態');
                     Navigator.pop(context);
                   }),
               ListTile(
@@ -1033,7 +1015,7 @@ class _MainScreenState extends State<MainScreen> {
                       color: Theme.of(context).primaryColor),
                   title: const Text('個人資料'),
                   onTap: () {
-                    _changePage(4, '個人資料');
+                    _changePage(3, '個人資料');
                     Navigator.pop(context);
                   }),
             ]))),
@@ -1044,7 +1026,6 @@ class _MainScreenState extends State<MainScreen> {
                   _buildCalendarTab(),
                   _buildQuestionBankTab(),
                   _buildSocialTab(),
-                  _buildProfileTab(),
                   _buildPersonalProfileTab(context)
                 ])),
                 if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
@@ -1104,8 +1085,14 @@ class _MainScreenState extends State<MainScreen> {
                                   {
                                     'isAI': true,
                                     'text':
-                                        '嗨！👋 我是你的專屬 AI 代理人！\n我可以協助你加行程 📅、發佈貼文 📝，以及自動回覆社群留言。',
+                                        '好的，已為您重啟對話！😊\n我是您的 AI 代理人，請問今天有什麼我可以幫您的嗎？',
                                     'isCard': false
+                                  },
+                                  {
+                                    'isAI': true,
+                                    'text': '',
+                                    'isCard': false,
+                                    'widgetType': 'help_options'
                                   }
                                 ];
                                 _aiFlowState = 'none';
@@ -1221,6 +1208,126 @@ class _MainScreenState extends State<MainScreen> {
                                     _handleAISubmit(
                                         '跳過', modalController, setModalState);
                                   },
+                                ));
+                          }
+
+                          if (msg['widgetType'] == 'intent_suggestions') {
+                            final suggestions = [
+                              {'l': '🖼️ 換頭像', 'v': '更換頭像'},
+                              {'l': '👤 改暱稱', 'v': '修改暱稱'},
+                              {'l': '🎨 換主題', 'v': '切換主題'},
+                              {'l': '📏 字體', 'v': '字體大小'},
+                              {'l': '📧 驗證', 'v': 'Email 驗證'},
+                              {'l': '🔑 改密碼', 'v': '修改密碼'},
+                            ];
+                            return Container(
+                                margin:
+                                    const EdgeInsets.only(bottom: 12, left: 40),
+                                alignment: Alignment.centerLeft,
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: suggestions
+                                      .map((s) => ActionChip(
+                                            label: Text(s['l']!,
+                                                style: const TextStyle(
+                                                    fontSize: 12)),
+                                            backgroundColor: Colors.white,
+                                            onPressed: () => _handleAISubmit(
+                                                s['v']!,
+                                                modalController,
+                                                setModalState),
+                                          ))
+                                      .toList(),
+                                ));
+                          }
+
+                          if (msg['widgetType'] == 'help_options') {
+                            final options = [
+                              {'n': '1', 'l': '📅 新增日曆行程', 'v': '新增行程'},
+                              {'n': '2', 'l': '📝 發佈社群貼文', 'v': '發佈貼文'},
+                              {'n': '3', 'l': '💬 回覆社群留言', 'v': '回覆哪些留言'},
+                              {'n': '4', 'l': '👤 修改個人資料', 'v': '個人檔案'},
+                              {'n': '5', 'l': '🎨 切換佈景主題', 'v': '切換主題'},
+                              {'n': '6', 'l': '📋 跳轉題庫測驗', 'v': '題庫'},
+                            ];
+                            return Container(
+                                margin: const EdgeInsets.only(
+                                    bottom: 12, left: 40, right: 10),
+                                child: Column(
+                                  children: options
+                                      .map((opt) => Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 8),
+                                            child: InkWell(
+                                              onTap: () => _handleAISubmit(
+                                                  opt['v']!,
+                                                  modalController,
+                                                  setModalState),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 10),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                      color:
+                                                          Colors.grey.shade200),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.02),
+                                                        blurRadius: 4,
+                                                        offset:
+                                                            const Offset(0, 2))
+                                                  ],
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 24,
+                                                      height: 24,
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(
+                                                                0xFF8D6E63)
+                                                            .withOpacity(0.1),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: Center(
+                                                          child: Text(opt['n']!,
+                                                              style: const TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: Color(
+                                                                      0xFF8D6E63),
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold))),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Text(opt['l']!,
+                                                        style: const TextStyle(
+                                                            fontSize: 14,
+                                                            color:
+                                                                Colors.black87,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w500)),
+                                                    const Spacer(),
+                                                    Icon(Icons.chevron_right,
+                                                        size: 16,
+                                                        color: Colors
+                                                            .grey.shade400),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ))
+                                      .toList(),
                                 ));
                           }
 
@@ -1482,12 +1589,414 @@ class _MainScreenState extends State<MainScreen> {
         });
   }
 
+  /// 意圖解析函數：根據使用者輸入文字，自動關聯並執行對應的功能方法
+  bool _parseIntent(String userInput, StateSetter setModalState) {
+    final result = AIIntentService.parse(userInput);
+
+    // 內部輔助：同時更新主頁面與彈窗狀態，確保對話紀錄不遺失
+    void updateLogs(VoidCallback fn) {
+      fn(); // 執行修改 chatLogs
+      if (mounted) setState(() {}); // 刷新主頁面
+      setModalState(fn); // 刷新彈窗（如果面板還開著的話）
+    }
+
+    // 如果完全沒有意圖也沒有建議，才回傳 false 觸發後備清單
+    if (result.intent == UserIntent.none && result.suggestionLabel == null) return false;
+
+    // 處理「建議引導」 (中等信心度)
+    if (result.intent == UserIntent.none && result.suggestionLabel != null) {
+      updateLogs(() {
+        chatLogs.add({'isAI': false, 'text': userInput});
+        chatLogs.add({
+          'isAI': true,
+          'text': '唔... 您是指「${result.suggestionLabel}」功能嗎？😅\n如果是的話，您可以點擊下方按鈕，或輸入「${result.suggestionKeyword}」來處理。',
+          'isCard': false
+        });
+        // 新增：提供點擊按鈕
+        chatLogs.add({
+          'isAI': true,
+          'text': '',
+          'isCard': false,
+          'widgetType': 'suggestion_action',
+          'suggestionLabel': result.suggestionLabel,
+          'suggestionKeyword': result.suggestionKeyword,
+        });
+        _scrollToBottom();
+      });
+      return true;
+    }
+
+    final intent = result.intent;
+
+    // 輔助方法：切換到個人主頁並捲動
+    void goToProfile(double offset) {
+      if (Navigator.canPop(context)) Navigator.pop(context); // 關閉聊天面板
+      _changePage(3, '個人資料');
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_profileScrollController.hasClients) {
+          _profileScrollController.animateTo(offset,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOut);
+        }
+      });
+    }
+
+    switch (intent) {
+      case UserIntent.changeNickname:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+        });
+        goToProfile(650);
+        _showEditNicknameDialog();
+        return true;
+      case UserIntent.changeAvatar:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+        });
+        goToProfile(0);
+        _pickAvatarFromLocal();
+        return true;
+      case UserIntent.editBio:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+        });
+        goToProfile(650);
+        _showEditBioDialog();
+        return true;
+      case UserIntent.changeFontSize:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+        });
+        goToProfile(400);
+        _showFontSizeDialog();
+        return true;
+      case UserIntent.changeTheme:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+        });
+        goToProfile(400);
+        _showThemeColorDialog();
+        return true;
+      case UserIntent.verifyEmail:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+        });
+        goToProfile(900);
+        _showEmailVerificationFlow();
+        return true;
+      case UserIntent.changePassword:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+        });
+        goToProfile(900);
+        _showChangePasswordDialog();
+        return true;
+      case UserIntent.logout:
+        _showLogoutDialog();
+        return true;
+      case UserIntent.createPost:
+        // 觸發發文流程
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'adding_post_content';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的，我們來發佈一則新的貼文吧！📝\n請問貼文的內容是什麼？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.viewItinerary:
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        _changePage(0, '日曆行程');
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add(
+              {'isAI': true, 'text': '沒問題，已為您跳轉至日曆！', 'isCard': false});
+        });
+        return true;
+      case UserIntent.createItinerary:
+        // 觸發新增行程流程
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'adding_event_title';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '我很樂意幫您新增行程！📅\n首先，請問這個行程的標題是什麼？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.viewSocial:
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        _changePage(2, '社群');
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '好的，帶您去社群！', 'isCard': false});
+        });
+        return true;
+      case UserIntent.viewQuestionBank:
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        _changePage(1, '題庫');
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '切換至題庫系統！', 'isCard': false});
+        });
+        return true;
+      case UserIntent.viewProfile:
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        _changePage(3, '個人檔案');
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '已為您打開個人檔案！', 'isCard': false});
+        });
+        return true;
+      case UserIntent.viewPendingComments:
+        _handleViewPendingComments(setModalState);
+        return true;
+      case UserIntent.help:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({
+            'isAI': true,
+            'text':
+                '我可以幫您處理以下事項：\n\n1. 📅 **新增行程**：直接輸入標題，或說「加行程」。\n2. 📝 **發布貼文**：輸入「發貼文」或「分享心情」。\n3. 🛠️ **個人設定**：修改暱稱、換頭像、改顏色或字體。\n4. 👤 **個人檔案**：查看您的詳細資料與設定。\n\n請問您現在需要哪方面的協助？',
+            'isCard': false,
+            'widgetType': 'help_options'
+          });
+          _scrollToBottom();
+        });
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  void _handleViewPendingComments(StateSetter setModalState) async {
+    setModalState(() {
+      chatLogs.add({
+        'isAI': true,
+        'text': '沒問題，我這就幫您看看有哪些需要回覆的留言... 💬',
+        'isCard': false
+      });
+      _scrollToBottom();
+    });
+
+    final db = await DatabaseHelper.instance.database;
+    final myPostIds = socialPosts
+        .where((p) => p['userId'] == widget.currentUser['id'])
+        .map((p) => p['id'])
+        .toList();
+
+    List<Map<String, dynamic>> pendingComments = [];
+    if (myPostIds.isNotEmpty) {
+      final placeholders = List.filled(myPostIds.length, '?').join(',');
+      final comments = await db.query('comments',
+          where: 'post_id IN ($placeholders)', whereArgs: myPostIds);
+      for (var c in comments) {
+        if (c['user_id'] != widget.currentUser['id']) {
+          var u = await db
+              .query('users', where: 'id = ?', whereArgs: [c['user_id']]);
+          String authorName =
+              u.isNotEmpty ? u.first['display_name'] as String : '未知用戶';
+          pendingComments.add({
+            'commentId': c['id'],
+            'postId': c['post_id'],
+            'text': c['text'],
+            'authorId': c['user_id'],
+            'authorName': authorName,
+          });
+        }
+      }
+    }
+
+    setModalState(() {
+      if (pendingComments.isEmpty) {
+        chatLogs.add(
+            {'isAI': true, 'text': '目前您的貼文下沒有需要回覆的留言喔！', 'isCard': false});
+        _scrollToBottom();
+      } else {
+        _aiPendingReplyPosts = pendingComments.take(2).toList();
+        _aiFlowState = 'replying';
+        _aiReplyPostIndex = 0;
+        var firstItem = _aiPendingReplyPosts[0];
+        var originalPost = socialPosts.firstWhere(
+            (p) => p['id'] == firstItem['postId'],
+            orElse: () => {'content': '未知貼文'});
+        chatLogs.add({
+          'isAI': true,
+          'text':
+              '為您找到 ${_aiPendingReplyPosts.length} 則可以回覆的留言！\n\n您的貼文：「${originalPost['content']}」\n底下有來自「${firstItem['authorName']}」的留言：\n「${firstItem['text']}」\n請問您想回覆什麼？(若不想回覆這則請點擊下方按鈕或說「跳過」)',
+          'isCard': false
+        });
+        chatLogs.add({
+          'isAI': true,
+          'text': '',
+          'isCard': false,
+          'widgetType': 'skip_button'
+        });
+        _scrollToBottom();
+      }
+    });
+  }
+
+
   Future<void> _handleAISubmit(String input, TextEditingController controller,
       StateSetter setModalState) async {
     if (input.trim().isEmpty) return;
     String text = input.trim();
+    final inputLower = text.toLowerCase();
     controller.clear();
     _scrollToBottom();
+
+    // 僅在非任務流程中處理快捷指令與對話
+    if (_aiFlowState == 'none') {
+      // 數字快捷指令處理 (1-6)
+      if (RegExp(r'^[1-6]$').hasMatch(text)) {
+        String command = "";
+        String featureName = "";
+        switch (text) {
+          case '1':
+            command = "新增行程";
+            featureName = "新增行程";
+            break;
+          case '2':
+            command = "發佈貼文";
+            featureName = "發佈社群貼文";
+            break;
+          case '3':
+            command = "回覆哪些留言";
+            featureName = "回覆社群留言";
+            break;
+          case '4':
+            command = "個人檔案";
+            featureName = "個人檔案";
+            break;
+          case '5':
+            command = "切換主題";
+            featureName = "切換佈景主題";
+            break;
+          case '6':
+            command = "題庫";
+            featureName = "跳轉題庫測驗";
+            break;
+        }
+        if (command.isNotEmpty) {
+          setModalState(() {
+            chatLogs.add({'isAI': false, 'text': text});
+            chatLogs.add({
+              'isAI': true,
+              'text': '好的，沒問題！這就為您處理「$featureName」',
+              'isCard': false
+            });
+            _scrollToBottom();
+          });
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              _handleAISubmit(command, controller, setModalState);
+            }
+          });
+          return;
+        }
+      }
+
+      // 簡單對話處理 (Chitchat)
+      if (inputLower == '哈囉' ||
+          inputLower == '你好' ||
+          inputLower == '嗨' ||
+          inputLower == 'hi' ||
+          inputLower == 'hello') {
+        setModalState(() {
+          chatLogs.add({'isAI': false, 'text': text});
+          chatLogs.add({
+            'isAI': true,
+            'text': '嗨！很高興見到你！😊 我是你的 AI 代理人助手，隨時準備好為你服務。今天有什麼我可以幫你的嗎？',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'help_options'
+          });
+          _scrollToBottom();
+        });
+        return;
+      }
+
+      if (inputLower.contains('謝謝') ||
+          inputLower.contains('感恩') ||
+          inputLower.contains('太棒了') ||
+          inputLower.contains('thanks')) {
+        setModalState(() {
+          chatLogs.add({'isAI': false, 'text': text});
+          chatLogs.add({
+            'isAI': true,
+            'text': '不客氣！這是我應該做的。😊 如果還有其他需要，隨時跟我說喔！',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+        return;
+      }
+
+      if (inputLower == '掰掰' ||
+          inputLower == '再見' ||
+          inputLower == '掰' ||
+          inputLower == 'bye' ||
+          inputLower.contains('下次見')) {
+        setModalState(() {
+          chatLogs.add({'isAI': false, 'text': text});
+          chatLogs.add(
+              {'isAI': true, 'text': '好的，下次見囉！👋 祝你有個美好的一天！', 'isCard': false});
+          _scrollToBottom();
+        });
+        return;
+      }
+
+      // 幫助指令處理
+      if (inputLower == 'help' ||
+          inputLower == '幫助' ||
+          inputLower.contains('你能做什麼') ||
+          inputLower.contains('可以幫什麼') ||
+          inputLower.contains('指令') ||
+          inputLower.contains('功能')) {
+        setModalState(() {
+          chatLogs.add({'isAI': false, 'text': text});
+          chatLogs.add({
+            'isAI': true,
+            'text': '沒問題！我很樂意向您介紹。😊\n以下是我目前可以為您提供的協助事項：',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'help_options'
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '您可以點擊上方選項，或直接輸入對應的數字。想做什麼都儘管跟我說吧！✨',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+        return;
+      }
+    } // End of _aiFlowState == 'none' check
 
     if (text == '重來' || text == '取消' || text == '取消行程' || text == '取消發佈') {
       setModalState(() {
@@ -1772,134 +2281,22 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
-    if (text.contains('回覆') || text.contains('哪些留言') || text.contains('待回覆')) {
-      setModalState(() {
-        chatLogs
-            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
-        _scrollToBottom();
-      });
-
-      final db = await DatabaseHelper.instance.database;
-      final myPostIds = socialPosts
-          .where((p) => p['userId'] == widget.currentUser['id'])
-          .map((p) => p['id'])
-          .toList();
-
-      List<Map<String, dynamic>> pendingComments = [];
-      if (myPostIds.isNotEmpty) {
-        final placeholders = List.filled(myPostIds.length, '?').join(',');
-        final comments = await db.query('comments',
-            where: 'post_id IN ($placeholders)', whereArgs: myPostIds);
-        for (var c in comments) {
-          if (c['user_id'] != widget.currentUser['id']) {
-            var u = await db
-                .query('users', where: 'id = ?', whereArgs: [c['user_id']]);
-            String authorName =
-                u.isNotEmpty ? u.first['display_name'] as String : '未知用戶';
-            pendingComments.add({
-              'commentId': c['id'],
-              'postId': c['post_id'],
-              'text': c['text'],
-              'authorId': c['user_id'],
-              'authorName': authorName,
-            });
-          }
-        }
-      }
-
-      setModalState(() {
-        if (pendingComments.isEmpty) {
-          chatLogs.add(
-              {'isAI': true, 'text': '目前您的貼文下沒有需要回覆的留言喔！', 'isCard': false});
-          _scrollToBottom();
-        } else {
-          _aiPendingReplyPosts = pendingComments.take(2).toList();
-          _aiFlowState = 'replying';
-          _aiReplyPostIndex = 0;
-          var firstItem = _aiPendingReplyPosts[0];
-          var originalPost = socialPosts.firstWhere(
-              (p) => p['id'] == firstItem['postId'],
-              orElse: () => {'content': '未知貼文'});
-          chatLogs.add({
-            'isAI': true,
-            'text':
-                '為您找到 ${_aiPendingReplyPosts.length} 則可以回覆的留言！\n\n您的貼文：「${originalPost['content']}」\n底下有來自「${firstItem['authorName']}」的留言：\n「${firstItem['text']}」\n請問您想回覆什麼？(若不想回覆這則請點擊下方按鈕或說「跳過」)',
-            'isCard': false
-          });
-          chatLogs.add({
-            'isAI': true,
-            'text': '',
-            'isCard': false,
-            'widgetType': 'skip_button'
-          });
-          _scrollToBottom();
-        }
-      });
+    // 意圖解析 (處理加行程、發貼文、改設定、跳轉頁面、幫助等)
+    if (_aiFlowState == 'none' && _parseIntent(text, setModalState)) {
       return;
     }
 
-    if (text.contains('加行程') || text.contains('新增行程')) {
-      setModalState(() {
-        chatLogs
-            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
-        _aiFlowState = 'adding_event_title';
-        _aiFlowData = {};
-        chatLogs
-            .add({'isAI': true, 'text': '好的！請問這個行程的標題是什麼？', 'isCard': false});
-        _scrollToBottom();
+    // 最終後備：如果完全聽不懂，且不在任何流程中
+    setModalState(() {
+      chatLogs.add({'isAI': false, 'text': text});
+      chatLogs.add({
+        'isAI': true,
+        'text': '抱歉，我還在學習中，不太明白您的意思... 😅\n但我可以幫您處理行程、貼文、或是修改個人設定！您可以輸入「幫助」來看看我能做什麼。',
+        'isCard': false,
+        'widgetType': 'help_options'
       });
-      return;
-    }
-
-    if (text.contains('發佈貼文') || text.contains('發布貼文') || text.contains('排程')) {
-      setModalState(() {
-        chatLogs
-            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
-        _aiFlowState = 'adding_post_content';
-        _aiFlowData = {};
-        chatLogs.add({
-          'isAI': true,
-          'text': '好，幫您發佈社群貼文！\n請問貼文的內容是什麼？',
-          'isCard': false
-        });
-        _scrollToBottom();
-      });
-      return;
-    }
-
-    if (text.contains('日曆') || text.contains('行程')) {
-      Navigator.pop(context);
-      _changePage(0, '日曆行程');
-      setState(() => chatLogs
-          .add({'isAI': true, 'text': '沒問題，已為您跳轉至日曆！', 'isCard': false}));
-    } else if (text.contains('題庫') || text.contains('測驗')) {
-      Navigator.pop(context);
-      _changePage(1, '題庫');
-      setState(() =>
-          chatLogs.add({'isAI': true, 'text': '切換至題庫系統！', 'isCard': false}));
-    } else if (text.contains('社群') && !text.contains('檔案')) {
-      Navigator.pop(context);
-      _changePage(2, '社群');
-      setState(() =>
-          chatLogs.add({'isAI': true, 'text': '好的，帶您去社群！', 'isCard': false}));
-    } else if (text.contains('檔案') ||
-        text.contains('個人') ||
-        text.contains('主頁')) {
-      Navigator.pop(context);
-      _changePage(3, '社群檔案');
-      setState(() =>
-          chatLogs.add({'isAI': true, 'text': '已打開社群檔案！', 'isCard': false}));
-    } else {
-      setModalState(() {
-        chatLogs.add({'isAI': false, 'text': text});
-        chatLogs.add({
-          'isAI': true,
-          'text':
-              '很抱歉，我不太明白您的意思。\n您可以對我說：「加行程」、「發佈貼文」、「有哪些留言需要回覆」或是請我帶您去「日曆」、「題庫」、「社群檔案」等頁面！',
-          'isCard': false
-        });
-      });
-    }
+      _scrollToBottom();
+    });
   }
 
   Widget _buildConfirmationCard(
@@ -1964,7 +2361,8 @@ class _MainScreenState extends State<MainScreen> {
                   color: const Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(30)),
               child: const Row(children: [
-                Icon(Icons.auto_awesome, color: Color(0xFF8D6E63), size: 20),
+                Icon(Icons.chat_bubble_outline,
+                    color: Color(0xFF8D6E63), size: 18),
                 SizedBox(width: 10),
                 Text('去社群 / 加行程...',
                     style: TextStyle(color: Colors.grey, fontSize: 14))
@@ -3406,946 +3804,9 @@ class _MainScreenState extends State<MainScreen> {
   }
   // ───────────────────────────────────────────────────────────────
 
-  // ── 3. 社群貼文頁（含分類筛選 + 浮動新增鈕）───────────────────
-  // 筛選選項與對應的 DB type 欄位元
-  static const Map<String, String?> _filterMap = {
-    '全部': null,
-    '📝 學習筆記': 'note',
-    '💭 心情文章': 'mood',
-    '📄 分享資料': 'doc',
-  };
+  // --- 社群分頁邏輯已移至 main_screen_social_tab.part.dart ---
 
-  Widget _buildSocialTab() {
-    // 根據當前筛選條件過濾貼文
-    final typeFilter = _filterMap[_socialFilter];
-    final filtered = typeFilter == null
-        ? socialPosts
-        : socialPosts.where((p) => p['postType'] == typeFilter).toList();
-
-    return Stack(children: [
-      Column(children: [
-        // ― 分類筛選標籤列
-        SizedBox(
-          height: 50,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-            children: _filterMap.keys.map((label) {
-              final isSelected = _socialFilter == label;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () => setState(() => _socialFilter = label),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF8D6E63)
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(label,
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.grey.shade700,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal)),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        // ― 貼文列表
-        Expanded(
-            child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                children: [
-              if (scheduledPosts.isNotEmpty && _socialFilter == '全部') ...[
-                Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.orange.shade200)),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(children: [
-                            Icon(Icons.schedule,
-                                color: Colors.orange, size: 20),
-                            SizedBox(width: 8),
-                            Text('待發佈排程',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange))
-                          ]),
-                          const SizedBox(height: 10),
-                          ...scheduledPosts
-                              .map((sp) => Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                          color: Colors.orange.shade100)),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(sp['content'],
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 14)),
-                                      const SizedBox(height: 4),
-                                      Text('排定時間: ${sp['scheduled_at']}',
-                                          style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey)),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          // 編輯按鈕
-                                          TextButton.icon(
-                                            style: TextButton.styleFrom(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8),
-                                                minimumSize:
-                                                    const Size(40, 30)),
-                                            icon: const Icon(Icons.edit,
-                                                size: 16,
-                                                color: Color(0xFF8D6E63)),
-                                            label: const Text('編輯',
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: Color(0xFF8D6E63))),
-                                            onPressed: () =>
-                                                _showEditScheduledPostDialog(
-                                                    sp),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          // 刪除按鈕
-                                          TextButton.icon(
-                                            style: TextButton.styleFrom(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8),
-                                                minimumSize:
-                                                    const Size(40, 30)),
-                                            icon: const Icon(
-                                                Icons.delete_outline,
-                                                size: 16,
-                                                color: Colors.redAccent),
-                                            label: const Text('刪除',
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.redAccent)),
-                                            onPressed: () async {
-                                              final confirm =
-                                                  await showDialog<bool>(
-                                                context: context,
-                                                builder: (ctx) => AlertDialog(
-                                                  title: const Text('確認刪除'),
-                                                  content: const Text(
-                                                      '確定要刪除這篇排程貼文嗎？此操作無法復原。'),
-                                                  actions: [
-                                                    TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                                ctx, false),
-                                                        child:
-                                                            const Text('取消')),
-                                                    TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                                ctx, true),
-                                                        child: const Text('刪除',
-                                                            style: TextStyle(
-                                                                color: Colors
-                                                                    .red))),
-                                                  ],
-                                                ),
-                                              );
-                                              if (confirm == true) {
-                                                final db = await DatabaseHelper
-                                                    .instance.database;
-                                                await db.delete('posts',
-                                                    where: 'id = ?',
-                                                    whereArgs: [sp['id']]);
-                                                await _loadData();
-                                                if (mounted) {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                          const SnackBar(
-                                                              content: Text(
-                                                                  '已刪除排程貼文')));
-                                                }
-                                              }
-                                            },
-                                          ),
-                                          const SizedBox(width: 4),
-                                          // 立即發佈按鈕 (保留作為手動保險)
-                                          TextButton.icon(
-                                            style: TextButton.styleFrom(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8),
-                                                minimumSize:
-                                                    const Size(40, 30)),
-                                            icon: const Icon(Icons.send,
-                                                size: 16, color: Colors.orange),
-                                            label: const Text('立即發佈',
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.orange)),
-                                            onPressed: () async {
-                                              final db = await DatabaseHelper
-                                                  .instance.database;
-                                              await db.update(
-                                                  'posts',
-                                                  {
-                                                    'attached_data': '{}',
-                                                    'created_at': DateTime.now()
-                                                        .toIso8601String()
-                                                  },
-                                                  where: 'id = ?',
-                                                  whereArgs: [sp['id']]);
-                                              await _loadData();
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                        const SnackBar(
-                                                            content: Text(
-                                                                '貼文已發佈！')));
-                                              }
-                                            },
-                                          ),
-                                        ],
-                                      )
-                                    ],
-                                  )))
-                              .toList()
-                        ]))
-              ],
-              if (filtered.isEmpty)
-                Center(
-                    child: Padding(
-                        padding: const EdgeInsets.only(top: 40),
-                        child: Text(
-                          _socialFilter == '全部'
-                              ? '還沒有任何貼文，快來發表第一篇！'
-                              : '此分類目前沒有貼文',
-                          style:
-                              const TextStyle(color: Colors.grey, fontSize: 14),
-                        )))
-              else
-                ...filtered.map((p) => _buildPostItem(p)).toList()
-            ])),
-      ]),
-      // ― 浮動新增貼文鈕
-      Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton(
-              heroTag: 'add_post',
-              backgroundColor: Theme.of(context).primaryColor,
-              onPressed: _showCreatePostScreen,
-              child: const Icon(Icons.add, color: Colors.white)))
-    ]);
-  }
-
-  void _showCreatePostScreen() {
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => CreatePostPage(
-                  currentUser: widget.currentUser,
-                  onPosted: _loadData,
-                )));
-  }
-
-  Widget _buildProfileTab() => DefaultTabController(
-      length: 2,
-      child: Column(children: [
-        Padding(
-            padding: const EdgeInsets.all(25),
-            child: Row(children: [
-              Stack(children: [
-                _buildAvatar(
-                    blob: _userAvatarBlob,
-                    colorIdx: _userAvatarColor,
-                    initial: (widget.currentUser['display_name'] ?? '?')
-                        .substring(0, 1),
-                    radius: 35,
-                    usePreset: _userAvatarSelected && _userAvatarBlob == null),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: GestureDetector(
-                    onTap: _showUnifiedAvatarPicker,
-                    child: const CircleAvatar(
-                      radius: 11,
-                      backgroundColor: Color(0xFF8D6E63),
-                      child: Icon(Icons.edit, color: Colors.white, size: 13),
-                    ),
-                  ),
-                ),
-              ]),
-              const SizedBox(width: 20),
-              Text(widget.currentUser['display_name'] ?? '使用者',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold))
-            ])),
-        const TabBar(
-            indicatorColor: Color(0xFF8D6E63),
-            labelColor: Color(0xFF8D6E63),
-            tabs: [Tab(text: '發佈'), Tab(text: '收藏')]),
-        Expanded(
-            child: TabBarView(children: [
-          // 我的貼文
-          Builder(builder: (ctx) {
-            if ((widget.currentUser['username'] ?? '') == '訪客') {
-              return const Center(
-                  child: Text('訪客帳號不保留個人發佈紀錄',
-                      style: TextStyle(color: Colors.grey)));
-            }
-            final myPosts = socialPosts
-                .where((p) => p['userId'] == widget.currentUser['id'])
-                .toList();
-            if (myPosts.isEmpty) {
-              return const Center(
-                  child:
-                      Text('還沒有發佈任何貼文', style: TextStyle(color: Colors.grey)));
-            }
-            return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: myPosts.length,
-                itemBuilder: (ctx, i) => _buildPostItem(myPosts[i]));
-          }),
-          const Center(child: Text('尚無收藏'))
-        ]))
-      ]));
-
-  // 貼文分類對應標籤
-  static const Map<String, String> _postTypeLabel = {
-    'note': '📝 學習筆記',
-    'mood': '💭 心情文章',
-    'doc': '📄 分享資料',
-  };
-
-  Widget _buildPostItem(Map<String, dynamic> p) => Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // 使用作者儲存的頭像資料
-        _buildAvatar(
-            blob: p['authorAvatarBlob'] as Uint8List?,
-            colorIdx: (p['authorAvatarColor'] as int?) ??
-                _avatarColorIdx(p['author'] ?? ''),
-            initial: (p['author'] ?? '?').substring(0, 1),
-            radius: 18,
-            usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
-                p['authorAvatarBlob'] == null),
-        const SizedBox(width: 12),
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Text(p['author'],
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(width: 10),
-            Text(p['time'],
-                style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            if ((p['isEdited'] as int? ?? 0) == 1) ...[
-              const SizedBox(width: 5),
-              const Text('已編輯',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
-            ],
-            const Spacer(),
-            // 貼文作者才顯示編輯／刪除選區
-            if (p['userId'] == widget.currentUser['id'] &&
-                ((widget.currentUser['username'] ?? '') != '訪客' ||
-                    ((widget.currentUser['session_post_ids'] as Set<int>?)
-                            ?.contains(p['id']) ??
-                        false)))
-              PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                iconSize: 18,
-                icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                onSelected: (val) {
-                  if (val == 'edit') _editPost(p);
-                  if (val == 'delete') _deletePost(p);
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(children: [
-                        Icon(Icons.edit_outlined, size: 16, color: Colors.grey),
-                        SizedBox(width: 8),
-                        Text('編輯貼文'),
-                      ])),
-                  const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(children: [
-                        Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('刪除貼文', style: TextStyle(color: Colors.red)),
-                      ])),
-                ],
-              ),
-          ]),
-          // 貼文分類標籤（若有）
-          if (_postTypeLabel.containsKey(p['postType'])) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFF5F0EE),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Text(_postTypeLabel[p['postType']]!,
-                  style:
-                      const TextStyle(fontSize: 11, color: Color(0xFF8D6E63))),
-            ),
-          ],
-          const SizedBox(height: 5),
-          Text(p['content']),
-          if ((p['media_blob'] != null) ||
-              (p['media'] != null && p['media'].toString().isNotEmpty)) ...[
-            const SizedBox(height: 10),
-            Container(
-              height: 200,
-              width: 200,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.grey.shade50,
-                border: Border.all(color: Colors.grey.shade100),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: (p['media_blob'] != null)
-                    ? Image.memory(
-                        p['media_blob'],
-                        fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => const Center(
-                            child:
-                                Icon(Icons.broken_image, color: Colors.grey)),
-                      )
-                    : (p['media'].toString().startsWith('data:image'))
-                        ? Builder(builder: (context) {
-                            try {
-                              String base64Str = p['media']
-                                  .toString()
-                                  .split(',')
-                                  .last
-                                  .replaceAll('\n', '')
-                                  .replaceAll('\r', '');
-                              return Image.memory(
-                                base64Decode(base64Str),
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => const Center(
-                                    child: Icon(Icons.broken_image,
-                                        color: Colors.grey)),
-                              );
-                            } catch (e) {
-                              return const Center(
-                                  child: Icon(Icons.broken_image,
-                                      color: Colors.grey));
-                            }
-                          })
-                        : (p['media'].toString().startsWith('http') || kIsWeb)
-                            ? Image.network(
-                                p['media'],
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => const Center(
-                                    child: Icon(Icons.broken_image,
-                                        color: Colors.grey)),
-                              )
-                            : Image.file(
-                                File(p['media']),
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => const Center(
-                                    child: Icon(Icons.broken_image,
-                                        color: Colors.grey)),
-                              ),
-              ),
-            ),
-          ],
-          if (p['fileName'] != null && p['fileName'].toString().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8)),
-              child: Row(children: [
-                const Icon(Icons.attach_file, size: 16, color: Colors.blue),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text(p['fileName'],
-                        style: const TextStyle(fontSize: 12))),
-              ]),
-            )
-          ],
-          Row(children: [
-            IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                    p['isLiked'] ? Icons.favorite : Icons.favorite_border,
-                    size: 20,
-                    color: p['isLiked'] ? Colors.redAccent : Colors.grey),
-                onPressed: () => _toggleLike(p)),
-            const SizedBox(width: 4),
-            Text('${p['likes']}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(width: 20),
-            IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.mode_comment_outlined,
-                    size: 20, color: Colors.grey),
-                onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => PostReplyPage(
-                              originalPost: p,
-                              currentUser: widget.currentUser,
-                            ))).then((_) => _loadData())),
-            const SizedBox(width: 4),
-            Text('${p['replies']}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ])
-        ]))
-      ]));
-
-  Future<void> _toggleLike(Map<String, dynamic> p) async {
-    final db = await DatabaseHelper.instance.database;
-    final currentUserId = widget.currentUser['id'];
-    int currentLikes = p['likes'] ?? 0;
-
-    if (p['isLiked']) {
-      await db.delete('post_likes',
-          where: 'post_id = ? AND user_id = ?',
-          whereArgs: [p['id'], currentUserId]);
-      currentLikes = (currentLikes > 0) ? currentLikes - 1 : 0;
-      await db.execute(
-          'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
-    } else {
-      await db
-          .insert('post_likes', {'post_id': p['id'], 'user_id': currentUserId});
-      currentLikes = currentLikes + 1;
-      await db.execute(
-          'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
-    }
-    _loadData();
-  }
-
-  // --- 個人資料頁面 (模組化) ---
-  Widget _buildPersonalProfileTab(BuildContext context) {
-    return Container(
-      color: _isDarkMode ? Colors.black87 : const Color(0xFFFAFAFA),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-        children: [
-          // 頂部標題與說明
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '個人資料',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: _isDarkMode
-                        ? Colors.white
-                        : Theme.of(context).primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '管理你的帳號安全與個性化體驗',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _buildProfileDashboardHeader(context),
-          const SizedBox(height: 20),
-          _buildPersonalizedDashboard(context),
-          const SizedBox(height: 20),
-          _buildPersonalizationModule(context),
-          const SizedBox(height: 20),
-          _buildBasicInfoModule(context),
-          const SizedBox(height: 16),
-          _buildSecurityModule(context),
-          const SizedBox(height: 16),
-          _buildInteractionModule(context),
-          const SizedBox(height: 16),
-          _buildLearningProgressModule(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileDashboardHeader(BuildContext context) {
-    return Row(
-      children: [
-        Stack(
-          children: [
-            _buildAvatar(
-              blob: _userAvatarBlob,
-              colorIdx: _userAvatarColor,
-              initial: (_displayName ?? '?').substring(0, 1),
-              radius: 40,
-              usePreset: _userAvatarSelected && _userAvatarBlob == null,
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: GestureDetector(
-                onTap: _showUnifiedAvatarPicker,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF8D6E63),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.camera_alt,
-                      color: Colors.white, size: 14),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 20),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _displayName ?? '使用者',
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '學習等級：Lv. 5',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPersonalizedDashboard(BuildContext context) {
-    final primaryColor = Theme.of(context).primaryColor;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primaryColor, primaryColor.withOpacity(0.7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '今日學習摘要',
-            style: TextStyle(
-                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildDashboardItem(Icons.timer_outlined, '學習時數', '2.5h'),
-              _buildDashboardItem(Icons.check_circle_outline, '完成題目', '15 題'),
-              _buildDashboardItem(Icons.local_fire_department, '連續天數', '7 天'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDashboardItem(IconData icon, String label, String value) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 20),
-        const SizedBox(height: 8),
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
-      ],
-    );
-  }
-
-  Widget _buildModuleContainer(
-      {required String title,
-      required Widget child,
-      required BuildContext context}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor)),
-          const SizedBox(height: 16),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBasicInfoModule(BuildContext context) {
-    return _buildModuleContainer(
-      context: context,
-      title: '基本資訊',
-      child: Column(
-        children: [
-          _buildProfileTile(
-            context: context,
-            icon: Icons.person_outline,
-            label: '暱稱',
-            value: _displayName ?? '未設定',
-            onTap: _showEditNicknameDialog,
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.assignment_ind_outlined,
-            label: '個人簡介',
-            value: (_userBio == null || _userBio!.isEmpty)
-                ? '點擊設定簡介...'
-                : _userBio!,
-            onTap: _showEditBioDialog,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPersonalizationModule(BuildContext context) {
-    return _buildModuleContainer(
-      context: context,
-      title: '個人化設定',
-      child: Column(
-        children: [
-          _buildProfileTile(
-            context: context,
-            icon: Icons.format_size,
-            label: '字體大小',
-            value: _fontSizeFactor == 0.9
-                ? '較小'
-                : _fontSizeFactor == 1.1
-                    ? '較大'
-                    : '標準',
-            onTap: _showFontSizeDialog,
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.palette_outlined,
-            label: '主題顏色',
-            value: _themeColorIdx == 1
-                ? '孔雀藍'
-                : _themeColorIdx == 2
-                    ? '森林綠'
-                    : '經典暖棕',
-            onTap: _showThemeColorDialog,
-          ),
-          const Divider(height: 24),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('深色模式',
-                style: TextStyle(fontSize: 14, color: Colors.black87)),
-            secondary: Icon(Icons.dark_mode_outlined,
-                size: 20, color: Colors.grey.shade600),
-            value: _isDarkMode,
-            activeColor: const Color(0xFF8D6E63),
-            onChanged: (val) async {
-              setState(() => _isDarkMode = val);
-              await _updatePersonalization();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSecurityModule(BuildContext context) {
-    return _buildModuleContainer(
-      context: context,
-      title: '帳號安全',
-      child: Column(
-        children: [
-          _buildProfileTile(
-            context: context,
-            icon: Icons.email_outlined,
-            label: '綁定 Email',
-            value: widget.currentUser['email'] ?? '未設定',
-            valueColor: Colors.grey,
-            onTap: () {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('註冊信箱不可更改')));
-            },
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.lock_outline,
-            label: '修改密碼',
-            value: '定期修改更安全',
-            onTap: _showChangePasswordDialog,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInteractionModule(BuildContext context) {
-    return _buildModuleContainer(
-      context: context,
-      title: '互動紀錄',
-      child: Column(
-        children: [
-          _buildProfileTile(
-            context: context,
-            icon: Icons.bookmark_border,
-            label: '我的收藏',
-            value: '查看已收藏的題目與文章',
-            onTap: _showMyCollectionsPage,
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.history,
-            label: '測驗歷史',
-            value: '最近一次：100分',
-            onTap: () {},
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLearningProgressModule(BuildContext context) {
-    return _buildModuleContainer(
-      context: context,
-      title: '學習歷程 (本週時數)',
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-          _buildSimpleChart(context),
-          const SizedBox(height: 16),
-          const Text('本週累計：12.5 小時',
-              style: TextStyle(color: Colors.grey, fontSize: 13)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimpleChart(BuildContext context) {
-    final List<double> values = [1.2, 2.5, 0.8, 3.2, 1.5, 2.0, 1.3];
-    final List<String> days = ['一', '二', '三', '四', '五', '六', '日'];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(7, (i) {
-        return Column(
-          children: [
-            Container(
-              width: 12,
-              height: values[i] * 30,
-              decoration: BoxDecoration(
-                color: i == DateTime.now().weekday - 1
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(days[i],
-                style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          ],
-        );
-      }),
-    );
-  }
-
-  Widget _buildProfileTile({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required String value,
-    Color? valueColor,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Theme.of(context).primaryColor),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 4),
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 14, color: valueColor ?? Colors.black87)),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
-        ],
-      ),
-    );
-  }
+  // --- 個人資料頁面 (已移至 main_screen_profile_tab.part.dart) ---
 
   // --- 功能彈窗 ---
   void _showUnifiedAvatarPicker() {
@@ -4468,7 +3929,7 @@ class _MainScreenState extends State<MainScreen> {
                           },
                           child: Column(
                             children: [
-                              _buildAvatar(
+                              buildAvatar(
                                 usePreset: true,
                                 colorIdx: i,
                                 radius: 28,
@@ -5218,27 +4679,14 @@ class _PostReplyPageState extends State<PostReplyPage> {
         'authorAvatarColor': avatarColor,
         'authorAvatarBlob': avatarBlob,
         'authorAvatarSelected': avatarSelected,
-        'time': _formatRelativeTime(c['created_at'])
+        'time': formatRelativeTime(c['created_at'])
       });
     }
 
     setState(() => _comments = loaded);
   }
 
-  String _formatRelativeTime(dynamic timeStr) {
-    if (timeStr == null) return '';
-    try {
-      DateTime dt = DateTime.parse(timeStr.toString());
-      Duration diff = DateTime.now().difference(dt);
-      if (diff.inSeconds < 60) return '剛剛';
-      if (diff.inMinutes < 60) return '${diff.inMinutes} 分鐘前';
-      if (diff.inHours < 24) return '${diff.inHours} 小時前';
-      if (diff.inDays < 30) return '${diff.inDays} 天前';
-      return '${dt.month}/${dt.day}';
-    } catch (e) {
-      return timeStr.toString();
-    }
-  }
+  // 重複的 _formatRelativeTime 已移除
 
   void _submitComment() async {
     if (_commentController.text.isEmpty) return;
@@ -5458,10 +4906,10 @@ class _PostReplyPageState extends State<PostReplyPage> {
   Widget _buildPostHeader() {
     final author = widget.originalPost['author'] ?? '?';
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _buildAvatar(
+      buildAvatar(
           blob: widget.originalPost['authorAvatarBlob'] as Uint8List?,
           colorIdx: (widget.originalPost['authorAvatarColor'] as int?) ??
-              _avatarColorIdx(author),
+              getAvatarColorIdx(author),
           initial: author.substring(0, 1),
           radius: 18,
           usePreset:
@@ -5505,10 +4953,10 @@ class _PostReplyPageState extends State<PostReplyPage> {
     return Container(
         margin: const EdgeInsets.only(bottom: 12, top: 4),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _buildAvatar(
+          buildAvatar(
               blob: c['authorAvatarBlob'] as Uint8List?,
               colorIdx:
-                  (c['authorAvatarColor'] as int?) ?? _avatarColorIdx(author),
+                  (c['authorAvatarColor'] as int?) ?? getAvatarColorIdx(author),
               initial: author.substring(0, 1),
               radius: isSub ? 12 : 15,
               usePreset: (c['authorAvatarSelected'] as int? ?? 0) == 1 &&
