@@ -13,6 +13,7 @@ enum UserIntent {
   viewSocial,
   viewQuestionBank,
   viewProfile,
+  viewActivity,
   viewPendingComments,
   help,
   none,
@@ -34,10 +35,16 @@ class AIIntentService {
     UserIntent.createPost: {'label': '發佈貼文', 'keywords': ['發文', '貼文', '發貼文']},
     UserIntent.createItinerary: {'label': '新增行程', 'keywords': ['新增行程', '加行程', '排行程']},
     UserIntent.viewItinerary: {'label': '查看日曆', 'keywords': ['日曆', '看日曆', '行事曆', '看行程']},
-    UserIntent.viewSocial: {'label': '查看社群', 'keywords': ['社群', '看貼文', '朋友圈', '動態']},
+    UserIntent.viewSocial: {'label': '查看社群', 'keywords': ['社群', '看貼文', '朋友圈']},
     UserIntent.viewQuestionBank: {'label': '練習題庫', 'keywords': ['題庫', '測驗', '考題']},
     UserIntent.viewPendingComments: {'label': '回覆留言', 'keywords': ['回覆', '哪些留言', '待回覆']},
     UserIntent.viewProfile: {'label': '個人檔案', 'keywords': ['個人檔案', '我的資料', '主頁']},
+    UserIntent.viewActivity: {'label': '社群動態', 'keywords': ['社群動態', '我的貼文', '收藏', '收藏貼文']},
+    UserIntent.changeTheme: {'label': '切換主題', 'keywords': ['主題', '換主題', '顏色', '深色模式']},
+    UserIntent.changeFontSize: {'label': '字體大小', 'keywords': ['字體', '大小', '字大']},
+    UserIntent.verifyEmail: {'label': 'Email 驗證', 'keywords': ['驗證', '信箱', 'email']},
+    UserIntent.changePassword: {'label': '修改密碼', 'keywords': ['密碼', '改密碼']},
+    UserIntent.help: {'label': '幫助', 'keywords': ['幫助', '說明', 'help', '功能']},
   };
 
   static ParseResult parse(String userInput) {

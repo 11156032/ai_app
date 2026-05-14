@@ -45,7 +45,7 @@ class DatabaseHelper {
     return await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -133,6 +133,18 @@ class DatabaseHelper {
         await db.execute(
             'ALTER TABLE users ADD COLUMN is_dark_mode INTEGER DEFAULT 0');
       }
+    }
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE post_bookmarks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          post_id INTEGER NOT NULL,
+          user_id VARCHAR NOT NULL,
+          UNIQUE (post_id, user_id),
+          FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      ''');
     }
   }
 
@@ -295,6 +307,18 @@ class DatabaseHelper {
         correct INTEGER NOT NULL,
         wrong_question_ids TEXT DEFAULT '[]',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // 12. post_bookmarks
+    await db.execute('''
+      CREATE TABLE post_bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL,
+        user_id VARCHAR NOT NULL,
+        UNIQUE (post_id, user_id),
+        FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
     ''');

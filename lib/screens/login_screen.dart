@@ -584,7 +584,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (_usernameCtrl.text.isEmpty || _passwordCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('帳號與密碼不得為空')));
+          .showSnackBar(const SnackBar(content: Text('帳號名稱與密碼不得為空')));
       return;
     }
 
@@ -683,7 +683,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ));
         } catch (e) {
           if (!mounted) return;
-          String errorMsg = '帳號或信箱可能已被使用，請換一個試試。';
+          String errorMsg = '帳號名稱或信箱可能已被使用，請換一個試試。';
           // 如果不是 UNIQUE constraint 錯誤，才顯示詳細訊息，或者是乾脆不顯示詳細訊息以維持簡潔
           if (!e.toString().contains('UNIQUE constraint failed')) {
             errorMsg += '\n錯誤詳情：$e';
@@ -774,7 +774,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          isLogin ? '請輸入您的帳號與密碼' : '填寫資料以完成註冊',
+                          isLogin ? '請輸入您的帳號名稱與密碼' : '填寫資料以完成註冊',
                           style: const TextStyle(
                               fontSize: 14, color: Color(0xFF9E9E9E)),
                         ),
@@ -783,15 +783,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 36),
 
-                  // 欄位組（帳號、Email、密碼、確認密碼）同步出現
+                  // 欄位組（帳號名稱、Email、密碼、確認密碼）同步出現
                   _exquisiteFadeIn(
                     delayMs: 500 + 200,
                     child: Column(
                       children: [
-                        // 帳號欄
+                        // 帳號名稱欄
                         TextField(
                           controller: _usernameCtrl,
-                          decoration: _inputDeco('帳號',
+                          decoration: _inputDeco('帳號名稱',
                               suffix: const Icon(Icons.person_outline_rounded,
                                   color: Color(0xFFBCAAA4))),
                         ),

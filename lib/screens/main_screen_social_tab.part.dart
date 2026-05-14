@@ -321,14 +321,32 @@ extension MainScreenSocialTab on _MainScreenState {
   Widget _buildPostActions(Map<String, dynamic> p) {
     return Row(children: [
       IconButton(
-          icon: Icon(p['isLiked'] ? Icons.favorite : Icons.favorite_border, size: 20, color: p['isLiked'] ? Colors.redAccent : Colors.grey),
+          icon: Icon(p['isLiked'] ? Icons.favorite : Icons.favorite_border,
+              size: 20, color: p['isLiked'] ? Colors.redAccent : Colors.grey),
           onPressed: () => _toggleLike(p)),
       Text('${p['likes']}', style: const TextStyle(fontSize: 12)),
       const SizedBox(width: 20),
       IconButton(
-          icon: const Icon(Icons.mode_comment_outlined, size: 20, color: Colors.grey),
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PostReplyPage(originalPost: p, currentUser: widget.currentUser))).then((_) => _loadData())),
+          icon: const Icon(Icons.mode_comment_outlined,
+              size: 20, color: Colors.grey),
+          onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => PostReplyPage(
+                          originalPost: p, currentUser: widget.currentUser)))
+              .then((_) => _loadData())),
       Text('${p['replies']}', style: const TextStyle(fontSize: 12)),
+      const Spacer(),
+      IconButton(
+          icon: Icon(
+              (p['isBookmarked'] as bool? ?? false)
+                  ? Icons.bookmark
+                  : Icons.bookmark_border,
+              size: 20,
+              color: (p['isBookmarked'] as bool? ?? false)
+                  ? const Color(0xFF8D6E63)
+                  : Colors.grey),
+          onPressed: () => _toggleBookmark(p)),
     ]);
   }
 

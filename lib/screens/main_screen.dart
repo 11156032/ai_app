@@ -13,6 +13,7 @@ import '../services/ai_intent_service.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
+part 'main_screen_activity_tab.part.dart';
 
 // 移除原本在這裡的 kPresetAvatars 與 _buildAvatar，已移至 common_widgets.dart
 
@@ -246,6 +247,11 @@ class _MainScreenState extends State<MainScreen> {
         final likesCount = await db.query('post_likes',
             where: 'post_id = ? AND user_id = ?',
             whereArgs: [p['id'], currentUserId]);
+        final bookmarks = await db.query('post_bookmarks',
+            where: 'post_id = ? AND user_id = ?',
+            whereArgs: [p['id'], currentUserId]);
+        final bool isBookmarked = bookmarks.isNotEmpty;
+
         final resCount = await db.rawQuery(
             'SELECT COUNT(*) as c FROM comments WHERE post_id = ?', [p['id']]);
         final int replies = (resCount.first['c'] as int?) ?? 0;
@@ -266,6 +272,7 @@ class _MainScreenState extends State<MainScreen> {
           'postType': p['type'] ?? 'text',
           'isEdited': (p['is_edited'] as int?) ?? 0,
           'isLiked': likesCount.isNotEmpty,
+          'isBookmarked': isBookmarked,
           'likes': p['likes'] ?? 0,
           'replies': replies,
           'media': attached['media_url'],
@@ -665,6 +672,65 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  Future<void> _addPostFromAI(Map<String, dynamic> data) async {
+    final db = await DatabaseHelper.instance.database;
+    final userId = widget.currentUser['id'];
+
+    // Mapping Chinese labels to internal keys
+    String typeKey = 'text';
+    if (data['type'] == '學習筆記') {
+      typeKey = 'note';
+    } else if (data['type'] == '心情文章') {
+      typeKey = 'mood';
+    } else if (data['type'] == '分享資料') {
+      typeKey = 'doc';
+    }
+
+    await db.insert('posts', {
+      'user_id': userId,
+      'content': data['content'],
+      'type': typeKey,
+      'attached_data': jsonEncode({
+        'scheduled_at':
+            (data['time'] == null || data['time'] == '現在') ? null : data['time'],
+      }),
+      'created_at': DateTime.now().toIso8601String(),
+    });
+    await _loadData();
+  }
+
+  Future<void> _toggleBookmark(Map<String, dynamic> post) async {
+    final db = await DatabaseHelper.instance.database;
+    final postId = post['id'] as int;
+    final userId = widget.currentUser['id'] as String;
+
+    final existing = await db.query(
+      'post_bookmarks',
+      where: 'post_id = ? AND user_id = ?',
+      whereArgs: [postId, userId],
+    );
+
+    if (existing.isNotEmpty) {
+      await db.delete(
+        'post_bookmarks',
+        where: 'post_id = ? AND user_id = ?',
+        whereArgs: [postId, userId],
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已取消收藏')),
+      );
+    } else {
+      await db.insert('post_bookmarks', {
+        'post_id': postId,
+        'user_id': userId,
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已收藏貼文')),
+      );
+    }
+    await _loadData();
+  }
+
   // 補回：手動新增行程
   void _addSchedule(String timeRange, String title, int color) async {
     try {
@@ -1005,9 +1071,17 @@ class _MainScreenState extends State<MainScreen> {
               ListTile(
                   leading: Icon(Icons.groups_rounded,
                       color: Theme.of(context).primaryColor),
+                  title: const Text('社群'),
+                  onTap: () {
+                    _changePage(2, '社群');
+                    Navigator.pop(context);
+                  }),
+              ListTile(
+                  leading: Icon(Icons.history_edu_rounded,
+                      color: Theme.of(context).primaryColor),
                   title: const Text('社群動態'),
                   onTap: () {
-                    _changePage(2, '社群動態');
+                    _changePage(3, '社群動態');
                     Navigator.pop(context);
                   }),
               ListTile(
@@ -1015,7 +1089,7 @@ class _MainScreenState extends State<MainScreen> {
                       color: Theme.of(context).primaryColor),
                   title: const Text('個人資料'),
                   onTap: () {
-                    _changePage(3, '個人資料');
+                    _changePage(4, '個人資料');
                     Navigator.pop(context);
                   }),
             ]))),
@@ -1026,6 +1100,7 @@ class _MainScreenState extends State<MainScreen> {
                   _buildCalendarTab(),
                   _buildQuestionBankTab(),
                   _buildSocialTab(),
+                  _buildSocialActivityTab(),
                   _buildPersonalProfileTab(context)
                 ])),
                 if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
@@ -1446,7 +1521,7 @@ class _MainScreenState extends State<MainScreen> {
                                     ? [
                                         BoxShadow(
                                             color:
-                                                Colors.black.withOpacity(0.03),
+                                                Colors.black.withValues(alpha: 0.03),
                                             blurRadius: 5)
                                       ]
                                     : []),
@@ -1758,10 +1833,19 @@ class _MainScreenState extends State<MainScreen> {
         return true;
       case UserIntent.viewProfile:
         if (Navigator.canPop(context)) Navigator.pop(context);
-        _changePage(3, '個人檔案');
+        _changePage(4, '個人檔案');
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs.add({'isAI': true, 'text': '已為您打開個人檔案！', 'isCard': false});
+        });
+        return true;
+      case UserIntent.viewActivity:
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        _changePage(3, '社群動態');
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add(
+              {'isAI': true, 'text': '好的，帶您去看看您的社群動態！', 'isCard': false});
         });
         return true;
       case UserIntent.viewPendingComments:
@@ -1808,6 +1892,12 @@ class _MainScreenState extends State<MainScreen> {
           where: 'post_id IN ($placeholders)', whereArgs: myPostIds);
       for (var c in comments) {
         if (c['user_id'] != widget.currentUser['id']) {
+          // 檢查是否已回覆過此留言
+          final replies = await db.query('comments',
+              where: 'parent_id = ? AND user_id = ?',
+              whereArgs: [c['id'], widget.currentUser['id']]);
+          if (replies.isNotEmpty) continue;
+
           var u = await db
               .query('users', where: 'id = ?', whereArgs: [c['user_id']]);
           String authorName =
@@ -1893,6 +1983,10 @@ class _MainScreenState extends State<MainScreen> {
             command = "題庫";
             featureName = "跳轉題庫測驗";
             break;
+          case '7':
+            command = "社群動態";
+            featureName = "我的發佈與收藏";
+            break;
         }
         if (command.isNotEmpty) {
           setModalState(() {
@@ -1936,6 +2030,8 @@ class _MainScreenState extends State<MainScreen> {
         });
         return;
       }
+
+      // 意圖解析處理已移至下方統一由 _parseIntent 處理
 
       if (inputLower.contains('謝謝') ||
           inputLower.contains('感恩') ||
@@ -2244,12 +2340,11 @@ class _MainScreenState extends State<MainScreen> {
     if (_aiFlowState == 'adding_post_type') {
       _aiFlowData['type'] = text;
       setModalState(() {
-        chatLogs
-            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        chatLogs.add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'adding_post_time';
         chatLogs.add({
           'isAI': true,
-          'text': '好的，類型為「$text」。\n請問這篇貼文要什麼時候發佈？\n(可以直接點擊下方按鈕選取時間)',
+          'text': '好的，類型已設定為「$text」。🏷️\n請問這篇貼文要什麼時候發佈？\n(可以直接點擊下方按鈕選取時間)',
           'isCard': false
         });
         chatLogs.add({
@@ -2266,18 +2361,44 @@ class _MainScreenState extends State<MainScreen> {
     if (_aiFlowState == 'adding_post_time') {
       _aiFlowData['time'] = text;
       setModalState(() {
-        chatLogs
-            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        chatLogs.add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'adding_post_confirm';
         chatLogs.add({
           'isAI': true,
-          'text': '沒問題！為您建立以下待發佈貼文：',
+          'text': '沒問題！為您建立以下貼文預覽：',
           'isCard': false,
           'widgetType': 'confirm_post',
           'pendingData': Map<String, dynamic>.from(_aiFlowData)
         });
         _scrollToBottom();
       });
+      return;
+    }
+
+    if (_aiFlowState == 'adding_post_confirm') {
+      if (text == '確認發佈') {
+        setModalState(() {
+          chatLogs.add({'isAI': false, 'text': text});
+          chatLogs.add(
+              {'isAI': true, 'text': '好的！正在為您發佈貼文... 🚀', 'isCard': false});
+        });
+        await _addPostFromAI(_aiFlowData);
+        setModalState(() {
+          chatLogs.add({
+            'isAI': true,
+            'text': '✅ 貼文已成功發佈！您可以在「社群動態」中查看。',
+            'isCard': false
+          });
+        });
+        _aiFlowState = 'none';
+      } else if (text == '取消發佈') {
+        setModalState(() {
+          chatLogs.add({'isAI': false, 'text': text});
+          chatLogs.add({'isAI': true, 'text': '已取消貼文發佈。👌', 'isCard': false});
+        });
+        _aiFlowState = 'none';
+      }
+      _scrollToBottom();
       return;
     }
 
@@ -2351,7 +2472,7 @@ class _MainScreenState extends State<MainScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           decoration: BoxDecoration(color: Colors.white, boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, -2))
           ]),
@@ -2655,7 +2776,7 @@ class _MainScreenState extends State<MainScreen> {
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.05), blurRadius: 4)
+                      color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)
                 ]),
             child: Row(children: [
               SizedBox(
@@ -4114,17 +4235,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showEditNicknameDialog() {
-    if (_nicknameUpdatedAt != null) {
-      final now = DateTime.now();
-      final diff = now.difference(_nicknameUpdatedAt!);
-      if (diff.inHours < 24) {
-        final remaining = 24 - diff.inHours;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('距離下次更改暱稱還需等待 $remaining 小時')),
-        );
-        return;
-      }
-    }
+    // 移除了 24 小時更改限制，讓使用者隨時可更換暱稱
 
     final controller = TextEditingController(text: _displayName);
     showDialog(
@@ -4160,7 +4271,11 @@ class _MainScreenState extends State<MainScreen> {
     final nowStr = DateTime.now().toIso8601String();
     await db.update(
       'users',
-      {'display_name': newName, 'nickname_updated_at': nowStr},
+      {
+        'display_name': newName,
+        'username': newName, // 同步更新帳號，確保登入時可用新名稱
+        'nickname_updated_at': nowStr
+      },
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],
     );
