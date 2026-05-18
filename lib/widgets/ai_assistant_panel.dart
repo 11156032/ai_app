@@ -138,7 +138,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                           border: Border.all(color: Colors.grey.shade100),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
+                                color: Colors.black.withOpacity(0.03),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4))
                           ],
@@ -149,7 +149,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: (opt['c'] as Color).withValues(alpha: 0.1),
+                                color: (opt['c'] as Color).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(opt['i'] as IconData,

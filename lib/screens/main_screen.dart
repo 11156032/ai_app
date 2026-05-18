@@ -1522,7 +1522,7 @@ class _MainScreenState extends State<MainScreen> {
                                     ? [
                                         BoxShadow(
                                             color: Colors.black
-                                                .withValues(alpha: 0.03),
+                                                .withOpacity(0.03),
                                             blurRadius: 5)
                                       ]
                                     : []),
@@ -2483,7 +2483,7 @@ class _MainScreenState extends State<MainScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           decoration: BoxDecoration(color: Colors.white, boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, -2))
           ]),
@@ -2787,7 +2787,7 @@ class _MainScreenState extends State<MainScreen> {
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Colors.black.withOpacity(0.05),
                       blurRadius: 4)
                 ]),
             child: Row(children: [

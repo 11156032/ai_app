@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_localizations:
     sdk: flutter
-  intl: ^0.20.2
+  intl: any
   sqflite: ^2.3.2
   path: ^1.9.0
   sqflite_common_ffi: ^2.3.0
@@ -45,7 +45,7 @@ dependencies:
   image_picker: ^1.1.2
   file_picker: ^8.1.2
   animate_do: ^3.3.4
-  fl_chart: ^1.2.0
+  fl_chart: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
