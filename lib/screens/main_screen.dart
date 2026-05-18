@@ -691,8 +691,9 @@ class _MainScreenState extends State<MainScreen> {
       'content': data['content'],
       'type': typeKey,
       'attached_data': jsonEncode({
-        'scheduled_at':
-            (data['time'] == null || data['time'] == '現在') ? null : data['time'],
+        'scheduled_at': (data['time'] == null || data['time'] == '現在')
+            ? null
+            : data['time'],
       }),
       'created_at': DateTime.now().toIso8601String(),
     });
@@ -1520,8 +1521,8 @@ class _MainScreenState extends State<MainScreen> {
                                 boxShadow: msg['isAI']
                                     ? [
                                         BoxShadow(
-                                            color:
-                                                Colors.black.withValues(alpha: 0.03),
+                                            color: Colors.black
+                                                .withValues(alpha: 0.03),
                                             blurRadius: 5)
                                       ]
                                     : []),
@@ -1676,7 +1677,8 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     // 如果完全沒有意圖也沒有建議，才回傳 false 觸發後備清單
-    if (result.intent == UserIntent.none && result.suggestionLabel == null) return false;
+    if (result.intent == UserIntent.none && result.suggestionLabel == null)
+      return false;
 
     // 處理「建議引導」 (中等信心度)
     if (result.intent == UserIntent.none && result.suggestionLabel != null) {
@@ -1684,7 +1686,8 @@ class _MainScreenState extends State<MainScreen> {
         chatLogs.add({'isAI': false, 'text': userInput});
         chatLogs.add({
           'isAI': true,
-          'text': '唔... 您是指「${result.suggestionLabel}」功能嗎？😅\n如果是的話，您可以點擊下方按鈕，或輸入「${result.suggestionKeyword}」來處理。',
+          'text':
+              '唔... 您是指「${result.suggestionLabel}」功能嗎？😅\n如果是的話，您可以點擊下方按鈕，或輸入「${result.suggestionKeyword}」來處理。',
           'isCard': false
         });
         // 新增：提供點擊按鈕
@@ -1720,7 +1723,8 @@ class _MainScreenState extends State<MainScreen> {
       case UserIntent.changeNickname:
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+          chatLogs.add(
+              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
         });
         goToProfile(650);
         _showEditNicknameDialog();
@@ -1728,7 +1732,8 @@ class _MainScreenState extends State<MainScreen> {
       case UserIntent.changeAvatar:
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+          chatLogs.add(
+              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
         });
         goToProfile(0);
         _pickAvatarFromLocal();
@@ -1736,7 +1741,8 @@ class _MainScreenState extends State<MainScreen> {
       case UserIntent.editBio:
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+          chatLogs.add(
+              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
         });
         goToProfile(650);
         _showEditBioDialog();
@@ -1744,7 +1750,8 @@ class _MainScreenState extends State<MainScreen> {
       case UserIntent.changeFontSize:
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+          chatLogs.add(
+              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
         });
         goToProfile(400);
         _showFontSizeDialog();
@@ -1752,7 +1759,8 @@ class _MainScreenState extends State<MainScreen> {
       case UserIntent.changeTheme:
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+          chatLogs.add(
+              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
         });
         goToProfile(400);
         _showThemeColorDialog();
@@ -1760,7 +1768,8 @@ class _MainScreenState extends State<MainScreen> {
       case UserIntent.verifyEmail:
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+          chatLogs.add(
+              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
         });
         goToProfile(900);
         _showEmailVerificationFlow();
@@ -1768,7 +1777,8 @@ class _MainScreenState extends State<MainScreen> {
       case UserIntent.changePassword:
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+          chatLogs.add(
+              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
         });
         goToProfile(900);
         _showChangePasswordDialog();
@@ -1796,8 +1806,8 @@ class _MainScreenState extends State<MainScreen> {
         _changePage(0, '日曆行程');
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add(
-              {'isAI': true, 'text': '沒問題，已為您跳轉至日曆！', 'isCard': false});
+          chatLogs
+              .add({'isAI': true, 'text': '沒問題，已為您跳轉至日曆！', 'isCard': false});
         });
         return true;
       case UserIntent.createItinerary:
@@ -1844,8 +1854,8 @@ class _MainScreenState extends State<MainScreen> {
         _changePage(3, '社群動態');
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add(
-              {'isAI': true, 'text': '好的，帶您去看看您的社群動態！', 'isCard': false});
+          chatLogs
+              .add({'isAI': true, 'text': '好的，帶您去看看您的社群動態！', 'isCard': false});
         });
         return true;
       case UserIntent.viewPendingComments:
@@ -1915,8 +1925,8 @@ class _MainScreenState extends State<MainScreen> {
 
     setModalState(() {
       if (pendingComments.isEmpty) {
-        chatLogs.add(
-            {'isAI': true, 'text': '目前您的貼文下沒有需要回覆的留言喔！', 'isCard': false});
+        chatLogs
+            .add({'isAI': true, 'text': '目前您的貼文下沒有需要回覆的留言喔！', 'isCard': false});
         _scrollToBottom();
       } else {
         _aiPendingReplyPosts = pendingComments.take(2).toList();
@@ -1942,7 +1952,6 @@ class _MainScreenState extends State<MainScreen> {
       }
     });
   }
-
 
   Future<void> _handleAISubmit(String input, TextEditingController controller,
       StateSetter setModalState) async {
@@ -2340,7 +2349,8 @@ class _MainScreenState extends State<MainScreen> {
     if (_aiFlowState == 'adding_post_type') {
       _aiFlowData['type'] = text;
       setModalState(() {
-        chatLogs.add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'adding_post_time';
         chatLogs.add({
           'isAI': true,
@@ -2361,7 +2371,8 @@ class _MainScreenState extends State<MainScreen> {
     if (_aiFlowState == 'adding_post_time') {
       _aiFlowData['time'] = text;
       setModalState(() {
-        chatLogs.add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'adding_post_confirm';
         chatLogs.add({
           'isAI': true,
@@ -2412,7 +2423,8 @@ class _MainScreenState extends State<MainScreen> {
       chatLogs.add({'isAI': false, 'text': text});
       chatLogs.add({
         'isAI': true,
-        'text': '抱歉，我還在學習中，不太明白您的意思... 😅\n但我可以幫您處理行程、貼文、或是修改個人設定！您可以輸入「幫助」來看看我能做什麼。',
+        'text':
+            '抱歉，我還在學習中，不太明白您的意思... 😅\n但我可以幫您處理行程、貼文、或是修改個人設定！您可以輸入「幫助」來看看我能做什麼。',
         'isCard': false,
         'widgetType': 'help_options'
       });
@@ -2776,7 +2788,8 @@ class _MainScreenState extends State<MainScreen> {
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4)
                 ]),
             child: Row(children: [
               SizedBox(
@@ -3814,36 +3827,197 @@ class _MainScreenState extends State<MainScreen> {
   // ── 貼文編輯（僅貼文作者可操作）───────────────────────────────
   void _editPost(Map<String, dynamic> p) async {
     final controller = TextEditingController(text: p['content']);
-    final result = await showDialog<String>(
+    String selectedType = p['postType'] ?? 'text';
+    Uint8List? currentImageBlob = p['media_blob'] as Uint8List?;
+    bool imageChanged = false;
+
+    final result = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (ctx) => AlertDialog(
-              title: const Text('編輯貼文', style: TextStyle(fontSize: 16)),
-              content: TextField(
-                controller: controller,
-                maxLines: null,
-                autofocus: true,
-                decoration: const InputDecoration(hintText: '修改貼文內容...'),
-              ),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child:
-                        const Text('取消', style: TextStyle(color: Colors.grey))),
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, controller.text),
-                    child: const Text('儲存',
-                        style: TextStyle(color: Color(0xFF8D6E63)))),
-              ],
-            ));
-    if (result != null &&
-        result.isNotEmpty &&
-        result != p['content'] &&
-        mounted) {
+        builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('編輯貼文', style: TextStyle(fontSize: 16)),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('貼文類型',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildEditTypeChip(
+                                '📝  學習筆記',
+                                'note',
+                                selectedType,
+                                (val) =>
+                                    setDialogState(() => selectedType = val)),
+                            const SizedBox(width: 8),
+                            _buildEditTypeChip(
+                                '💭  心情文章',
+                                'mood',
+                                selectedType,
+                                (val) =>
+                                    setDialogState(() => selectedType = val)),
+                            const SizedBox(width: 8),
+                            _buildEditTypeChip(
+                                '📄  分享資料',
+                                'doc',
+                                selectedType,
+                                (val) =>
+                                    setDialogState(() => selectedType = val)),
+                            const SizedBox(width: 8),
+                            _buildEditTypeChip(
+                                '💬  一般貼文',
+                                'text',
+                                selectedType,
+                                (val) =>
+                                    setDialogState(() => selectedType = val)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      const Text('內容',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      TextField(
+                        controller: controller,
+                        maxLines: null,
+                        decoration:
+                            const InputDecoration(hintText: '修改貼文內容...'),
+                      ),
+                      const SizedBox(height: 15),
+                      const Text('圖片',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      if (currentImageBlob != null)
+                        Stack(
+                          children: [
+                            Container(
+                              height: 150,
+                              width: 150,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                image: DecorationImage(
+                                  image: MemoryImage(currentImageBlob!),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setDialogState(() {
+                                    currentImageBlob = null;
+                                    imageChanged = true;
+                                  });
+                                },
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close,
+                                      color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final ImagePicker picker = ImagePicker();
+                            final XFile? image = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              maxWidth: 1024,
+                              maxHeight: 1024,
+                              imageQuality: 85,
+                            );
+                            if (image != null) {
+                              final bytes = await image.readAsBytes();
+                              setDialogState(() {
+                                currentImageBlob = bytes;
+                                imageChanged = true;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.add_a_photo, size: 18),
+                          label: const Text('新增圖片'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF8D6E63),
+                            side: const BorderSide(color: Color(0xFF8D6E63)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('取消',
+                          style: TextStyle(color: Colors.grey))),
+                  TextButton(
+                      onPressed: () {
+                        if (controller.text.isEmpty &&
+                            currentImageBlob == null) {
+                          return;
+                        }
+                        Navigator.pop(ctx, {
+                          'content': controller.text,
+                          'type': selectedType,
+                          'media_blob': currentImageBlob,
+                          'imageChanged': imageChanged,
+                        });
+                      },
+                      child: const Text('儲存',
+                          style: TextStyle(color: Color(0xFF8D6E63)))),
+                ],
+              );
+            }));
+
+    if (result != null && mounted) {
       final db = await DatabaseHelper.instance.database;
-      await db.update('posts', {'content': result, 'is_edited': 1},
-          where: 'id = ?', whereArgs: [p['id']]);
+      Map<String, dynamic> updateData = {
+        'content': result['content'],
+        'type': result['type'],
+        'is_edited': 1,
+      };
+      if (result['imageChanged']) {
+        updateData['media_blob'] = result['media_blob'];
+      }
+      await db
+          .update('posts', updateData, where: 'id = ?', whereArgs: [p['id']]);
       await _loadData();
     }
+  }
+
+  Widget _buildEditTypeChip(String label, String type, String selectedType,
+      Function(String) onSelected) {
+    final isSelected = selectedType == type;
+    return GestureDetector(
+      onTap: () => onSelected(type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+              color: isSelected ? const Color(0xFF8D6E63) : Colors.transparent),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
   }
 
   void _deletePost(Map<String, dynamic> p) async {
