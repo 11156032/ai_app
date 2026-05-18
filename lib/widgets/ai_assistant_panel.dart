@@ -115,7 +115,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       {'i': Icons.calendar_month_outlined, 'l': '新增日曆行程', 'v': '新增行程', 'c': Colors.blueAccent},
       {'i': Icons.dynamic_feed_outlined, 'l': '發佈社群貼文', 'v': '發佈貼文', 'c': Colors.deepOrange},
       {'i': Icons.question_answer_outlined, 'l': '回覆社群留言', 'v': '回覆哪些留言', 'c': Colors.green},
-      {'i': Icons.manage_accounts_outlined, 'l': '修改個人資料', 'v': '個人檔案', 'c': Colors.purple},
+      {'i': Icons.manage_accounts_outlined, 'l': '修改個人檔案', 'v': '個人檔案', 'c': Colors.purple},
       {'i': Icons.palette_outlined, 'l': '切換佈景主題', 'v': '切換主題', 'c': Colors.pink},
       {'i': Icons.menu_book_outlined, 'l': '跳轉題庫測驗', 'v': '題庫', 'c': Colors.teal},
     ];

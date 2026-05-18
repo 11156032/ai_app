@@ -16,7 +16,7 @@ extension MainScreenProfileTab on _MainScreenState {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '個人資料',
+                  '個人檔案',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,

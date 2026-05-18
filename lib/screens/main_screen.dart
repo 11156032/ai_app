@@ -1088,9 +1088,9 @@ class _MainScreenState extends State<MainScreen> {
               ListTile(
                   leading: Icon(Icons.settings_suggest_rounded,
                       color: Theme.of(context).primaryColor),
-                  title: const Text('個人資料'),
+                  title: const Text('個人檔案'),
                   onTap: () {
-                    _changePage(4, '個人資料');
+                    _changePage(4, '個人檔案');
                     Navigator.pop(context);
                   }),
             ]))),
