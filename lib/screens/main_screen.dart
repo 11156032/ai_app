@@ -114,6 +114,7 @@ class _MainScreenState extends State<MainScreen> {
   String _studySubject = "全部";
   int _personalFilterIndex = 0;
   String? _selectedFolder;
+  String? _selectedSubjectForStudy; // 新增：追蹤題庫中選擇的科目
 
   String _aiFlowState = 'none';
   Map<String, dynamic> _aiFlowData = {};
@@ -3386,123 +3387,295 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   // 刷題模式
+  // 刷題模式 - 分層結構 (科目資料夾 → 題目列表)
   Widget _buildStudyMode() {
+    // 第一層：科目資料夾列表
+    if (_selectedSubjectForStudy == null) {
+      // 收集所有科目
+      Set<String> subjects = {};
+      for (var q in questionBank) {
+        subjects.add(q['subject'] as String);
+      }
+      List<String> subjectList = subjects.toList();
+      
+      // 計算每個科目的題數
+      Map<String, int> subjectCounts = {};
+      for (var subject in subjectList) {
+        subjectCounts[subject] = questionBank.where((q) => q['subject'] == subject).length;
+      }
+
+      return Column(children: [
+        // 頂部搜尋
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            onChanged: (v) => setState(() => _studySearchQuery = v),
+            decoration: InputDecoration(
+              hintText: '搜尋科目...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: const Color(0xFFF5F5F5),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        // 科目卡片網格
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 1.0,
+            ),
+            itemCount: subjectList.length,
+            itemBuilder: (ctx, i) {
+              String subject = subjectList[i];
+              int count = subjectCounts[subject] ?? 0;
+              
+              return GestureDetector(
+                onTap: () => setState(() => _selectedSubjectForStudy = subject),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8D6E63).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.library_books,
+                            size: 32,
+                            color: Color(0xFF8D6E63),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        subject,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$count 道題目',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ]);
+    }
+
+    // 第二層：科目內的題目列表
     List<Map<String, dynamic>> filtered = questionBank
         .where((q) =>
-            q['question'].contains(_studySearchQuery) &&
-            (_studySubject == '全部' || q['subject'] == _studySubject))
+            q['subject'] == _selectedSubjectForStudy &&
+            q['question'].contains(_studySearchQuery))
         .toList();
+
     return Column(children: [
+      // 返回按鈕 & 搜尋
       Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(children: [
-            TextField(
-                onChanged: (v) => setState(() => _studySearchQuery = v),
-                decoration: InputDecoration(
-                    hintText: '搜尋題目...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: const Color(0xFFF5F5F5),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: BorderSide.none))),
-            const SizedBox(height: 12),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Expanded(
-                  child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                          children: ['全部', '資訊管理', '國文', '數學']
-                              .map((s) => Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                      label: Text(s,
-                                          style: const TextStyle(fontSize: 11)),
-                                      selected: _studySubject == s,
-                                      onSelected: (v) =>
-                                          setState(() => _studySubject = s))))
-                              .toList()))),
-              Row(children: [
-                const Text('答案', style: TextStyle(fontSize: 12)),
-                Switch(
-                    value: _showStudyAnswers,
-                    activeColor: const Color(0xFF8D6E63),
-                    onChanged: (v) => setState(() => _showStudyAnswers = v))
-              ]),
-            ])
-          ])),
+        padding: const EdgeInsets.all(16),
+        child: Column(children: [
+          Row(children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF8D6E63)),
+              onPressed: () => setState(() {
+                _selectedSubjectForStudy = null;
+                _studySearchQuery = "";
+              }),
+            ),
+            Expanded(
+              child: Text(
+                _selectedSubjectForStudy ?? '',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8D6E63),
+                ),
+              ),
+            ),
+            Row(children: [
+              const Text('答案', style: TextStyle(fontSize: 12)),
+              Switch(
+                value: _showStudyAnswers,
+                activeColor: const Color(0xFF8D6E63),
+                onChanged: (v) => setState(() => _showStudyAnswers = v),
+              ),
+            ]),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            onChanged: (v) => setState(() => _studySearchQuery = v),
+            decoration: InputDecoration(
+              hintText: '搜尋題目...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: const Color(0xFFF5F5F5),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ]),
+      ),
+      // 題目列表
       Expanded(
-          child: ListView.builder(
+        child: filtered.isEmpty
+            ? const Center(
+              child: Text('此科目無題目', style: TextStyle(color: Colors.grey)),
+            )
+            : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: filtered.length,
               itemBuilder: (ctx, i) {
                 var q = filtered[i];
                 return Container(
-                    margin: const EdgeInsets.only(bottom: 15),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.grey.shade200)),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  margin: const EdgeInsets.only(bottom: 15),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8EAF6),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            q['subject'],
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '出題：${q['author']}',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ]),
+                      const SizedBox(height: 10),
+                      Text(
+                        q['question'],
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_showStudyAnswers)
+                        Text(
+                          'Ans: ${q['options'].isNotEmpty ? q['options'][q['answerIndex']] : "無"}',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          Row(children: [
-                            Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                    color: const Color(0xFFE8EAF6),
-                                    borderRadius: BorderRadius.circular(5)),
-                                child: Text(q['subject'],
-                                    style: const TextStyle(fontSize: 11))),
-                            const Spacer(),
-                            Text('出題：${q['author']}',
-                                style: const TextStyle(
-                                    fontSize: 11, color: Colors.grey))
-                          ]),
-                          const SizedBox(height: 10),
-                          Text(q['question'],
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 10),
-                          if (_showStudyAnswers)
-                            Text(
-                                ' Ans: ${q['options'].isNotEmpty ? q['options'][q['answerIndex']] : "無"}',
-                                style: const TextStyle(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold)),
-                          Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                TextButton.icon(
-                                    icon: Icon(
-                                        q['isFavorite']
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        size: 18,
-                                        color: Colors.redAccent),
-                                    label: Text('收藏',
-                                        style: TextStyle(
-                                            color: q['isFavorite']
-                                                ? Colors.redAccent
-                                                : Colors.grey)),
-                                    onPressed: () => setState(() =>
-                                        q['isFavorite'] = !q['isFavorite'])),
-                                TextButton.icon(
-                                    icon: const Icon(Icons.forum_outlined,
-                                        size: 18, color: Colors.grey),
-                                    label: const Text('討論',
-                                        style: TextStyle(color: Colors.grey)),
-                                    onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (_) =>
-                                                QuestionDiscussionPage(
-                                                    questionData: q)))),
-                              ])
-                        ]));
-              }))
+                          TextButton.icon(
+                            icon: Icon(
+                              q['isFavorite']
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              size: 18,
+                              color: Colors.redAccent,
+                            ),
+                            label: Text(
+                              '收藏',
+                              style: TextStyle(
+                                color: q['isFavorite']
+                                    ? Colors.redAccent
+                                    : Colors.grey,
+                              ),
+                            ),
+                            onPressed: () => setState(
+                              () => q['isFavorite'] = !q['isFavorite'],
+                            ),
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.edit_outlined,
+                              size: 18,
+                              color: Colors.grey,
+                            ),
+                            label: const Text('作答',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    QuestionPracticePage(
+                                      questionData: q,
+                                    ),
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.forum_outlined,
+                              size: 18,
+                              color: Colors.grey,
+                            ),
+                            label: const Text('討論',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    QuestionDiscussionPage(
+                                      questionData: q,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+      ),
     ]);
   }
 
@@ -5299,6 +5472,241 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 Text(c['text'], style: TextStyle(fontSize: isSub ? 12 : 13)),
               ]))
         ]));
+  }
+}
+
+// 題目作答頁面
+class QuestionPracticePage extends StatefulWidget {
+  final Map<String, dynamic> questionData;
+  const QuestionPracticePage({super.key, required this.questionData});
+
+  @override
+  State<QuestionPracticePage> createState() => _QuestionPracticePageState();
+}
+
+class _QuestionPracticePageState extends State<QuestionPracticePage> {
+  int? _selectedAnswerIndex;
+  bool _showResult = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final q = widget.questionData;
+    final options = (q['options'] as List?)?.cast<String>() ?? [];
+    final correctIndex = q['answerIndex'] as int?;
+    final explanation = q['explanation'] as String? ?? '';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('題目作答'),
+        backgroundColor: const Color(0xFF8D6E63),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 題目
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '科目：${q['subject']}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    q['question'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            // 選項
+            const Text(
+              '請選擇答案：',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(
+              options.length,
+              (i) => GestureDetector(
+                onTap: _showResult ? null : () {
+                  setState(() {
+                    _selectedAnswerIndex = i;
+                    _showResult = true;
+                  });
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _selectedAnswerIndex == i
+                        ? (_showResult
+                            ? (i == correctIndex
+                                ? Colors.green.shade100
+                                : Colors.red.shade100)
+                            : const Color(0xFF8D6E63).withOpacity(0.1))
+                        : Colors.white,
+                    border: Border.all(
+                      color: _selectedAnswerIndex == i
+                          ? (_showResult
+                              ? (i == correctIndex ? Colors.green : Colors.red)
+                              : const Color(0xFF8D6E63))
+                          : Colors.grey.shade300,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        String.fromCharCode(65 + i), // A, B, C, D
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _selectedAnswerIndex == i
+                              ? (_showResult
+                                  ? (i == correctIndex
+                                      ? Colors.green
+                                      : Colors.red)
+                                  : const Color(0xFF8D6E63))
+                              : Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          options[i],
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _selectedAnswerIndex == i
+                                ? Colors.black87
+                                : Colors.black,
+                          ),
+                        ),
+                      ),
+                      if (_showResult && i == correctIndex)
+                        const Icon(Icons.check_circle, color: Colors.green),
+                      if (_showResult &&
+                          _selectedAnswerIndex == i &&
+                          i != correctIndex)
+                        const Icon(Icons.close, color: Colors.red),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // 結果顯示
+            if (_showResult)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _selectedAnswerIndex == correctIndex
+                          ? Colors.green.shade100
+                          : Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _selectedAnswerIndex == correctIndex
+                              ? Icons.check_circle
+                              : Icons.close,
+                          color: _selectedAnswerIndex == correctIndex
+                              ? Colors.green
+                              : Colors.red,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedAnswerIndex == correctIndex
+                                    ? '✓ 答對了！'
+                                    : '✗ 答錯了',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: _selectedAnswerIndex == correctIndex
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                              ),
+                              if (_selectedAnswerIndex != correctIndex)
+                                Text(
+                                  '正確答案：${String.fromCharCode(65 + (correctIndex ?? 0))}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '解釋：',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    explanation,
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => setState(() {
+                        _selectedAnswerIndex = null;
+                        _showResult = false;
+                      }),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8D6E63),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('重新作答'),
+                    ),
+                  ),
+                ],
+              ),
+            if (!_showResult && _selectedAnswerIndex != null)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _showResult = true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8D6E63),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('顯示答案與解釋'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
