@@ -464,7 +464,7 @@ class _MainScreenState extends State<MainScreen> {
     });
 
     // 當切換到個人檔案分頁時，重置捲動位置到頂部
-    if (index == 3 && _profileScrollController.hasClients) {
+    if (index == 4 && _profileScrollController.hasClients) {
       _profileScrollController.jumpTo(0);
     }
   }
@@ -1671,9 +1671,8 @@ class _MainScreenState extends State<MainScreen> {
 
     // 內部輔助：同時更新主頁面與彈窗狀態，確保對話紀錄不遺失
     void updateLogs(VoidCallback fn) {
-      fn(); // 執行修改 chatLogs
+      setModalState(fn); // 執行修改 chatLogs 並刷新彈窗
       if (mounted) setState(() {}); // 刷新主頁面
-      setModalState(fn); // 刷新彈窗（如果面板還開著的話）
     }
 
     // 如果完全沒有意圖也沒有建議，才回傳 false 觸發後備清單
@@ -1709,7 +1708,7 @@ class _MainScreenState extends State<MainScreen> {
     // 輔助方法：切換到個人主頁並捲動
     void goToProfile(double offset) {
       if (Navigator.canPop(context)) Navigator.pop(context); // 關閉聊天面板
-      _changePage(3, '個人資料');
+      _changePage(4, '個人檔案');
       Future.delayed(const Duration(milliseconds: 300), () {
         if (_profileScrollController.hasClients) {
           _profileScrollController.animateTo(offset,
