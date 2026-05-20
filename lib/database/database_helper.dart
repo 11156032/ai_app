@@ -45,7 +45,7 @@ class DatabaseHelper {
     return await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -147,6 +147,10 @@ class DatabaseHelper {
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
       ''');
+    }
+    if (oldVersion < 10) {
+      await db.execute(
+          "UPDATE users SET email = REPLACE(email, '@example.com', '@gmail.com') WHERE email LIKE '%@example.com'");
     }
   }
 
@@ -350,28 +354,28 @@ class DatabaseHelper {
     await db.insert('users', {
       'id': 'u1',
       'username': 'Sharon',
-      'email': 'sharon@example.com',
+      'email': 'sharon@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': 'Sharon',
     });
     await db.insert('users', {
       'id': 'u2',
       'username': '陳教授',
-      'email': 'prof@example.com',
+      'email': 'prof@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '陳教授',
     });
     await db.insert('users', {
       'id': 'u3',
       'username': '系統',
-      'email': 'sys@example.com',
+      'email': 'sys@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '系統',
     });
     await db.insert('users', {
       'id': 'u4',
       'username': '訪客',
-      'email': 'guest@example.com',
+      'email': 'guest@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '訪客',
     });
@@ -379,7 +383,7 @@ class DatabaseHelper {
     await db.insert('users', {
       'id': 'u5',
       'username': '李同學',
-      'email': 'lee@example.com',
+      'email': 'lee@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '李同學',
     });
@@ -387,7 +391,7 @@ class DatabaseHelper {
     await db.insert('users', {
       'id': 'u6',
       'username': '陳助教',
-      'email': 'ta@example.com',
+      'email': 'ta@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '陳助教',
     });

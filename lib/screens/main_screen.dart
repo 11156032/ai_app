@@ -1233,12 +1233,378 @@ class _MainScreenState extends State<MainScreen> {
                                   },
                                 ));
                           }
+                          if (msg['widgetType'] == 'time_range_picker') {
+                            // 行內版滾輪選擇器 (與 AIAssistantPanel 版相同邏輯)
+                            final now = DateTime.now();
+                            final dates = List.generate(
+                                60, (i) => now.add(Duration(days: i)));
+                            final hours = List.generate(24, (h) => h);
+                            final minutes = List.generate(12, (m) => m * 5);
+                            int selDateIdx = 0;
+                            int selStartHour = now.hour;
+                            int selStartMin = (now.minute ~/ 5) * 5;
+                            int selEndHour = (now.hour + 1) % 24;
+                            int selEndMin = selStartMin;
+                            String fmt2(int v) => v.toString().padLeft(2, '0');
+                            String dateLabel(DateTime d) {
+                              const wds = ['一', '二', '三', '四', '五', '六', '日'];
+                              return '${d.month}/${d.day}（${wds[d.weekday - 1]}）';
+                            }
+
+                            Widget wheel(
+                                {required List items,
+                                required int initIdx,
+                                required void Function(int) onSel,
+                                required String Function(dynamic) lbl,
+                                double w = 56}) {
+                              final ctrl = FixedExtentScrollController(
+                                  initialItem: initIdx);
+                              return SizedBox(
+                                width: w,
+                                height: 130,
+                                child: ListWheelScrollView.useDelegate(
+                                  controller: ctrl,
+                                  itemExtent: 36,
+                                  perspective: 0.004,
+                                  diameterRatio: 1.5,
+                                  physics: const FixedExtentScrollPhysics(),
+                                  onSelectedItemChanged: onSel,
+                                  childDelegate: ListWheelChildBuilderDelegate(
+                                    childCount: items.length,
+                                    builder: (c, idx) => Center(
+                                        child: Text(lbl(items[idx]),
+                                            style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600))),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return StatefulBuilder(builder: (ctx2, setL) {
+                              return Container(
+                                margin: const EdgeInsets.only(
+                                    bottom: 16, left: 16, right: 16),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: const Color(0xFF8D6E63)
+                                            .withValues(alpha: 0.12),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4))
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(children: [
+                                      Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                              color: const Color(0xFF8D6E63)
+                                                  .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(10)),
+                                          child: const Icon(Icons.schedule,
+                                              color: Color(0xFF8D6E63),
+                                              size: 18)),
+                                      const SizedBox(width: 10),
+                                      const Text('選擇日期與時段',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: Color(0xFF4E342E))),
+                                    ]),
+                                    const SizedBox(height: 12),
+                                    const Text('日期',
+                                        style: TextStyle(
+                                            fontSize: 12, color: Colors.grey)),
+                                    const SizedBox(height: 4),
+                                    Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          Container(
+                                              height: 36,
+                                              decoration: BoxDecoration(
+                                                  color: const Color(0xFF8D6E63)
+                                                      .withValues(alpha: 0.08),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          10))),
+                                          wheel(
+                                              items: dates,
+                                              initIdx: 0,
+                                              onSel: (i) => selDateIdx = i,
+                                              lbl: (d) =>
+                                                  dateLabel(d as DateTime),
+                                              w: double.infinity),
+                                        ]),
+                                    const SizedBox(height: 12),
+                                    Row(children: [
+                                      Expanded(
+                                          child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                            Row(children: [
+                                              Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                          color:
+                                                              Color(0xFF66BB6A),
+                                                          shape:
+                                                              BoxShape.circle)),
+                                              const SizedBox(width: 5),
+                                              const Text('開始',
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey))
+                                            ]),
+                                            const SizedBox(height: 5),
+                                            Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  Container(
+                                                      height: 36,
+                                                      decoration: BoxDecoration(
+                                                          color: const Color(
+                                                                  0xFF66BB6A)
+                                                              .withValues(
+                                                                  alpha: 0.08),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      10))),
+                                                  Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        wheel(
+                                                            items: hours,
+                                                            initIdx:
+                                                                selStartHour,
+                                                            onSel: (i) {
+                                                              selStartHour =
+                                                                  hours[i];
+                                                              if (selStartHour >
+                                                                      selEndHour ||
+                                                                  (selStartHour ==
+                                                                          selEndHour &&
+                                                                      selStartMin >=
+                                                                          selEndMin)) {
+                                                                selEndHour =
+                                                                    (selStartHour +
+                                                                            1) %
+                                                                        24;
+                                                                setL(() {});
+                                                              }
+                                                            },
+                                                            lbl: (h) =>
+                                                                fmt2(h as int)),
+                                                        const Text(':',
+                                                            style: TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                fontSize: 18)),
+                                                        wheel(
+                                                            items: minutes,
+                                                            initIdx:
+                                                                minutes.indexOf(
+                                                                    selStartMin),
+                                                            onSel: (i) =>
+                                                                selStartMin =
+                                                                    minutes[i],
+                                                            lbl: (m) =>
+                                                                fmt2(m as int)),
+                                                      ]),
+                                                ]),
+                                          ])),
+                                      const Padding(
+                                          padding: EdgeInsets.only(top: 18),
+                                          child: Icon(Icons.arrow_forward_ios,
+                                              size: 12,
+                                              color: Color(0xFFBCAAA4))),
+                                      Expanded(
+                                          child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                            Row(children: [
+                                              Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                          color:
+                                                              Color(0xFFEF5350),
+                                                          shape:
+                                                              BoxShape.circle)),
+                                              const SizedBox(width: 5),
+                                              const Text('結束',
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey))
+                                            ]),
+                                            const SizedBox(height: 5),
+                                            Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  Container(
+                                                      height: 36,
+                                                      decoration: BoxDecoration(
+                                                          color: const Color(
+                                                                  0xFFEF5350)
+                                                              .withValues(
+                                                                  alpha: 0.07),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      10))),
+                                                  Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        wheel(
+                                                            items: hours,
+                                                            initIdx: selEndHour,
+                                                            onSel: (i) =>
+                                                                selEndHour =
+                                                                    hours[i],
+                                                            lbl: (h) =>
+                                                                fmt2(h as int)),
+                                                        const Text(':',
+                                                            style: TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                fontSize: 18)),
+                                                        wheel(
+                                                            items: minutes,
+                                                            initIdx:
+                                                                minutes.indexOf(
+                                                                    selEndMin),
+                                                            onSel: (i) =>
+                                                                selEndMin =
+                                                                    minutes[i],
+                                                            lbl: (m) =>
+                                                                fmt2(m as int)),
+                                                      ]),
+                                                ]),
+                                          ])),
+                                    ]),
+                                    const SizedBox(height: 14),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        icon: const Icon(
+                                            Icons.check_circle_outline,
+                                            size: 18),
+                                        label: const Text('確認時段'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFF8D6E63),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14)),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 11),
+                                        ),
+                                        onPressed: () {
+                                          final d = dates[selDateIdx];
+                                          final dp =
+                                              '${d.year}-${fmt2(d.month)}-${fmt2(d.day)}';
+                                          final s =
+                                              '$dp ${fmt2(selStartHour)}:${fmt2(selStartMin)}';
+                                          final e =
+                                              '$dp ${fmt2(selEndHour)}:${fmt2(selEndMin)}';
+                                          _handleAISubmit('$s|||$e',
+                                              modalController, setModalState);
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            });
+                          }
+                          // ── \u6df1\u6dfa\u98a8\u683c\u9078\u64c7 ──────────────────────────────────────────
+                          if (msg['widgetType'] == 'color_style_picker') {
+                            return Container(
+                              margin: const EdgeInsets.only(
+                                  bottom: 14, left: 16, right: 16),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                      child: _buildStyleBtn(
+                                    icon: '🌸',
+                                    label: '\u6dfa\u8272\u7cfb',
+                                    sub:
+                                        '\u6e05\u6de1\u3001\u8f15\u76c8\u3001\u6d3b\u6f51',
+                                    grad: const [
+                                      Color(0xFFFCE4EC),
+                                      Color(0xFFE1F5FE)
+                                    ],
+                                    onTap: () => _handleAISubmit(
+                                        '\u6dfa\u8272\u7cfb',
+                                        modalController,
+                                        setModalState),
+                                  )),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                      child: _buildStyleBtn(
+                                    icon: '🌲',
+                                    label: '\u6df1\u8272\u7cfb',
+                                    sub:
+                                        '\u6c89\u7a69\u3001\u8cea\u611f\u3001\u4f4e\u8abf',
+                                    grad: const [
+                                      Color(0xFF263238),
+                                      Color(0xFF37474F)
+                                    ],
+                                    onTap: () => _handleAISubmit(
+                                        '\u6df1\u8272\u7cfb',
+                                        modalController,
+                                        setModalState),
+                                    isDark: true,
+                                  )),
+                                ],
+                              ),
+                            );
+                          }
+
+                          // ── \u9032\u968e\u8abf\u8272\u76e4 ──────────────────────────────────────────────
+                          if (msg['widgetType'] == 'color_palette') {
+                            final style = msg['colorStyle'] ?? 'light';
+                            return _buildInlineColorPalette(
+                                style, modalController, setModalState);
+                          }
+
                           if (msg['widgetType'] == 'color_picker') {
                             List<Map<String, dynamic>> colors = [
-                              {'name': '紅色', 'color': const Color(0xFFE57373)},
-                              {'name': '藍色', 'color': const Color(0xFF64B5F6)},
-                              {'name': '綠色', 'color': const Color(0xFF81C784)},
-                              {'name': '黃色', 'color': const Color(0xFFFFD54F)},
+                              {
+                                'name': '\u7d05\u8272',
+                                'color': const Color(0xFFE57373)
+                              },
+                              {
+                                'name': '\u85cd\u8272',
+                                'color': const Color(0xFF64B5F6)
+                              },
+                              {
+                                'name': '\u7da0\u8272',
+                                'color': const Color(0xFF81C784)
+                              },
+                              {
+                                'name': '\u9ec3\u8272',
+                                'color': const Color(0xFFFFD54F)
+                              },
                             ];
                             return Container(
                                 margin:
@@ -1522,8 +1888,8 @@ class _MainScreenState extends State<MainScreen> {
                                 boxShadow: msg['isAI']
                                     ? [
                                         BoxShadow(
-                                            color: Colors.black
-                                                .withOpacity(0.03),
+                                            color:
+                                                Colors.black.withOpacity(0.03),
                                             blurRadius: 5)
                                       ]
                                     : []),
@@ -2094,7 +2460,7 @@ class _MainScreenState extends State<MainScreen> {
           });
           chatLogs.add({
             'isAI': true,
-            'text': '您可以點擊上方選項，或直接輸入對應的數字。想做什麼都儘管跟我說吧！✨',
+            'text': '您可以點擊上方選項，或直接輸入對應的數字。想做什麼都儘管跟我說吧！',
             'isCard': false
           });
           _scrollToBottom();
@@ -2222,61 +2588,74 @@ class _MainScreenState extends State<MainScreen> {
       setModalState(() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
-        _aiFlowState = 'adding_event_date';
+        _aiFlowState = 'adding_event_datetime';
         chatLogs.add({
           'isAI': true,
-          'text': '收到了，行程標題為「$text」。\n請選擇行程的日期與時間：',
+          'text': '收到了，行程標題為「$text」。\n請用滾輪一次選好日期、開始與結束時間：',
           'isCard': false
         });
         chatLogs.add({
           'isAI': true,
           'text': '',
           'isCard': false,
-          'widgetType': 'date_picker'
+          'widgetType': 'time_range_picker'
         });
         _scrollToBottom();
       });
       return;
     }
 
-    if (_aiFlowState == 'adding_event_date') {
-      _aiFlowData['start_date'] = text;
+    if (_aiFlowState == 'adding_event_datetime') {
+      // 格式: "2026-05-21 09:00|||2026-05-21 10:00"
+      final parts = text.split('|||');
+      _aiFlowData['start_date'] = parts[0].trim();
+      _aiFlowData['end_date'] =
+          parts.length > 1 ? parts[1].trim() : parts[0].trim();
+      final displayStart = _aiFlowData['start_date'];
+      final displayEnd = _aiFlowData['end_date'];
       setModalState(() {
-        chatLogs
-            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
-        _aiFlowState = 'adding_event_end_time';
+        chatLogs.add({
+          'isAI': false,
+          'text': '開始：$displayStart  結束：$displayEnd',
+          'stateAtTime': _aiFlowState
+        });
+        _aiFlowState = 'adding_event_color_style';
         chatLogs.add({
           'isAI': true,
-          'text': '好的，開始時間為「$text」。\n接著請選擇行程的「結束時間」：',
+          'text':
+              '已設定時段：\n🟢 開始：$displayStart\n🔴 結束：$displayEnd\n\n最後一步，想幫這個行程挑選什麼風格的標籤顏色呢？',
           'isCard': false
         });
         chatLogs.add({
           'isAI': true,
           'text': '',
           'isCard': false,
-          'widgetType': 'date_picker'
+          'widgetType': 'color_style_picker'
         });
         _scrollToBottom();
       });
       return;
     }
 
-    if (_aiFlowState == 'adding_event_end_time') {
-      _aiFlowData['end_date'] = text;
+    if (_aiFlowState == 'adding_event_color_style') {
+      final isLight = text.contains('淺');
+      _aiFlowData['color_style'] = isLight ? 'light' : 'dark';
+      final styleLabel = isLight ? '淺色系' : '深色系';
       setModalState(() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'adding_event_color';
         chatLogs.add({
           'isAI': true,
-          'text': '結束時間為「$text」。\n最後，請選擇行程標籤顏色：',
+          'text': '好的！已為您準備【$styleLabel】專屬色盤 🎨\n請從下方點選喜歡的顏色，或拖動滑桿自訂顏色：',
           'isCard': false
         });
         chatLogs.add({
           'isAI': true,
           'text': '',
           'isCard': false,
-          'widgetType': 'color_picker'
+          'widgetType': 'color_palette',
+          'colorStyle': _aiFlowData['color_style'],
         });
         _scrollToBottom();
       });
@@ -2284,20 +2663,22 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     if (_aiFlowState == 'adding_event_color') {
-      String colorStr = text;
-      int colorValue = 0xFF8D6E63;
-      if (colorStr.contains('紅')) colorValue = 0xFFE57373;
-      if (colorStr.contains('藍')) colorValue = 0xFF64B5F6;
-      if (colorStr.contains('綠')) colorValue = 0xFF81C784;
-      if (colorStr.contains('黃')) colorValue = 0xFFFFD54F;
-
+      // text 傳入的是 ARGB int 字串，例如 "4294951115"
+      final colorValue = int.tryParse(text) ?? 0xFF8D6E63;
       _aiFlowData['color'] = colorValue;
 
+      // 從 int 轉 Color 以顯示預覽
+      final previewColor = Color(colorValue);
+      final hexStr = colorValue.toRadixString(16).toUpperCase().padLeft(8, '0');
+
       setModalState(() {
+        chatLogs.add({
+          'isAI': false,
+          'text': '已選擇顏色 #${hexStr.substring(2)}',
+          'stateAtTime': _aiFlowState
+        });
         chatLogs
-            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
-        chatLogs
-            .add({'isAI': true, 'text': '沒問題！正在為您加入行程...', 'isCard': false});
+            .add({'isAI': true, 'text': '漂亮的選擇！ 正在為您加入行程...', 'isCard': false});
         _scrollToBottom();
       });
 
@@ -2317,12 +2698,23 @@ class _MainScreenState extends State<MainScreen> {
           'title': _aiFlowData['title'],
           'start_time': startStr,
           'end_time': endStr,
-          'color': '0x${(_aiFlowData['color'] as int).toRadixString(16)}',
+          'color': '0x${colorValue.toRadixString(16)}',
         });
         await _loadData();
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('AI 代理人已為您成功加入行程！')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(children: [
+                Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                        color: previewColor, shape: BoxShape.circle)),
+                const SizedBox(width: 10),
+                const Text('AI 代理人已為您成功加入行程！'),
+              ]),
+            ),
+          );
         }
       });
       _aiFlowState = 'none';
@@ -2424,11 +2816,384 @@ class _MainScreenState extends State<MainScreen> {
       chatLogs.add({
         'isAI': true,
         'text':
-            '抱歉，我還在學習中，不太明白您的意思... 😅\n但我可以幫您處理行程、貼文、或是修改個人設定！您可以輸入「幫助」來看看我能做什麼。',
+            '抱歉抱歉!我還太笨了~沒能理解您的意思... 😅\n但我可以幫您處理行程、貼文、或是修改個人設定！您可以輸入「幫助」來看看我能做什麼。',
         'isCard': false,
         'widgetType': 'help_options'
       });
       _scrollToBottom();
+    });
+  }
+
+  // ── 風格選擇按鈕 ────────────────────────────────────────────────────────
+  Widget _buildStyleBtn({
+    required String icon,
+    required String label,
+    required String sub,
+    required List<Color> grad,
+    required VoidCallback onTap,
+    List<Color> previewColors = const [],
+    bool isDark = false,
+  }) {
+    final borderColor = isDark
+        ? const Color(0xFF4A7C59).withValues(alpha: 0.45)
+        : const Color(0xFFFF8FAB).withValues(alpha: 0.9);
+    final shadowColor = isDark
+        ? Colors.black.withValues(alpha: 0.38)
+        : const Color(0xFFFF8FAB).withValues(alpha: 0.32);
+    final textColor = isDark ? Colors.white : const Color(0xFF3E2723);
+    final subColor = isDark ? Colors.white60 : const Color(0xFF795548);
+    final arrowBg = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFFF8FAB).withValues(alpha: 0.18);
+    final arrowColor = isDark ? Colors.white54 : const Color(0xFFFF4081);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+              colors: grad,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: borderColor, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+                color: shadowColor,
+                blurRadius: 14,
+                spreadRadius: 0,
+                offset: const Offset(0, 5))
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(icon, style: const TextStyle(fontSize: 28)),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                  decoration: BoxDecoration(
+                      color: arrowBg, borderRadius: BorderRadius.circular(8)),
+                  child: Icon(Icons.arrow_forward_ios_rounded,
+                      size: 11, color: arrowColor),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(label,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: textColor,
+                    letterSpacing: 0.3)),
+            const SizedBox(height: 3),
+            Text(sub, style: TextStyle(fontSize: 11, color: subColor)),
+            if (previewColors.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: previewColors
+                    .take(5)
+                    .map((c) => Container(
+                          width: 14,
+                          height: 14,
+                          margin: const EdgeInsets.only(right: 5),
+                          decoration: BoxDecoration(
+                            color: c,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                  color: c.withValues(alpha: 0.45),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2))
+                            ],
+                          ),
+                        ))
+                    .toList(),
+              )
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 進階色盤（行程用）────────────────────────────────────────────────────
+  Widget _buildInlineColorPalette(
+      String style, TextEditingController ctrl, StateSetter setModalState) {
+    final isLight = style == 'light';
+    final presets = isLight
+        ? <Color>[
+            const Color(0xFFFFB3C1),
+            const Color(0xFFFFD6A5),
+            const Color(0xFFCAFFBF),
+            const Color(0xFFBDE0FE),
+            const Color(0xFFE2C2FF),
+            const Color(0xFFFFF3B0),
+          ]
+        : <Color>[
+            const Color(0xFF8B2635),
+            const Color(0xFF2D6A4F),
+            const Color(0xFF1B4F72),
+            const Color(0xFF7D5A00),
+            const Color(0xFF4A235A),
+            const Color(0xFF2E4057),
+          ];
+    final double sat = isLight ? 0.70 : 0.55;
+    final double lig = isLight ? 0.82 : 0.35;
+
+    Color hslToColor(double h) {
+      final double c = (1 - (2 * lig - 1).abs()) * sat;
+      final double x = c * (1 - ((h / 60) % 2 - 1).abs());
+      final double m = lig - c / 2;
+      double r = 0, g = 0, b = 0;
+      if (h < 60) {
+        r = c;
+        g = x;
+        b = 0;
+      } else if (h < 120) {
+        r = x;
+        g = c;
+        b = 0;
+      } else if (h < 180) {
+        r = 0;
+        g = c;
+        b = x;
+      } else if (h < 240) {
+        r = 0;
+        g = x;
+        b = c;
+      } else if (h < 300) {
+        r = x;
+        g = 0;
+        b = c;
+      } else {
+        r = c;
+        g = 0;
+        b = x;
+      }
+      return Color.fromARGB(255, ((r + m) * 255).round(),
+          ((g + m) * 255).round(), ((b + m) * 255).round());
+    }
+
+    Color selectedColor = presets[0];
+    double selectedHue = 0.0;
+    bool isCustom = false;
+
+    return StatefulBuilder(builder: (ctx, setLocal) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 4))
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── 標題 ──
+            Row(children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                    color: selectedColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.palette, color: selectedColor, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Text(isLight ? '🌸 淺色系 色盤' : '🌲 深色系 色盤',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Color(0xFF4E342E))),
+            ]),
+            const SizedBox(height: 14),
+            // ── 精選色磚 ──
+            const Text('精選配色',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Row(
+              children: presets
+                  .map((c) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: GestureDetector(
+                            onTap: () => setLocal(() {
+                              selectedColor = c;
+                              isCustom = false;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: c,
+                                borderRadius: BorderRadius.circular(10),
+                                border: (selectedColor == c && !isCustom)
+                                    ? Border.all(
+                                        color: const Color(0xFF4E342E),
+                                        width: 2.5)
+                                    : Border.all(color: Colors.transparent),
+                                boxShadow: (selectedColor == c && !isCustom)
+                                    ? [
+                                        BoxShadow(
+                                            color: c.withValues(alpha: 0.5),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 3))
+                                      ]
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+            // ── 自訂滑桿分隔 ──
+            Row(children: [
+              const Expanded(child: Divider()),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text('自訂顏色',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w600)),
+              ),
+              const Expanded(child: Divider()),
+            ]),
+            const SizedBox(height: 12),
+            // ── 彩虹色相滑桿 ──
+            LayoutBuilder(builder: (ctx2, constraints) {
+              final sliderWidth = constraints.maxWidth;
+              final thumbLeft = ((selectedHue / 360.0) * sliderWidth - 13)
+                  .clamp(0.0, sliderWidth - 26);
+              return GestureDetector(
+                onHorizontalDragUpdate: (d) {
+                  final hue = ((d.localPosition.dx / sliderWidth) * 360)
+                      .clamp(0.0, 360.0);
+                  setLocal(() {
+                    selectedHue = hue;
+                    selectedColor = hslToColor(hue);
+                    isCustom = true;
+                  });
+                },
+                onTapDown: (d) {
+                  final hue = ((d.localPosition.dx / sliderWidth) * 360)
+                      .clamp(0.0, 360.0);
+                  setLocal(() {
+                    selectedHue = hue;
+                    selectedColor = hslToColor(hue);
+                    isCustom = true;
+                  });
+                },
+                child: Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                    height: 22,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(11),
+                      gradient: const LinearGradient(colors: [
+                        Color(0xFFFF0000),
+                        Color(0xFFFFFF00),
+                        Color(0xFF00FF00),
+                        Color(0xFF00FFFF),
+                        Color(0xFF0000FF),
+                        Color(0xFFFF00FF),
+                        Color(0xFFFF0000),
+                      ]),
+                    ),
+                  ),
+                  Positioned(
+                    left: thumbLeft,
+                    top: -4,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: selectedColor, width: 4),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 4)
+                        ],
+                      ),
+                    ),
+                  ),
+                ]),
+              );
+            }),
+            const SizedBox(height: 20),
+            // ── 預覽 + 確認 ──
+            Row(children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: selectedColor,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                        color: selectedColor.withValues(alpha: 0.45),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3))
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(
+                      '#${selectedColor.toARGB32().toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
+                      style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4E342E)),
+                    ),
+                    Text(isCustom ? '自訂顏色' : '精選配色',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500)),
+                  ])),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.check, size: 16),
+                label: const Text('確認'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectedColor,
+                  foregroundColor:
+                      isLight ? const Color(0xFF4E342E) : Colors.white,
+                  elevation: 3,
+                  shadowColor: selectedColor.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                ),
+                onPressed: () => _handleAISubmit(
+                    '${selectedColor.toARGB32()}', ctrl, setModalState),
+              ),
+            ]),
+          ],
+        ),
+      );
     });
   }
 
@@ -2788,8 +3553,7 @@ class _MainScreenState extends State<MainScreen> {
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4)
+                      color: Colors.black.withOpacity(0.05), blurRadius: 4)
                 ]),
             child: Row(children: [
               SizedBox(
@@ -3397,11 +4161,12 @@ class _MainScreenState extends State<MainScreen> {
         subjects.add(q['subject'] as String);
       }
       List<String> subjectList = subjects.toList();
-      
+
       // 計算每個科目的題數
       Map<String, int> subjectCounts = {};
       for (var subject in subjectList) {
-        subjectCounts[subject] = questionBank.where((q) => q['subject'] == subject).length;
+        subjectCounts[subject] =
+            questionBank.where((q) => q['subject'] == subject).length;
       }
 
       return Column(children: [
@@ -3436,7 +4201,7 @@ class _MainScreenState extends State<MainScreen> {
             itemBuilder: (ctx, i) {
               String subject = subjectList[i];
               int count = subjectCounts[subject] ?? 0;
-              
+
               return GestureDetector(
                 onTap: () => setState(() => _selectedSubjectForStudy = subject),
                 child: Container(
@@ -3463,7 +4228,8 @@ class _MainScreenState extends State<MainScreen> {
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(Icons.library_books,
+                          child: Icon(
+                            Icons.library_books,
                             size: 32,
                             color: Color(0xFF8D6E63),
                           ),
@@ -3556,125 +4322,128 @@ class _MainScreenState extends State<MainScreen> {
       Expanded(
         child: filtered.isEmpty
             ? const Center(
-              child: Text('此科目無題目', style: TextStyle(color: Colors.grey)),
-            )
+                child: Text('此科目無題目', style: TextStyle(color: Colors.grey)),
+              )
             : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: filtered.length,
-              itemBuilder: (ctx, i) {
-                var q = filtered[i];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 15),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                padding: const EdgeInsets.all(16),
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) {
+                  var q = filtered[i];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 15),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8EAF6),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              q['subject'],
+                              style: const TextStyle(fontSize: 11),
+                            ),
                           ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8EAF6),
-                            borderRadius: BorderRadius.circular(5),
+                          const Spacer(),
+                          Text(
+                            '出題：${q['author']}',
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey),
                           ),
-                          child: Text(
-                            q['subject'],
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        ),
-                        const Spacer(),
+                        ]),
+                        const SizedBox(height: 10),
                         Text(
-                          '出題：${q['author']}',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          q['question'],
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      ]),
-                      const SizedBox(height: 10),
-                      Text(
-                        q['question'],
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 10),
-                      if (_showStudyAnswers)
-                        Text(
-                          'Ans: ${q['options'].isNotEmpty ? q['options'][q['answerIndex']] : "無"}',
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
+                        const SizedBox(height: 10),
+                        if (_showStudyAnswers)
+                          Text(
+                            'Ans: ${q['options'].isNotEmpty ? q['options'][q['answerIndex']] : "無"}',
+                            style: const TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            TextButton.icon(
+                              icon: Icon(
+                                q['isFavorite']
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 18,
+                                color: Colors.redAccent,
+                              ),
+                              label: Text(
+                                '收藏',
+                                style: TextStyle(
+                                  color: q['isFavorite']
+                                      ? Colors.redAccent
+                                      : Colors.grey,
+                                ),
+                              ),
+                              onPressed: () => setState(
+                                () => q['isFavorite'] = !q['isFavorite'],
+                              ),
+                            ),
+                            TextButton.icon(
+                              icon: const Icon(
+                                Icons.edit_outlined,
+                                size: 18,
+                                color: Colors.grey,
+                              ),
+                              label: const Text(
+                                '作答',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => QuestionPracticePage(
+                                    questionData: q,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            TextButton.icon(
+                              icon: const Icon(
+                                Icons.forum_outlined,
+                                size: 18,
+                                color: Colors.grey,
+                              ),
+                              label: const Text(
+                                '討論',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => QuestionDiscussionPage(
+                                    questionData: q,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          TextButton.icon(
-                            icon: Icon(
-                              q['isFavorite']
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              size: 18,
-                              color: Colors.redAccent,
-                            ),
-                            label: Text(
-                              '收藏',
-                              style: TextStyle(
-                                color: q['isFavorite']
-                                    ? Colors.redAccent
-                                    : Colors.grey,
-                              ),
-                            ),
-                            onPressed: () => setState(
-                              () => q['isFavorite'] = !q['isFavorite'],
-                            ),
-                          ),
-                          TextButton.icon(
-                            icon: const Icon(Icons.edit_outlined,
-                              size: 18,
-                              color: Colors.grey,
-                            ),
-                            label: const Text('作答',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    QuestionPracticePage(
-                                      questionData: q,
-                                    ),
-                              ),
-                            ),
-                          ),
-                          TextButton.icon(
-                            icon: const Icon(Icons.forum_outlined,
-                              size: 18,
-                              color: Colors.grey,
-                            ),
-                            label: const Text('討論',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    QuestionDiscussionPage(
-                                      questionData: q,
-                                    ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                      ],
+                    ),
+                  );
+                },
+              ),
       ),
     ]);
   }
@@ -4581,7 +5350,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showEditNicknameDialog() {
-    // 移除了 24 小時更改限制，讓使用者隨時可更換暱稱
+    // 讓使用者隨時可更換暱稱
 
     final controller = TextEditingController(text: _displayName);
     showDialog(
@@ -5543,12 +6312,14 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
             ...List.generate(
               options.length,
               (i) => GestureDetector(
-                onTap: _showResult ? null : () {
-                  setState(() {
-                    _selectedAnswerIndex = i;
-                    _showResult = true;
-                  });
-                },
+                onTap: _showResult
+                    ? null
+                    : () {
+                        setState(() {
+                          _selectedAnswerIndex = i;
+                          _showResult = true;
+                        });
+                      },
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),

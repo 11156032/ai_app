@@ -80,8 +80,17 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     if (msg['widgetType'] == 'date_picker') {
                       return _buildDatePicker(setModalState);
                     }
+                    if (msg['widgetType'] == 'time_range_picker') {
+                      return _buildTimeRangePicker(setModalState);
+                    }
                     if (msg['widgetType'] == 'color_picker') {
                       return _buildColorPicker(setModalState);
+                    }
+                    if (msg['widgetType'] == 'color_style_picker') {
+                      return _buildColorStylePicker(setModalState);
+                    }
+                    if (msg['widgetType'] == 'color_palette') {
+                      return _buildColorPalette(msg['colorStyle'] ?? 'light', setModalState);
                     }
                     if (msg['widgetType'] == 'skip_button') {
                       return _buildSkipButton(setModalState);
@@ -106,7 +115,6 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       ),
     );
   }
-
 
   Widget _buildHelpOptions(StateSetter setModalState) {
     final options = [
@@ -256,6 +264,498 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             }
           },
         ));
+  }
+
+  /// 深淺色風格選擇器（進階版）
+  Widget _buildColorStylePicker(StateSetter setModalState) {
+    const lightPreview = [Color(0xFFFFB3C1), Color(0xFFFFD6A5), Color(0xFFCAFFBF), Color(0xFFBDE0FE), Color(0xFFE2C2FF)];
+    const darkPreview  = [Color(0xFF8B2635), Color(0xFF2D6A4F), Color(0xFF1B4F72), Color(0xFF7D5A00), Color(0xFF4A235A)];
+
+    Widget styleBtn({
+      required String icon, required String label, required String sub,
+      required List<Color> grad, required String value,
+      required List<Color> preview, bool isDark = false,
+    }) {
+      final borderColor = isDark
+          ? const Color(0xFF4A7C59).withValues(alpha: 0.45)
+          : const Color(0xFFFF8FAB).withValues(alpha: 0.9);
+      final shadowColor = isDark
+          ? Colors.black.withValues(alpha: 0.38)
+          : const Color(0xFFFF8FAB).withValues(alpha: 0.32);
+      final textColor  = isDark ? Colors.white : const Color(0xFF3E2723);
+      final subColor   = isDark ? Colors.white60 : const Color(0xFF795548);
+      final arrowBg    = isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFFF8FAB).withValues(alpha: 0.18);
+      final arrowColor = isDark ? Colors.white54 : const Color(0xFFFF4081);
+
+      return Expanded(child: GestureDetector(
+        onTap: () => widget.onHandleSubmit(value, _modalController, setModalState),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: grad, begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: borderColor, width: 1.5),
+            boxShadow: [BoxShadow(color: shadowColor, blurRadius: 14, spreadRadius: 0, offset: const Offset(0, 5))],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(icon, style: const TextStyle(fontSize: 28)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                decoration: BoxDecoration(color: arrowBg, borderRadius: BorderRadius.circular(8)),
+                child: Icon(Icons.arrow_forward_ios_rounded, size: 11, color: arrowColor),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor, letterSpacing: 0.3)),
+            const SizedBox(height: 3),
+            Text(sub, style: TextStyle(fontSize: 11, color: subColor)),
+            const SizedBox(height: 12),
+            Row(children: preview.map((c) => Container(
+              width: 13, height: 13,
+              margin: const EdgeInsets.only(right: 5),
+              decoration: BoxDecoration(
+                color: c, shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: c.withValues(alpha: 0.45), blurRadius: 3, offset: const Offset(0, 2))],
+              ),
+            )).toList()),
+          ]),
+        ),
+      ));
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14, left: 12, right: 12),
+      child: Row(children: [
+        styleBtn(icon: '🌸', label: '淺色系', sub: '清淡、輕盈、活潑',
+          grad: const [Color(0xFFFFCCDA), Color(0xFFBBE1FF)],
+          value: '淺色系', preview: lightPreview),
+        const SizedBox(width: 12),
+        styleBtn(icon: '🌲', label: '深色系', sub: '沉穩、質感、低調',
+          grad: const [Color(0xFF1A2A3A), Color(0xFF2E4A3E)],
+          value: '深色系', preview: darkPreview, isDark: true),
+      ]),
+    );
+  }
+
+  /// 進階色盤（含精選色磚 + 彩虹滑桿）
+  Widget _buildColorPalette(String style, StateSetter setModalState) {
+    final isLight = style == 'light';
+    final presets = isLight ? <Color>[
+      const Color(0xFFFFB3C1), const Color(0xFFFFD6A5), const Color(0xFFCAFFBF),
+      const Color(0xFFBDE0FE), const Color(0xFFE2C2FF), const Color(0xFFFFF3B0),
+    ] : <Color>[
+      const Color(0xFF8B2635), const Color(0xFF2D6A4F), const Color(0xFF1B4F72),
+      const Color(0xFF7D5A00), const Color(0xFF4A235A), const Color(0xFF2E4057),
+    ];
+    final double sat = isLight ? 0.70 : 0.55;
+    final double lig = isLight ? 0.82 : 0.35;
+
+    Color hslToColor(double h) {
+      final double c = (1 - (2 * lig - 1).abs()) * sat;
+      final double x = c * (1 - ((h / 60) % 2 - 1).abs());
+      final double m = lig - c / 2;
+      double r = 0, g = 0, b = 0;
+      if (h < 60)       { r = c; g = x; b = 0; }
+      else if (h < 120) { r = x; g = c; b = 0; }
+      else if (h < 180) { r = 0; g = c; b = x; }
+      else if (h < 240) { r = 0; g = x; b = c; }
+      else if (h < 300) { r = x; g = 0; b = c; }
+      else              { r = c; g = 0; b = x; }
+      return Color.fromARGB(255, ((r + m) * 255).round(), ((g + m) * 255).round(), ((b + m) * 255).round());
+    }
+
+    Color selectedColor = presets[0];
+    double selectedHue = 0.0;
+    bool isCustom = false;
+
+    return StatefulBuilder(builder: (ctx, setLocal) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: const Color(0xFF8D6E63).withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // 標題
+          Row(children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(color: selectedColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.palette, color: selectedColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Text(isLight ? '🌸 淺色系 色盤' : '🌲 深色系 色盤',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF4E342E))),
+          ]),
+          const SizedBox(height: 14),
+          // 精選色磚
+          const Text('精選配色', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Row(children: presets.map((c) => Expanded(child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: GestureDetector(
+              onTap: () => setLocal(() { selectedColor = c; isCustom = false; }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 36,
+                decoration: BoxDecoration(
+                  color: c,
+                  borderRadius: BorderRadius.circular(10),
+                  border: (selectedColor == c && !isCustom) ? Border.all(color: const Color(0xFF4E342E), width: 2.5) : Border.all(color: Colors.transparent),
+                  boxShadow: (selectedColor == c && !isCustom) ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 6, offset: const Offset(0, 3))] : null,
+                ),
+              ),
+            ),
+          ))).toList()),
+          const SizedBox(height: 16),
+          // 分隔
+          Row(children: [
+            const Expanded(child: Divider()),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text('自訂顏色', style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600))),
+            const Expanded(child: Divider()),
+          ]),
+          const SizedBox(height: 12),
+          // 彩虹色相滑桿
+          LayoutBuilder(builder: (ctx2, constraints) {
+            final sw = constraints.maxWidth;
+            final thumbLeft = ((selectedHue / 360.0) * sw - 13).clamp(0.0, sw - 26);
+            return GestureDetector(
+              onHorizontalDragUpdate: (d) {
+                final hue = ((d.localPosition.dx / sw) * 360).clamp(0.0, 360.0);
+                setLocal(() { selectedHue = hue; selectedColor = hslToColor(hue); isCustom = true; });
+              },
+              onTapDown: (d) {
+                final hue = ((d.localPosition.dx / sw) * 360).clamp(0.0, 360.0);
+                setLocal(() { selectedHue = hue; selectedColor = hslToColor(hue); isCustom = true; });
+              },
+              child: Stack(clipBehavior: Clip.none, children: [
+                Container(height: 22, decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(11),
+                  gradient: const LinearGradient(colors: [
+                    Color(0xFFFF0000), Color(0xFFFFFF00), Color(0xFF00FF00),
+                    Color(0xFF00FFFF), Color(0xFF0000FF), Color(0xFFFF00FF), Color(0xFFFF0000),
+                  ]),
+                )),
+                Positioned(left: thumbLeft, top: -4, child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle, color: Colors.white,
+                    border: Border.all(color: selectedColor, width: 4),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
+                  ),
+                )),
+              ]),
+            );
+          }),
+          const SizedBox(height: 20),
+          // 預覽 + 確認
+          Row(children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 46, height: 46,
+              decoration: BoxDecoration(
+                color: selectedColor, borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: selectedColor.withValues(alpha: 0.45), blurRadius: 8, offset: const Offset(0, 3))],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('#${selectedColor.toARGB32().toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF4E342E))),
+              Text(isCustom ? '自訂顏色' : '精選配色',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            ])),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('確認'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: selectedColor,
+                foregroundColor: isLight ? const Color(0xFF4E342E) : Colors.white,
+                elevation: 3, shadowColor: selectedColor.withValues(alpha: 0.4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              ),
+              onPressed: () => widget.onHandleSubmit('${selectedColor.toARGB32()}', _modalController, setModalState),
+            ),
+          ]),
+        ]),
+      );
+    });
+  }
+
+  /// 滾輪式「一次選擇開始 + 結束時間」元件
+  Widget _buildTimeRangePicker(StateSetter setModalState) {
+    final now = DateTime.now();
+    // 產生未來 60 天的日期列表
+    final dates = List.generate(60, (i) => now.add(Duration(days: i)));
+    final hours = List.generate(24, (h) => h);
+    final minutes = List.generate(12, (m) => m * 5); // 每 5 分鐘一格
+
+    int selDateIdx = 0;
+    int selStartHour = now.hour;
+    int selStartMin = (now.minute ~/ 5) * 5;
+    int selEndHour = (now.hour + 1) % 24;
+    int selEndMin = selStartMin;
+
+    String fmt2(int v) => v.toString().padLeft(2, '0');
+    String dateLabel(DateTime d) {
+      const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+      final wd = weekdays[d.weekday - 1];
+      return '${d.month}/${d.day}（$wd）';
+    }
+
+    Widget buildWheel({
+      required List items,
+      required int initialIndex,
+      required void Function(int) onSelected,
+      required String Function(dynamic) label,
+      double width = 64,
+    }) {
+      final ctrl = FixedExtentScrollController(initialItem: initialIndex);
+      return SizedBox(
+        width: width,
+        height: 140,
+        child: ListWheelScrollView.useDelegate(
+          controller: ctrl,
+          itemExtent: 38,
+          perspective: 0.004,
+          diameterRatio: 1.5,
+          physics: const FixedExtentScrollPhysics(),
+          onSelectedItemChanged: onSelected,
+          childDelegate: ListWheelChildBuilderDelegate(
+            childCount: items.length,
+            builder: (ctx, idx) => Center(
+              child: Text(
+                label(items[idx]),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return StatefulBuilder(builder: (ctx, setLocal) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── 標題列 ──────────────────────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.schedule, color: Color(0xFF8D6E63), size: 18),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  '選擇日期與時段',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Color(0xFF4E342E),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // ── 日期滾輪 ───────────────────────────────────────────────
+            const Text('日期', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 4),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // 中間選中高亮條
+                Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8D6E63).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                buildWheel(
+                  items: dates,
+                  initialIndex: 0,
+                  onSelected: (i) => selDateIdx = i,
+                  label: (d) => dateLabel(d as DateTime),
+                  width: double.infinity,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // ── 開始 / 結束時間並排 ────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Container(width: 8, height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF66BB6A), shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        const Text('開始時間', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ]),
+                      const SizedBox(height: 6),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF66BB6A).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              buildWheel(
+                                items: hours,
+                                initialIndex: selStartHour,
+                                onSelected: (i) {
+                                  selStartHour = hours[i];
+                                  // 若開始 >= 結束，自動往後推 1 小時
+                                  if (selStartHour > selEndHour ||
+                                      (selStartHour == selEndHour && selStartMin >= selEndMin)) {
+                                    selEndHour = (selStartHour + 1) % 24;
+                                    setLocal(() {});
+                                  }
+                                },
+                                label: (h) => fmt2(h as int),
+                              ),
+                              const Text(':', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                              buildWheel(
+                                items: minutes,
+                                initialIndex: minutes.indexOf(selStartMin),
+                                onSelected: (i) => selStartMin = minutes[i],
+                                label: (m) => fmt2(m as int),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 分隔箭頭
+                const Column(
+                  children: [
+                    SizedBox(height: 22),
+                    Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFBCAAA4)),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Container(width: 8, height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEF5350), shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        const Text('結束時間', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ]),
+                      const SizedBox(height: 6),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF5350).withValues(alpha: 0.07),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              buildWheel(
+                                items: hours,
+                                initialIndex: selEndHour,
+                                onSelected: (i) => selEndHour = hours[i],
+                                label: (h) => fmt2(h as int),
+                              ),
+                              const Text(':', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                              buildWheel(
+                                items: minutes,
+                                initialIndex: minutes.indexOf(selEndMin),
+                                onSelected: (i) => selEndMin = minutes[i],
+                                label: (m) => fmt2(m as int),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── 確認按鈕 ──────────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.check_circle_outline, size: 18),
+                label: const Text('確認時段'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8D6E63),
+                  foregroundColor: Colors.white,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () {
+                  final date = dates[selDateIdx];
+                  final datePrefix =
+                      '${date.year}-${fmt2(date.month)}-${fmt2(date.day)}';
+                  final startStr = '$datePrefix ${fmt2(selStartHour)}:${fmt2(selStartMin)}';
+                  final endStr   = '$datePrefix ${fmt2(selEndHour)}:${fmt2(selEndMin)}';
+
+                  // 用 "|||" 分隔開始與結束，讓 main_screen 解析
+                  widget.onHandleSubmit(
+                    '$startStr|||$endStr',
+                    _modalController,
+                    setModalState,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildColorPicker(StateSetter setModalState) {

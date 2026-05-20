@@ -525,12 +525,36 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordCtrl = TextEditingController();
   final TextEditingController _confirmPasswordCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
+  final FocusNode _emailFocusNode = FocusNode();
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
   // ── 登入成功動畫 ────────────────────────────────────────────────────────
   OverlayEntry? _overlayEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl.text = '@gmail.com';
+    _emailFocusNode.addListener(() {
+      if (_emailFocusNode.hasFocus) {
+        if (_emailCtrl.text == '@gmail.com') {
+          _emailCtrl.selection = const TextSelection.collapsed(offset: 0);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
+    _emailCtrl.dispose();
+    _emailFocusNode.dispose();
+    super.dispose();
+  }
 
   void _showSuccessOverlay(Map<String, dynamic> userMap) {
     setState(() => _isSuccess = true);
@@ -580,18 +604,22 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ── 邏輯 ──────────────────────────────────────────────────────────────────
   Future<void> _submit() async {
-    if (_usernameCtrl.text.isEmpty || _passwordCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('帳號名稱與密碼不得為空')));
-      return;
-    }
-
-    if (!isLogin) {
-      if (_emailCtrl.text.isEmpty) {
+    if (isLogin) {
+      if (_emailCtrl.text.isEmpty ||
+          _emailCtrl.text == '@gmail.com' ||
+          _passwordCtrl.text.isEmpty) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('信箱不得為空')));
+            .showSnackBar(const SnackBar(content: Text('信箱與密碼不得為空')));
+        return;
+      }
+    } else {
+      if (_usernameCtrl.text.isEmpty ||
+          _emailCtrl.text.isEmpty ||
+          _emailCtrl.text == '@gmail.com' ||
+          _passwordCtrl.text.isEmpty) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('所有欄位皆不得為空')));
         return;
       }
       if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
@@ -615,8 +643,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (isLogin) {
         final res = await db.query('users',
-            where: 'username = ? AND hashed_password = ?',
-            whereArgs: [_usernameCtrl.text, _passwordCtrl.text]);
+            where: 'email = ? AND hashed_password = ?',
+            whereArgs: [_emailCtrl.text, _passwordCtrl.text]);
         if (!mounted) return;
         if (res.isNotEmpty) {
           final userMap = Map<String, dynamic>.from(res.first);
@@ -624,8 +652,8 @@ class _LoginScreenState extends State<LoginScreen> {
           userMap['session_comment_ids'] = <int>{};
           _showSuccessOverlay(userMap);
         } else {
-          final userCheck = await db.query('users',
-              where: 'username = ?', whereArgs: [_usernameCtrl.text]);
+          final userCheck = await db
+              .query('users', where: 'email = ?', whereArgs: [_emailCtrl.text]);
           if (!mounted) return;
           if (userCheck.isNotEmpty) {
             showDialog(
@@ -644,7 +672,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                       title: const Text('找不到帳號'),
-                      content: const Text('此帳號尚未註冊，請先建立新帳號再登入。'),
+                      content: const Text('此信箱尚未註冊，請先建立新帳號再登入。'),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx),
@@ -774,7 +802,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          isLogin ? '請輸入您的帳號名稱與密碼' : '填寫資料以完成註冊',
+                          isLogin ? '請輸入您的信箱與密碼' : '填寫資料以完成註冊',
                           style: const TextStyle(
                               fontSize: 14, color: Color(0xFF9E9E9E)),
                         ),
@@ -783,27 +811,34 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 36),
 
-                  // 欄位組（帳號名稱、Email、密碼、確認密碼）同步出現
+                  // 欄位組（信箱、帳號名稱、密碼、確認密碼）同步出現
                   _exquisiteFadeIn(
                     delayMs: 500 + 200,
                     child: Column(
                       children: [
-                        // 帳號名稱欄
+                        // Gmail 欄 (登入與註冊都需要)
                         TextField(
-                          controller: _usernameCtrl,
-                          decoration: _inputDeco('帳號名稱',
-                              suffix: const Icon(Icons.person_outline_rounded,
+                          controller: _emailCtrl,
+                          focusNode: _emailFocusNode,
+                          keyboardType: TextInputType.emailAddress,
+                          onTap: () {
+                            if (_emailCtrl.text == '@gmail.com') {
+                              _emailCtrl.selection =
+                                  const TextSelection.collapsed(offset: 0);
+                            }
+                          },
+                          decoration: _inputDeco('信箱',
+                              suffix: const Icon(Icons.email_outlined,
                                   color: Color(0xFFBCAAA4))),
                         ),
                         const SizedBox(height: 14),
 
-                        // Email（僅註冊）
+                        // 帳號名稱欄（僅註冊）
                         if (!isLogin) ...[
                           TextField(
-                            controller: _emailCtrl,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: _inputDeco('電子郵件',
-                                suffix: const Icon(Icons.email_outlined,
+                            controller: _usernameCtrl,
+                            decoration: _inputDeco('帳號名稱',
+                                suffix: const Icon(Icons.person_outline_rounded,
                                     color: Color(0xFFBCAAA4))),
                           ),
                           const SizedBox(height: 14),
@@ -886,10 +921,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         isLogin = !isLogin;
                         _passwordCtrl.clear();
                         _confirmPasswordCtrl.clear();
-                        if (!isLogin && _emailCtrl.text.isEmpty) {
+                        if (_emailCtrl.text.isEmpty) {
                           _emailCtrl.text = '@gmail.com';
-                        } else if (isLogin && _emailCtrl.text == '@gmail.com') {
-                          _emailCtrl.clear();
                         }
                       }),
                       child: Text(
