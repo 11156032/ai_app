@@ -130,7 +130,7 @@ class _MainScreenState extends State<MainScreen> {
     {
       'isAI': true,
       'text':
-          '哈囉👋 我是你的專屬 AI 代理人！很高興為您服務。😊\n\n我可以協助您管理行程、發佈貼文、回覆留言以及調整個人設定。您可以隨時輸入「幫助」或點擊下方功能來了解更多！',
+          '哈囉👋 我是你的專屬 AI 代理人！很高興為您服務。😊\n\n我可以協助您管理行程、發佈貼文、回覆留言以及調整個人化設定。您可以隨時輸入「幫助」或點擊下方功能來了解更多！',
       'isCard': false
     },
     {'isAI': true, 'text': '', 'isCard': false, 'widgetType': 'help_options'}
@@ -298,8 +298,15 @@ class _MainScreenState extends State<MainScreen> {
             }
 
             DateTime? sTime = DateTime.tryParse(rawTime);
+            // 【修復】DateTime.tryParse 對無時區標記的字串會視為 UTC。
+            // 儲存的排程時間是本地時間，需強制轉為本地 DateTime 再比較。
+            if (sTime != null &&
+                !rawTime.contains('Z') &&
+                !rawTime.contains('+')) {
+              sTime = DateTime(sTime.year, sTime.month, sTime.day, sTime.hour,
+                  sTime.minute, sTime.second);
+            }
             if (sTime != null) {
-              // 確保兩者都在同一個時區（本地）進行比較
               final now = DateTime.now();
               if (sTime.isAfter(now)) {
                 if (p['user_id'] == currentUserId) {
@@ -1071,14 +1078,6 @@ class _MainScreenState extends State<MainScreen> {
                         fontWeight: FontWeight.bold)),
               ),
               ListTile(
-                  leading: Icon(Icons.groups_rounded,
-                      color: Theme.of(context).primaryColor),
-                  title: const Text('社群'),
-                  onTap: () {
-                    _changePage(2, '社群');
-                    Navigator.pop(context);
-                  }),
-              ListTile(
                   leading: Icon(Icons.history_edu_rounded,
                       color: Theme.of(context).primaryColor),
                   title: const Text('社群動態'),
@@ -1194,21 +1193,10 @@ class _MainScreenState extends State<MainScreen> {
 
                           if (msg['widgetType'] == 'date_picker') {
                             return Container(
-                                margin:
-                                    const EdgeInsets.only(bottom: 12, left: 40),
-                                alignment: Alignment.centerLeft,
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.calendar_today,
-                                      size: 18),
-                                  label: const Text('選擇日期與時間'),
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: const Color(0xFF8D6E63),
-                                      elevation: 1,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(20))),
-                                  onPressed: () async {
+                                margin: const EdgeInsets.only(
+                                    bottom: 14, left: 40, right: 10),
+                                child: GestureDetector(
+                                  onTap: () async {
                                     DateTime? date = await showDatePicker(
                                       context: context,
                                       initialDate: DateTime.now(),
@@ -1231,6 +1219,67 @@ class _MainScreenState extends State<MainScreen> {
                                       }
                                     }
                                   },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 18, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF8D6E63),
+                                          Color(0xFFBCAAA4)
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF8D6E63)
+                                              .withValues(alpha: 0.35),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        )
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(7),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.25),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          child: const Icon(
+                                              Icons.calendar_month_rounded,
+                                              color: Colors.white,
+                                              size: 18),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        const Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text('選擇發布日期與時間',
+                                                style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14)),
+                                            SizedBox(height: 2),
+                                            Text('點擊以開啟日期選擇器',
+                                                style: TextStyle(
+                                                    color: Colors.white70,
+                                                    fontSize: 11)),
+                                          ],
+                                        ),
+                                        const SizedBox(width: 16),
+                                        const Icon(Icons.arrow_forward_ios,
+                                            color: Colors.white70, size: 14),
+                                      ],
+                                    ),
+                                  ),
                                 ));
                           }
                           if (msg['widgetType'] == 'time_range_picker') {
@@ -1775,100 +1824,370 @@ class _MainScreenState extends State<MainScreen> {
                           }
 
                           if (msg['widgetType'] == 'post_type_picker') {
-                            List<String> types = ['一般', '學習筆記', '心情文章', '分享資料'];
+                            final typeData = [
+                              {
+                                'label': '一般',
+                                'icon': '💬',
+                                'desc': '日常分享',
+                                'color': const Color(0xFF78909C),
+                                'bg': const Color(0xFFECEFF1),
+                              },
+                              {
+                                'label': '學習筆記',
+                                'icon': '📝',
+                                'desc': '記錄成長',
+                                'color': const Color(0xFF43A047),
+                                'bg': const Color(0xFFE8F5E9),
+                              },
+                              {
+                                'label': '心情文章',
+                                'icon': '💭',
+                                'desc': '抒發心情',
+                                'color': const Color(0xFF7E57C2),
+                                'bg': const Color(0xFFEDE7F6),
+                              },
+                              {
+                                'label': '分享資料',
+                                'icon': '📄',
+                                'desc': '資源共享',
+                                'color': const Color(0xFF1E88E5),
+                                'bg': const Color(0xFFE3F2FD),
+                              },
+                            ];
                             return Container(
-                                margin:
-                                    const EdgeInsets.only(bottom: 12, left: 40),
-                                alignment: Alignment.centerLeft,
-                                child: Wrap(
-                                  spacing: 8,
-                                  children: types
-                                      .map((t) => GestureDetector(
-                                            onTap: () {
-                                              _handleAISubmit(
-                                                  t,
-                                                  modalController,
-                                                  setModalState);
-                                            },
-                                            child: Chip(
-                                              label: Text(t),
-                                              backgroundColor: Colors.white,
-                                              side: const BorderSide(
-                                                  color: Color(0xFF8D6E63),
-                                                  width: 1),
-                                            ),
-                                          ))
-                                      .toList(),
-                                ));
+                              margin: const EdgeInsets.only(
+                                  bottom: 14, left: 40, right: 10),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: typeData.map((t) {
+                                  final color = t['color'] as Color;
+                                  final bg = t['bg'] as Color;
+                                  return GestureDetector(
+                                    onTap: () => _handleAISubmit(
+                                        t['label'] as String,
+                                        modalController,
+                                        setModalState),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: bg,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                            color: color, width: 1.2),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                color.withValues(alpha: 0.12),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(t['icon'] as String,
+                                              style: const TextStyle(
+                                                  fontSize: 16)),
+                                          const SizedBox(width: 7),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(t['label'] as String,
+                                                  style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: color)),
+                                              Text(t['desc'] as String,
+                                                  style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: color.withValues(
+                                                          alpha: 0.7))),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            );
                           }
 
                           if (msg['widgetType'] == 'confirm_post') {
                             var pData = msg['pendingData'] ?? {};
+                            final typeLabel = pData['type'] ?? '一般';
+                            final typeIconMap = {
+                              '一般': '💬',
+                              '學習筆記': '📝',
+                              '心情文章': '💭',
+                              '分享資料': '📄'
+                            };
+                            final typeIcon = typeIconMap[typeLabel] ?? '💬';
                             return Container(
-                                margin: const EdgeInsets.only(
-                                    bottom: 12, left: 40, right: 10),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(15),
-                                    border: Border.all(
-                                        color: const Color(0xFF8D6E63),
-                                        width: 1.5)),
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Row(children: [
-                                        Icon(Icons.schedule_send,
-                                            color: Colors.blueAccent),
-                                        SizedBox(width: 8),
-                                        Text('待發佈排程確認',
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold))
-                                      ]),
-                                      const SizedBox(height: 12),
-                                      Text('分類：${pData['type']}',
-                                          style: const TextStyle(fontSize: 14)),
-                                      Text('內容：${pData['content']}',
-                                          style: const TextStyle(fontSize: 14)),
-                                      Text('排程時間：${pData['time']}',
-                                          style: const TextStyle(fontSize: 14)),
-                                      const SizedBox(height: 18),
-                                      Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
+                              margin: const EdgeInsets.only(
+                                  bottom: 14, left: 16, right: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF8D6E63)
+                                        .withValues(alpha: 0.15),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // ── Header gradient bar ──
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 14),
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Color(0xFF6D4C41),
+                                          Color(0xFF8D6E63)
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(20)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(7),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          child: const Icon(
+                                              Icons.schedule_send_rounded,
+                                              color: Colors.white,
+                                              size: 18),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        const Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text('待發布排程確認',
+                                                  style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 15)),
+                                              Text('請確認以下貼文資訊',
+                                                  style: TextStyle(
+                                                      color: Colors.white70,
+                                                      fontSize: 11)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // ── Info section ──
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Type chip
+                                        Row(
                                           children: [
-                                            TextButton(
-                                                onPressed: () =>
-                                                    _handleAISubmit(
-                                                        '取消',
-                                                        modalController,
-                                                        setModalState),
-                                                child: const Text('捨棄',
-                                                    style: TextStyle(
-                                                        color:
-                                                            Colors.redAccent))),
-                                            const SizedBox(width: 8),
-                                            OutlinedButton(
-                                                style: OutlinedButton.styleFrom(
-                                                    foregroundColor:
-                                                        const Color(
-                                                            0xFF8D6E63)),
-                                                onPressed: () => _publishAIPost(
-                                                    pData, false),
-                                                child: const Text('立即發佈')),
-                                            const SizedBox(width: 8),
-                                            ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        const Color(0xFF8D6E63),
-                                                    foregroundColor:
-                                                        Colors.white),
-                                                onPressed: () =>
-                                                    _publishAIPost(pData, true),
-                                                child: const Text('確認排程'))
-                                          ])
-                                    ]));
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 5),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF5F0EE),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                border: Border.all(
+                                                    color:
+                                                        const Color(0xFFBCAAA4),
+                                                    width: 1),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(typeIcon,
+                                                      style: const TextStyle(
+                                                          fontSize: 13)),
+                                                  const SizedBox(width: 5),
+                                                  Text(typeLabel,
+                                                      style: const TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Color(
+                                                              0xFF5D4037))),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        // Content preview
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFAF7F5),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                                color: const Color(0xFFEEE0D8)),
+                                          ),
+                                          child: Text(
+                                            pData['content'] ?? '',
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                color: Color(0xFF4E342E),
+                                                height: 1.5),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        // Schedule time row
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                                Icons
+                                                    .access_time_filled_rounded,
+                                                size: 15,
+                                                color: Color(0xFF8D6E63)),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              pData['time'] != null &&
+                                                      pData['time']
+                                                          .toString()
+                                                          .isNotEmpty
+                                                  ? pData['time'].toString()
+                                                  : '立即發布',
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF8D6E63),
+                                                  fontWeight: FontWeight.w600),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // ── Divider ──
+                                  const Divider(
+                                      height: 1, color: Color(0xFFF0E9E6)),
+                                  // ── Action buttons ──
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    child: Row(
+                                      children: [
+                                        // Discard
+                                        TextButton(
+                                          onPressed: () => _handleAISubmit('取消',
+                                              modalController, setModalState),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor:
+                                                Colors.red.shade400,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10)),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.delete_outline,
+                                                  size: 15),
+                                              SizedBox(width: 4),
+                                              Text('捨棄',
+                                                  style:
+                                                      TextStyle(fontSize: 13)),
+                                            ],
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        // Publish now
+                                        OutlinedButton(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor:
+                                                const Color(0xFF8D6E63),
+                                            side: const BorderSide(
+                                                color: Color(0xFF8D6E63),
+                                                width: 1.2),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 14, vertical: 9),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12)),
+                                          ),
+                                          onPressed: () =>
+                                              _publishAIPost(pData, false),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.send_rounded,
+                                                  size: 14),
+                                              SizedBox(width: 5),
+                                              Text('立即發布',
+                                                  style:
+                                                      TextStyle(fontSize: 13)),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Confirm schedule
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFF6D4C41),
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 14, vertical: 9),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12)),
+                                          ),
+                                          onPressed: () =>
+                                              _publishAIPost(pData, true),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.schedule_rounded,
+                                                  size: 14),
+                                              SizedBox(width: 5),
+                                              Text('確認排程',
+                                                  style:
+                                                      TextStyle(fontSize: 13)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
                           }
 
                           if (msg['text'] == null || msg['text'].isEmpty)
@@ -2153,16 +2472,17 @@ class _MainScreenState extends State<MainScreen> {
         _showLogoutDialog();
         return true;
       case UserIntent.createPost:
-        // 觸發發文流程
+        // 觸發發文流程 — 先選類型
         updateLogs(() {
           chatLogs.add(
               {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
-          _aiFlowState = 'adding_post_content';
+          _aiFlowState = 'adding_post_type';
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的，我們來發佈一則新的貼文吧！📝\n請問貼文的內容是什麼？',
-            'isCard': false
+            'text': '好的，我們來發佈一則新的貼文吧！📝\n首先，請選擇這篇貼文的類型：',
+            'isCard': false,
+            'widgetType': 'post_type_picker'
           });
           _scrollToBottom();
         });
@@ -2268,11 +2588,15 @@ class _MainScreenState extends State<MainScreen> {
           where: 'post_id IN ($placeholders)', whereArgs: myPostIds);
       for (var c in comments) {
         if (c['user_id'] != widget.currentUser['id']) {
-          // 檢查是否已回覆過此留言
-          final replies = await db.query('comments',
-              where: 'parent_id = ? AND user_id = ?',
-              whereArgs: [c['id'], widget.currentUser['id']]);
-          if (replies.isNotEmpty) continue;
+          // 【修復】原本用 parent_id 嚴格匹配，但用戶在 PostReplyPage
+          // 直接留言時 parent_id=0，導致誤判為「未回覆」。
+          // 改為：只要貼文下有任何來自當前用戶、發布時間晚於該留言的回覆，
+          // 就視為「已處理」。
+          final alreadyReplied = await db.rawQuery(
+            'SELECT id FROM comments WHERE post_id = ? AND user_id = ? AND created_at > ?',
+            [c['post_id'], widget.currentUser['id'], c['created_at']],
+          );
+          if (alreadyReplied.isNotEmpty) continue;
 
           var u = await db
               .query('users', where: 'id = ?', whereArgs: [c['user_id']]);
@@ -2721,32 +3045,31 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
-    if (_aiFlowState == 'adding_post_content') {
-      _aiFlowData['content'] = text;
+    if (_aiFlowState == 'adding_post_type') {
+      _aiFlowData['type'] = text;
       setModalState(() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
-        _aiFlowState = 'adding_post_type';
+        _aiFlowState = 'adding_post_content';
         chatLogs.add({
           'isAI': true,
-          'text': '收到了！請問這篇貼文是什麼類型？\n(一般, 學習筆記, 心情文章, 分享資料)',
-          'isCard': false,
-          'widgetType': 'post_type_picker'
+          'text': '太好了！類型已選擇「$text」。🏷️\n接下來，請輸入這篇貼文的內容：',
+          'isCard': false
         });
         _scrollToBottom();
       });
       return;
     }
 
-    if (_aiFlowState == 'adding_post_type') {
-      _aiFlowData['type'] = text;
+    if (_aiFlowState == 'adding_post_content') {
+      _aiFlowData['content'] = text;
       setModalState(() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'adding_post_time';
         chatLogs.add({
           'isAI': true,
-          'text': '好的，類型已設定為「$text」。🏷️\n請問這篇貼文要什麼時候發佈？\n(可以直接點擊下方按鈕選取時間)',
+          'text': '收到！✍️\n最後，請問這篇貼文要什麼時候發佈？\n(可以直接點擊下方按鈕選取時間)',
           'isCard': false
         });
         chatLogs.add({
@@ -3381,14 +3704,18 @@ class _MainScreenState extends State<MainScreen> {
                               color: isSel
                                   ? const Color(0xFF8D6E63)
                                   : (isToday
-                                      ? const Color(0xFFF5E6E6)
+                                      ? (Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.redAccent.withOpacity(0.15)
+                                          : const Color(0xFFF5E6E6))
                                       : Colors.transparent),
                               border: Border.all(
                                   color: isSel
                                       ? const Color(0xFF8D6E63)
                                       : (isToday
                                           ? Colors.redAccent.withOpacity(0.5)
-                                          : Colors.grey.shade100))),
+                                          : Colors
+                                              .transparent))), // 去除無行程非今日日期的白色圓邊框，美化日曆
                           child: Center(
                               child: Text('$d',
                                   style: TextStyle(
@@ -3400,7 +3727,10 @@ class _MainScreenState extends State<MainScreen> {
                                           ? Colors.white
                                           : (isToday
                                               ? Colors.redAccent
-                                              : Colors.black87))))),
+                                              : (Theme.of(context).brightness ==
+                                                      Brightness.dark
+                                                  ? Colors.white70
+                                                  : Colors.black87)))))),
                       // 行程標記：改用膠囊型色條 (Pills)，外觀更現代且色彩鮮明
                       if (dayEvents.isNotEmpty)
                         Padding(
@@ -5510,6 +5840,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   String? _selectedFileName;
   String? _postType;
   bool _isSubmitting = false;
+  DateTime? _scheduledAt; // 定時發佈時間
 
   void _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -5607,6 +5938,31 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
   }
 
+  /// 選擇排程時間
+  Future<void> _pickScheduleTime() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: DateTime(2030),
+      locale: const Locale('zh', 'TW'),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (ctx, child) => MediaQuery(
+          data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+          child: child!),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _scheduledAt =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
   void _submitPost() async {
     if (_contentController.text.isEmpty && _selectedImageX == null) return;
     if (_isSubmitting) return;
@@ -5621,12 +5977,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
         blobData = await _selectedImageX!.readAsBytes();
       }
 
+      // 建立 attached_data
+      final Map<String, dynamic> attachedMap = {};
+      if (_selectedFileName != null)
+        attachedMap['file_name'] = _selectedFileName;
+      if (_scheduledAt != null) {
+        attachedMap['scheduled_at'] =
+            '${_scheduledAt!.year}-${_scheduledAt!.month.toString().padLeft(2, '0')}-${_scheduledAt!.day.toString().padLeft(2, '0')} ${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}';
+      }
+
       final newId = await db.insert('posts', {
         'user_id': userId,
         'content': _contentController.text,
         'type': _postType ?? (blobData != null ? 'image' : 'text'),
         'media_blob': blobData,
-        'attached_data': jsonEncode({'file_name': _selectedFileName}),
+        'attached_data': jsonEncode(attachedMap),
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -5636,6 +6001,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
       widget.onPosted();
       if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:
+              Text(_scheduledAt != null ? '⏰ 已設定排程，將於指定時間發佈！' : '🎉 貼文發佈成功！'),
+          backgroundColor: const Color(0xFF8D6E63),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
     } catch (e) {
       debugPrint("Error submitting post: $e");
       if (mounted) {
@@ -5648,164 +6023,366 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   @override
   Widget build(BuildContext context) {
+    final String displayName = widget.currentUser['display_name'] ??
+        widget.currentUser['username'] ??
+        '我';
+    final String hintText = _postType == 'note'
+        ? '寫下你的學習筆記，記錄每一次成長...'
+        : _postType == 'mood'
+            ? '今天心情怎麼樣呢？說出來和大家分享吧！'
+            : '有什麼想和大家說的嗎？';
+
     return Scaffold(
+      backgroundColor: const Color(0xFFFAF8F6),
+      appBar: AppBar(
         backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black87),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text('新增貼文',
-              style: TextStyle(fontSize: 16, color: Colors.black87)),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: TextButton(
-                  onPressed: _isSubmitting ? null : _submitPost,
-                  style: TextButton.styleFrom(
-                      backgroundColor: const Color(0xFF8D6E63),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 6),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20))),
-                  child: Text(_isSubmitting ? '處理中...' : '發佈',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14))),
-            )
-          ],
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消',
+              style: TextStyle(color: Colors.grey, fontSize: 15)),
         ),
-        body: Stack(children: [
+        leadingWidth: 60,
+        title: const Text('發表新貼文',
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87)),
+        centerTitle: true,
+        actions: [
           Padding(
-              padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.only(right: 12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              child: ElevatedButton(
+                onPressed: _isSubmitting ? null : _submitPost,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _contentController.text.isEmpty
+                      ? Colors.grey.shade300
+                      : const Color(0xFF8D6E63),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22)),
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : Text(_scheduledAt != null ? '排程' : '發佈',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+            ),
+          )
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: Colors.grey.shade100, height: 1),
+        ),
+      ),
+      body: Column(
+        children: [
+          // ── 主要編輯區 ──
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 貼文類型標籤列
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 用戶資訊列
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      buildAvatar(
+                        blob: null,
+                        colorIdx: getAvatarColorIdx(displayName),
+                        initial: displayName.substring(0, 1),
+                        radius: 20,
+                        usePreset: false,
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(displayName,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: Colors.black87)),
+                          // 排程提示
+                          if (_scheduledAt != null)
+                            Text(
+                              '⏰ ${_scheduledAt!.year}-${_scheduledAt!.month.toString().padLeft(2, '0')}-${_scheduledAt!.day.toString().padLeft(2, '0')} ${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')} 發布',
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.w500),
+                            )
+                          else
+                            const Text('公開發布',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // 貼文類型標籤
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(children: [
+                      _buildTypeChip('📝 學習筆記', 'note',
+                          selectedColor: const Color(0xFF4CAF50),
+                          bgColor: const Color(0xFFE8F5E9)),
+                      const SizedBox(width: 8),
+                      _buildTypeChip('💭 心情文章', 'mood',
+                          selectedColor: const Color(0xFF9C27B0),
+                          bgColor: const Color(0xFFF3E5F5)),
+                      const SizedBox(width: 8),
+                      _buildTypeChip('📄 分享資料', 'doc',
+                          selectedColor: const Color(0xFF2196F3),
+                          bgColor: const Color(0xFFE3F2FD)),
+                    ]),
+                  ),
+                  const SizedBox(height: 16),
+                  // 文字輸入區
+                  TextField(
+                    controller: _contentController,
+                    maxLines: null,
+                    autofocus: true,
+                    style: const TextStyle(
+                        fontSize: 17, height: 1.55, color: Colors.black87),
+                    decoration: InputDecoration(
+                        hintText: hintText,
+                        hintStyle: TextStyle(
+                            color: Colors.grey.shade400, fontSize: 17),
+                        border: InputBorder.none),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  // 已選圖片預覽
+                  if (_selectedImageX != null) ...[
+                    Stack(children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.file(
+                          File(_selectedImageX!.path),
+                          width: double.infinity,
+                          height: 220,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedImageX = null),
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.55),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close,
+                                color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                  ],
+                  // 已選檔案顯示
+                  if (_selectedFileName != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blue.shade100)),
                       child: Row(children: [
-                        _buildTypeChip('📝  學習筆記', 'note'),
-                        const SizedBox(width: 8),
-                        _buildTypeChip('💭  心情文章', 'mood'),
-                        const SizedBox(width: 8),
-                        _buildTypeChip('📄  分享資料', 'doc'),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(Icons.description_outlined,
+                              size: 16, color: Colors.blue),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                            child: Text(_selectedFileName!,
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.blue))),
+                        GestureDetector(
+                          onTap: () => setState(() => _selectedFileName = null),
+                          child: const Icon(Icons.close,
+                              size: 16, color: Colors.grey),
+                        ),
                       ]),
                     ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                        child: TextField(
-                      controller: _contentController,
-                      maxLines: null,
-                      expands: true,
-                      textAlignVertical: TextAlignVertical.top,
-                      decoration: InputDecoration(
-                          hintText: _postType == 'note'
-                              ? '寫下你的學習筆記...'
-                              : _postType == 'mood'
-                                  ? '今天的心情是...'
-                                  : '想分享什麼呢？',
-                          border: InputBorder.none),
-                    )),
-                    // 已選圖片預覽
-                    if (_selectedImageX != null)
-                      Stack(children: [
-                        Container(
-                          constraints: const BoxConstraints(
-                              maxHeight: 200, maxWidth: 200),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: Colors.grey.shade50,
-                          ),
-                          child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.file(File(_selectedImageX!.path),
-                                  fit: BoxFit.cover)),
-                        ),
-                        Positioned(
-                            right: 5,
-                            top: 5,
-                            child: GestureDetector(
-                              onTap: () => setState(() {
-                                _selectedImageX = null;
-                              }),
-                              child: CircleAvatar(
-                                radius: 12,
-                                backgroundColor: Colors.black.withOpacity(0.5),
-                                child: const Icon(Icons.close,
-                                    color: Colors.white, size: 16),
-                              ),
-                            ))
-                      ]),
-                    // 已選檔案顯示
-                    if (_selectedFileName != null) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(10),
+                    const SizedBox(height: 10),
+                  ],
+                  // 排程顯示（可點擊清除）
+                  if (_scheduledAt != null) ...[
+                    GestureDetector(
+                      onTap: () => setState(() => _scheduledAt = null),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(8)),
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.orange.shade200)),
                         child: Row(children: [
-                          const Icon(Icons.attach_file,
-                              size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.schedule,
+                                size: 16, color: Colors.orange),
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
-                              child: Text(_selectedFileName!,
-                                  style: const TextStyle(fontSize: 12))),
-                          GestureDetector(
-                            onTap: () =>
-                                setState(() => _selectedFileName = null),
-                            child: const Icon(Icons.close,
-                                size: 16, color: Colors.grey),
-                          )
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('定時發布',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange)),
+                                Text(
+                                  '${_scheduledAt!.year}-${_scheduledAt!.month.toString().padLeft(2, '0')}-${_scheduledAt!.day.toString().padLeft(2, '0')} ${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                      fontSize: 13, color: Colors.deepOrange),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.close,
+                              size: 16, color: Colors.orange),
                         ]),
-                      )
-                    ],
-                    const Divider(height: 24),
-                    // 底部工具列
-                    Row(children: [
-                      const Text('附加：',
-                          style: TextStyle(color: Colors.grey, fontSize: 13)),
-                      const SizedBox(width: 4),
-                      Tooltip(
-                        message: '附加圖片',
-                        child: IconButton(
-                            icon: const Icon(Icons.image_outlined,
-                                color: Color(0xFF8D6E63)),
-                            onPressed: _isSubmitting ? null : _pickImage),
                       ),
-                      Tooltip(
-                        message: '附加文件（筆記/Word/PDF）',
-                        child: IconButton(
-                            icon: const Icon(Icons.attach_file,
-                                color: Color(0xFF8D6E63)),
-                            onPressed:
-                                _isSubmitting ? null : _showFileTypeSheet),
-                      ),
-                    ])
-                  ])),
-          if (_isSubmitting)
-            const Center(
-                child: CircularProgressIndicator(color: Color(0xFF8D6E63)))
-        ]));
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // ── 底部工具列 ──
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                  top: BorderSide(color: Colors.grey.shade100, width: 1)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  children: [
+                    // 附加圖片
+                    _buildToolBtn(
+                      icon: Icons.image_outlined,
+                      label: '圖片',
+                      color: const Color(0xFF8D6E63),
+                      onTap: _isSubmitting ? null : _pickImage,
+                    ),
+                    // 附加文件
+                    _buildToolBtn(
+                      icon: Icons.attach_file,
+                      label: '文件',
+                      color: Colors.blue,
+                      onTap: _isSubmitting ? null : _showFileTypeSheet,
+                    ),
+                    // 定時發布
+                    _buildToolBtn(
+                      icon: Icons.schedule,
+                      label: _scheduledAt != null ? '修改時間' : '定時發布',
+                      color: Colors.orange,
+                      onTap: _isSubmitting ? null : _pickScheduleTime,
+                      isActive: _scheduledAt != null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildTypeChip(String label, String type) {
+  Widget _buildToolBtn({
+    required IconData icon,
+    required String label,
+    required Color color,
+    VoidCallback? onTap,
+    bool isActive = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                color: isActive ? color : color.withOpacity(0.7), size: 22),
+            const SizedBox(height: 3),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10,
+                    color: isActive ? color : Colors.grey.shade600,
+                    fontWeight:
+                        isActive ? FontWeight.bold : FontWeight.normal)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeChip(
+    String label,
+    String type, {
+    Color selectedColor = const Color(0xFF8D6E63),
+    Color bgColor = const Color(0xFFF5F0EE),
+  }) {
     final bool isSelected = _postType == type;
-    return GestureDetector(
-      onTap: () => setState(() => _postType = isSelected ? null : type),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(20)),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 13,
-                color: isSelected ? Colors.white : Colors.grey.shade700,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      child: GestureDetector(
+        onTap: () => setState(() => _postType = isSelected ? null : type),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+              color: isSelected ? selectedColor : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected ? selectedColor : Colors.grey.shade200,
+                width: 1.2,
+              )),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                  fontWeight:
+                      isSelected ? FontWeight.bold : FontWeight.normal)),
+        ),
       ),
     );
   }
@@ -6008,7 +6585,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
       rootComments.putIfAbsent(pid, () => []).add(c);
     }
 
-    // 將根留言依們選定的排序方式排序
+    // 將根留言依選定的排序方式排序
     List<Map<String, dynamic>> rootList = List.from(rootComments[0] ?? []);
     switch (_commentSort) {
       case '由新到舊':
@@ -6024,144 +6601,329 @@ class _PostReplyPageState extends State<PostReplyPage> {
         rootList.sort((a, b) {
           final ra = rootComments[a['id'] as int]?.length ?? 0;
           final rb = rootComments[b['id'] as int]?.length ?? 0;
-          return rb.compareTo(ra); // 回覆數多的排在前面
+          return rb.compareTo(ra);
         });
         break;
       default:
-        break; // '所有留言': 預設由舊到新 ASC
+        break;
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFAF8F6),
+      appBar: AppBar(
         backgroundColor: Colors.white,
-        appBar:
-            AppBar(title: const Text('文章回覆', style: TextStyle(fontSize: 16))),
-        body: SafeArea(
-            child: Column(children: [
-          Expanded(
-              child: ListView(padding: const EdgeInsets.all(16), children: [
-            _buildPostHeader(),
-            const Divider(),
-            // ─ 留言排序選項
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              size: 20, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('留言討論',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87)),
+            Text('${_comments.length} 則留言',
+                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: Colors.grey.shade100, height: 1),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── 留言列表 ──
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 children: [
-                  for (final label in ['所有留言', '由新到舊', '最相關'])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => setState(() => _commentSort = label),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: _commentSort == label
-                                ? const Color(0xFF8D6E63)
-                                : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(16),
+                  // 原始貼文 header
+                  _buildPostHeader(),
+                  // 分隔線與留言計數
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                            child: Divider(
+                                color: Colors.grey.shade200, height: 1)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            '${_comments.length} 則留言',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                                fontWeight: FontWeight.w500),
                           ),
-                          child: Text(label,
-                              style: TextStyle(
-                                  fontSize: 12,
+                        ),
+                        Expanded(
+                            child: Divider(
+                                color: Colors.grey.shade200, height: 1)),
+                      ],
+                    ),
+                  ),
+                  // 留言排序選項
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        for (final label in ['所有留言', '由新到舊', '最相關'])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _commentSort = label),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
                                   color: _commentSort == label
-                                      ? Colors.white
-                                      : Colors.grey.shade700,
-                                  fontWeight: _commentSort == label
-                                      ? FontWeight.bold
-                                      : FontWeight.normal)),
+                                      ? const Color(0xFF8D6E63)
+                                      : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: _commentSort == label
+                                        ? const Color(0xFF8D6E63)
+                                        : Colors.grey.shade200,
+                                  ),
+                                ),
+                                child: Text(label,
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: _commentSort == label
+                                            ? Colors.white
+                                            : Colors.grey.shade600,
+                                        fontWeight: _commentSort == label
+                                            ? FontWeight.bold
+                                            : FontWeight.normal)),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (_comments.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Column(
+                          children: [
+                            Icon(Icons.chat_bubble_outline_rounded,
+                                size: 40, color: Colors.grey.shade300),
+                            const SizedBox(height: 10),
+                            Text('還沒有人留言，快搶沙發！',
+                                style: TextStyle(
+                                    color: Colors.grey.shade400, fontSize: 14)),
+                          ],
                         ),
                       ),
                     ),
+                  ...rootList.map((c) => _buildCommentTree(c, rootComments)),
                 ],
               ),
             ),
-            if (_comments.isEmpty)
-              const Center(
-                  child: Padding(
-                padding: EdgeInsets.all(40),
-                child: Text('還沒有人回覆，快來沙發吧！',
-                    style: TextStyle(color: Colors.grey, fontSize: 13)),
-              )),
-            ...rootList.map((c) => _buildCommentTree(c, rootComments))
-          ])),
-          if (_replyToId != null)
+
+            // ── 正在回覆提示列 ──
+            if (_replyToId != null)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8F0),
+                  border: Border(
+                      top: BorderSide(
+                          color: Colors.orange.shade200, width: 1.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.reply_rounded,
+                        size: 16, color: Colors.orange),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '正在回覆 $_replyToName',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _replyToId = null;
+                        _replyToName = '';
+                      }),
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Icon(Icons.close_rounded,
+                            size: 16, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // ── 輸入區 ──
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.grey.shade100,
-              child: Row(children: [
-                Text('正在回覆 ${_replyToName}:',
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF8D6E63))),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _replyToId = null;
-                    _replyToName = '';
-                  }),
-                  child: const Icon(Icons.close, size: 14, color: Colors.grey),
-                )
-              ]),
-            ),
-          Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Colors.grey.shade100))),
-              child: Row(children: [
-                Expanded(
-                    child: TextField(
+                color: Colors.white,
+                border: Border(
+                    top: BorderSide(color: Colors.grey.shade100, width: 1)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 120),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: TextField(
                         controller: _commentController,
+                        maxLines: null,
+                        style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
-                            hintText:
-                                _replyToId != null ? '寫下你的見解...' : '留個言吧...',
-                            filled: true,
-                            fillColor: const Color(0xFFF5F5F5),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 15, vertical: 10),
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: BorderSide.none)))),
-                const SizedBox(width: 8),
-                TextButton(
-                    onPressed: _submitComment,
-                    child: const Text('發佈',
-                        style: TextStyle(
-                            color: Color(0xFF8D6E63),
-                            fontWeight: FontWeight.bold)))
-              ]))
-        ])));
+                          hintText: _replyToId != null
+                              ? '回覆 $_replyToName...'
+                              : '說說你的想法...',
+                          hintStyle: TextStyle(
+                              color: Colors.grey.shade400, fontSize: 14),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _submitComment,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF8D6E63),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.send_rounded,
+                          color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildPostHeader() {
     final author = widget.originalPost['author'] ?? '?';
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      buildAvatar(
-          blob: widget.originalPost['authorAvatarBlob'] as Uint8List?,
-          colorIdx: (widget.originalPost['authorAvatarColor'] as int?) ??
-              getAvatarColorIdx(author),
-          initial: author.substring(0, 1),
-          radius: 18,
-          usePreset:
-              (widget.originalPost['authorAvatarSelected'] as int? ?? 0) == 1 &&
-                  widget.originalPost['authorAvatarBlob'] == null),
-      const SizedBox(width: 12),
-      Expanded(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text(widget.originalPost['author'],
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 10),
-          Text(widget.originalPost['time'],
-              style: const TextStyle(color: Colors.grey, fontSize: 12))
-        ]),
-        const SizedBox(height: 8),
-        Text(widget.originalPost['content'],
-            style: const TextStyle(fontSize: 15)),
-        const SizedBox(height: 12)
-      ]))
-    ]);
+    final postType = widget.originalPost['postType'] as String?;
+    return Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            buildAvatar(
+                blob: widget.originalPost['authorAvatarBlob'] as Uint8List?,
+                colorIdx: (widget.originalPost['authorAvatarColor'] as int?) ??
+                    getAvatarColorIdx(author),
+                initial: author.substring(0, 1),
+                radius: 18,
+                usePreset:
+                    (widget.originalPost['authorAvatarSelected'] as int? ??
+                                0) ==
+                            1 &&
+                        widget.originalPost['authorAvatarBlob'] == null),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(author,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.black87)),
+                  Row(children: [
+                    Text(widget.originalPost['time'],
+                        style:
+                            const TextStyle(color: Colors.grey, fontSize: 11)),
+                    if (postType != null &&
+                        kPostTypeLabel.containsKey(postType)) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 1),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFF5F0EE),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text(kPostTypeLabel[postType]!,
+                            style: const TextStyle(
+                                fontSize: 10, color: Color(0xFF8D6E63))),
+                      ),
+                    ],
+                  ]),
+                ],
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Text(widget.originalPost['content'],
+              style: const TextStyle(
+                  fontSize: 15, height: 1.5, color: Colors.black87)),
+          if (widget.originalPost['media_blob'] != null ||
+              (widget.originalPost['media'] != null &&
+                  widget.originalPost['media'].toString().isNotEmpty)) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: widget.originalPost['media_blob'] != null
+                  ? Image.memory(widget.originalPost['media_blob'] as Uint8List,
+                      height: 180, width: double.infinity, fit: BoxFit.cover)
+                  : Image.network(widget.originalPost['media'] as String,
+                      height: 180, width: double.infinity, fit: BoxFit.cover),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildCommentTree(
@@ -6171,8 +6933,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
     return Column(children: [
       _buildSingleComment(comment, isSub: depth > 0),
       ...sub.map((sc) => Padding(
-            padding: EdgeInsets.only(
-                left: depth < 3 ? 30.0 : 0.0), // 遞迴縮排，最多縮排3層避免過度向右擠壓
+            padding: EdgeInsets.only(left: depth < 3 ? 32.0 : 0.0),
             child: _buildCommentTree(sc, group, depth: depth + 1),
           ))
     ]);
@@ -6180,67 +6941,127 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
   Widget _buildSingleComment(Map<String, dynamic> c, {bool isSub = false}) {
     final author = (c['author'] ?? '?') as String;
+    final bool isOwn = c['userId'] == widget.currentUser['id'];
+    final bool isGuest = (widget.currentUser['username'] ?? '') == '訪客';
+    final bool canEdit = isOwn &&
+        (!isGuest ||
+            ((widget.currentUser['session_comment_ids'] as Set<int>?)
+                    ?.contains(c['id']) ??
+                false));
+
     return Container(
-        margin: const EdgeInsets.only(bottom: 12, top: 4),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      margin: EdgeInsets.only(bottom: isSub ? 8 : 12, top: isSub ? 2 : 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           buildAvatar(
               blob: c['authorAvatarBlob'] as Uint8List?,
               colorIdx:
                   (c['authorAvatarColor'] as int?) ?? getAvatarColorIdx(author),
               initial: author.substring(0, 1),
-              radius: isSub ? 12 : 15,
+              radius: isSub ? 11 : 14,
               usePreset: (c['authorAvatarSelected'] as int? ?? 0) == 1 &&
                   c['authorAvatarBlob'] == null),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 名稱 + 時間列
+                Row(
                   children: [
-                Row(children: [
-                  Text(c['author'],
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: isSub ? 12 : 13)),
-                  const SizedBox(width: 8),
-                  Text(c['time'],
-                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                  const Spacer(),
-                  if (c['userId'] == widget.currentUser['id'] &&
-                      ((widget.currentUser['username'] ?? '') != '訪客' ||
-                          ((widget.currentUser['session_comment_ids']
-                                      as Set<int>?)
-                                  ?.contains(c['id']) ??
-                              false))) ...[
-                    GestureDetector(
-                      onTap: () => _editComment(c['id'], c['text']),
-                      child: const Icon(Icons.edit_outlined,
-                          size: 14, color: Colors.grey),
-                    ),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: () => _deleteComment(c['id']),
-                      child: const Icon(Icons.delete_outline,
-                          size: 14, color: Colors.grey),
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  if (c['userId'] != widget.currentUser['id'] ||
-                      (widget.currentUser['username'] ?? '') == '訪客')
-                    GestureDetector(
-                      onTap: () => setState(() {
-                        // 直接將該留言設為 parent_id，形成多層樹狀結構
-                        _replyToId = c['id'];
-                        _replyToName = c['author'];
-                      }),
-                      child: const Text('回覆',
+                    Flexible(
+                      child: Text(author,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontSize: 11, color: Color(0xFF8D6E63))),
-                    )
-                ]),
+                              fontWeight: FontWeight.bold,
+                              fontSize: isSub ? 12 : 13,
+                              color: Colors.black87)),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(c['time'],
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 11)),
+                    const Spacer(),
+                    // 編輯/刪除（自己的留言）
+                    if (canEdit) ...[
+                      GestureDetector(
+                        onTap: () => _editComment(c['id'], c['text']),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(Icons.edit_outlined,
+                              size: 14, color: Colors.grey.shade400),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _deleteComment(c['id']),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(Icons.delete_outline,
+                              size: 14, color: Colors.grey.shade400),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 4),
-                Text(c['text'], style: TextStyle(fontSize: isSub ? 12 : 13)),
-              ]))
-        ]));
+                // 留言內容氣泡
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color:
+                        isOwn ? const Color(0xFFFFF8F0) : Colors.grey.shade50,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(4),
+                      topRight: const Radius.circular(14),
+                      bottomLeft: const Radius.circular(14),
+                      bottomRight: const Radius.circular(14),
+                    ),
+                    border: Border.all(
+                      color:
+                          isOwn ? Colors.orange.shade100 : Colors.grey.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    c['text'],
+                    style: TextStyle(
+                        fontSize: isSub ? 12 : 13,
+                        color: Colors.black87,
+                        height: 1.45),
+                  ),
+                ),
+                // 回覆按鈕
+                if (!isOwn || isGuest)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5, left: 4),
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _replyToId = c['id'];
+                        _replyToName = author;
+                      }),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.reply_rounded,
+                              size: 13, color: Color(0xFF8D6E63)),
+                          SizedBox(width: 3),
+                          Text('回覆',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF8D6E63),
+                                  fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
