@@ -42,7 +42,7 @@ class DatabaseHelper {
       path = join(dbPath, filePath);
     }
 
-    return await factory.openDatabase(
+    final db = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 10,
@@ -51,6 +51,20 @@ class DatabaseHelper {
         onConfigure: _onConfigure,
       ),
     );
+
+    // 確保 is_edited 欄位存在，防止 onCreate 沒有建立此欄位
+    try {
+      var postCols = await db.rawQuery('PRAGMA table_info(posts)');
+      if (!postCols.any((c) => c['name'] == 'is_edited')) {
+        await db.execute(
+            'ALTER TABLE posts ADD COLUMN is_edited INTEGER DEFAULT 0');
+        debugPrint('Dynamic migration: Added is_edited column to posts table.');
+      }
+    } catch (e) {
+      debugPrint('Error checking/adding is_edited column: $e');
+    }
+
+    return db;
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -273,6 +287,7 @@ class DatabaseHelper {
         attached_data TEXT DEFAULT '{}',
         media_blob BLOB,
         likes INTEGER DEFAULT 0,
+        is_edited INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )

@@ -5,11 +5,13 @@ import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
 import '../services/ai_intent_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -244,6 +246,8 @@ class _MainScreenState extends State<MainScreen> {
         // avatar_selected=1 表示使用者已明確選取頭像
         final int authorAvatarSelected =
             u.isNotEmpty ? ((u.first['avatar_selected'] as int?) ?? 0) : 0;
+        final String authorBio =
+            u.isNotEmpty ? (u.first['bio'] as String? ?? '') : '';
 
         final likesCount = await db.query('post_likes',
             where: 'post_id = ? AND user_id = ?',
@@ -268,6 +272,7 @@ class _MainScreenState extends State<MainScreen> {
           'authorAvatarColor': authorAvatarColor,
           'authorAvatarBlob': authorAvatarBlob,
           'authorAvatarSelected': authorAvatarSelected,
+          'authorBio': authorBio,
           'time': formatRelativeTime(p['created_at']),
           'content': p['content'],
           'postType': p['type'] ?? 'text',
@@ -629,6 +634,7 @@ class _MainScreenState extends State<MainScreen> {
                 if (currentTime.isNotEmpty) {
                   newAttached = '{"scheduled_at": "$currentTime"}';
                 }
+                final spId = int.tryParse(sp['id'].toString()) ?? sp['id'];
                 await db.update(
                     'posts',
                     {
@@ -636,7 +642,7 @@ class _MainScreenState extends State<MainScreen> {
                       'attached_data': newAttached,
                     },
                     where: 'id = ?',
-                    whereArgs: [sp['id']]);
+                    whereArgs: [spId]);
                 Navigator.pop(ctx);
                 await _loadData();
                 if (mounted) {
@@ -1857,63 +1863,97 @@ class _MainScreenState extends State<MainScreen> {
                             return Container(
                               margin: const EdgeInsets.only(
                                   bottom: 14, left: 40, right: 10),
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: typeData.map((t) {
-                                  final color = t['color'] as Color;
-                                  final bg = t['bg'] as Color;
-                                  return GestureDetector(
-                                    onTap: () => _handleAISubmit(
-                                        t['label'] as String,
-                                        modalController,
-                                        setModalState),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 14, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: bg,
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                            color: color, width: 1.2),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                color.withValues(alpha: 0.12),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2),
-                                          )
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(t['icon'] as String,
-                                              style: const TextStyle(
-                                                  fontSize: 16)),
-                                          const SizedBox(width: 7),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(t['label'] as String,
-                                                  style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: color)),
-                                              Text(t['desc'] as String,
-                                                  style: TextStyle(
-                                                      fontSize: 10,
-                                                      color: color.withValues(
-                                                          alpha: 0.7))),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF8E1),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                          color: const Color(0xFFFFE082)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.touch_app_outlined,
+                                            size: 15, color: Color(0xFFF9A825)),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          '請點選下方貼文類型來繼續 👇',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFFF57F17),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: typeData.map((t) {
+                                      final color = t['color'] as Color;
+                                      final bg = t['bg'] as Color;
+                                      return GestureDetector(
+                                        onTap: () => _handleAISubmit(
+                                            t['label'] as String,
+                                            modalController,
+                                            setModalState),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 14, vertical: 10),
+                                          decoration: BoxDecoration(
+                                            color: bg,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            border: Border.all(
+                                                color: color, width: 1.2),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: color.withValues(
+                                                    alpha: 0.12),
+                                                blurRadius: 6,
+                                                offset: const Offset(0, 2),
+                                              )
                                             ],
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(t['icon'] as String,
+                                                  style: const TextStyle(
+                                                      fontSize: 16)),
+                                              const SizedBox(width: 7),
+                                              Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(t['label'] as String,
+                                                      style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: color)),
+                                                  Text(t['desc'] as String,
+                                                      style: TextStyle(
+                                                          fontSize: 10,
+                                                          color:
+                                                              color.withValues(
+                                                                  alpha: 0.7))),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ),
                             );
                           }
@@ -2480,7 +2520,12 @@ class _MainScreenState extends State<MainScreen> {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的，我們來發佈一則新的貼文吧！📝\n首先，請選擇這篇貼文的類型：',
+            'text': '好的，我們來發佈一則貼文吧！\n請先選擇貼文的類型：',
+            'isCard': false,
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
             'isCard': false,
             'widgetType': 'post_type_picker'
           });
@@ -3053,7 +3098,7 @@ class _MainScreenState extends State<MainScreen> {
         _aiFlowState = 'adding_post_content';
         chatLogs.add({
           'isAI': true,
-          'text': '太好了！類型已選擇「$text」。🏷️\n接下來，請輸入這篇貼文的內容：',
+          'text': '類型已選擇「$text」。\n接下來，請輸入這篇貼文的內容：',
           'isCard': false
         });
         _scrollToBottom();
@@ -5251,18 +5296,41 @@ class _MainScreenState extends State<MainScreen> {
             }));
 
     if (result != null && mounted) {
-      final db = await DatabaseHelper.instance.database;
-      Map<String, dynamic> updateData = {
-        'content': result['content'],
-        'type': result['type'],
-        'is_edited': 1,
-      };
-      if (result['imageChanged']) {
-        updateData['media_blob'] = result['media_blob'];
+      try {
+        final db = await DatabaseHelper.instance.database;
+        final postId = int.tryParse(p['id'].toString()) ?? p['id'];
+        Map<String, dynamic> updateData = {
+          'content': result['content'],
+          'type': result['type'],
+          'is_edited': 1,
+        };
+        if (result['imageChanged']) {
+          updateData['media_blob'] = result['media_blob'];
+        }
+        debugPrint('====== _editPost database update start ======');
+        debugPrint(
+            'Target post ID: $postId (Original: ${p['id']}, Type: ${postId.runtimeType})');
+        debugPrint('Update data: $updateData');
+
+        final rowsAffected = await db
+            .update('posts', updateData, where: 'id = ?', whereArgs: [postId]);
+
+        debugPrint('Rows affected: $rowsAffected');
+        if (rowsAffected == 0) {
+          debugPrint(
+              'WARNING: No rows were updated! Checking if post exists in DB...');
+          final check =
+              await db.query('posts', where: 'id = ?', whereArgs: [postId]);
+          debugPrint('Post query check result: $check');
+        }
+
+        await _loadData();
+        debugPrint(
+            '====== _editPost database update end and _loadData() called ======');
+      } catch (e, stack) {
+        debugPrint('ERROR in _editPost: $e');
+        debugPrint(stack.toString());
       }
-      await db
-          .update('posts', updateData, where: 'id = ?', whereArgs: [p['id']]);
-      await _loadData();
     }
   }
 
@@ -5310,7 +5378,8 @@ class _MainScreenState extends State<MainScreen> {
             ));
     if (confirm == true && mounted) {
       final db = await DatabaseHelper.instance.database;
-      await db.delete('posts', where: 'id = ?', whereArgs: [p['id']]);
+      final postId = int.tryParse(p['id'].toString()) ?? p['id'];
+      await db.delete('posts', where: 'id = ?', whereArgs: [postId]);
       await _loadData();
     }
   }
@@ -6416,6 +6485,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
   List<Map<String, dynamic>> _comments = [];
   int? _replyToId;
   String _replyToName = '';
+  final Set<int> _expandedCommentIds = {};
 
   /// 留言排序方式: '所有留言'(ASC)、'由新到舊'(DESC)、'最相關'(依回覆數)
   String _commentSort = '所有留言';
@@ -6460,10 +6530,10 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
   Future<void> _loadComments() async {
     final db = await DatabaseHelper.instance.database;
+    final postId = int.tryParse(widget.originalPost['id'].toString()) ??
+        widget.originalPost['id'];
     final data = await db.query('comments',
-        where: 'post_id = ?',
-        whereArgs: [widget.originalPost['id']],
-        orderBy: 'created_at ASC');
+        where: 'post_id = ?', whereArgs: [postId], orderBy: 'created_at ASC');
 
     List<Map<String, dynamic>> loaded = [];
     for (var c in data) {
@@ -6510,6 +6580,18 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
     if ((widget.currentUser['username'] ?? '') == '訪客') {
       (widget.currentUser['session_comment_ids'] as Set<int>?)?.add(newId);
+    }
+
+    if (_replyToId != null) {
+      _expandedCommentIds.add(_replyToId!);
+      try {
+        final replyToComment = _comments
+            .firstWhere((c) => int.tryParse(c['id'].toString()) == _replyToId);
+        final pid = int.tryParse(replyToComment['parent_id'].toString()) ?? 0;
+        if (pid != 0) {
+          _expandedCommentIds.add(pid);
+        }
+      } catch (_) {}
     }
 
     _commentController.clear();
@@ -6581,7 +6663,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
     // Group comments by parent_id
     Map<int, List<Map<String, dynamic>>> rootComments = {};
     for (var c in _comments) {
-      int pid = c['parent_id'] as int;
+      int pid = int.tryParse(c['parent_id'].toString()) ?? 0;
       rootComments.putIfAbsent(pid, () => []).add(c);
     }
 
@@ -6599,8 +6681,10 @@ class _PostReplyPageState extends State<PostReplyPage> {
         break;
       case '最相關':
         rootList.sort((a, b) {
-          final ra = rootComments[a['id'] as int]?.length ?? 0;
-          final rb = rootComments[b['id'] as int]?.length ?? 0;
+          final idA = int.tryParse(a['id'].toString()) ?? 0;
+          final idB = int.tryParse(b['id'].toString()) ?? 0;
+          final ra = rootComments[idA]?.length ?? 0;
+          final rb = rootComments[idB]?.length ?? 0;
           return rb.compareTo(ra);
         });
         break;
@@ -6929,14 +7013,110 @@ class _PostReplyPageState extends State<PostReplyPage> {
   Widget _buildCommentTree(
       Map<String, dynamic> comment, Map<int, List<Map<String, dynamic>>> group,
       {int depth = 0}) {
-    List<Map<String, dynamic>> sub = group[comment['id']] ?? [];
-    return Column(children: [
-      _buildSingleComment(comment, isSub: depth > 0),
-      ...sub.map((sc) => Padding(
-            padding: EdgeInsets.only(left: depth < 3 ? 32.0 : 0.0),
-            child: _buildCommentTree(sc, group, depth: depth + 1),
-          ))
-    ]);
+    final int commentId = int.tryParse(comment['id'].toString()) ?? 0;
+    List<Map<String, dynamic>> sub = group[commentId] ?? [];
+
+    bool isExpanded =
+        (sub.length == 1) || _expandedCommentIds.contains(commentId);
+    final double leftPadding = depth < 3 ? 32.0 : 0.0;
+    final double lineMargin = depth < 3 ? 14.0 : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSingleComment(comment, isSub: depth > 0),
+        if (sub.isNotEmpty) ...[
+          if (sub.length >= 2 && !isExpanded)
+            Padding(
+              padding:
+                  EdgeInsets.only(left: leftPadding + 8.0, bottom: 8, top: 2),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _expandedCommentIds.add(commentId);
+                  });
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.subdirectory_arrow_right_rounded,
+                          size: 13,
+                          color: const Color(0xFF8D6E63).withOpacity(0.8)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '查看 ${sub.length} 則回覆...',
+                        style: const TextStyle(
+                          color: Color(0xFF8D6E63),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 14, color: Color(0xFF8D6E63)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            Padding(
+              padding: EdgeInsets.only(left: lineMargin),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    left: BorderSide(color: Colors.grey.shade200, width: 1.5),
+                  ),
+                ),
+                padding: const EdgeInsets.only(left: 18.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...sub.map(
+                        (sc) => _buildCommentTree(sc, group, depth: depth + 1)),
+                    if (sub.length >= 2) ...[
+                      const SizedBox(height: 4),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _expandedCommentIds.remove(commentId);
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.keyboard_arrow_up_rounded,
+                                  size: 14, color: Color(0xFF8D6E63)),
+                              SizedBox(width: 4),
+                              Text(
+                                '收合回覆',
+                                style: TextStyle(
+                                  color: Color(0xFF8D6E63),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
   }
 
   Widget _buildSingleComment(Map<String, dynamic> c, {bool isSub = false}) {

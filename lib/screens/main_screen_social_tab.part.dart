@@ -188,7 +188,8 @@ extension MainScreenSocialTab on _MainScreenState {
     );
     if (confirm == true) {
       final db = await DatabaseHelper.instance.database;
-      await db.delete('posts', where: 'id = ?', whereArgs: [sp['id']]);
+      final spId = int.tryParse(sp['id'].toString()) ?? sp['id'];
+      await db.delete('posts', where: 'id = ?', whereArgs: [spId]);
       await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已刪除排程貼文')));
@@ -198,10 +199,11 @@ extension MainScreenSocialTab on _MainScreenState {
 
   Future<void> _publishNow(Map<String, dynamic> sp) async {
     final db = await DatabaseHelper.instance.database;
+    final spId = int.tryParse(sp['id'].toString()) ?? sp['id'];
     await db.update('posts', {
       'attached_data': '{}',
       'created_at': DateTime.now().toIso8601String()
-    }, where: 'id = ?', whereArgs: [sp['id']]);
+    }, where: 'id = ?', whereArgs: [spId]);
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('貼文已發佈！')));
@@ -221,14 +223,17 @@ extension MainScreenSocialTab on _MainScreenState {
   Widget _buildPostItem(Map<String, dynamic> p) => Container(
       margin: const EdgeInsets.only(bottom: 20),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        buildAvatar(
-            blob: p['authorAvatarBlob'] as Uint8List?,
-            colorIdx: (p['authorAvatarColor'] as int?) ??
-                getAvatarColorIdx(p['author'] ?? ''),
-            initial: (p['author'] ?? '?').substring(0, 1),
-            radius: 18,
-            usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
-                p['authorAvatarBlob'] == null),
+        GestureDetector(
+          onTap: () => _showUserProfilePopup(p),
+          child: buildAvatar(
+              blob: p['authorAvatarBlob'] as Uint8List?,
+              colorIdx: (p['authorAvatarColor'] as int?) ??
+                  getAvatarColorIdx(p['author'] ?? ''),
+              initial: (p['author'] ?? '?').substring(0, 1),
+              radius: 18,
+              usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                  p['authorAvatarBlob'] == null),
+        ),
         const SizedBox(width: 12),
         Expanded(
             child:
@@ -245,7 +250,7 @@ extension MainScreenSocialTab on _MainScreenState {
                   style: TextStyle(color: Colors.grey, fontSize: 11)),
             ],
             const Spacer(),
-            if (p['userId'] == widget.currentUser['id'])
+            if (p['userId'].toString() == widget.currentUser['id'].toString())
               PopupMenuButton<String>(
                 padding: EdgeInsets.zero,
                 iconSize: 18,
@@ -272,7 +277,7 @@ extension MainScreenSocialTab on _MainScreenState {
             ),
           ],
           const SizedBox(height: 5),
-          Text(p['content']),
+          _buildLinkifiedText(p['content'] ?? ''),
           if (p['media_blob'] != null || (p['media'] != null && p['media'].toString().isNotEmpty))
             _buildPostMedia(p),
           if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
@@ -370,5 +375,165 @@ extension MainScreenSocialTab on _MainScreenState {
           'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
     }
     _loadData();
+  }
+
+  // ── 超連結文字渲染 ──────────────────────────────────────────────
+  static final RegExp _urlRegex = RegExp(
+    r'(https?://[^\s,，。！？]+)',
+    caseSensitive: false,
+  );
+
+  Widget _buildLinkifiedText(String text) {
+    final matches = _urlRegex.allMatches(text);
+    if (matches.isEmpty) {
+      return Text(text);
+    }
+    final spans = <TextSpan>[];
+    int lastEnd = 0;
+    for (final m in matches) {
+      if (m.start > lastEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastEnd, m.start),
+          style: const TextStyle(color: Colors.black87),
+        ));
+      }
+      final url = m.group(0)!;
+      spans.add(TextSpan(
+        text: url,
+        style: const TextStyle(
+          color: Color(0xFF1565C0),
+          decoration: TextDecoration.underline,
+          decorationColor: Color(0xFF1565C0),
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            final uri = Uri.tryParse(url);
+            if (uri != null && await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+      ));
+      lastEnd = m.end;
+    }
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastEnd),
+        style: const TextStyle(color: Colors.black87),
+      ));
+    }
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(fontSize: 14.5, height: 1.4, color: Colors.black87),
+        children: spans,
+      ),
+    );
+  }
+
+  // ── 點擊頭像顯示個人資料 ─────────────────────────────────────────
+  void _showUserProfilePopup(Map<String, dynamic> p) {
+    final String author = p['author'] ?? '未知用戶';
+    final String bio = (p['authorBio'] as String? ?? '').trim();
+    final bool isOwnPost = p['userId'] == widget.currentUser['id'];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              buildAvatar(
+                blob: p['authorAvatarBlob'] as Uint8List?,
+                colorIdx: (p['authorAvatarColor'] as int?) ??
+                    getAvatarColorIdx(author),
+                initial: author.substring(0, 1),
+                radius: 36,
+                usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                    p['authorAvatarBlob'] == null,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                author,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              if (isOwnPost) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F0EE),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '這是你',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF8D6E63)),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAF8F6),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFEEE5DF)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(children: [
+                      Icon(Icons.person_outline,
+                          size: 14, color: Color(0xFF8D6E63)),
+                      SizedBox(width: 6),
+                      Text('個人簡介',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF8D6E63),
+                              fontWeight: FontWeight.w600)),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text(
+                      bio.isEmpty ? '這個人很懶，什麼都沒寫 😄' : bio,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: bio.isEmpty
+                            ? Colors.grey.shade400
+                            : Colors.black87,
+                        fontStyle: bio.isEmpty
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFF5F0EE),
+                    foregroundColor: const Color(0xFF8D6E63),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('關閉',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

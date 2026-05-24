@@ -784,22 +784,119 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         ));
   }
   Widget _buildPostTypePicker(StateSetter setModalState) {
-    final types = ['一般', '學習筆記', '心情文章', '分享資料'];
+    final typeData = [
+      {
+        'label': '一般',
+        'icon': '💬',
+        'desc': '日常分享',
+        'color': const Color(0xFF78909C),
+        'bg': const Color(0xFFECEFF1),
+      },
+      {
+        'label': '學習筆記',
+        'icon': '📝',
+        'desc': '記錄成長',
+        'color': const Color(0xFF43A047),
+        'bg': const Color(0xFFE8F5E9),
+      },
+      {
+        'label': '心情文章',
+        'icon': '💭',
+        'desc': '抒發心情',
+        'color': const Color(0xFF7E57C2),
+        'bg': const Color(0xFFEDE7F6),
+      },
+      {
+        'label': '分享資料',
+        'icon': '📄',
+        'desc': '資源共享',
+        'color': const Color(0xFF1E88E5),
+        'bg': const Color(0xFFE3F2FD),
+      },
+    ];
     return Container(
-        margin: const EdgeInsets.only(bottom: 12, left: 40),
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 8,
-          children: types
-              .map((t) => ActionChip(
-                    label: Text(t),
-                    backgroundColor: Colors.white,
-                    onPressed: () {
-                      widget.onHandleSubmit(t, _modalController, setModalState);
-                    },
-                  ))
-              .toList(),
-        ));
+      margin: const EdgeInsets.only(bottom: 14, left: 40, right: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFFE082)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.touch_app_outlined,
+                    size: 15, color: Color(0xFFF9A825)),
+                SizedBox(width: 6),
+                Text(
+                  '請點選下方貼文類型來繼續 👇',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFF57F17),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: typeData.map((t) {
+              final color = t['color'] as Color;
+              final bg = t['bg'] as Color;
+              return GestureDetector(
+                onTap: () => widget.onHandleSubmit(
+                    t['label'] as String, _modalController, setModalState),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: color, width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.12),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(t['icon'] as String,
+                          style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 7),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t['label'] as String,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: color)),
+                          Text(t['desc'] as String,
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: color.withValues(alpha: 0.7))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPostConfirmation(Map<String, dynamic> data, StateSetter setModalState) {
