@@ -113,7 +113,7 @@ class _MainScreenState extends State<MainScreen> {
 
   bool _showStudyAnswers = false;
   String _studySearchQuery = "";
-  String _studySubject = "全部";
+  final String _studySubject = "全部";
   int _personalFilterIndex = 0;
   String? _selectedFolder;
   String? _selectedSubjectForStudy; // 新增：追蹤題庫中選擇的科目
@@ -192,10 +192,30 @@ class _MainScreenState extends State<MainScreen> {
           where: 'user_id = ?', whereArgs: [currentUserId]);
       Map<String, List<Map<String, dynamic>>> schedulesMap = {};
       for (var s in schedulesList) {
-        String date = (s['start_time'] as String).split(' ')[0];
-        String startHr =
-            (s['start_time'] as String).split(' ')[1].substring(0, 5);
-        String endHr = (s['end_time'] as String).split(' ')[1].substring(0, 5);
+        final startTimeStr = s['start_time'] as String? ?? '';
+        final endTimeStr = s['end_time'] as String? ?? '';
+
+        String date = '';
+        String startHr = '00:00';
+        String endHr = '00:00';
+
+        final startParts = startTimeStr.split(' ');
+        if (startParts.isNotEmpty) {
+          date = startParts[0];
+          if (startParts.length > 1) {
+            final rawTime = startParts[1];
+            startHr =
+                rawTime.substring(0, rawTime.length >= 5 ? 5 : rawTime.length);
+          }
+        }
+
+        final endParts = endTimeStr.split(' ');
+        if (endParts.length > 1) {
+          final rawTime = endParts[1];
+          endHr =
+              rawTime.substring(0, rawTime.length >= 5 ? 5 : rawTime.length);
+        }
+
         String colorStr = s['color'] as String? ?? '';
         int colorVal = 0xFFFFCC80; // Default color
         try {
@@ -949,7 +969,9 @@ class _MainScreenState extends State<MainScreen> {
     for (var q in questionBank) {
       if (q['subject'] != _quizSelectedSubject) continue;
       if (_quizSelectedChapters.isNotEmpty &&
-          !_quizSelectedChapters.contains(q['chapter'])) continue;
+          !_quizSelectedChapters.contains(q['chapter'])) {
+        continue;
+      }
       if (_availableCounts.containsKey(q['type']) &&
           _availableCounts[q['type']]!.containsKey(q['difficulty'])) {
         _availableCounts[q['type']]![q['difficulty']] =
@@ -1005,6 +1027,7 @@ class _MainScreenState extends State<MainScreen> {
         ),
         child: Builder(builder: (context) {
           return Scaffold(
+            resizeToAvoidBottomInset: false,
             backgroundColor: _isDarkMode ? Colors.black87 : Colors.white,
             appBar: _quizStep == 2
                 ? null
@@ -2230,8 +2253,9 @@ class _MainScreenState extends State<MainScreen> {
                             );
                           }
 
-                          if (msg['text'] == null || msg['text'].isEmpty)
+                          if (msg['text'] == null || msg['text'].isEmpty) {
                             return const SizedBox();
+                          }
 
                           Widget messageWidget = Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -2402,8 +2426,9 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     // 如果完全沒有意圖也沒有建議，才回傳 false 觸發後備清單
-    if (result.intent == UserIntent.none && result.suggestionLabel == null)
+    if (result.intent == UserIntent.none && result.suggestionLabel == null) {
       return false;
+    }
 
     // 處理「建議引導」 (中等信心度)
     if (result.intent == UserIntent.none && result.suggestionLabel != null) {
@@ -3055,35 +3080,71 @@ class _MainScreenState extends State<MainScreen> {
       _changePage(0, '日曆行程');
 
       Future.delayed(const Duration(milliseconds: 600), () async {
-        final db = await DatabaseHelper.instance.database;
-        String startStr = _aiFlowData['start_date'];
-        String endStr = _aiFlowData['end_date'];
+        try {
+          final db = await DatabaseHelper.instance.database;
+          String? startStr = _aiFlowData['start_date'] as String?;
+          String? endStr = _aiFlowData['end_date'] as String?;
 
-        if (startStr.length <= 16) startStr = "$startStr:00";
-        if (endStr.length <= 16) endStr = "$endStr:00";
+          if (startStr == null || startStr.isEmpty) {
+            startStr = DateTime.now().toIso8601String().substring(0, 16);
+          }
+          if (endStr == null || endStr.isEmpty) {
+            endStr = DateTime.now()
+                .add(const Duration(hours: 1))
+                .toIso8601String()
+                .substring(0, 16);
+          }
 
-        await db.insert('calendar_events', {
-          'user_id': widget.currentUser['id'],
-          'title': _aiFlowData['title'],
-          'start_time': startStr,
-          'end_time': endStr,
-          'color': '0x${colorValue.toRadixString(16)}',
-        });
-        await _loadData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(children: [
-                Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                        color: previewColor, shape: BoxShape.circle)),
-                const SizedBox(width: 10),
-                const Text('AI 代理人已為您成功加入行程！'),
-              ]),
-            ),
-          );
+          if (startStr.length <= 16) startStr = "$startStr:00";
+          if (endStr.length <= 16) endStr = "$endStr:00";
+
+          await db.insert('calendar_events', {
+            'user_id': widget.currentUser['id'],
+            'title': _aiFlowData['title'] ?? '無標題行程',
+            'start_time': startStr,
+            'end_time': endStr,
+            'color': '0x${colorValue.toRadixString(16)}',
+          });
+          await _loadData();
+
+          // 自動同步與跳轉至新行程的日期與月份，方便用戶在畫面上直接看到
+          final eventDate = DateTime.tryParse(startStr);
+          if (eventDate != null) {
+            _syncDate(eventDate, fromCalendar: true);
+            // 計算年份與月份差距，跳轉日曆月視圖 PageController
+            final deltaMonths =
+                (eventDate.year - 2026) * 12 + (eventDate.month - 3);
+            final targetPage = 12 + deltaMonths;
+            if (_calendarPageController.hasClients) {
+              _calendarPageController.jumpToPage(targetPage);
+            }
+          }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(children: [
+                  Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                          color: previewColor, shape: BoxShape.circle)),
+                  const SizedBox(width: 10),
+                  const Text('AI 代理人已為您成功加入行程！'),
+                ]),
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('AI 代理人新增行程失敗: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('AI 代理人新增行程失敗: $e'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
         }
       });
       _aiFlowState = 'none';
@@ -4052,10 +4113,11 @@ class _MainScreenState extends State<MainScreen> {
           initialTime: isStart ? pickedStartTime : pickedEndTime);
       if (picked != null) {
         dialogSetState!(() {
-          if (isStart)
+          if (isStart) {
             pickedStartTime = picked;
-          else
+          } else {
             pickedEndTime = picked;
+          }
         });
       }
     }
@@ -4672,7 +4734,7 @@ class _MainScreenState extends State<MainScreen> {
               const Text('答案', style: TextStyle(fontSize: 12)),
               Switch(
                 value: _showStudyAnswers,
-                activeColor: const Color(0xFF8D6E63),
+                activeThumbColor: const Color(0xFF8D6E63),
                 onChanged: (v) => setState(() => _showStudyAnswers = v),
               ),
             ]),
@@ -4890,7 +4952,9 @@ class _MainScreenState extends State<MainScreen> {
       bool match = false;
       if (_personalFilterIndex == 0 && q['isWrong'] == true) match = true;
       if (_personalFilterIndex == 1 &&
-          q['author'] == widget.currentUser['display_name']) match = true;
+          q['author'] == widget.currentUser['display_name']) {
+        match = true;
+      }
       if (_personalFilterIndex == 2 && q['isFavorite'] == true) match = true;
       if (match) {
         folderCounts[q['subject']] = (folderCounts[q['subject']] ?? 0) + 1;
@@ -6048,8 +6112,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
       // 建立 attached_data
       final Map<String, dynamic> attachedMap = {};
-      if (_selectedFileName != null)
+      if (_selectedFileName != null) {
         attachedMap['file_name'] = _selectedFileName;
+      }
       if (_scheduledAt != null) {
         attachedMap['scheduled_at'] =
             '${_scheduledAt!.year}-${_scheduledAt!.month.toString().padLeft(2, '0')}-${_scheduledAt!.day.toString().padLeft(2, '0')} ${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}';
