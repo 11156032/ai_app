@@ -1762,10 +1762,11 @@ class _MainScreenState extends State<MainScreen> {
                           }
 
                           if (msg['widgetType'] == 'help_options') {
+                            final isGuest = widget.currentUser['id'] == 'u4';
                             final options = [
                               {'n': '1', 'l': '📅 新增日曆行程', 'v': '新增行程'},
-                              {'n': '2', 'l': '📝 發佈社群貼文', 'v': '發佈貼文'},
-                              {'n': '3', 'l': '💬 回覆社群留言', 'v': '回覆哪些留言'},
+                              if (!isGuest) {'n': '2', 'l': '📝 發佈社群貼文', 'v': '發佈貼文'},
+                              if (!isGuest) {'n': '3', 'l': '💬 回覆社群留言', 'v': '回覆哪些留言'},
                               {'n': '4', 'l': '👤 修改個人資料', 'v': '個人檔案'},
                               {'n': '5', 'l': '🎨 切換佈景主題', 'v': '切換主題'},
                               {'n': '6', 'l': '📋 跳轉題庫測驗', 'v': '題庫'},
@@ -6988,7 +6989,20 @@ class _PostReplyPageState extends State<PostReplyPage> {
               ),
 
             // ── 輸入區 ──
-            Container(
+            if (widget.currentUser['id'] == 'u4')
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                      top: BorderSide(color: Colors.grey.shade100, width: 1)),
+                ),
+                child: const Text('訪客無法留言喔',
+                    style: TextStyle(color: Colors.grey)),
+              )
+            else
+              Container(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               decoration: BoxDecoration(
                 color: Colors.white,

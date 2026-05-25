@@ -68,14 +68,15 @@ extension MainScreenSocialTab on _MainScreenState {
                 ...filtered.map((p) => _buildPostItem(p))
             ])),
       ]),
-      Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton(
-              heroTag: 'add_post',
-              backgroundColor: Theme.of(context).primaryColor,
-              onPressed: _showCreatePostScreen,
-              child: const Icon(Icons.add, color: Colors.white)))
+      if (widget.currentUser['id'] != 'u4')
+        Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+                heroTag: 'add_post',
+                backgroundColor: Theme.of(context).primaryColor,
+                onPressed: _showCreatePostScreen,
+                child: const Icon(Icons.add, color: Colors.white)))
     ]);
   }
 
@@ -211,6 +212,10 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   void _showCreatePostScreen() {
+    if (widget.currentUser['id'] == 'u4') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('訪客無法發佈貼文，請登入完整帳號')));
+      return;
+    }
     Navigator.push(
         context,
         MaterialPageRoute(
