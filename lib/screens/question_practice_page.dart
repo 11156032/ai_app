@@ -4,9 +4,9 @@ class QuestionPracticePage extends StatefulWidget {
   final Map<String, dynamic> questionData;
 
   const QuestionPracticePage({
-    Key? key,
+    super.key,
     required this.questionData,
-  }) : super(key: key);
+  });
 
   @override
   State<QuestionPracticePage> createState() => _QuestionPracticePageState();

@@ -292,6 +292,17 @@ extension MainScreenProfileTab on _MainScreenState {
             value: '定期修改更安全',
             onTap: _showChangePasswordDialog,
           ),
+          if (widget.currentUser['id'] != 'u4') ...[
+            const Divider(height: 24),
+            _buildProfileTile(
+              context: context,
+              icon: Icons.delete_forever,
+              label: '刪除帳號',
+              value: '30 天內可復原',
+              valueColor: Colors.red.shade300,
+              onTap: _showDeleteAccountDialog,
+            ),
+          ],
         ],
       ),
     );

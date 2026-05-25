@@ -60,8 +60,21 @@ class DatabaseHelper {
             'ALTER TABLE posts ADD COLUMN is_edited INTEGER DEFAULT 0');
         debugPrint('Dynamic migration: Added is_edited column to posts table.');
       }
+      
+      var userCols = await db.rawQuery('PRAGMA table_info(users)');
+      if (!userCols.any((c) => c['name'] == 'deleted_at')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN deleted_at DATETIME');
+        debugPrint('Dynamic migration: Added deleted_at column to users table.');
+      }
+
+      // 自動清理超過 30 天未復原的帳號
+      final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+      final count = await db.delete('users', where: "deleted_at IS NOT NULL AND deleted_at <= ?", whereArgs: [thirtyDaysAgo]);
+      if (count > 0) debugPrint('自動清理了 $count 個超過 30 天未復原的帳號。');
+      
     } catch (e) {
-      debugPrint('Error checking/adding is_edited column: $e');
+      debugPrint('Error checking/adding dynamic columns or cleaning up: $e');
     }
 
     return db;

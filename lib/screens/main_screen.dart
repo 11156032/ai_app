@@ -1264,7 +1264,7 @@ class _MainScreenState extends State<MainScreen> {
                                       boxShadow: [
                                         BoxShadow(
                                           color: const Color(0xFF8D6E63)
-                                              .withValues(alpha: 0.35),
+                                              .withOpacity(0.35),
                                           blurRadius: 12,
                                           offset: const Offset(0, 4),
                                         )
@@ -1277,7 +1277,7 @@ class _MainScreenState extends State<MainScreen> {
                                           padding: const EdgeInsets.all(7),
                                           decoration: BoxDecoration(
                                             color: Colors.white
-                                                .withValues(alpha: 0.25),
+                                                .withOpacity(0.25),
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                           ),
@@ -1370,7 +1370,7 @@ class _MainScreenState extends State<MainScreen> {
                                   boxShadow: [
                                     BoxShadow(
                                         color: const Color(0xFF8D6E63)
-                                            .withValues(alpha: 0.12),
+                                            .withOpacity(0.12),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4))
                                   ],
@@ -1383,7 +1383,7 @@ class _MainScreenState extends State<MainScreen> {
                                           padding: const EdgeInsets.all(6),
                                           decoration: BoxDecoration(
                                               color: const Color(0xFF8D6E63)
-                                                  .withValues(alpha: 0.1),
+                                                  .withOpacity(0.1),
                                               borderRadius:
                                                   BorderRadius.circular(10)),
                                           child: const Icon(Icons.schedule,
@@ -1408,7 +1408,7 @@ class _MainScreenState extends State<MainScreen> {
                                               height: 36,
                                               decoration: BoxDecoration(
                                                   color: const Color(0xFF8D6E63)
-                                                      .withValues(alpha: 0.08),
+                                                      .withOpacity(0.08),
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                           10))),
@@ -1452,8 +1452,7 @@ class _MainScreenState extends State<MainScreen> {
                                                       decoration: BoxDecoration(
                                                           color: const Color(
                                                                   0xFF66BB6A)
-                                                              .withValues(
-                                                                  alpha: 0.08),
+                                                              .withOpacity(0.08),
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(
@@ -1539,8 +1538,7 @@ class _MainScreenState extends State<MainScreen> {
                                                       decoration: BoxDecoration(
                                                           color: const Color(
                                                                   0xFFEF5350)
-                                                              .withValues(
-                                                                  alpha: 0.07),
+                                                              .withOpacity(0.07),
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(
@@ -1938,8 +1936,7 @@ class _MainScreenState extends State<MainScreen> {
                                                 color: color, width: 1.2),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: color.withValues(
-                                                    alpha: 0.12),
+                                                color: color.withOpacity(0.12),
                                                 blurRadius: 6,
                                                 offset: const Offset(0, 2),
                                               )
@@ -1966,8 +1963,7 @@ class _MainScreenState extends State<MainScreen> {
                                                       style: TextStyle(
                                                           fontSize: 10,
                                                           color:
-                                                              color.withValues(
-                                                                  alpha: 0.7))),
+                                                              color.withOpacity(0.7))),
                                                 ],
                                               ),
                                             ],
@@ -2000,7 +1996,7 @@ class _MainScreenState extends State<MainScreen> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(0xFF8D6E63)
-                                        .withValues(alpha: 0.15),
+                                        .withOpacity(0.15),
                                     blurRadius: 16,
                                     offset: const Offset(0, 4),
                                   )
@@ -2031,7 +2027,7 @@ class _MainScreenState extends State<MainScreen> {
                                           padding: const EdgeInsets.all(7),
                                           decoration: BoxDecoration(
                                             color: Colors.white
-                                                .withValues(alpha: 0.2),
+                                                .withOpacity(0.2),
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                           ),
@@ -3302,16 +3298,16 @@ class _MainScreenState extends State<MainScreen> {
     bool isDark = false,
   }) {
     final borderColor = isDark
-        ? const Color(0xFF4A7C59).withValues(alpha: 0.45)
-        : const Color(0xFFFF8FAB).withValues(alpha: 0.9);
+        ? const Color(0xFF4A7C59).withOpacity(0.45)
+        : const Color(0xFFFF8FAB).withOpacity(0.9);
     final shadowColor = isDark
-        ? Colors.black.withValues(alpha: 0.38)
-        : const Color(0xFFFF8FAB).withValues(alpha: 0.32);
+        ? Colors.black.withOpacity(0.38)
+        : const Color(0xFFFF8FAB).withOpacity(0.32);
     final textColor = isDark ? Colors.white : const Color(0xFF3E2723);
     final subColor = isDark ? Colors.white60 : const Color(0xFF795548);
     final arrowBg = isDark
-        ? Colors.white.withValues(alpha: 0.12)
-        : const Color(0xFFFF8FAB).withValues(alpha: 0.18);
+        ? Colors.white.withOpacity(0.12)
+        : const Color(0xFFFF8FAB).withOpacity(0.18);
     final arrowColor = isDark ? Colors.white54 : const Color(0xFFFF4081);
 
     return GestureDetector(
@@ -3374,7 +3370,7 @@ class _MainScreenState extends State<MainScreen> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                  color: c.withValues(alpha: 0.45),
+                                  color: c.withOpacity(0.45),
                                   blurRadius: 3,
                                   offset: const Offset(0, 2))
                             ],
@@ -3460,7 +3456,7 @@ class _MainScreenState extends State<MainScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-                color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                color: const Color(0xFF8D6E63).withOpacity(0.12),
                 blurRadius: 12,
                 offset: const Offset(0, 4))
           ],
@@ -3474,7 +3470,7 @@ class _MainScreenState extends State<MainScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                    color: selectedColor.withValues(alpha: 0.2),
+                    color: selectedColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(10)),
                 child: Icon(Icons.palette, color: selectedColor, size: 18),
               ),
@@ -3517,7 +3513,7 @@ class _MainScreenState extends State<MainScreen> {
                                 boxShadow: (selectedColor == c && !isCustom)
                                     ? [
                                         BoxShadow(
-                                            color: c.withValues(alpha: 0.5),
+                                            color: c.withOpacity(0.5),
                                             blurRadius: 6,
                                             offset: const Offset(0, 3))
                                       ]
@@ -3596,7 +3592,7 @@ class _MainScreenState extends State<MainScreen> {
                         border: Border.all(color: selectedColor, width: 4),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
+                              color: Colors.black.withOpacity(0.2),
                               blurRadius: 4)
                         ],
                       ),
@@ -3617,7 +3613,7 @@ class _MainScreenState extends State<MainScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                        color: selectedColor.withValues(alpha: 0.45),
+                        color: selectedColor.withOpacity(0.45),
                         blurRadius: 8,
                         offset: const Offset(0, 3))
                   ],
@@ -3629,7 +3625,7 @@ class _MainScreenState extends State<MainScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Text(
-                      '#${selectedColor.toARGB32().toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
+                      '#${selectedColor.value.toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
                       style: const TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 13,
@@ -3648,14 +3644,14 @@ class _MainScreenState extends State<MainScreen> {
                   foregroundColor:
                       isLight ? const Color(0xFF4E342E) : Colors.white,
                   elevation: 3,
-                  shadowColor: selectedColor.withValues(alpha: 0.4),
+                  shadowColor: selectedColor.withOpacity(0.4),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 ),
                 onPressed: () => _handleAISubmit(
-                    '${selectedColor.toARGB32()}', ctrl, setModalState),
+                    '${selectedColor.value}', ctrl, setModalState),
               ),
             ]),
           ],
@@ -4772,7 +4768,7 @@ class _MainScreenState extends State<MainScreen> {
               const Text('答案', style: TextStyle(fontSize: 12)),
               Switch(
                 value: _showStudyAnswers,
-                activeThumbColor: const Color(0xFF8D6E63),
+                activeColor: const Color(0xFF8D6E63),
                 onChanged: (v) => setState(() => _showStudyAnswers = v),
               ),
             ]),
@@ -5926,6 +5922,37 @@ class _MainScreenState extends State<MainScreen> {
               },
               child: const Text('發送驗證信'),
             ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('刪除帳號', style: TextStyle(color: Colors.red)),
+        content: const Text('您確定要刪除帳號嗎？\n\n帳號將進入 30 天的緩衝期。在 30 天內重新登入即可取消刪除並復原帳號，超過 30 天則將永久刪除所有資料且無法恢復。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final db = await DatabaseHelper.instance.database;
+              await db.update(
+                'users',
+                {'deleted_at': DateTime.now().toIso8601String()},
+                where: 'id = ?',
+                whereArgs: [widget.currentUser['id']],
+              );
+              if (!mounted) return;
+              widget.onLogout();
+            },
+            child: const Text('確認刪除', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );

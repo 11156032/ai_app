@@ -648,6 +648,34 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         if (res.isNotEmpty) {
           final userMap = Map<String, dynamic>.from(res.first);
+          
+          // 處理刪除復原邏輯 (自動刪除由系統背景或啟動時處理)
+          if (userMap['deleted_at'] != null) {
+            if (!mounted) return;
+            final shouldRestore = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('帳號復原提示'),
+                content: const Text('您的帳號已排程刪除。是否要取消刪除並復原帳號？'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('取消')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('確認復原')),
+                ],
+              ),
+            );
+            if (shouldRestore == true) {
+              await db.update('users', {'deleted_at': null},
+                  where: 'id = ?', whereArgs: [userMap['id']]);
+              userMap['deleted_at'] = null;
+            } else {
+              return; // 放棄登入
+            }
+          }
+
           userMap['session_post_ids'] = <int>{};
           userMap['session_comment_ids'] = <int>{};
           _showSuccessOverlay(userMap);
