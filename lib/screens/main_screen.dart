@@ -12,6 +12,7 @@ import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
 import '../services/ai_intent_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'notes_screen.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -1082,6 +1083,14 @@ class _MainScreenState extends State<MainScreen> {
                     Navigator.pop(context);
                   }),
               ListTile(
+                  leading: Icon(Icons.edit_note,
+                      color: Theme.of(context).primaryColor),
+                  title: const Text('筆記本'),
+                  onTap: () {
+                    _changePage(5, '筆記本');
+                    Navigator.pop(context);
+                  }),
+              ListTile(
                   leading: Icon(Icons.menu_book,
                       color: Theme.of(context).primaryColor),
                   title: const Text('題庫'),
@@ -1131,7 +1140,8 @@ class _MainScreenState extends State<MainScreen> {
                   _buildQuestionBankTab(),
                   _buildSocialTab(),
                   _buildSocialActivityTab(),
-                  _buildPersonalProfileTab(context)
+                  _buildPersonalProfileTab(context),
+                  NotesScreen(currentUser: widget.currentUser),
                 ])),
                 if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
               ]),
