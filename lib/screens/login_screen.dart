@@ -101,7 +101,7 @@ class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFA1887F).withOpacity(0.35),
+                      const Color(0xFFA1887F).withValues(alpha: 0.35),
                       Colors.transparent,
                     ],
                   ),
@@ -128,7 +128,7 @@ class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF8D6E63).withOpacity(0.4),
+                      color: const Color(0xFF8D6E63).withValues(alpha: 0.4),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
@@ -163,15 +163,15 @@ class _ArcRingPainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
 
     // 弧段 1
-    paint.color = const Color(0xFF8D6E63).withOpacity(0.8);
+    paint.color = const Color(0xFF8D6E63).withValues(alpha: 0.8);
     canvas.drawArc(rect, 0, 1.8, false, paint);
 
     // 弧段 2（另一側）
-    paint.color = const Color(0xFFBCAAA4).withOpacity(0.5);
+    paint.color = const Color(0xFFBCAAA4).withValues(alpha: 0.5);
     canvas.drawArc(rect, 2.4, 1.2, false, paint);
 
     // 弧段 3（小點綴）
-    paint.color = const Color(0xFF8D6E63).withOpacity(0.3);
+    paint.color = const Color(0xFF8D6E63).withValues(alpha: 0.3);
     canvas.drawArc(rect, 4.0, 0.6, false, paint);
   }
 
@@ -329,7 +329,7 @@ class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
         return Opacity(
           opacity: _exitOpacity.value,
           child: Container(
-            color: const Color(0xFFF7F3F0).withOpacity(_bgOpacity.value * 0.97),
+            color: const Color(0xFFF7F3F0).withValues(alpha: _bgOpacity.value * 0.97),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -351,7 +351,7 @@ class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: const Color(0xFF8D6E63)
-                                    .withOpacity(_rippleOpacity.value),
+                                    .withValues(alpha: _rippleOpacity.value),
                                 width: 3,
                               ),
                             ),
@@ -456,7 +456,7 @@ class _BloomingLogoPainter extends CustomPainter {
 
     if (bloomProgress > 0) {
       final bloomPaint = Paint()
-        ..color = Colors.white.withOpacity(bloomProgress.clamp(0.0, 1.0))
+        ..color = Colors.white.withValues(alpha: bloomProgress.clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
 
       // 側邊長出葉子
@@ -497,7 +497,7 @@ class _BloomingLogoPainter extends CustomPainter {
       // 核心發光/變色
       final centerPaint = Paint()
         ..color =
-            const Color(0xFFFFD54F).withOpacity(bloomProgress.clamp(0.0, 1.0))
+            const Color(0xFFFFD54F).withValues(alpha: bloomProgress.clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(w * 0.5, h * 0.35),
           baseDotRadius * 0.6 * bloomProgress, centerPaint);
@@ -783,7 +783,7 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF8D6E63).withOpacity(0.07),
+                color: const Color(0xFF8D6E63).withValues(alpha: 0.07),
               ),
             ),
           ),
@@ -795,7 +795,7 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 340,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFBCAAA4).withOpacity(0.1),
+                color: const Color(0xFFBCAAA4).withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -926,7 +926,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           backgroundColor: _primaryColor,
                           foregroundColor: Colors.white,
                           elevation: 4,
-                          shadowColor: const Color(0xFF8D6E63).withOpacity(0.4),
+                          shadowColor: const Color(0xFF8D6E63).withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16)),
                         ),

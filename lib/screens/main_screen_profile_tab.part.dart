@@ -112,14 +112,14 @@ extension MainScreenProfileTab on _MainScreenState {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [primaryColor, primaryColor.withOpacity(0.7)],
+          colors: [primaryColor, primaryColor.withValues(alpha: 0.7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: primaryColor.withOpacity(0.3),
+            color: primaryColor.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -173,7 +173,7 @@ extension MainScreenProfileTab on _MainScreenState {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10),
         ],
       ),
       child: Column(
@@ -256,7 +256,7 @@ extension MainScreenProfileTab on _MainScreenState {
             secondary: Icon(Icons.dark_mode_outlined,
                 size: 20, color: Colors.grey.shade600),
             value: _isDarkMode,
-            activeColor: const Color(0xFF8D6E63),
+            activeThumbColor: const Color(0xFF8D6E63),
             onChanged: (val) async {
               _update(() => _isDarkMode = val);
               await _updatePersonalization();

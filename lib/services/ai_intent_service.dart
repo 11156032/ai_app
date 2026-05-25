@@ -16,6 +16,11 @@ enum UserIntent {
   viewActivity,
   viewPendingComments,
   help,
+  viewNotes,
+  createNote,
+  searchNote,
+  deleteNote,
+  organizeNote,
   none,
 }
 
@@ -45,6 +50,11 @@ class AIIntentService {
     UserIntent.verifyEmail: {'label': 'Email 驗證', 'keywords': ['驗證', '信箱', 'email']},
     UserIntent.changePassword: {'label': '修改密碼', 'keywords': ['密碼', '改密碼']},
     UserIntent.help: {'label': '幫助', 'keywords': ['幫助', '說明', 'help', '功能']},
+    UserIntent.viewNotes: {'label': '查看筆記本', 'keywords': ['筆記本', '看筆記', '切換筆記本', '打開筆記']},
+    UserIntent.createNote: {'label': '新增筆記', 'keywords': ['新增筆記', '寫筆記', '記筆記', '加筆記', '建立筆記']},
+    UserIntent.searchNote: {'label': '搜尋筆記', 'keywords': ['搜尋筆記', '找筆記', '尋找筆記', '查筆記']},
+    UserIntent.deleteNote: {'label': '刪除筆記', 'keywords': ['刪除筆記', '丟棄筆記', '刪筆記']},
+    UserIntent.organizeNote: {'label': '整理筆記', 'keywords': ['整理筆記', '摘要', '重點整理', '幫我整理', '總結']},
   };
 
   static ParseResult parse(String userInput) {

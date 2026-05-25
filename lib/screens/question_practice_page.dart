@@ -137,7 +137,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: _selectedAnswer == i
-                        ? const Color(0xFF8D6E63).withOpacity(0.1)
+                        ? const Color(0xFF8D6E63).withValues(alpha: 0.1)
                         : Colors.white,
                     border: Border.all(
                       color: _selectedAnswer == i
@@ -226,8 +226,8 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: _selectedAnswer == correctAnswer
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.red.withOpacity(0.1),
+                      ? Colors.green.withValues(alpha: 0.1)
+                      : Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: _selectedAnswer == correctAnswer

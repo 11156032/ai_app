@@ -22,7 +22,7 @@ class Stroke {
   Map<String, dynamic> toJson() {
     return {
       'points': points.map((p) => {'x': p.dx, 'y': p.dy}).toList(),
-      'color': color.value,
+      'color': color.toARGB32(),
       'strokeWidth': strokeWidth,
       'isEraser': isEraser,
       'isHighlighter': isHighlighter,
@@ -265,7 +265,7 @@ class MarkdownTextController extends TextEditingController {
             final colorHex = content.substring(index + 7, colorEnd);
             final tagEnd = content.indexOf('[/color]', colorEnd + 1);
             if (tagEnd != -1) {
-              final colorVal = int.tryParse(colorHex) ?? Colors.black.value;
+              final colorVal = int.tryParse(colorHex) ?? Colors.black.toARGB32();
               inlineSpans.add(TextSpan(
                 text: content.substring(colorEnd + 1, tagEnd),
                 style: lineStyle.copyWith(color: Color(colorVal)),
@@ -1111,7 +1111,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
   void _applyTextColor(Color color) {
     final textVal = _contentController.text;
     final selection = _contentController.selection;
-    final colorHex = '0x${color.value.toRadixString(16).toUpperCase()}';
+    final colorHex = '0x${color.toARGB32().toRadixString(16).toUpperCase()}';
     
     if (selection.isValid && !selection.isCollapsed) {
       final selectedText = textVal.substring(selection.start, selection.end);

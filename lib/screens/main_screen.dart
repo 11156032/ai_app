@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io' show File, Platform;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:image_picker/image_picker.dart';
@@ -58,7 +57,6 @@ class _MainScreenState extends State<MainScreen> {
   late PageController _calendarPageController;
   late PageController _timelinePageController;
 
-  bool _isLoading = true;
   Uint8List? _userAvatarBlob;
   int _userAvatarColor = 0;
   bool _userAvatarSelected = false;
@@ -78,6 +76,7 @@ class _MainScreenState extends State<MainScreen> {
   List<Map<String, dynamic>> questionBank = [];
   final ScrollController _chatScrollController = ScrollController();
   final ScrollController _profileScrollController = ScrollController();
+  bool _isDisposed = false;
 
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分'];
   Map<String, List<String>> subjectChapters = {
@@ -114,17 +113,13 @@ class _MainScreenState extends State<MainScreen> {
 
   bool _showStudyAnswers = false;
   String _studySearchQuery = "";
-  final String _studySubject = "全部";
+
   int _personalFilterIndex = 0;
   String? _selectedFolder;
   String? _selectedSubjectForStudy; // 新增：追蹤題庫中選擇的科目
 
   String _aiFlowState = 'none';
   Map<String, dynamic> _aiFlowData = {};
-  bool get _isAiReplyingFlow => _aiFlowState == 'replying';
-  set _isAiReplyingFlow(bool value) {
-    _aiFlowState = value ? 'replying' : 'none';
-  }
 
   int _aiReplyPostIndex = 0;
   List<Map<String, dynamic>> _aiPendingReplyPosts = [];
@@ -446,7 +441,6 @@ class _MainScreenState extends State<MainScreen> {
         socialPosts = pList;
         scheduledPosts = sList;
         questionBank = qList;
-        _isLoading = false;
         _userAvatarBlob = userAvatar;
         _userAvatarColor = userAvatarColor;
         _userAvatarSelected = userAvatarSelected == 1;
@@ -467,14 +461,13 @@ class _MainScreenState extends State<MainScreen> {
       });
     } catch (e) {
       print('載入資料庫發生錯誤: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() {});
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _quizTimer?.cancel();
     _scheduleTimer?.cancel();
     _clearPostTimers();
@@ -523,14 +516,18 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _scrollToBottom() {
+    if (_isDisposed) return;
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (_chatScrollController.hasClients) {
-        _chatScrollController.animateTo(
-          _chatScrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      if (_isDisposed) return;
+      try {
+        if (_chatScrollController.hasClients) {
+          _chatScrollController.animateTo(
+            _chatScrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      } catch (_) {}
     });
   }
 
@@ -1019,7 +1016,7 @@ class _MainScreenState extends State<MainScreen> {
         primaryColor: primaryColor,
         colorScheme: baseTheme.colorScheme.copyWith(
           primary: primaryColor,
-          secondary: primaryColor.withOpacity(0.8),
+          secondary: primaryColor.withValues(alpha: 0.8),
         ),
       ),
       child: MediaQuery(
@@ -1274,7 +1271,7 @@ class _MainScreenState extends State<MainScreen> {
                                       boxShadow: [
                                         BoxShadow(
                                           color: const Color(0xFF8D6E63)
-                                              .withOpacity(0.35),
+                                              .withValues(alpha: 0.35),
                                           blurRadius: 12,
                                           offset: const Offset(0, 4),
                                         )
@@ -1287,7 +1284,7 @@ class _MainScreenState extends State<MainScreen> {
                                           padding: const EdgeInsets.all(7),
                                           decoration: BoxDecoration(
                                             color: Colors.white
-                                                .withOpacity(0.25),
+                                                .withValues(alpha: 0.25),
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                           ),
@@ -1380,7 +1377,7 @@ class _MainScreenState extends State<MainScreen> {
                                   boxShadow: [
                                     BoxShadow(
                                         color: const Color(0xFF8D6E63)
-                                            .withOpacity(0.12),
+                                            .withValues(alpha: 0.12),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4))
                                   ],
@@ -1393,7 +1390,7 @@ class _MainScreenState extends State<MainScreen> {
                                           padding: const EdgeInsets.all(6),
                                           decoration: BoxDecoration(
                                               color: const Color(0xFF8D6E63)
-                                                  .withOpacity(0.1),
+                                                  .withValues(alpha: 0.1),
                                               borderRadius:
                                                   BorderRadius.circular(10)),
                                           child: const Icon(Icons.schedule,
@@ -1418,7 +1415,7 @@ class _MainScreenState extends State<MainScreen> {
                                               height: 36,
                                               decoration: BoxDecoration(
                                                   color: const Color(0xFF8D6E63)
-                                                      .withOpacity(0.08),
+                                                      .withValues(alpha: 0.08),
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                           10))),
@@ -1462,7 +1459,8 @@ class _MainScreenState extends State<MainScreen> {
                                                       decoration: BoxDecoration(
                                                           color: const Color(
                                                                   0xFF66BB6A)
-                                                              .withOpacity(0.08),
+                                                              .withValues(
+                                                                  alpha: 0.08),
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(
@@ -1548,7 +1546,8 @@ class _MainScreenState extends State<MainScreen> {
                                                       decoration: BoxDecoration(
                                                           color: const Color(
                                                                   0xFFEF5350)
-                                                              .withOpacity(0.07),
+                                                              .withValues(
+                                                                  alpha: 0.07),
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(
@@ -1771,15 +1770,187 @@ class _MainScreenState extends State<MainScreen> {
                                 ));
                           }
 
+                          if (msg['widgetType'] == 'notebook_options') {
+                            final options = [
+                              {'l': '📖 跳轉筆記本', 'v': '查看筆記本', 'c': Colors.blue},
+                              {'l': '➕ 新增筆記', 'v': '新增筆記', 'c': Colors.green},
+                              {'l': '📝 整理筆記', 'v': '整理筆記', 'c': Colors.purple},
+                              {'l': '🔍 搜尋筆記', 'v': '搜尋筆記', 'c': Colors.orange},
+                              {'l': '🗑️ 刪除筆記', 'v': '刪除筆記', 'c': Colors.red},
+                            ];
+                            return Container(
+                                margin: const EdgeInsets.only(
+                                    bottom: 12, left: 40, right: 10),
+                                child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: options
+                                        .map((opt) => ActionChip(
+                                              label: Text(opt['l'] as String,
+                                                  style: TextStyle(
+                                                      color:
+                                                          opt['c'] as Color)),
+                                              backgroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                  side: BorderSide(
+                                                      color:
+                                                          opt['c'] as Color)),
+                                              onPressed: () => _handleAISubmit(
+                                                  opt['v'] as String,
+                                                  modalController,
+                                                  setModalState),
+                                            ))
+                                        .toList()));
+                          }
+
+                          if (msg['widgetType'] == 'notebook_category_picker') {
+                            return Container(
+                                margin: const EdgeInsets.only(
+                                    bottom: 12, left: 40, right: 10),
+                                child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: NotesDatabase.categories
+                                        .where((c) => c != '全部')
+                                        .map((cat) => ActionChip(
+                                              label: Text(cat),
+                                              backgroundColor: Colors.white,
+                                              onPressed: () => _handleAISubmit(
+                                                  cat,
+                                                  modalController,
+                                                  setModalState),
+                                            ))
+                                        .toList()));
+                          }
+
+                          if (msg['widgetType'] == 'confirm_note') {
+                            final note = msg['pendingData'] as Note;
+                            return Container(
+                                margin: const EdgeInsets.only(
+                                    bottom: 16, left: 40, right: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border:
+                                      Border.all(color: Colors.brown.shade200),
+                                ),
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(note.title,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16)),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.brown.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(note.category,
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.brown)),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(note.content,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.black87)),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            TextButton(
+                                              onPressed: () {
+                                                if (Navigator.canPop(context))
+                                                  Navigator.pop(context);
+                                                _changePage(5, '筆記本');
+                                              },
+                                              child: const Text('完成',
+                                                  style: TextStyle(
+                                                      color: Colors.grey)),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.brown,
+                                                  foregroundColor:
+                                                      Colors.white),
+                                              onPressed: () {
+                                                if (Navigator.canPop(context))
+                                                  Navigator.pop(context);
+                                                _changePage(5, '筆記本');
+                                                Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            NoteEditorScreen(
+                                                                note: note)));
+                                              },
+                                              child: const Text('立即開啟'),
+                                            )
+                                          ])
+                                    ]));
+                          }
+
+                          if (msg['widgetType'] == 'note_search_results') {
+                            final results = msg['pendingData'] as List<Note>;
+                            return Container(
+                                margin: const EdgeInsets.only(
+                                    bottom: 16, left: 40, right: 10),
+                                child: Column(
+                                  children: results
+                                      .map((note) => Card(
+                                          elevation: 2,
+                                          margin:
+                                              const EdgeInsets.only(bottom: 8),
+                                          child: ListTile(
+                                              title: Text(note.title),
+                                              subtitle: Text(note.content,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis),
+                                              trailing: const Icon(
+                                                  Icons.arrow_forward_ios,
+                                                  size: 14),
+                                              onTap: () {
+                                                if (Navigator.canPop(context))
+                                                  Navigator.pop(context);
+                                                _changePage(5, '筆記本');
+                                                Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            NoteEditorScreen(
+                                                                note: note)));
+                                              })))
+                                      .toList(),
+                                ));
+                          }
+
                           if (msg['widgetType'] == 'help_options') {
                             final isGuest = widget.currentUser['id'] == 'u4';
                             final options = [
                               {'n': '1', 'l': '📅 新增日曆行程', 'v': '新增行程'},
-                              if (!isGuest) {'n': '2', 'l': '📝 發佈社群貼文', 'v': '發佈貼文'},
-                              if (!isGuest) {'n': '3', 'l': '💬 回覆社群留言', 'v': '回覆哪些留言'},
+                              if (!isGuest)
+                                {'n': '2', 'l': '📝 發佈社群貼文', 'v': '發佈貼文'},
+                              if (!isGuest)
+                                {'n': '3', 'l': '💬 回覆社群留言', 'v': '回覆哪些留言'},
                               {'n': '4', 'l': '👤 修改個人資料', 'v': '個人檔案'},
                               {'n': '5', 'l': '🎨 切換佈景主題', 'v': '切換主題'},
                               {'n': '6', 'l': '📋 跳轉題庫測驗', 'v': '題庫'},
+                              {'n': '7', 'l': '📓 筆記本管理', 'v': '筆記本管理'},
                             ];
                             return Container(
                                 margin: const EdgeInsets.only(
@@ -1811,7 +1982,8 @@ class _MainScreenState extends State<MainScreen> {
                                                   boxShadow: [
                                                     BoxShadow(
                                                         color: Colors.black
-                                                            .withOpacity(0.02),
+                                                            .withValues(
+                                                                alpha: 0.02),
                                                         blurRadius: 4,
                                                         offset:
                                                             const Offset(0, 2))
@@ -1825,7 +1997,8 @@ class _MainScreenState extends State<MainScreen> {
                                                       decoration: BoxDecoration(
                                                         color: const Color(
                                                                 0xFF8D6E63)
-                                                            .withOpacity(0.1),
+                                                            .withValues(
+                                                                alpha: 0.1),
                                                         shape: BoxShape.circle,
                                                       ),
                                                       child: Center(
@@ -1947,7 +2120,8 @@ class _MainScreenState extends State<MainScreen> {
                                                 color: color, width: 1.2),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: color.withOpacity(0.12),
+                                                color: color.withValues(
+                                                    alpha: 0.12),
                                                 blurRadius: 6,
                                                 offset: const Offset(0, 2),
                                               )
@@ -1974,7 +2148,8 @@ class _MainScreenState extends State<MainScreen> {
                                                       style: TextStyle(
                                                           fontSize: 10,
                                                           color:
-                                                              color.withOpacity(0.7))),
+                                                              color.withValues(
+                                                                  alpha: 0.7))),
                                                 ],
                                               ),
                                             ],
@@ -1986,6 +2161,128 @@ class _MainScreenState extends State<MainScreen> {
                                 ],
                               ),
                             );
+                          }
+
+                          if (msg['widgetType'] == 'organize_note_picker') {
+                            return _OrganizeNotePickerWidget(
+                                onSelected: (title) => _handleAISubmit(
+                                    title, modalController, setModalState));
+                          }
+
+                          if (msg['widgetType'] == 'organized_note_result') {
+                            return _OrganizedNoteResultWidget(
+                                data: msg['pendingData'] ?? {},
+                                onReplace: () {
+                                  showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                              title: const Text('確認附加'),
+                                              content: const Text(
+                                                  '確定要將大綱加入原筆記的最上方嗎？'),
+                                              actions: [
+                                                TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(ctx),
+                                                    child: const Text('取消')),
+                                                TextButton(
+                                                    onPressed: () {
+                                                      Navigator.pop(ctx);
+                                                      final title = msg[
+                                                              'pendingData'][
+                                                          'selected_note_title'];
+                                                      final summary = msg[
+                                                                  'pendingData']
+                                                              ['summary'] ??
+                                                          '• 本篇重點：介紹了基本概念與應用場景\n• 待辦事項：複習第二章、完成課後練習';
+                                                      final idx = NotesDatabase
+                                                          .notes
+                                                          .indexWhere((n) =>
+                                                              n.title == title);
+                                                      if (idx != -1) {
+                                                        NotesDatabase.notes[idx]
+                                                                .content =
+                                                            '# AI 整理大綱\n$summary\n\n---\n\n${NotesDatabase.notes[idx].content}';
+                                                      }
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                              const SnackBar(
+                                                                  content: Text(
+                                                                      '已成功附加！')));
+                                                      _changePage(5, '筆記本');
+                                                      Navigator.pop(context);
+                                                    },
+                                                    child: const Text('確定'))
+                                              ]));
+                                },
+                                onSaveNew: () {
+                                  final title =
+                                      msg['pendingData']['selected_note_title'];
+                                  final summary = msg['pendingData']
+                                          ['summary'] ??
+                                      '• 本篇重點：介紹了基本概念與應用場景\n• 待辦事項：複習第二章、完成課後練習';
+                                  final newNote = Note(
+                                      id: DateTime.now()
+                                          .millisecondsSinceEpoch
+                                          .toString(),
+                                      userId: widget.currentUser['id'],
+                                      title: '${title ?? ''} (AI整理)',
+                                      content: '# AI 整理大綱\n$summary',
+                                      category: 'AI 整理',
+                                      strokes: [],
+                                      updatedAt: DateTime.now());
+                                  NotesDatabase.notes.insert(0, newNote);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('已儲存為新筆記！')));
+                                  _changePage(5, '筆記本');
+                                  Navigator.pop(context);
+                                },
+                                onImport: () {
+                                  final questions = msg['pendingData']
+                                      ['questions'] as List<dynamic>?;
+                                  final List<Map<String, dynamic>> toAdd = [];
+                                  if (questions != null &&
+                                      questions.isNotEmpty) {
+                                    for (var q in questions) {
+                                      toAdd.add({
+                                        'subject': q['subject'] ?? 'AI 生成',
+                                        'difficulty': q['difficulty'] ?? '中',
+                                        'question': q['question'] ?? '',
+                                        'options':
+                                            List<String>.from(q['options']),
+                                        'answerIndex': q['answerIndex'] ?? 0,
+                                        'explanation': q['explanation'] ?? '',
+                                      });
+                                    }
+                                  } else {
+                                    toAdd.addAll([
+                                      {
+                                        'subject': 'AI 生成',
+                                        'difficulty': '中',
+                                        'question': '根據筆記，核心架構分為幾個步驟？',
+                                        'options': ['二個', '三個', '四個'],
+                                        'answerIndex': 1,
+                                        'explanation': '筆記重點指出核心架構分為三個主要步驟進行。'
+                                      },
+                                      {
+                                        'subject': 'AI 生成',
+                                        'difficulty': '易',
+                                        'question': '以下何者為待辦事項？',
+                                        'options': ['撰寫報告', '複習第二章', '參加會議'],
+                                        'answerIndex': 1,
+                                        'explanation': '筆記中的待辦事項有明確列出：複習第二章。'
+                                      }
+                                    ]);
+                                  }
+                                  setState(() {
+                                    questionBank.addAll(toAdd);
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              '✅ 已成功匯入 ${toAdd.length} 題測驗至題庫！')));
+                                });
                           }
 
                           if (msg['widgetType'] == 'confirm_post') {
@@ -2007,7 +2304,7 @@ class _MainScreenState extends State<MainScreen> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(0xFF8D6E63)
-                                        .withOpacity(0.15),
+                                        .withValues(alpha: 0.15),
                                     blurRadius: 16,
                                     offset: const Offset(0, 4),
                                   )
@@ -2038,7 +2335,7 @@ class _MainScreenState extends State<MainScreen> {
                                           padding: const EdgeInsets.all(7),
                                           decoration: BoxDecoration(
                                             color: Colors.white
-                                                .withOpacity(0.2),
+                                                .withValues(alpha: 0.2),
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                           ),
@@ -2278,8 +2575,8 @@ class _MainScreenState extends State<MainScreen> {
                                 boxShadow: msg['isAI']
                                     ? [
                                         BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.03),
+                                            color: Colors.black
+                                                .withValues(alpha: 0.03),
                                             blurRadius: 5)
                                       ]
                                     : []),
@@ -2389,14 +2686,18 @@ class _MainScreenState extends State<MainScreen> {
                           Expanded(
                             child: Focus(
                               onKeyEvent: (FocusNode node, KeyEvent event) {
-                                final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+                                final isMobile = !kIsWeb &&
+                                    (Platform.isAndroid || Platform.isIOS);
                                 if (isMobile) {
                                   return KeyEventResult.ignored;
                                 }
-                                final isEnter = event.logicalKey == LogicalKeyboardKey.enter ||
-                                                event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                                final isEnter = event.logicalKey ==
+                                        LogicalKeyboardKey.enter ||
+                                    event.logicalKey ==
+                                        LogicalKeyboardKey.numpadEnter;
                                 if (event is KeyDownEvent && isEnter) {
-                                  if (HardwareKeyboard.instance.isShiftPressed) {
+                                  if (HardwareKeyboard
+                                      .instance.isShiftPressed) {
                                     final text = modalController.text;
                                     final selection = modalController.selection;
                                     if (selection.start >= 0) {
@@ -2412,10 +2713,8 @@ class _MainScreenState extends State<MainScreen> {
                                     }
                                     return KeyEventResult.handled;
                                   } else {
-                                    _handleAISubmit(
-                                        modalController.text,
-                                        modalController,
-                                        setModalState);
+                                    _handleAISubmit(modalController.text,
+                                        modalController, setModalState);
                                     return KeyEventResult.handled;
                                   }
                                 }
@@ -2434,8 +2733,8 @@ class _MainScreenState extends State<MainScreen> {
                                     border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(20),
                                         borderSide: BorderSide.none),
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 10)),
                               ),
                             ),
                           ),
@@ -2675,6 +2974,71 @@ class _MainScreenState extends State<MainScreen> {
           _scrollToBottom();
         });
         return true;
+      case UserIntent.viewNotes:
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        _changePage(5, '筆記本');
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({'isAI': true, 'text': '已為您切換至筆記本畫面！', 'isCard': false});
+        });
+        return true;
+      case UserIntent.createNote:
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'adding_note_title';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的，讓我來協助您新增一篇筆記！📓\n首先，請問這篇筆記的標題是什麼？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.searchNote:
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'searching_note';
+          chatLogs
+              .add({'isAI': true, 'text': '請問您想搜尋什麼關鍵字或分類？', 'isCard': false});
+          _scrollToBottom();
+        });
+        // 若直接包含關鍵字，可優化提取
+        return true;
+      case UserIntent.deleteNote:
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'deleting_note_title';
+          chatLogs.add({
+            'isAI': true,
+            'text': '請告訴我您想刪除的筆記標題，我會幫您找出來。',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.organizeNote:
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'organizing_note_select';
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的！請問您想整理哪一篇筆記？請在下方搜尋或選擇：',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'organize_note_picker'
+          });
+          _scrollToBottom();
+        });
+        return true;
       default:
         return false;
     }
@@ -2766,10 +3130,37 @@ class _MainScreenState extends State<MainScreen> {
     controller.clear();
     _scrollToBottom();
 
+    // 若在任務流程中，但使用者輸入的是系統的頂層指令（如 ActionChips 按鈕），則打斷並重置流程
+    if (_aiFlowState != 'none') {
+      const systemCommands = {
+        '查看筆記本',
+        '新增筆記',
+        '整理筆記',
+        '搜尋筆記',
+        '刪除筆記',
+        '筆記本管理',
+        '社群',
+        '社群動態',
+        '新增行程',
+        '發佈貼文',
+        '回覆哪些留言',
+        '個人檔案',
+        '切換主題',
+        '題庫',
+        '重來',
+        '取消',
+        '取消行程',
+        '取消發佈'
+      };
+      if (systemCommands.contains(text)) {
+        _aiFlowState = 'none';
+      }
+    }
+
     // 僅在非任務流程中處理快捷指令與對話
     if (_aiFlowState == 'none') {
-      // 數字快捷指令處理 (1-6)
-      if (RegExp(r'^[1-6]$').hasMatch(text)) {
+      // 數字快捷指令處理 (1-8)
+      if (RegExp(r'^[1-8]$').hasMatch(text)) {
         String command = "";
         String featureName = "";
         switch (text) {
@@ -2798,27 +3189,55 @@ class _MainScreenState extends State<MainScreen> {
             featureName = "跳轉題庫測驗";
             break;
           case '7':
+            command = "筆記本管理";
+            featureName = "筆記本管理";
+            break;
+          case '8':
             command = "社群動態";
             featureName = "我的發佈與收藏";
             break;
         }
         if (command.isNotEmpty) {
-          setModalState(() {
-            chatLogs.add({'isAI': false, 'text': text});
-            chatLogs.add({
-              'isAI': true,
-              'text': '好的，沒問題！這就為您處理「$featureName」',
-              'isCard': false
+          try {
+            setModalState(() {
+              chatLogs.add({'isAI': false, 'text': text});
+              chatLogs.add({
+                'isAI': true,
+                'text': '好的，沒問題！這就為您處理「$featureName」',
+                'isCard': false
+              });
+              _scrollToBottom();
             });
-            _scrollToBottom();
-          });
+          } catch (_) {}
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
-              _handleAISubmit(command, controller, setModalState);
+              try {
+                _handleAISubmit(command, controller, setModalState);
+              } catch (_) {}
             }
           });
           return;
         }
+      }
+
+      if (text == '筆記本管理') {
+        setModalState(() {
+          chatLogs.add({'isAI': false, 'text': text});
+          chatLogs.add({
+            'isAI': true,
+            'text':
+                '📓 您好！我是您的筆記本小助手。請問今天有什麼我可以幫忙的呢？\n\n您可以直接打字對我說，例如：「幫我新增筆記」、「幫我整理某篇筆記的重點摘要」或「搜尋筆記」。\n\n或者也可以直接點選下方的常用功能喔：',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'notebook_options'
+          });
+          _scrollToBottom();
+        });
+        return;
       }
 
       // 簡單對話處理 (Chitchat)
@@ -3196,6 +3615,200 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
+    if (_aiFlowState == 'adding_note_title') {
+      _aiFlowData['title'] = text;
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        _aiFlowState = 'adding_note_category';
+        chatLogs.add({
+          'isAI': true,
+          'text': '已記錄標題「$text」。\n接著，請選擇或輸入這篇筆記的分類：',
+          'isCard': false
+        });
+        chatLogs.add({
+          'isAI': true,
+          'text': '',
+          'isCard': false,
+          'widgetType': 'notebook_category_picker'
+        });
+        _scrollToBottom();
+      });
+      return;
+    }
+
+    if (_aiFlowState == 'adding_note_category') {
+      _aiFlowData['category'] = text;
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        _aiFlowState = 'adding_note_content';
+        chatLogs.add({
+          'isAI': true,
+          'text': '好的，分類為「$text」。\n最後，請輸入筆記的內容：',
+          'isCard': false
+        });
+        _scrollToBottom();
+      });
+      return;
+    }
+
+    if (_aiFlowState == 'adding_note_content') {
+      _aiFlowData['content'] = text;
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        _aiFlowState = 'none';
+        chatLogs.add({'isAI': true, 'text': '為您建立筆記中...', 'isCard': false});
+        _scrollToBottom();
+      });
+
+      // 寫入 NotesDatabase
+      final newNote = Note(
+        id: 'note_ai_${DateTime.now().millisecondsSinceEpoch}',
+        userId: widget.currentUser['id'],
+        title: _aiFlowData['title'] ?? '無標題',
+        category: _aiFlowData['category'] ?? '未分類',
+        content: _aiFlowData['content'] ?? '',
+        strokes: [],
+        updatedAt: DateTime.now(),
+      );
+      if (!NotesDatabase.categories.contains(newNote.category)) {
+        NotesDatabase.categories.add(newNote.category);
+      }
+      NotesDatabase.notes.insert(0, newNote);
+
+      setModalState(() {
+        chatLogs.add({
+          'isAI': true,
+          'text': '',
+          'isCard': false,
+          'widgetType': 'confirm_note',
+          'pendingData': newNote
+        });
+        _scrollToBottom();
+      });
+      return;
+    }
+
+    if (_aiFlowState == 'searching_note') {
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        _aiFlowState = 'none';
+      });
+
+      final query = text.toLowerCase();
+      final results = NotesDatabase.notes
+          .where((n) =>
+              n.userId == widget.currentUser['id'] &&
+              (n.title.toLowerCase().contains(query) ||
+                  n.content.toLowerCase().contains(query) ||
+                  n.category.toLowerCase().contains(query)))
+          .toList();
+
+      setModalState(() {
+        if (results.isEmpty) {
+          chatLogs.add(
+              {'isAI': true, 'text': '抱歉，沒有找到符合「$text」的筆記喔！', 'isCard': false});
+        } else {
+          chatLogs.add({
+            'isAI': true,
+            'text': '為您找到 ${results.length} 篇相關筆記：',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'note_search_results',
+            'pendingData': results
+          });
+        }
+        _scrollToBottom();
+      });
+      return;
+    }
+
+    if (_aiFlowState == 'deleting_note_title') {
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+      });
+
+      final query = text.toLowerCase();
+      final results = NotesDatabase.notes
+          .where((n) =>
+              n.userId == widget.currentUser['id'] &&
+              n.title.toLowerCase().contains(query))
+          .toList();
+
+      if (results.isEmpty) {
+        setModalState(() {
+          _aiFlowState = 'none';
+          chatLogs.add(
+              {'isAI': true, 'text': '抱歉，找不到標題包含「$text」的筆記。', 'isCard': false});
+          _scrollToBottom();
+        });
+      } else if (results.length == 1) {
+        final note = results.first;
+        _aiFlowData['note_to_delete'] = note;
+        setModalState(() {
+          _aiFlowState = 'confirm_delete_note';
+          chatLogs.add({
+            'isAI': true,
+            'text': '找到筆記「${note.title}」，確定要刪除嗎？(輸入 確定/取消)',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+      } else {
+        setModalState(() {
+          _aiFlowState = 'none';
+          chatLogs.add({
+            'isAI': true,
+            'text': '找到多篇名稱相似的筆記，為避免誤刪，請至筆記本首頁手動刪除喔！',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+      }
+      return;
+    }
+
+    if (_aiFlowState == 'confirm_delete_note') {
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        _aiFlowState = 'none';
+      });
+
+      if (text.contains('確認') ||
+          text.contains('確定') ||
+          text.toLowerCase() == 'yes' ||
+          text.toLowerCase() == 'y') {
+        final note = _aiFlowData['note_to_delete'] as Note?;
+        if (note != null) {
+          NotesDatabase.notes.remove(note);
+          setModalState(() {
+            chatLogs.add({
+              'isAI': true,
+              'text': '已成功為您刪除筆記「${note.title}」！',
+              'isCard': false
+            });
+          });
+        }
+      } else {
+        setModalState(() {
+          chatLogs.add({'isAI': true, 'text': '已取消刪除筆記動作。', 'isCard': false});
+        });
+      }
+      setModalState(() {
+        _scrollToBottom();
+      });
+      return;
+    }
+
     if (_aiFlowState == 'adding_post_type') {
       _aiFlowData['type'] = text;
       setModalState(() {
@@ -3279,6 +3892,110 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
+    if (_aiFlowState == 'organizing_note_select') {
+      _aiFlowData['selected_note_title'] = text;
+
+      // 尋找該筆記內容，動態生成摘要與題目
+      final noteTitle = text;
+      final noteIndex =
+          NotesDatabase.notes.indexWhere((n) => n.title == noteTitle);
+      Note? selectedNote;
+      if (noteIndex != -1) {
+        selectedNote = NotesDatabase.notes[noteIndex];
+      }
+
+      String noteContent = selectedNote?.content ?? '這是一篇空白筆記。';
+      String cleanContent = noteContent
+          .replaceAll(RegExp(r'[#\*_\-\[\]]'), '')
+          .replaceAll(RegExp(r'color=0x[0-9A-Fa-f]+'), '')
+          .replaceAll(RegExp(r'\/color'), '')
+          .trim();
+      List<String> lines = cleanContent
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty && l.length > 2)
+          .toList();
+
+      // 輔助方法：擷取精華短句，讓使用者一眼看懂
+      String getConcisePoint(String rawLine) {
+        String line = rawLine.replaceAll(RegExp(r'[#\n\r\-\*]'), '').trim();
+        if (line.isEmpty) return '';
+
+        // 依照標點符號分割，取第一段
+        List<String> parts = line.split(RegExp(r'[。！？；]'));
+        String point = parts[0].trim();
+
+        // 如果長度大於 30，且有逗號，則截斷於逗號處以保持簡潔
+        if (point.length > 30) {
+          int commaIdx = point.lastIndexOf('，', 35);
+          if (commaIdx != -1 && commaIdx > 10) {
+            point = point.substring(0, commaIdx);
+          } else if (point.length > 45) {
+            point = point.substring(0, 42) + '...';
+          }
+        }
+        return point;
+      }
+
+      List<String> points = [];
+      int pointCount = 1;
+      for (var line in lines) {
+        String pt = getConcisePoint(line);
+        if (pt.isNotEmpty) {
+          points.add('• 重點 $pointCount：$pt');
+          pointCount++;
+        }
+        if (points.length >= 3) break; // 只取前三點
+      }
+
+      if (points.isEmpty) {
+        points.add('• 此筆記為空白內容，請補充細節。');
+      } else if (points.length == 1) {
+        points.add('• 筆記篇幅較簡短，建議持續擴充內容以獲得更完整的重點。');
+      }
+
+      final summary = points.join('\n\n');
+
+      _aiFlowData['summary'] = summary;
+
+      try {
+        setModalState(() {
+          chatLogs
+              .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'organizing_note_processing';
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的，正在為您閱讀並整理這篇筆記...\n(模擬處理中，請稍候)',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+      } catch (_) {}
+
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (!mounted || _aiFlowState != 'organizing_note_processing') return;
+        try {
+          setModalState(() {
+            _aiFlowState = 'none';
+            chatLogs.add({
+              'isAI': true,
+              'text': '整理完成！🎉 以下是為您生成的重點摘要：',
+              'isCard': false
+            });
+            chatLogs.add({
+              'isAI': true,
+              'text': '',
+              'isCard': false,
+              'widgetType': 'organized_note_result',
+              'pendingData': Map<String, dynamic>.from(_aiFlowData)
+            });
+            _scrollToBottom();
+          });
+        } catch (_) {}
+      });
+      return;
+    }
+
     // 意圖解析 (處理加行程、發貼文、改設定、跳轉頁面、幫助等)
     if (_aiFlowState == 'none' && _parseIntent(text, setModalState)) {
       return;
@@ -3309,16 +4026,16 @@ class _MainScreenState extends State<MainScreen> {
     bool isDark = false,
   }) {
     final borderColor = isDark
-        ? const Color(0xFF4A7C59).withOpacity(0.45)
-        : const Color(0xFFFF8FAB).withOpacity(0.9);
+        ? const Color(0xFF4A7C59).withValues(alpha: 0.45)
+        : const Color(0xFFFF8FAB).withValues(alpha: 0.9);
     final shadowColor = isDark
-        ? Colors.black.withOpacity(0.38)
-        : const Color(0xFFFF8FAB).withOpacity(0.32);
+        ? Colors.black.withValues(alpha: 0.38)
+        : const Color(0xFFFF8FAB).withValues(alpha: 0.32);
     final textColor = isDark ? Colors.white : const Color(0xFF3E2723);
     final subColor = isDark ? Colors.white60 : const Color(0xFF795548);
     final arrowBg = isDark
-        ? Colors.white.withOpacity(0.12)
-        : const Color(0xFFFF8FAB).withOpacity(0.18);
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFFF8FAB).withValues(alpha: 0.18);
     final arrowColor = isDark ? Colors.white54 : const Color(0xFFFF4081);
 
     return GestureDetector(
@@ -3381,7 +4098,7 @@ class _MainScreenState extends State<MainScreen> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                  color: c.withOpacity(0.45),
+                                  color: c.withValues(alpha: 0.45),
                                   blurRadius: 3,
                                   offset: const Offset(0, 2))
                             ],
@@ -3467,7 +4184,7 @@ class _MainScreenState extends State<MainScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-                color: const Color(0xFF8D6E63).withOpacity(0.12),
+                color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
                 blurRadius: 12,
                 offset: const Offset(0, 4))
           ],
@@ -3481,7 +4198,7 @@ class _MainScreenState extends State<MainScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                    color: selectedColor.withOpacity(0.2),
+                    color: selectedColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10)),
                 child: Icon(Icons.palette, color: selectedColor, size: 18),
               ),
@@ -3524,7 +4241,7 @@ class _MainScreenState extends State<MainScreen> {
                                 boxShadow: (selectedColor == c && !isCustom)
                                     ? [
                                         BoxShadow(
-                                            color: c.withOpacity(0.5),
+                                            color: c.withValues(alpha: 0.5),
                                             blurRadius: 6,
                                             offset: const Offset(0, 3))
                                       ]
@@ -3603,7 +4320,7 @@ class _MainScreenState extends State<MainScreen> {
                         border: Border.all(color: selectedColor, width: 4),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 4)
                         ],
                       ),
@@ -3624,7 +4341,7 @@ class _MainScreenState extends State<MainScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                        color: selectedColor.withOpacity(0.45),
+                        color: selectedColor.withValues(alpha: 0.45),
                         blurRadius: 8,
                         offset: const Offset(0, 3))
                   ],
@@ -3636,7 +4353,7 @@ class _MainScreenState extends State<MainScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Text(
-                      '#${selectedColor.value.toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
+                      '#${selectedColor.toARGB32().toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
                       style: const TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 13,
@@ -3655,14 +4372,14 @@ class _MainScreenState extends State<MainScreen> {
                   foregroundColor:
                       isLight ? const Color(0xFF4E342E) : Colors.white,
                   elevation: 3,
-                  shadowColor: selectedColor.withOpacity(0.4),
+                  shadowColor: selectedColor.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 ),
                 onPressed: () => _handleAISubmit(
-                    '${selectedColor.value}', ctrl, setModalState),
+                    '${selectedColor.toARGB32()}', ctrl, setModalState),
               ),
             ]),
           ],
@@ -3723,7 +4440,7 @@ class _MainScreenState extends State<MainScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           decoration: BoxDecoration(color: Colors.white, boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, -2))
           ]),
@@ -3857,14 +4574,16 @@ class _MainScreenState extends State<MainScreen> {
                                   : (isToday
                                       ? (Theme.of(context).brightness ==
                                               Brightness.dark
-                                          ? Colors.redAccent.withOpacity(0.15)
+                                          ? Colors.redAccent
+                                              .withValues(alpha: 0.15)
                                           : const Color(0xFFF5E6E6))
                                       : Colors.transparent),
                               border: Border.all(
                                   color: isSel
                                       ? const Color(0xFF8D6E63)
                                       : (isToday
-                                          ? Colors.redAccent.withOpacity(0.5)
+                                          ? Colors.redAccent
+                                              .withValues(alpha: 0.5)
                                           : Colors
                                               .transparent))), // 去除無行程非今日日期的白色圓邊框，美化日曆
                           child: Center(
@@ -4034,7 +4753,8 @@ class _MainScreenState extends State<MainScreen> {
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.05), blurRadius: 4)
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4)
                 ]),
             child: Row(children: [
               SizedBox(
@@ -4088,7 +4808,7 @@ class _MainScreenState extends State<MainScreen> {
                     color: done ? Colors.transparent : Colors.grey.shade200),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(done ? 0.01 : 0.03),
+                      color: Colors.black.withValues(alpha: done ? 0.01 : 0.03),
                       blurRadius: 4)
                 ]),
             child: Row(children: [
@@ -4529,7 +5249,7 @@ class _MainScreenState extends State<MainScreen> {
                           borderRadius: BorderRadius.circular(15),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
+                                color: Colors.black.withValues(alpha: 0.02),
                                 blurRadius: 10)
                           ]),
                       child: Column(
@@ -4693,7 +5413,7 @@ class _MainScreenState extends State<MainScreen> {
                     border: Border.all(color: Colors.grey.shade200),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),
@@ -4706,7 +5426,7 @@ class _MainScreenState extends State<MainScreen> {
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8D6E63).withOpacity(0.1),
+                          color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
@@ -4779,7 +5499,7 @@ class _MainScreenState extends State<MainScreen> {
               const Text('答案', style: TextStyle(fontSize: 12)),
               Switch(
                 value: _showStudyAnswers,
-                activeColor: const Color(0xFF8D6E63),
+                activeThumbColor: const Color(0xFF8D6E63),
                 onChanged: (v) => setState(() => _showStudyAnswers = v),
               ),
             ]),
@@ -5044,7 +5764,8 @@ class _MainScreenState extends State<MainScreen> {
                                   borderRadius: BorderRadius.circular(15),
                                   boxShadow: [
                                     BoxShadow(
-                                        color: Colors.black.withOpacity(0.02),
+                                        color: Colors.black
+                                            .withValues(alpha: 0.02),
                                         blurRadius: 5)
                                   ]),
                               child: Row(children: [
@@ -5709,7 +6430,7 @@ class _MainScreenState extends State<MainScreen> {
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFF8D6E63).withOpacity(0.1),
+          color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: const Color(0xFF8D6E63), size: 24),
@@ -5943,7 +6664,8 @@ class _MainScreenState extends State<MainScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('刪除帳號', style: TextStyle(color: Colors.red)),
-        content: const Text('您確定要刪除帳號嗎？\n\n帳號將進入 30 天的緩衝期。在 30 天內重新登入即可取消刪除並復原帳號，超過 30 天則將永久刪除所有資料且無法恢復。'),
+        content: const Text(
+            '您確定要刪除帳號嗎？\n\n帳號將進入 30 天的緩衝期。在 30 天內重新登入即可取消刪除並復原帳號，超過 30 天則將永久刪除所有資料且無法恢復。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -6396,7 +7118,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           child: Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.55),
+                              color: Colors.black.withValues(alpha: 0.55),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.close,
@@ -6552,7 +7274,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon,
-                color: isActive ? color : color.withOpacity(0.7), size: 22),
+                color: isActive ? color : color.withValues(alpha: 0.7),
+                size: 22),
             const SizedBox(height: 3),
             Text(label,
                 style: TextStyle(
@@ -7008,69 +7731,69 @@ class _PostReplyPageState extends State<PostReplyPage> {
                   border: Border(
                       top: BorderSide(color: Colors.grey.shade100, width: 1)),
                 ),
-                child: const Text('訪客無法留言喔',
-                    style: TextStyle(color: Colors.grey)),
+                child:
+                    const Text('訪客無法留言喔', style: TextStyle(color: Colors.grey)),
               )
             else
               Container(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                    top: BorderSide(color: Colors.grey.shade100, width: 1)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 120),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: TextField(
-                        controller: _commentController,
-                        maxLines: null,
-                        style: const TextStyle(fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: _replyToId != null
-                              ? '回覆 $_replyToName...'
-                              : '說說你的想法...',
-                          hintStyle: TextStyle(
-                              color: Colors.grey.shade400, fontSize: 14),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          border: InputBorder.none,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                      top: BorderSide(color: Colors.grey.shade100, width: 1)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: TextField(
+                          controller: _commentController,
+                          maxLines: null,
+                          style: const TextStyle(fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText: _replyToId != null
+                                ? '回覆 $_replyToName...'
+                                : '說說你的想法...',
+                            hintStyle: TextStyle(
+                                color: Colors.grey.shade400, fontSize: 14),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            border: InputBorder.none,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _submitComment,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF8D6E63),
-                        shape: BoxShape.circle,
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: _submitComment,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF8D6E63),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.send_rounded,
+                            color: Colors.white, size: 18),
                       ),
-                      child: const Icon(Icons.send_rounded,
-                          color: Colors.white, size: 18),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -7088,7 +7811,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -7199,7 +7922,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
                     children: [
                       Icon(Icons.subdirectory_arrow_right_rounded,
                           size: 13,
-                          color: const Color(0xFF8D6E63).withOpacity(0.8)),
+                          color:
+                              const Color(0xFF8D6E63).withValues(alpha: 0.8)),
                       const SizedBox(width: 6),
                       Text(
                         '查看 ${sub.length} 則回覆...',
@@ -7484,7 +8208,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                             ? (i == correctIndex
                                 ? Colors.green.shade100
                                 : Colors.red.shade100)
-                            : const Color(0xFF8D6E63).withOpacity(0.1))
+                            : const Color(0xFF8D6E63).withValues(alpha: 0.1))
                         : Colors.white,
                     border: Border.all(
                       color: _selectedAnswerIndex == i
@@ -7730,5 +8454,147 @@ class QuestionDiscussionPage extends StatelessWidget {
                         style: TextStyle(color: Color(0xFF8D6E63))))
               ]))
         ])));
+  }
+}
+
+class _OrganizeNotePickerWidget extends StatefulWidget {
+  final Function(String) onSelected;
+  const _OrganizeNotePickerWidget({required this.onSelected});
+  @override
+  State<_OrganizeNotePickerWidget> createState() =>
+      _OrganizeNotePickerWidgetState();
+}
+
+class _OrganizeNotePickerWidgetState extends State<_OrganizeNotePickerWidget> {
+  String _search = '';
+  @override
+  Widget build(BuildContext context) {
+    var notes =
+        NotesDatabase.notes.where((n) => n.title.contains(_search)).toList();
+    if (notes.isEmpty && NotesDatabase.notes.isEmpty) {
+      notes = [
+        Note(
+            id: '1',
+            userId: 'u1',
+            title: '歡迎使用智慧圖文筆記本',
+            content: '...',
+            category: '學習',
+            strokes: [],
+            updatedAt: DateTime.now())
+      ];
+    }
+
+    return Container(
+        margin: const EdgeInsets.only(bottom: 14, left: 16, right: 10),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)
+            ]),
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              decoration: InputDecoration(
+                  hintText: '搜尋筆記標題...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 0)),
+              onChanged: (v) => setState(() => _search = v),
+            ),
+          ),
+          if (notes.isEmpty)
+            const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('找不到筆記', style: TextStyle(color: Colors.grey))),
+          ...notes.take(5).map((n) => ListTile(
+                leading: const Icon(Icons.note, color: Color(0xFF8D6E63)),
+                title:
+                    Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle:
+                    Text(n.category, style: const TextStyle(fontSize: 12)),
+                onTap: () => widget.onSelected(n.title),
+              )),
+        ]));
+  }
+}
+
+class _OrganizedNoteResultWidget extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final VoidCallback onReplace;
+  final VoidCallback onSaveNew;
+  final VoidCallback onImport;
+
+  const _OrganizedNoteResultWidget({
+    required this.data,
+    required this.onReplace,
+    required this.onSaveNew,
+    required this.onImport,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final summaryText = data['summary'] as String? ??
+        '• 重點 1：介紹了基本概念與應用場景\n\n• 重點 2：分為三個主要步驟進行\n\n• 重點 3：建議複習相關章節以加深印象';
+
+    return Container(
+        margin: const EdgeInsets.only(bottom: 14, left: 16, right: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: const Color(0xFF8D6E63).withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)
+            ]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('已整理：${data['selected_note_title'] ?? ''}',
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Divider(height: 24),
+          const Text('📝 筆記摘要',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: Color(0xFF8D6E63))),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(10)),
+            child: Text(summaryText,
+                style: const TextStyle(fontSize: 13, height: 1.6)),
+          ),
+          const SizedBox(height: 16),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.add_to_photos, size: 14),
+              label: const Text('附加', style: TextStyle(fontSize: 11)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6D4C41),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+              onPressed: onReplace,
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.save, size: 14),
+              label: const Text('新筆記', style: TextStyle(fontSize: 11)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8D6E63),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+              onPressed: onSaveNew,
+            ),
+          ]),
+        ]));
   }
 }
