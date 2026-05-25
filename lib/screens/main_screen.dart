@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:convert';
-import 'dart:io' show File;
+import 'dart:io' show File, Platform;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -2380,20 +2380,58 @@ class _MainScreenState extends State<MainScreen> {
                       child: Row(
                         children: [
                           Expanded(
+                            child: Focus(
+                              onKeyEvent: (FocusNode node, KeyEvent event) {
+                                final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+                                if (isMobile) {
+                                  return KeyEventResult.ignored;
+                                }
+                                final isEnter = event.logicalKey == LogicalKeyboardKey.enter ||
+                                                event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                                if (event is KeyDownEvent && isEnter) {
+                                  if (HardwareKeyboard.instance.isShiftPressed) {
+                                    final text = modalController.text;
+                                    final selection = modalController.selection;
+                                    if (selection.start >= 0) {
+                                      final newText = text.replaceRange(
+                                          selection.start, selection.end, '\n');
+                                      modalController.value = TextEditingValue(
+                                        text: newText,
+                                        selection: TextSelection.collapsed(
+                                            offset: selection.start + 1),
+                                      );
+                                    } else {
+                                      modalController.text = '$text\n';
+                                    }
+                                    return KeyEventResult.handled;
+                                  } else {
+                                    _handleAISubmit(
+                                        modalController.text,
+                                        modalController,
+                                        setModalState);
+                                    return KeyEventResult.handled;
+                                  }
+                                }
+                                return KeyEventResult.ignored;
+                              },
                               child: TextField(
-                            controller: modalController,
-                            decoration: InputDecoration(
-                                hintText: '去題庫 / 看日曆 / 加行程...',
-                                filled: true,
-                                fillColor: Colors.white,
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(30),
-                                    borderSide: BorderSide.none),
-                                contentPadding:
-                                    const EdgeInsets.symmetric(horizontal: 20)),
-                            onSubmitted: (v) => _handleAISubmit(
-                                v, modalController, setModalState),
-                          )),
+                                controller: modalController,
+                                minLines: 1,
+                                maxLines: 5,
+                                keyboardType: TextInputType.multiline,
+                                textInputAction: TextInputAction.newline,
+                                decoration: InputDecoration(
+                                    hintText: '去題庫 / 看日曆 / 加行程...',
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                        borderSide: BorderSide.none),
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
+                              ),
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           CircleAvatar(
                               backgroundColor: const Color(0xFF8D6E63),

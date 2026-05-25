@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AIAssistantPanel extends StatefulWidget {
   final List<Map<String, dynamic>> chatLogs;
@@ -990,20 +993,60 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: _modalController,
-              decoration: InputDecoration(
-                hintText: '去題庫 / 看日曆 / 加行程...',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none),
+            child: Focus(
+              onKeyEvent: (FocusNode node, KeyEvent event) {
+                final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+                if (isMobile) {
+                  return KeyEventResult.ignored;
+                }
+                final isEnter = event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                if (event is KeyDownEvent && isEnter) {
+                  if (HardwareKeyboard.instance.isShiftPressed) {
+                    final text = _modalController.text;
+                    final selection = _modalController.selection;
+                    if (selection.start >= 0) {
+                      final newText = text.replaceRange(
+                          selection.start, selection.end, '\n');
+                      _modalController.value = TextEditingValue(
+                        text: newText,
+                        selection: TextSelection.collapsed(
+                            offset: selection.start + 1),
+                      );
+                    } else {
+                      _modalController.text = '$text\n';
+                    }
+                    return KeyEventResult.handled;
+                  } else {
+                    widget.onHandleSubmit(
+                      _modalController.text,
+                      _modalController,
+                      (fn) {
+                        if (mounted) setState(fn);
+                      },
+                    );
+                    return KeyEventResult.handled;
+                  }
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
+                controller: _modalController,
+                minLines: 1,
+                maxLines: 5,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  hintText: '去題庫 / 看日曆 / 加行程...',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
               ),
-              onSubmitted: (v) =>
-                  widget.onHandleSubmit(v, _modalController, (fn) {
-                if (mounted) setState(fn);
-              }),
             ),
           ),
           const SizedBox(width: 8),
