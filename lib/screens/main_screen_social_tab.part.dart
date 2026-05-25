@@ -65,7 +65,7 @@ extension MainScreenSocialTab on _MainScreenState {
                               const TextStyle(color: Colors.grey, fontSize: 14),
                         )))
               else
-                ...filtered.map((p) => _buildPostItem(p)).toList()
+                ...filtered.map((p) => _buildPostItem(p))
             ])),
       ]),
       Positioned(
@@ -170,7 +170,7 @@ extension MainScreenSocialTab on _MainScreenState {
                           )
                         ],
                       )))
-                  .toList()
+                  
             ]));
   }
 

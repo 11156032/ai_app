@@ -277,14 +277,14 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       required List<Color> preview, bool isDark = false,
     }) {
       final borderColor = isDark
-          ? const Color(0xFF4A7C59).withValues(alpha: 0.45)
-          : const Color(0xFFFF8FAB).withValues(alpha: 0.9);
+          ? const Color(0xFF4A7C59).withOpacity(0.45)
+          : const Color(0xFFFF8FAB).withOpacity(0.9);
       final shadowColor = isDark
-          ? Colors.black.withValues(alpha: 0.38)
-          : const Color(0xFFFF8FAB).withValues(alpha: 0.32);
+          ? Colors.black.withOpacity(0.38)
+          : const Color(0xFFFF8FAB).withOpacity(0.32);
       final textColor  = isDark ? Colors.white : const Color(0xFF3E2723);
       final subColor   = isDark ? Colors.white60 : const Color(0xFF795548);
-      final arrowBg    = isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFFF8FAB).withValues(alpha: 0.18);
+      final arrowBg    = isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFFF8FAB).withOpacity(0.18);
       final arrowColor = isDark ? Colors.white54 : const Color(0xFFFF4081);
 
       return Expanded(child: GestureDetector(
@@ -316,7 +316,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               margin: const EdgeInsets.only(right: 5),
               decoration: BoxDecoration(
                 color: c, shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: c.withValues(alpha: 0.45), blurRadius: 3, offset: const Offset(0, 2))],
+                boxShadow: [BoxShadow(color: c.withOpacity(0.45), blurRadius: 3, offset: const Offset(0, 2))],
               ),
             )).toList()),
           ]),
@@ -376,7 +376,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: const Color(0xFF8D6E63).withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: const Color(0xFF8D6E63).withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // 標題
@@ -384,7 +384,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(color: selectedColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: selectedColor.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
               child: Icon(Icons.palette, color: selectedColor, size: 18),
             ),
             const SizedBox(width: 10),
@@ -406,7 +406,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   color: c,
                   borderRadius: BorderRadius.circular(10),
                   border: (selectedColor == c && !isCustom) ? Border.all(color: const Color(0xFF4E342E), width: 2.5) : Border.all(color: Colors.transparent),
-                  boxShadow: (selectedColor == c && !isCustom) ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 6, offset: const Offset(0, 3))] : null,
+                  boxShadow: (selectedColor == c && !isCustom) ? [BoxShadow(color: c.withOpacity(0.5), blurRadius: 6, offset: const Offset(0, 3))] : null,
                 ),
               ),
             ),
@@ -446,7 +446,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle, color: Colors.white,
                     border: Border.all(color: selectedColor, width: 4),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)],
                   ),
                 )),
               ]),
@@ -460,12 +460,12 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               width: 46, height: 46,
               decoration: BoxDecoration(
                 color: selectedColor, borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: selectedColor.withValues(alpha: 0.45), blurRadius: 8, offset: const Offset(0, 3))],
+                boxShadow: [BoxShadow(color: selectedColor.withOpacity(0.45), blurRadius: 8, offset: const Offset(0, 3))],
               ),
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('#${selectedColor.toARGB32().toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
+              Text('#${selectedColor.value.toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF4E342E))),
               Text(isCustom ? '自訂顏色' : '精選配色',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
@@ -476,11 +476,11 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: selectedColor,
                 foregroundColor: isLight ? const Color(0xFF4E342E) : Colors.white,
-                elevation: 3, shadowColor: selectedColor.withValues(alpha: 0.4),
+                elevation: 3, shadowColor: selectedColor.withOpacity(0.4),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               ),
-              onPressed: () => widget.onHandleSubmit('${selectedColor.toARGB32()}', _modalController, setModalState),
+              onPressed: () => widget.onHandleSubmit('${selectedColor.value}', _modalController, setModalState),
             ),
           ]),
         ]),
@@ -549,7 +549,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+              color: const Color(0xFF8D6E63).withOpacity(0.12),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -564,7 +564,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    color: const Color(0xFF8D6E63).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.schedule, color: Color(0xFF8D6E63), size: 18),
@@ -592,7 +592,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 Container(
                   height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.08),
+                    color: const Color(0xFF8D6E63).withOpacity(0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -628,7 +628,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                           Container(
                             height: 38,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF66BB6A).withValues(alpha: 0.08),
+                              color: const Color(0xFF66BB6A).withOpacity(0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
@@ -690,7 +690,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                           Container(
                             height: 38,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEF5350).withValues(alpha: 0.07),
+                              color: const Color(0xFFEF5350).withOpacity(0.07),
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
@@ -862,7 +862,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     border: Border.all(color: color, width: 1.2),
                     boxShadow: [
                       BoxShadow(
-                        color: color.withValues(alpha: 0.12),
+                        color: color.withOpacity(0.12),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       )
@@ -885,7 +885,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                           Text(t['desc'] as String,
                               style: TextStyle(
                                   fontSize: 10,
-                                  color: color.withValues(alpha: 0.7))),
+                                  color: color.withOpacity(0.7))),
                         ],
                       ),
                     ],

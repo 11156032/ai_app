@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
-import '../../widgets/common_widgets.dart';
 
 class SocialTab extends StatelessWidget {
   final List<Map<String, dynamic>> socialPosts;
