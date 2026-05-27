@@ -6,6 +6,8 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    // Use in-memory database for tests to avoid creating files on individual machines
+    DatabaseHelper.setTestDbPath(':memory:');
   });
 
   test('Test schedule insertion by manual method and agent method', () async {

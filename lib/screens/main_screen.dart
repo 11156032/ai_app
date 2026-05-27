@@ -10,6 +10,8 @@ import 'package:file_picker/file_picker.dart';
 import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
 import '../services/ai_intent_service.dart';
+import 'question_list_page.dart';
+import 'question_edit_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'notes_screen.dart';
 
@@ -4968,22 +4970,41 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildQuestionBankTab() {
     if (_quizStep >= 2) return _buildQuizTakingOrResult();
     return DefaultTabController(
-        length: 3,
-        child: Column(children: [
-          const TabBar(
-              indicatorColor: Color(0xFF8D6E63),
-              labelColor: Color(0xFF8D6E63),
-              unselectedLabelColor: Colors.grey,
-              tabs: [Tab(text: '測驗'), Tab(text: '題庫'), Tab(text: '個人題庫')]),
-          Expanded(
-              child: TabBarView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                _buildQuizWizard(),
-                _buildStudyMode(),
-                _buildPersonalMode()
-              ]))
-        ]));
+      length: 3,
+      child: Column(children: [
+        // 新增：題目列表快速入口按鈕
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8D6E63),
+              foregroundColor: Colors.white),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => QuestionListPage(
+                    currentUser: widget.currentUser,
+                    allSubjects: allSubjects,
+                    subjectChapters: subjectChapters,
+                  ))),
+            icon: const Icon(Icons.list),
+            label: const Text('題目列表')),
+          ])),
+        const TabBar(
+          indicatorColor: Color(0xFF8D6E63),
+          labelColor: Color(0xFF8D6E63),
+          unselectedLabelColor: Colors.grey,
+          tabs: [Tab(text: '測驗'), Tab(text: '題庫'), Tab(text: '個人題庫')]),
+        Expanded(
+          child: TabBarView(
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+          _buildQuizWizard(),
+          _buildStudyMode(),
+          _buildPersonalMode()
+          ]))
+      ]));
   }
 
   // 測驗精靈 (Step 0 & 1)
@@ -5745,7 +5766,20 @@ class _MainScreenState extends State<MainScreen> {
                     minimumSize: const Size(double.infinity, 45)),
                 icon: const Icon(Icons.add),
                 label: const Text('新增題目'),
-                onPressed: _showAddQuestionDialog)),
+                onPressed: () async {
+                  final res = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => QuestionEditPage(
+                                currentUser: widget.currentUser,
+                                allSubjects: allSubjects,
+                                subjectChapters: subjectChapters,
+                              )));
+                  if (res == true) {
+                    // reload questions from DB
+                    _loadData();
+                  }
+                })),
       Expanded(
           child: folderCounts.isEmpty
               ? const Center(
@@ -5793,57 +5827,7 @@ class _MainScreenState extends State<MainScreen> {
       selectedColor: const Color(0xFFD7CCC8),
       onSelected: (v) => setState(() => _personalFilterIndex = i));
 
-  void _showAddQuestionDialog() {
-    String selectedSubject = '資訊管理';
-    String selectedType = '單選題';
-    showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-                title: const Text('新增題目'),
-                content: StatefulBuilder(builder: (context, setDialogState) {
-                  return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('1. 科目'),
-                        DropdownButton<String>(
-                            isExpanded: true,
-                            value: selectedSubject,
-                            items: allSubjects
-                                .map((s) =>
-                                    DropdownMenuItem(value: s, child: Text(s)))
-                                .toList(),
-                            onChanged: (v) =>
-                                setDialogState(() => selectedSubject = v!)),
-                        const SizedBox(height: 15),
-                        const Text('2. 題型'),
-                        Row(
-                            children: ['單選題', '是非題']
-                                .map((t) => Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: ChoiceChip(
-                                        label: Text(t),
-                                        selected: selectedType == t,
-                                        onSelected: (v) => setDialogState(
-                                            () => selectedType = t))))
-                                .toList()),
-                        const SizedBox(height: 15),
-                        const TextField(
-                            decoration: InputDecoration(hintText: '請輸入題目...')),
-                      ]);
-                }),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消')),
-                  ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8D6E63),
-                          foregroundColor: Colors.white),
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('新增'))
-                ]));
-  }
+  
 
   // --- 手動新增行程 (含 Padding 修正) ---
   void _showManualAddDialog() {

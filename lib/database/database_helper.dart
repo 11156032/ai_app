@@ -7,8 +7,16 @@ import 'dart:convert';
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  // 測試用的可覆寫路徑（可設為 ':memory:' 或臨時檔名）
+  static String? _testDbPath;
+  
 
   DatabaseHelper._init();
+  
+  /// 在測試中呼叫以指定 DB 路徑或使用 ':memory:'
+  static void setTestDbPath(String? path) {
+    _testDbPath = path;
+  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -29,17 +37,22 @@ class DatabaseHelper {
     // Set global factory to be safe
     databaseFactory = factory;
 
-    _database = await _initDB('app_database.db', factory);
+    _database = await _initDB(_testDbPath ?? 'app_database.db', factory);
     return _database!;
   }
 
   Future<Database> _initDB(String filePath, DatabaseFactory factory) async {
+    // 若有設定測試路徑，優先使用測試路徑（例如 ':memory:'）
+    final effectiveFilePath = _testDbPath ?? filePath;
     String path;
-    if (kIsWeb) {
-      path = filePath;
+    if (effectiveFilePath == ':memory:') {
+      // SQLite in-memory database
+      path = ':memory:';
+    } else if (kIsWeb) {
+      path = effectiveFilePath;
     } else {
       final dbPath = await factory.getDatabasesPath();
-      path = join(dbPath, filePath);
+      path = join(dbPath, effectiveFilePath);
     }
 
     final db = await factory.openDatabase(
