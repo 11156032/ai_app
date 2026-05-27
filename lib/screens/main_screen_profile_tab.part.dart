@@ -96,7 +96,7 @@ extension MainScreenProfileTab on _MainScreenState {
               ),
               const SizedBox(height: 4),
               Text(
-                '學習等級：Lv. 5',
+                '累積答題：$_totalQuestionsAnswered 題',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             ],
@@ -137,9 +137,9 @@ extension MainScreenProfileTab on _MainScreenState {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildDashboardItem(Icons.timer_outlined, '學習時數', '2.5h'),
-              _buildDashboardItem(Icons.check_circle_outline, '完成題目', '15 題'),
-              _buildDashboardItem(Icons.local_fire_department, '連續天數', '7 天'),
+              _buildDashboardItem(Icons.timer_outlined, '學習時數', '${_todayStudyHours.toStringAsFixed(1)}h'),
+              _buildDashboardItem(Icons.check_circle_outline, '完成題目', '$_todayCompletedQuestions 題'),
+              _buildDashboardItem(Icons.local_fire_department, '連續天數', '$_streakDays 天'),
             ],
           ),
         ],
@@ -316,18 +316,18 @@ extension MainScreenProfileTab on _MainScreenState {
         children: [
           _buildProfileTile(
             context: context,
-            icon: Icons.bookmark_border,
-            label: '我的收藏',
-            value: '查看已收藏的題目與文章',
-            onTap: _showMyCollectionsPage,
+            icon: Icons.article_outlined,
+            label: '我的貼文',
+            value: '查看已發佈的社群文章與筆記',
+            onTap: _showMyPostsPage,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.history,
             label: '測驗歷史',
-            value: '最近一次：100分',
-            onTap: () {},
+            value: _latestQuizScore,
+            onTap: _showQuizHistoryPage,
           ),
         ],
       ),
@@ -343,38 +343,129 @@ extension MainScreenProfileTab on _MainScreenState {
           const SizedBox(height: 10),
           _buildSimpleChart(context),
           const SizedBox(height: 16),
-          const Text('本週累計：12.5 小時',
-              style: TextStyle(color: Colors.grey, fontSize: 13)),
+          Text('本週累計：$_weeklyTotalHours 小時',
+              style: const TextStyle(color: Colors.grey, fontSize: 13)),
         ],
       ),
     );
   }
 
   Widget _buildSimpleChart(BuildContext context) {
-    final List<double> values = [1.2, 2.5, 0.8, 3.2, 1.5, 2.0, 1.3];
     final List<String> days = ['一', '二', '三', '四', '五', '六', '日'];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(7, (i) {
-        return Column(
+    
+    // 找出本週最高時數，作為比例尺分母（最低為 3.0，防止分母為 0 或過小）
+    double maxHour = _weeklyHoursList.reduce((a, b) => a > b ? a : b);
+    if (maxHour < 3.0) maxHour = 3.0;
+
+    const double chartMaxHeight = 100.0; // 圖表最大高度
+
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.bottomCenter,
           children: [
-            Container(
-              width: 12,
-              height: values[i] * 30,
-              decoration: BoxDecoration(
-                color: i == DateTime.now().weekday - 1
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(4),
+            // 基準參考虛線 (例如：每日學習目標 1.5h)
+            Positioned(
+              bottom: (1.5 / maxHour) * chartMaxHeight,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 1,
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Theme.of(context).primaryColor.withOpacity(0.2),
+                      width: 1,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(days[i],
-                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            
+            // 柱狀圖列
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(7, (i) {
+                final double hours = _weeklyHoursList[i];
+                final double barHeight = (hours / maxHour) * chartMaxHeight;
+                final bool isToday = (i == DateTime.now().weekday - 1);
+                final bool isSelected = (_selectedBarIndex == i);
+
+                return GestureDetector(
+                  onTap: () {
+                    _update(() {
+                      _selectedBarIndex = i;
+                    });
+                  },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // 點擊顯示的時數泡泡 Tooltip
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 200),
+                        opacity: isSelected ? 1.0 : 0.0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          margin: const EdgeInsets.only(bottom: 4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${hours.toStringAsFixed(1)}h',
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      
+                      // 柱狀圖本體
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 14,
+                        height: barHeight < 4 ? 4 : barHeight,
+                        decoration: BoxDecoration(
+                          gradient: isToday
+                              ? LinearGradient(
+                                  colors: [Theme.of(context).primaryColor, const Color(0xFFFFB74D)],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                )
+                              : LinearGradient(
+                                  colors: [Colors.grey.shade300, Colors.grey.shade400],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                ),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: isToday
+                              ? [
+                                  BoxShadow(
+                                    color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        days[i],
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                          color: isToday ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ),
           ],
-        );
-      }),
+        ),
+      ],
     );
   }
 

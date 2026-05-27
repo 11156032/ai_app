@@ -80,11 +80,24 @@ class DatabaseHelper {
             'ALTER TABLE users ADD COLUMN deleted_at DATETIME');
         debugPrint('Dynamic migration: Added deleted_at column to users table.');
       }
+      
+      if (!userCols.any((c) => c['name'] == 'gemini_api_key')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN gemini_api_key TEXT');
+        debugPrint('Dynamic migration: Added gemini_api_key column to users table.');
+      }
 
       // 自動清理超過 30 天未復原的帳號
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
       final count = await db.delete('users', where: "deleted_at IS NOT NULL AND deleted_at <= ?", whereArgs: [thirtyDaysAgo]);
       if (count > 0) debugPrint('自動清理了 $count 個超過 30 天未復原的帳號。');
+      
+      var quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
+      if (!quizCols.any((c) => c['name'] == 'duration_seconds')) {
+        await db.execute(
+            'ALTER TABLE quiz_results ADD COLUMN duration_seconds INTEGER DEFAULT 0');
+        debugPrint('Dynamic migration: Added duration_seconds column to quiz_results table.');
+      }
       
     } catch (e) {
       debugPrint('Error checking/adding dynamic columns or cleaning up: $e');
@@ -198,6 +211,10 @@ class DatabaseHelper {
         await db.execute(
             "ALTER TABLE questions ADD COLUMN type VARCHAR DEFAULT '單選題'");
       }
+      var cols = await db.rawQuery('PRAGMA table_info(quiz_results)');
+      if (!cols.any((c) => c['name'] == 'duration_seconds')) {
+        await db.execute('ALTER TABLE quiz_results ADD COLUMN duration_seconds INTEGER DEFAULT 0');
+      }
     }
     if (oldVersion < 12) {
       // Add user-defined papers and wrong question tracking
@@ -223,6 +240,11 @@ class DatabaseHelper {
           FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE
         )
       ''');
+
+      var cols = await db.rawQuery('PRAGMA table_info(users)');
+      if (!cols.any((c) => c['name'] == 'gemini_api_key')) {
+        await db.execute('ALTER TABLE users ADD COLUMN gemini_api_key TEXT');
+      }
     }
   }
 
@@ -250,6 +272,7 @@ class DatabaseHelper {
         font_size_factor REAL DEFAULT 1.0,
         theme_color_idx INTEGER DEFAULT 0,
         is_dark_mode INTEGER DEFAULT 0,
+        gemini_api_key TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -386,6 +409,7 @@ class DatabaseHelper {
         total INTEGER NOT NULL,
         correct INTEGER NOT NULL,
         wrong_question_ids TEXT DEFAULT '[]',
+        duration_seconds INTEGER DEFAULT 0,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
@@ -1206,7 +1230,16 @@ class DatabaseHelper {
       'total': 10,
       'correct': 8,
       'wrong_question_ids': jsonEncode([1, 3]),
-      'timestamp': '2026-03-30 10:00:00'
+      'duration_seconds': 720,
+      'timestamp': '2026-05-25 14:30:00'
+    });
+    await db.insert('quiz_results', {
+      'user_id': 'u1',
+      'total': 15,
+      'correct': 13,
+      'wrong_question_ids': jsonEncode([2]),
+      'duration_seconds': 1200,
+      'timestamp': '2026-05-26 16:00:00'
     });
   }
 

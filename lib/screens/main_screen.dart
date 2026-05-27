@@ -14,6 +14,8 @@ import 'question_list_page.dart';
 import 'question_edit_page.dart';
 import 'question_practice_page.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:animate_do/animate_do.dart';
+import '../services/ai_diagnosis_service.dart';
 import 'notes_screen.dart';
 
 part 'main_screen_profile_tab.part.dart';
@@ -48,7 +50,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0; // 預設進日曆
   String _appBarTitle = "日曆行程";
 
@@ -81,6 +83,17 @@ class _MainScreenState extends State<MainScreen> {
   final ScrollController _profileScrollController = ScrollController();
   bool _isDisposed = false;
 
+  // --- 學習歷程動態統計變數 ---
+  double _todayStudyHours = 0.0;
+  int _todayCompletedQuestions = 0;
+  int _streakDays = 0;
+  double _weeklyTotalHours = 0.0;
+  List<double> _weeklyHoursList = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+  int _totalQuestionsAnswered = 0;
+  int _selectedBarIndex = DateTime.now().weekday - 1;
+  String _latestQuizScore = '暫無測驗紀錄';
+  late DateTime _sessionStartTime;
+
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分'];
   Map<String, List<String>> subjectChapters = {
     '資訊管理': ['第一章 資訊系統簡介', '第二章 資料庫管理'],
@@ -91,6 +104,10 @@ class _MainScreenState extends State<MainScreen> {
   // --- 狀態控制區 ---
   int _quizStep = 0;
   String _quizSelectedSubject = "";
+  DiagnosisResult? _diagnosisResult;
+  bool _isDiagnosing = false;
+  StateSetter? _sheetStateSetter;
+  List<int> _lastQuizWrongIds = [];
   final List<String> _quizSelectedChapters = [];
   Map<String, Map<String, int>> _quizPickedCounts = {
     '單選題': {'易': 0, '中': 0, '難': 0},
@@ -140,6 +157,8 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _sessionStartTime = DateTime.now();
     // 初始化為真實今天（去掉時分秒）
     final now = DateTime.now();
     _simulatedToday = DateTime(now.year, now.month, now.day);
@@ -162,6 +181,8 @@ class _MainScreenState extends State<MainScreen> {
       final db = await DatabaseHelper.instance.database;
       await db.delete('comments', where: 'user_id = ?', whereArgs: ['u1']);
       await db.delete('posts', where: 'user_id = ?', whereArgs: ['u1']);
+      await db.delete('quiz_results',
+          where: "timestamp = '2026-05-27 10:15:00'");
     } catch (e) {
       debugPrint('清理舊資料失敗: $e');
     }
@@ -438,38 +459,206 @@ class _MainScreenState extends State<MainScreen> {
             (userRows.first['is_email_verified'] as int? ?? 0) == 1;
       }
 
-      setState(() {
-        allSchedules = schedulesMap;
-        allTodos = todosList;
-        socialPosts = pList;
-        scheduledPosts = sList;
-        questionBank = qList;
-        _userAvatarBlob = userAvatar;
-        _userAvatarColor = userAvatarColor;
-        _userAvatarSelected = userAvatarSelected == 1;
-        _nicknameUpdatedAt = nicknameUpdatedAt;
-        _isEmailVerified = isEmailVerified;
-        _displayName = displayName;
+      // --- 學習歷程動態統計查詢 ---
+      // 1. 今日統計（時數與答題數）
+      final todayRows = await db.rawQuery('''
+        SELECT SUM(duration_seconds) as total_sec, SUM(total) as total_q 
+        FROM quiz_results 
+        WHERE user_id = ? AND date(timestamp) = date('now', 'localtime')
+      ''', [currentUserId]);
 
-        // 個人化設定：安全處理資料類型並觸發 UI 更新
-        if (userRows.isNotEmpty) {
-          _userBio = userRows.first['bio'] as String?;
-          _fontSizeFactor =
-              ((userRows.first['font_size_factor'] ?? 1.0) as num).toDouble();
-          _themeColorIdx = (userRows.first['theme_color_idx'] ?? 0) as int;
-          _isDarkMode = (userRows.first['is_dark_mode'] ?? 0) == 1;
-          debugPrint(
-              'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode');
+      double todayStudyHours = 0.0;
+      int todayCompletedQuestions = 0;
+      if (todayRows.isNotEmpty) {
+        if (todayRows.first['total_sec'] != null) {
+          todayStudyHours =
+              (todayRows.first['total_sec'] as num).toDouble() / 3600.0;
         }
-      });
+        if (todayRows.first['total_q'] != null) {
+          todayCompletedQuestions = (todayRows.first['total_q'] as num).toInt();
+        }
+      }
+
+      // 2. 累積答題數 (取代 LV)
+      final totalAnsweredRows = await db.rawQuery('''
+        SELECT SUM(total) as grand_total 
+        FROM quiz_results 
+        WHERE user_id = ?
+      ''', [currentUserId]);
+
+      int totalQuestionsAnswered = 0;
+      if (totalAnsweredRows.isNotEmpty &&
+          totalAnsweredRows.first['grand_total'] != null) {
+        totalQuestionsAnswered =
+            (totalAnsweredRows.first['grand_total'] as num).toInt();
+      }
+
+      // 3. 連續學習天數 (Streak)
+      final streakRows = await db.rawQuery('''
+        SELECT DISTINCT date(timestamp) as active_date FROM quiz_results WHERE user_id = ?
+        UNION
+        SELECT DISTINCT date(done_at) as active_date FROM todos WHERE user_id = ? AND done = 1
+        ORDER BY active_date DESC
+      ''', [currentUserId, currentUserId]);
+
+      int streakDays = 0;
+      if (streakRows.isNotEmpty) {
+        final List<String> activeDates = streakRows
+            .where((r) => r['active_date'] != null)
+            .map((r) => r['active_date'] as String)
+            .toList();
+
+        final now = DateTime.now();
+        final todayStr =
+            "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+        final yesterday = now.subtract(const Duration(days: 1));
+        final yesterdayStr =
+            "${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}";
+
+        if (activeDates.contains(todayStr) ||
+            activeDates.contains(yesterdayStr)) {
+          streakDays = 1;
+          DateTime checkDate = activeDates.contains(todayStr) ? now : yesterday;
+          while (true) {
+            checkDate = checkDate.subtract(const Duration(days: 1));
+            final checkStr =
+                "${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}";
+            if (activeDates.contains(checkStr)) {
+              streakDays++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
+      // 4. 本週學習圖表數據 (以週一為起始點)
+      final now = DateTime.now();
+      final monday = DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: now.weekday - 1));
+      final weeklyRows = await db.rawQuery('''
+        SELECT timestamp, duration_seconds 
+        FROM quiz_results 
+        WHERE user_id = ? AND timestamp >= ?
+      ''', [currentUserId, monday.toIso8601String().substring(0, 10)]);
+
+      List<double> weeklyHoursList = List.filled(7, 0.0);
+      double weeklyTotalHours = 0.0;
+
+      for (var row in weeklyRows) {
+        final tsStr = row['timestamp'] as String;
+        final sec = (row['duration_seconds'] as num?)?.toDouble() ?? 0.0;
+        final double hr = sec / 3600.0;
+
+        final DateTime? ts = DateTime.tryParse(tsStr);
+        if (ts != null) {
+          final difference =
+              DateTime(ts.year, ts.month, ts.day).difference(monday).inDays;
+          if (difference >= 0 && difference < 7) {
+            weeklyHoursList[difference] += hr;
+            weeklyTotalHours += hr;
+          }
+        }
+      }
+
+      for (int i = 0; i < 7; i++) {
+        weeklyHoursList[i] =
+            double.parse(weeklyHoursList[i].toStringAsFixed(1));
+      }
+      weeklyTotalHours = double.parse(weeklyTotalHours.toStringAsFixed(1));
+
+      // 5. 最近一次測驗分數（用於「測驗歷史」副標題）
+      final latestQuizRows = await db.rawQuery('''
+        SELECT correct, total, timestamp FROM quiz_results
+        WHERE user_id = ? AND total > 0
+        ORDER BY timestamp DESC LIMIT 1
+      ''', [currentUserId]);
+
+      String latestQuizScore = '暫無測驗紀錄';
+      if (latestQuizRows.isNotEmpty) {
+        final correct = (latestQuizRows.first['correct'] as num).toInt();
+        final total = (latestQuizRows.first['total'] as num).toInt();
+        final pct = total > 0 ? ((correct / total) * 100).round() : 0;
+        latestQuizScore = '最近一次：$correct/$total 題（$pct 分）';
+      }
+
+      if (mounted) {
+        setState(() {
+          allSchedules = schedulesMap;
+          allTodos = todosList;
+          socialPosts = pList;
+          scheduledPosts = sList;
+          questionBank = qList;
+          _userAvatarBlob = userAvatar;
+          _userAvatarColor = userAvatarColor;
+          _userAvatarSelected = userAvatarSelected == 1;
+          _nicknameUpdatedAt = nicknameUpdatedAt;
+          _isEmailVerified = isEmailVerified;
+          _displayName = displayName;
+
+          // 更新學習統計狀態
+          _todayStudyHours = todayStudyHours;
+          _todayCompletedQuestions = todayCompletedQuestions;
+          _streakDays = streakDays;
+          _weeklyTotalHours = weeklyTotalHours;
+          _weeklyHoursList = weeklyHoursList;
+          _totalQuestionsAnswered = totalQuestionsAnswered;
+          _latestQuizScore = latestQuizScore;
+
+          // 個人化設定：安全處理資料類型並觸發 UI 更新
+          if (userRows.isNotEmpty) {
+            _userBio = userRows.first['bio'] as String?;
+            _fontSizeFactor =
+                ((userRows.first['font_size_factor'] ?? 1.0) as num).toDouble();
+            _themeColorIdx = (userRows.first['theme_color_idx'] ?? 0) as int;
+            _isDarkMode = (userRows.first['is_dark_mode'] ?? 0) == 1;
+            debugPrint(
+                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode');
+          }
+        });
+      }
     } catch (e) {
       print('載入資料庫發生錯誤: $e');
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _recordAppUsageTime();
+    } else if (state == AppLifecycleState.resumed) {
+      _sessionStartTime = DateTime.now();
+    }
+  }
+
+  Future<void> _recordAppUsageTime() async {
+    final int seconds = DateTime.now().difference(_sessionStartTime).inSeconds;
+    if (seconds < 5) return;
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.insert('quiz_results', {
+        'user_id': widget.currentUser['id'],
+        'total': 0,
+        'correct': 0,
+        'wrong_question_ids': '[]',
+        'duration_seconds': seconds,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+      _loadData();
+    } catch (e) {
+      debugPrint('記錄 App 使用時間失敗: $e');
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _recordAppUsageTime();
     _isDisposed = true;
     _quizTimer?.cancel();
     _scheduleTimer?.cancel();
@@ -486,6 +675,15 @@ class _MainScreenState extends State<MainScreen> {
   // 【重要修復】: 將漏掉的日曆與核心切換方法補回
   // ==========================================
   void _changePage(int index, String title) {
+    if (index == 5 && widget.currentUser['id'] == 'u4') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ 訪客帳戶無法使用筆記本功能，請註冊/登入正式帳號以開啟功能！'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     setState(() {
       _currentIndex = index;
       _appBarTitle = title;
@@ -1082,14 +1280,15 @@ class _MainScreenState extends State<MainScreen> {
                     _changePage(0, '日曆行程');
                     Navigator.pop(context);
                   }),
-              ListTile(
-                  leading: Icon(Icons.edit_note,
-                      color: Theme.of(context).primaryColor),
-                  title: const Text('筆記本'),
-                  onTap: () {
-                    _changePage(5, '筆記本');
-                    Navigator.pop(context);
-                  }),
+              if (widget.currentUser['id'] != 'u4')
+                ListTile(
+                    leading: Icon(Icons.edit_note,
+                        color: Theme.of(context).primaryColor),
+                    title: const Text('筆記本'),
+                    onTap: () {
+                      _changePage(5, '筆記本');
+                      Navigator.pop(context);
+                    }),
               ListTile(
                   leading: Icon(Icons.menu_book,
                       color: Theme.of(context).primaryColor),
@@ -1876,8 +2075,9 @@ class _MainScreenState extends State<MainScreen> {
                                           children: [
                                             TextButton(
                                               onPressed: () {
-                                                if (Navigator.canPop(context))
+                                                if (Navigator.canPop(context)) {
                                                   Navigator.pop(context);
+                                                }
                                                 _changePage(5, '筆記本');
                                               },
                                               child: const Text('完成',
@@ -1891,8 +2091,9 @@ class _MainScreenState extends State<MainScreen> {
                                                   foregroundColor:
                                                       Colors.white),
                                               onPressed: () {
-                                                if (Navigator.canPop(context))
+                                                if (Navigator.canPop(context)) {
                                                   Navigator.pop(context);
+                                                }
                                                 _changePage(5, '筆記本');
                                                 Navigator.push(
                                                     context,
@@ -1928,8 +2129,9 @@ class _MainScreenState extends State<MainScreen> {
                                                   Icons.arrow_forward_ios,
                                                   size: 14),
                                               onTap: () {
-                                                if (Navigator.canPop(context))
+                                                if (Navigator.canPop(context)) {
                                                   Navigator.pop(context);
+                                                }
                                                 _changePage(5, '筆記本');
                                                 Navigator.push(
                                                     context,
@@ -1953,7 +2155,8 @@ class _MainScreenState extends State<MainScreen> {
                               {'n': '4', 'l': '👤 修改個人資料', 'v': '個人檔案'},
                               {'n': '5', 'l': '🎨 切換佈景主題', 'v': '切換主題'},
                               {'n': '6', 'l': '📋 跳轉題庫測驗', 'v': '題庫'},
-                              {'n': '7', 'l': '📓 筆記本管理', 'v': '筆記本管理'},
+                              if (!isGuest)
+                                {'n': '7', 'l': '📓 筆記本管理', 'v': '筆記本管理'},
                             ];
                             return Container(
                                 margin: const EdgeInsets.only(
@@ -2166,8 +2369,13 @@ class _MainScreenState extends State<MainScreen> {
                             );
                           }
 
+                          if (msg['widgetType'] == 'ai_loading') {
+                            return _buildAiLoading(msg);
+                          }
+
                           if (msg['widgetType'] == 'organize_note_picker') {
                             return _OrganizeNotePickerWidget(
+                                userId: widget.currentUser['id'] as String?,
                                 onSelected: (title) => _handleAISubmit(
                                     title, modalController, setModalState));
                           }
@@ -3024,6 +3232,23 @@ class _MainScreenState extends State<MainScreen> {
         });
         return true;
       case UserIntent.organizeNote:
+        final isGuest = widget.currentUser['id'] == 'u4';
+        if (isGuest) {
+          updateLogs(() {
+            chatLogs.add({
+              'isAI': false,
+              'text': userInput,
+              'stateAtTime': _aiFlowState
+            });
+            chatLogs.add({
+              'isAI': true,
+              'text': '抱歉，訪客帳戶無法使用筆記與相關的 AI 整理功能。請登入或註冊正式帳號以開啟此功能！',
+              'isCard': false
+            });
+            _scrollToBottom();
+          });
+          return true;
+        }
         updateLogs(() {
           chatLogs.add(
               {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
@@ -3908,81 +4133,47 @@ class _MainScreenState extends State<MainScreen> {
       }
 
       String noteContent = selectedNote?.content ?? '這是一篇空白筆記。';
-      String cleanContent = noteContent
-          .replaceAll(RegExp(r'[#\*_\-\[\]]'), '')
-          .replaceAll(RegExp(r'color=0x[0-9A-Fa-f]+'), '')
-          .replaceAll(RegExp(r'\/color'), '')
-          .trim();
-      List<String> lines = cleanContent
-          .split('\n')
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty && l.length > 2)
-          .toList();
-
-      // 輔助方法：擷取精華短句，讓使用者一眼看懂
-      String getConcisePoint(String rawLine) {
-        String line = rawLine.replaceAll(RegExp(r'[#\n\r\-\*]'), '').trim();
-        if (line.isEmpty) return '';
-
-        // 依照標點符號分割，取第一段
-        List<String> parts = line.split(RegExp(r'[。！？；]'));
-        String point = parts[0].trim();
-
-        // 如果長度大於 30，且有逗號，則截斷於逗號處以保持簡潔
-        if (point.length > 30) {
-          int commaIdx = point.lastIndexOf('，', 35);
-          if (commaIdx != -1 && commaIdx > 10) {
-            point = point.substring(0, commaIdx);
-          } else if (point.length > 45) {
-            point = point.substring(0, 42) + '...';
-          }
-        }
-        return point;
-      }
-
-      List<String> points = [];
-      int pointCount = 1;
-      for (var line in lines) {
-        String pt = getConcisePoint(line);
-        if (pt.isNotEmpty) {
-          points.add('• 重點 $pointCount：$pt');
-          pointCount++;
-        }
-        if (points.length >= 3) break; // 只取前三點
-      }
-
-      if (points.isEmpty) {
-        points.add('• 此筆記為空白內容，請補充細節。');
-      } else if (points.length == 1) {
-        points.add('• 筆記篇幅較簡短，建議持續擴充內容以獲得更完整的重點。');
-      }
-
-      final summary = points.join('\n\n');
-
-      _aiFlowData['summary'] = summary;
-
       try {
         setModalState(() {
           chatLogs
               .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'organizing_note_processing';
+
+          // 新增一個獨立的 Loading 動畫氣泡
           chatLogs.add({
             'isAI': true,
-            'text': '好的，正在為您閱讀並整理這篇筆記...\n(模擬處理中，請稍候)',
-            'isCard': false
+            'text': '',
+            'isCard': false,
+            'widgetType': 'ai_loading',
           });
           _scrollToBottom();
         });
       } catch (_) {}
 
-      Future.delayed(const Duration(milliseconds: 1500), () {
+      // 呼叫 AI 整理筆記服務
+      AiDiagnosisService.generateNoteSummary(
+        userId: widget.currentUser['id'],
+        noteTitle: noteTitle,
+        noteContent: noteContent,
+      ).then((structuredData) {
         if (!mounted || _aiFlowState != 'organizing_note_processing') return;
+        // Store structured data directly (points list + actions list)
+        _aiFlowData['points'] = structuredData['points'] ?? [];
+        _aiFlowData['actions'] = structuredData['actions'] ?? [];
+        _aiFlowData['isAiGenerated'] = structuredData['isAiGenerated'] ?? false;
+        // Also keep a plain text summary for note append
+        final pts = (structuredData['points'] as List).join('\n• ');
+        final acts = (structuredData['actions'] as List).join('\n• ');
+        _aiFlowData['summary'] = '【重點摘要】\n• $pts\n\n【行動建議】\n• $acts';
         try {
           setModalState(() {
             _aiFlowState = 'none';
+            // 移除 Loading 動畫氣泡
+            chatLogs.removeWhere((msg) => msg['widgetType'] == 'ai_loading');
+
             chatLogs.add({
               'isAI': true,
-              'text': '整理完成！🎉 以下是為您生成的重點摘要：',
+              'text': '整理完成！🎉 以下是為您生成的 AI 重點摘要：',
               'isCard': false
             });
             chatLogs.add({
@@ -4389,6 +4580,59 @@ class _MainScreenState extends State<MainScreen> {
         ),
       );
     });
+  }
+
+  Widget _buildAiLoading(Map<String, dynamic> msg) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Color(0xFF8D6E63),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Flexible(
+                  child: Text(
+                    '小幫手正在為您整理筆記...',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4E342E),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const _AiLoadingTipWidget(),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildConfirmationCard(
@@ -5193,13 +5437,102 @@ class _MainScreenState extends State<MainScreen> {
             child: Text(_quizStep == 0 ? '下一步' : '開始測驗')),
       ]));
 
+  Future<void> _submitQuiz() async {
+    _quizTimer?.cancel();
+
+    List<int> wrongIds = [];
+    int correctCount = 0;
+    List<Map<String, dynamic>> wrongQuestions = [];
+    List<Map<String, dynamic>> correctQuestions = [];
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+      for (int i = 0; i < _currentQuizQuestions.length; i++) {
+        final q = _currentQuizQuestions[i];
+        final int numericId =
+            int.tryParse(q['id'].toString().replaceAll('q', '')) ?? 0;
+        if (q['type'] != '申論題') {
+          if (_userAnswers[i] == q['answerIndex']) {
+            correctCount++;
+            correctQuestions.add(q);
+          } else {
+            if (numericId != 0) {
+              wrongIds.add(numericId);
+            }
+            wrongQuestions.add(q);
+          }
+        }
+      }
+      int duration = 1800 - _remainingSeconds;
+      if (duration < 0) duration = 0;
+
+      await db.insert('quiz_results', {
+        'user_id': widget.currentUser['id'],
+        'total': _currentQuizQuestions.length,
+        'correct': correctCount,
+        'wrong_question_ids': jsonEncode(wrongIds),
+        'duration_seconds': duration,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      await _loadData();
+    } catch (e) {
+      debugPrint('儲存測驗結果失敗: $e');
+    }
+
+    setState(() {
+      _lastQuizWrongIds = wrongIds;
+      _quizStep = 3;
+      _isDiagnosing = true;
+      _diagnosisResult = null;
+    });
+
+    // 非同步進行 AI 診斷
+    final score = _currentQuizQuestions.isEmpty
+        ? 0
+        : ((correctCount / _currentQuizQuestions.length) * 100).round();
+    AiDiagnosisService.generate(
+      userId: widget.currentUser['id'],
+      wrongQuestions: wrongQuestions,
+      correctQuestions: correctQuestions,
+      score: score,
+      total: _currentQuizQuestions.length,
+      subject: _quizSelectedSubject,
+    ).then((result) {
+      if (mounted) {
+        setState(() {
+          _diagnosisResult = result;
+          _isDiagnosing = false;
+        });
+        _sheetStateSetter?.call(() {});
+      }
+    }).catchError((err) {
+      debugPrint('AI 學習診斷生成失敗: $err');
+      if (mounted) {
+        setState(() {
+          _isDiagnosing = false;
+        });
+        _sheetStateSetter?.call(() {});
+      }
+    });
+
+    // 延遲約 500 毫秒後自動彈出 AI 學習診斷報告
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _quizStep == 3) {
+          _showAiDiagnosisSheet();
+        }
+      });
+    });
+  }
+
   void _startTimer() {
     _quizTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_remainingSeconds > 0) {
         setState(() => _remainingSeconds--);
       } else {
         t.cancel();
-        setState(() => _quizStep = 3);
+        _submitQuiz();
       }
     });
   }
@@ -5216,8 +5549,7 @@ class _MainScreenState extends State<MainScreen> {
           actions: [
             TextButton(
                 onPressed: () {
-                  _quizTimer?.cancel();
-                  setState(() => _quizStep = 3);
+                  _submitQuiz();
                 },
                 child: const Text('交卷',
                     style: TextStyle(
@@ -5788,8 +6120,6 @@ class _MainScreenState extends State<MainScreen> {
       selected: _personalFilterIndex == i,
       selectedColor: const Color(0xFFD7CCC8),
       onSelected: (v) => setState(() => _personalFilterIndex = i));
-
-  
 
   // --- 手動新增行程 (含 Padding 修正) ---
   void _showManualAddDialog() {
@@ -6697,6 +7027,1153 @@ class _MainScreenState extends State<MainScreen> {
         subtitle: Text(collections[i]['subject']),
         trailing: const Icon(Icons.chevron_right),
       ),
+    );
+  }
+
+  // ─── 我的貼文 ────────────────────────────────────────────────
+  void _showMyPostsPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => Scaffold(
+          backgroundColor: const Color(0xFFFAFAFA),
+          appBar: AppBar(
+            title: const Text('我的貼文'),
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black87,
+            elevation: 0.5,
+          ),
+          body: _buildMyPostsList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMyPostsList() {
+    final currentUserId = widget.currentUser['id'];
+    final myPosts =
+        socialPosts.where((p) => p['userId'] == currentUserId).toList();
+
+    if (myPosts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.article_outlined, size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text('尚未發布任何貼文',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+            const SizedBox(height: 8),
+            Text('前往社群分享你的學習心得吧！',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+          ],
+        ),
+      );
+    }
+
+    final typeIconMap = {
+      'note': Icons.sticky_note_2_outlined,
+      'mood': Icons.sentiment_satisfied_alt_outlined,
+      'share': Icons.share_outlined,
+      'text': Icons.chat_bubble_outline,
+    };
+    final typeNameMap = {
+      'note': '筆記',
+      'mood': '心情',
+      'share': '分享',
+      'text': '一般',
+    };
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      itemCount: myPosts.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (ctx, i) {
+        final post = myPosts[i];
+        final postType = post['postType'] as String? ?? 'text';
+        final icon = typeIconMap[postType] ?? Icons.chat_bubble_outline;
+        final typeName = typeNameMap[postType] ?? '一般';
+        final primaryColor = Theme.of(context).primaryColor;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: 12, color: primaryColor),
+                        const SizedBox(width: 4),
+                        Text(typeName,
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: primaryColor,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(post['time'] as String? ?? '',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                post['content'] as String? ?? '',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 14, height: 1.5),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.favorite_border,
+                      size: 14, color: Colors.grey.shade400),
+                  const SizedBox(width: 4),
+                  Text('${post['likes'] ?? 0}',
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  const SizedBox(width: 16),
+                  Icon(Icons.chat_bubble_outline,
+                      size: 14, color: Colors.grey.shade400),
+                  const SizedBox(width: 4),
+                  Text('${post['replies'] ?? 0}',
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── 測驗歷史 ────────────────────────────────────────────────
+  void _showQuizHistoryPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => _QuizHistoryPage(
+          currentUserId: widget.currentUser['id'] as String,
+          onViewWrongQuestions: _showWrongQuestionsDialog,
+        ),
+      ),
+    );
+  }
+
+  void _showAiDiagnosisSheet() {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          _sheetStateSetter = setSheetState;
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (ctx, sc) => Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFFAF8F6), // Warm background
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Title Area
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFF8D6E63), Color(0xFFD7CCC8)],
+                              ).createShader(bounds),
+                              child: const Icon(
+                                Icons.auto_awesome,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'AI 學習診斷報告',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF4E342E),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!_isDiagnosing && _diagnosisResult != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _diagnosisResult!.isAiGenerated
+                                  ? const Color(0xFFE8F5E9)
+                                  : const Color(0xFFEFEBE9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _diagnosisResult!.isAiGenerated
+                                    ? const Color(0xFFA5D6A7)
+                                    : const Color(0xFFD7CCC8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _diagnosisResult!.isAiGenerated
+                                      ? Icons.bolt
+                                      : Icons.settings_applications,
+                                  size: 14,
+                                  color: _diagnosisResult!.isAiGenerated
+                                      ? Colors.green.shade700
+                                      : Colors.brown,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _diagnosisResult!.isAiGenerated
+                                      ? 'AI 智慧生成'
+                                      : '本地規則分析',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _diagnosisResult!.isAiGenerated
+                                        ? Colors.green.shade700
+                                        : Colors.brown,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+
+                  // Body
+                  Expanded(
+                    child: _isDiagnosing
+                        ? _buildLoadingState()
+                        : (_diagnosisResult == null
+                            ? _buildErrorState()
+                            : _buildReportContent(sc)),
+                  ),
+
+                  // Bottom Actions
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: const BorderSide(color: Color(0xFF8D6E63)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () {
+                              _sheetStateSetter = null;
+                              Navigator.pop(context);
+                            },
+                            child: const Text('關閉',
+                                style: TextStyle(
+                                    color: Color(0xFF8D6E63),
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        if (!_isDiagnosing && _lastQuizWrongIds.isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: const Color(0xFF8D6E63),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              onPressed: () {
+                                _sheetStateSetter = null;
+                                Navigator.pop(context);
+                                _showWrongQuestionsDialog(_lastQuizWrongIds);
+                              },
+                              child: Text(
+                                  '開始複習錯題 (${_lastQuizWrongIds.length})',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ).then((_) {
+      _sheetStateSetter = null;
+    });
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FadeInUp(
+              duration: const Duration(milliseconds: 800),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CircularProgressIndicator(
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF8D6E63)),
+                    strokeWidth: 3,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            FadeInUp(
+              duration: const Duration(milliseconds: 1000),
+              child: const Text(
+                'AI 導師正在進行深度診斷...',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4E342E)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FadeInUp(
+              duration: const Duration(milliseconds: 1200),
+              child: Text(
+                '正在為您分析答錯概念、提煉強項並生成個人化建議。',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            const Text(
+              '無法生成診斷報告',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '可能因為未取得有效的測驗資訊。請嘗試重新測驗。',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReportContent(ScrollController sc) {
+    final report = _diagnosisResult!;
+
+    return ListView(
+      controller: sc,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      children: [
+        // 提示 Banner (若使用本地 fallback)
+        if (!report.isAiGenerated)
+          FadeInUp(
+            duration: const Duration(milliseconds: 400),
+            child: Builder(builder: (context) {
+              final now = DateTime.now();
+              int secondsLeft = 0;
+              if (AiDiagnosisService.nextAvailableTime != null &&
+                  AiDiagnosisService.nextAvailableTime!.isAfter(now)) {
+                secondsLeft = AiDiagnosisService.nextAvailableTime!
+                    .difference(now)
+                    .inSeconds;
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: widget.currentUser['id'] == 'u4'
+                      ? const Color(0xFFFFF3E0)
+                      : const Color(0xFFFFFDE7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: widget.currentUser['id'] == 'u4'
+                        ? const Color(0xFFFFE0B2)
+                        : const Color(0xFFFFF59D),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      widget.currentUser['id'] == 'u4'
+                          ? Icons.lock_outline
+                          : Icons.info_outline,
+                      color: widget.currentUser['id'] == 'u4'
+                          ? const Color(0xFFF57C00)
+                          : const Color(0xFFFBC02D),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.currentUser['id'] == 'u4'
+                                ? '登入解鎖 AI 智慧報告'
+                                : '目前 AI 伺服器流量繁忙',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: widget.currentUser['id'] == 'u4'
+                                  ? const Color(0xFFE65100)
+                                  : const Color(0xFFF57F17),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.currentUser['id'] == 'u4'
+                                ? '訪客帳戶目前不支援 AI 智慧診斷功能。立即註冊或登入正式帳號，即可啟用由 Gemini 生成的客製化學習診斷與複習建議！'
+                                : (secondsLeft > 0
+                                    ? '內建的 AI 診斷目前使用流量較大（已達分鐘調用上限），系統已自動切換為本地學術分析。預計將於 $secondsLeft 秒後恢復 AI 服務，請您稍候再試！'
+                                    : '內建的 AI 診斷目前使用流量較大（已達分鐘調用上限），系統已自動切換為本地學術分析。請您稍候在下一次測驗時再試，即可恢復 AI 智慧生成報告！'),
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF5D4037),
+                                height: 1.4),
+                          ),
+                          if (widget.currentUser['id'] == 'u4') ...[
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pop(context);
+                                _changePage(4, '個人檔案');
+                              },
+                              child: const Text(
+                                '立即去登入/註冊 ➔',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFE65100)),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+
+        // 1. 本次摘要
+        FadeInUp(
+          duration: const Duration(milliseconds: 500),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8D6E63), Color(0xFF795548)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8D6E63).withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.analytics, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      '學習診斷摘要',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  report.summary,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.5,
+                      fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 2. 強項與弱項兩欄
+        FadeInUp(
+          duration: const Duration(milliseconds: 600),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 強項
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.green.shade100),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_outline,
+                              color: Colors.green.shade600, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            '掌握度佳 (強項)',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.green.shade800),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (report.strengths.isEmpty)
+                        Text('無特別明顯強項',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade500))
+                      else
+                        ...report.strengths.map((str) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('• ',
+                                      style: TextStyle(
+                                          color: Colors.green.shade600,
+                                          fontWeight: FontWeight.bold)),
+                                  Expanded(
+                                    child: Text(
+                                      str,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade800,
+                                          height: 1.4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 弱項
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.orange.shade100),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.warning_amber_outlined,
+                              color: Colors.orange.shade800, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            '待加強單元 (弱項)',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.orange.shade900),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (report.weaknesses.isEmpty)
+                        Text('無特別明顯弱項',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade500))
+                      else
+                        ...report.weaknesses.map((weak) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('• ',
+                                      style: TextStyle(
+                                          color: Colors.orange.shade800,
+                                          fontWeight: FontWeight.bold)),
+                                  Expanded(
+                                    child: Text(
+                                      weak,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade800,
+                                          height: 1.4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 3. AI 學習建議
+        FadeInUp(
+          duration: const Duration(milliseconds: 700),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.lightbulb, color: Color(0xFFFBC02D), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'AI 導師複習建議',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFF4E342E)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  report.suggestion,
+                  style: TextStyle(
+                      fontSize: 13, color: Colors.grey.shade800, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 4. 溫馨鼓勵
+        FadeInUp(
+          duration: const Duration(milliseconds: 800),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFEBE9),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFD7CCC8)),
+            ),
+            child: Row(
+              children: [
+                const Text(
+                  '💬',
+                  style: TextStyle(fontSize: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '"${report.encouragement}"',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF5D4037),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showWrongQuestionsDialog(List<dynamic> wrongIds) async {
+    if (wrongIds.isEmpty) return;
+    final db = await DatabaseHelper.instance.database;
+    final placeholders = wrongIds.map((_) => '?').join(', ');
+    final rows = await db.rawQuery(
+      'SELECT * FROM questions WHERE id IN ($placeholders)',
+      wrongIds,
+    );
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (ctx, sc) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(children: [
+                  Icon(Icons.error_outline,
+                      color: Theme.of(context).primaryColor),
+                  const SizedBox(width: 8),
+                  Text('錯題複習（${rows.length} 題）',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: rows.isEmpty
+                    ? const Center(child: Text('找不到對應的題目資料'))
+                    : ListView.separated(
+                        controller: sc,
+                        padding: const EdgeInsets.all(16),
+                        separatorBuilder: (_, __) => const Divider(height: 24),
+                        itemCount: rows.length,
+                        itemBuilder: (ctx, i) {
+                          final q = rows[i];
+                          final options =
+                              jsonDecode(q['options'] as String) as List;
+                          final correctIdx = int.parse(q['answer'] as String);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Q${i + 1}．${q['text']}',
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.5)),
+                              const SizedBox(height: 8),
+                              ...List.generate(options.length, (oi) {
+                                final isCorrect = oi == correctIdx;
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isCorrect
+                                        ? Colors.green.shade50
+                                        : Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: isCorrect
+                                        ? Border.all(
+                                            color: Colors.green.shade300)
+                                        : null,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      if (isCorrect)
+                                        Icon(Icons.check_circle,
+                                            size: 16,
+                                            color: Colors.green.shade600),
+                                      if (!isCorrect)
+                                        Icon(Icons.radio_button_unchecked,
+                                            size: 16,
+                                            color: Colors.grey.shade400),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                          child: Text(options[oi].toString(),
+                                              style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: isCorrect
+                                                      ? Colors.green.shade700
+                                                      : Colors.black87))),
+                                    ],
+                                  ),
+                                );
+                              }),
+                              if (q['explanation'] != null &&
+                                  (q['explanation'] as String).isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: Colors.amber.shade200),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.lightbulb_outline,
+                                          size: 16,
+                                          color: Colors.amber.shade700),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          q['explanation'] as String,
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.amber.shade900,
+                                              height: 1.4),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- 測驗歷史頁面 ---
+class _QuizHistoryPage extends StatefulWidget {
+  final String currentUserId;
+  final void Function(List<dynamic> wrongIds) onViewWrongQuestions;
+  const _QuizHistoryPage(
+      {required this.currentUserId, required this.onViewWrongQuestions});
+  @override
+  State<_QuizHistoryPage> createState() => _QuizHistoryPageState();
+}
+
+class _QuizHistoryPageState extends State<_QuizHistoryPage> {
+  List<Map<String, dynamic>> _records = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.rawQuery('''
+      SELECT * FROM quiz_results
+      WHERE user_id = ?
+      ORDER BY timestamp DESC
+    ''', [widget.currentUserId]);
+    if (mounted) {
+      setState(() {
+        _records = rows.map((r) => Map<String, dynamic>.from(r)).toList();
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      appBar: AppBar(
+        title: const Text('測驗歷史'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0.5,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _records.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.history,
+                          size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text('尚無測驗或學習紀錄',
+                          style: TextStyle(
+                              color: Colors.grey.shade500, fontSize: 15)),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  itemCount: _records.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (ctx, i) {
+                    final r = _records[i];
+                    final int total = (r['total'] as num?)?.toInt() ?? 0;
+                    final int correct = (r['correct'] as num?)?.toInt() ?? 0;
+                    final int durationSec =
+                        (r['duration_seconds'] as num?)?.toInt() ?? 0;
+                    final String tsStr = r['timestamp'] as String? ?? '';
+                    final DateTime? ts = DateTime.tryParse(tsStr);
+                    final String timeLabel = ts != null
+                        ? '${ts.year}/${ts.month.toString().padLeft(2, '0')}/${ts.day.toString().padLeft(2, '0')} '
+                            '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}'
+                        : tsStr;
+                    final int mins = durationSec ~/ 60;
+                    final int secs = durationSec % 60;
+                    final String durationLabel =
+                        mins > 0 ? '$mins 分 $secs 秒' : '$secs 秒';
+
+                    final bool isQuizRecord = total > 0;
+                    List<dynamic> wrongIds = [];
+                    try {
+                      final raw = r['wrong_question_ids'];
+                      if (raw != null && (raw as String).isNotEmpty) {
+                        wrongIds = jsonDecode(raw);
+                      }
+                    } catch (_) {}
+
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isQuizRecord
+                                      ? primaryColor.withValues(alpha: 0.1)
+                                      : Colors.teal.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isQuizRecord
+                                          ? Icons.quiz_outlined
+                                          : Icons.menu_book_outlined,
+                                      size: 12,
+                                      color: isQuizRecord
+                                          ? primaryColor
+                                          : Colors.teal.shade600,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isQuizRecord ? '測驗模式' : '自主學習瀏覽',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: isQuizRecord
+                                            ? primaryColor
+                                            : Colors.teal.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(timeLabel,
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Colors.grey)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          if (isQuizRecord) ...[
+                            Row(
+                              children: [
+                                _statChip(Icons.check_circle_outline,
+                                    '$correct/$total 題', Colors.green.shade600),
+                                const SizedBox(width: 12),
+                                _statChip(
+                                    Icons.star_outline,
+                                    '${total > 0 ? ((correct / total) * 100).round() : 0} 分',
+                                    primaryColor),
+                                const SizedBox(width: 12),
+                                _statChip(Icons.timer_outlined, durationLabel,
+                                    Colors.orange.shade600),
+                              ],
+                            ),
+                            if (wrongIds.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              GestureDetector(
+                                onTap: () =>
+                                    widget.onViewWrongQuestions(wrongIds),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border:
+                                        Border.all(color: Colors.red.shade200),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.replay_outlined,
+                                          size: 14, color: Colors.red.shade600),
+                                      const SizedBox(width: 6),
+                                      Text('錯題複習（${wrongIds.length} 題）',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.red.shade700,
+                                              fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ] else ...[
+                            _statChip(Icons.timer_outlined,
+                                '自主瀏覽 $durationLabel', Colors.teal.shade600),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  Widget _statChip(IconData icon, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(label,
+            style: TextStyle(
+                fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 }
@@ -8071,6 +9548,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
 
 
+
 class QuestionDiscussionPage extends StatelessWidget {
   final Map<String, dynamic> questionData;
   const QuestionDiscussionPage({super.key, required this.questionData});
@@ -8170,7 +9648,8 @@ class QuestionDiscussionPage extends StatelessWidget {
 
 class _OrganizeNotePickerWidget extends StatefulWidget {
   final Function(String) onSelected;
-  const _OrganizeNotePickerWidget({required this.onSelected});
+  final String? userId;
+  const _OrganizeNotePickerWidget({required this.onSelected, this.userId});
   @override
   State<_OrganizeNotePickerWidget> createState() =>
       _OrganizeNotePickerWidgetState();
@@ -8178,22 +9657,15 @@ class _OrganizeNotePickerWidget extends StatefulWidget {
 
 class _OrganizeNotePickerWidgetState extends State<_OrganizeNotePickerWidget> {
   String _search = '';
+
   @override
   Widget build(BuildContext context) {
-    var notes =
-        NotesDatabase.notes.where((n) => n.title.contains(_search)).toList();
-    if (notes.isEmpty && NotesDatabase.notes.isEmpty) {
-      notes = [
-        Note(
-            id: '1',
-            userId: 'u1',
-            title: '歡迎使用智慧圖文筆記本',
-            content: '...',
-            category: '學習',
-            strokes: [],
-            updatedAt: DateTime.now())
-      ];
-    }
+    // Filter by userId to prevent showing other users' notes
+    final userId = widget.userId;
+    var notes = NotesDatabase.notes
+        .where((n) =>
+            (userId == null || n.userId == userId) && n.title.contains(_search))
+        .toList();
 
     return Container(
         margin: const EdgeInsets.only(bottom: 14, left: 16, right: 10),
@@ -8222,17 +9694,43 @@ class _OrganizeNotePickerWidgetState extends State<_OrganizeNotePickerWidget> {
             ),
           ),
           if (notes.isEmpty)
-            const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('找不到筆記', style: TextStyle(color: Colors.grey))),
-          ...notes.take(5).map((n) => ListTile(
-                leading: const Icon(Icons.note, color: Color(0xFF8D6E63)),
-                title:
-                    Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle:
-                    Text(n.category, style: const TextStyle(fontSize: 12)),
+            Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Icon(Icons.note_outlined,
+                        size: 36, color: Colors.grey.shade300),
+                    const SizedBox(height: 8),
+                    Text(_search.isEmpty ? '您還沒有任何筆記' : '找不到「$_search」相關筆記',
+                        style: const TextStyle(color: Colors.grey)),
+                  ],
+                )),
+          ...notes.take(6).map((n) => ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.article_outlined,
+                      color: Color(0xFF8D6E63), size: 20),
+                ),
+                title: Text(n.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500)),
+                subtitle: Text(n.category,
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                trailing: Icon(Icons.chevron_right,
+                    size: 18, color: Colors.grey.shade400),
                 onTap: () => widget.onSelected(n.title),
               )),
+          const SizedBox(height: 4),
         ]));
   }
 }
@@ -8252,60 +9750,384 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final summaryText = data['summary'] as String? ??
-        '• 重點 1：介紹了基本概念與應用場景\n\n• 重點 2：分為三個主要步驟進行\n\n• 重點 3：建議複習相關章節以加深印象';
+    final noteTitle = data['selected_note_title'] as String? ?? '';
+    final points = (data['points'] as List?)?.cast<String>() ?? [];
+    final actions = (data['actions'] as List?)?.cast<String>() ?? [];
+    final isAi = data['isAiGenerated'] as bool? ?? false;
+
+    // Colour constants
+    const brown = Color(0xFF6D4C41);
+    const lightBrown = Color(0xFF8D6E63);
+    const tealAccent = Color(0xFF00897B);
+
+    Widget buildChip(String label, Color bg, Color fg) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 10, color: fg, fontWeight: FontWeight.w600)),
+      );
+    }
+
+    Widget buildPointRow(String text, int idx) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 2, right: 8),
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: lightBrown.withValues(alpha: 0.15),
+                  shape: BoxShape.circle),
+              child: Text('${idx + 1}',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: lightBrown,
+                      fontWeight: FontWeight.bold)),
+            ),
+            Expanded(
+              child: Text(text,
+                  style: const TextStyle(
+                      fontSize: 13, height: 1.5, color: Color(0xFF3E2723))),
+            )
+          ],
+        ),
+      );
+    }
+
+    Widget buildActionRow(String text) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 4, right: 8),
+              child:
+                  Icon(Icons.check_circle_outline, size: 15, color: tealAccent),
+            ),
+            Expanded(
+              child: Text(text,
+                  style: const TextStyle(
+                      fontSize: 13, height: 1.5, color: Color(0xFF004D40))),
+            )
+          ],
+        ),
+      );
+    }
 
     return Container(
-        margin: const EdgeInsets.only(bottom: 14, left: 16, right: 10),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-                color: const Color(0xFF8D6E63).withValues(alpha: 0.3)),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)
-            ]),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('已整理：${data['selected_note_title'] ?? ''}',
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Divider(height: 24),
-          const Text('📝 筆記摘要',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, color: Color(0xFF8D6E63))),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(10)),
-            child: Text(summaryText,
-                style: const TextStyle(fontSize: 13, height: 1.6)),
-          ),
-          const SizedBox(height: 16),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add_to_photos, size: 14),
-              label: const Text('附加', style: TextStyle(fontSize: 11)),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6D4C41),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 8)),
-              onPressed: onReplace,
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.save, size: 14),
-              label: const Text('新筆記', style: TextStyle(fontSize: 11)),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8D6E63),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 8)),
-              onPressed: onSaveNew,
-            ),
+      margin: const EdgeInsets.only(bottom: 14, left: 10, right: 10),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border:
+              Border.all(color: lightBrown.withValues(alpha: 0.25), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 4))
           ]),
-        ]));
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6D4C41), Color(0xFF8D6E63)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: Colors.white70, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    noteTitle,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                buildChip(
+                    isAi ? 'Gemini AI' : '本地摘要',
+                    isAi
+                        ? Colors.white.withValues(alpha: 0.22)
+                        : Colors.orange.withValues(alpha: 0.25),
+                    Colors.white),
+              ],
+            ),
+          ),
+
+          // ── Warning/Hint if Local Fallback ──
+          if (!isAi)
+            Builder(builder: (context) {
+              final now = DateTime.now();
+              int secondsLeft = 0;
+              if (AiDiagnosisService.nextAvailableTime != null &&
+                  AiDiagnosisService.nextAvailableTime!.isAfter(now)) {
+                secondsLeft = AiDiagnosisService.nextAvailableTime!
+                    .difference(now)
+                    .inSeconds;
+              }
+              return Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: const Color(0xFFFFFDE7),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 14, color: Color(0xFFFBC02D)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        secondsLeft > 0
+                            ? 'AI 額度已達上限，現已切換為本地大綱整理（預計 $secondsLeft 秒後恢復）'
+                            : 'AI 服務繁忙，已暫時切換為本地大綱整理',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF5D4037),
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+          // ── Points section ──
+          if (points.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: lightBrown.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: const Row(
+                          children: [
+                            Text('📌', style: TextStyle(fontSize: 12)),
+                            SizedBox(width: 4),
+                            Text('重點摘要',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: lightBrown)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ...points
+                      .asMap()
+                      .entries
+                      .map((e) => buildPointRow(e.value, e.key)),
+                ],
+              ),
+            ),
+
+          // ── Divider ──
+          if (actions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(color: Colors.grey.shade200, height: 1),
+            ),
+
+          // ── Actions section ──
+          if (actions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: tealAccent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('🎯', style: TextStyle(fontSize: 12)),
+                        SizedBox(width: 4),
+                        Text('行動建議',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: tealAccent)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...actions.map(buildActionRow),
+                ],
+              ),
+            ),
+
+          // ── Buttons ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.add_to_photos, size: 15),
+                    label: const Text('附加至原筆記', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: brown,
+                        side: const BorderSide(color: lightBrown),
+                        padding: const EdgeInsets.symmetric(vertical: 8)),
+                    onPressed: onReplace,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.note_add, size: 15),
+                    label: const Text('存為新筆記', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: brown,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 8)),
+                    onPressed: onSaveNew,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiLoadingTipWidget extends StatefulWidget {
+  const _AiLoadingTipWidget();
+
+  @override
+  State<_AiLoadingTipWidget> createState() => _AiLoadingTipWidgetState();
+}
+
+class _AiLoadingTipWidgetState extends State<_AiLoadingTipWidget> {
+  Timer? _timer;
+  late String _currentTip;
+  int _secondsLeft = 0;
+
+  final List<String> _tips = [
+    'AI 整理能幫您快速抓出筆記的核心重點！',
+    '整理完後，您可以將摘要直接附加到原筆記中！',
+    '有條理的筆記有助於大腦更深層地建立知識連結喔！',
+    '利用 AI 摘要後，搭配題目測驗，學習效果會更好！',
+    '每隔段時間重新檢視筆記，是克服遺忘曲線的最佳方法！',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTip = _tips[DateTime.now().millisecond % _tips.length];
+    _updateSecondsLeft();
+    if (_secondsLeft > 0) {
+      _startTimer();
+    }
+  }
+
+  void _updateSecondsLeft() {
+    final now = DateTime.now();
+    if (AiDiagnosisService.nextAvailableTime != null &&
+        AiDiagnosisService.nextAvailableTime!.isAfter(now)) {
+      _secondsLeft =
+          AiDiagnosisService.nextAvailableTime!.difference(now).inSeconds;
+    } else {
+      _secondsLeft = 0;
+    }
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _updateSecondsLeft();
+        if (_secondsLeft <= 0) {
+          _timer?.cancel();
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _updateSecondsLeft();
+    final bool isRateLimited = _secondsLeft > 0;
+    final String icon = isRateLimited ? '⏳' : '💡';
+    final String text = isRateLimited
+        ? 'AI 目前繁忙，預計於 $_secondsLeft 秒後恢復。將暫以本地算法大綱整理...'
+        : _currentTip;
+
+    final Color bgColor =
+        isRateLimited ? const Color(0xFFFFF3E0) : const Color(0xFFFFFDE7);
+    final Color borderColor =
+        isRateLimited ? const Color(0xFFFFE0B2) : const Color(0xFFFFF59D);
+    final Color textColor =
+        isRateLimited ? const Color(0xFFE65100) : const Color(0xFFF57F17);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: textColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

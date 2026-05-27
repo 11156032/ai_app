@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
+import '../services/ai_diagnosis_service.dart';
 
 class AIAssistantPanel extends StatefulWidget {
   final List<Map<String, dynamic>> chatLogs;
@@ -103,6 +105,9 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     }
                     if (msg['widgetType'] == 'confirm_post') {
                       return _buildPostConfirmation(msg['pendingData'], setModalState);
+                    }
+                    if (msg['widgetType'] == 'ai_loading') {
+                      return _buildAiLoading(msg);
                     }
 
                     // ... 這裡可以放入原本 ListView.builder 裡的複雜邏輯 ...
@@ -961,6 +966,59 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         ));
   }
 
+  Widget _buildAiLoading(Map<String, dynamic> msg) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Color(0xFF8D6E63),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Flexible(
+                  child: Text(
+                    '小幫手正在為您整理筆記...',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4E342E),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const _AiLoadingTipWidget(),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessage(Map<String, dynamic> msg, BuildContext context,
       StateSetter setModalState) {
     // 如果是圖卡類型且文字為空，直接跳過 _buildMessage，因為它已經在 itemBuilder 處理過了
@@ -1059,6 +1117,107 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   _modalController.text, _modalController, (fn) {
                 if (mounted) setState(fn);
               }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiLoadingTipWidget extends StatefulWidget {
+  const _AiLoadingTipWidget();
+
+  @override
+  State<_AiLoadingTipWidget> createState() => _AiLoadingTipWidgetState();
+}
+
+class _AiLoadingTipWidgetState extends State<_AiLoadingTipWidget> {
+  Timer? _timer;
+  late String _currentTip;
+  int _secondsLeft = 0;
+
+  final List<String> _tips = [
+    'AI 整理能幫您快速抓出筆記的核心重點！',
+    '整理完後，您可以將摘要直接附加到原筆記中！',
+    '有條理的筆記有助於大腦更深層地建立知識連結喔！',
+    '利用 AI 摘要後，搭配題目測驗，學習效果會更好！',
+    '每隔段時間重新檢視筆記，是克服遺忘曲線的最佳方法！',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Choose a random learning tip
+    _currentTip = _tips[DateTime.now().millisecond % _tips.length];
+    _updateSecondsLeft();
+    if (_secondsLeft > 0) {
+      _startTimer();
+    }
+  }
+
+  void _updateSecondsLeft() {
+    final now = DateTime.now();
+    if (AiDiagnosisService.nextAvailableTime != null &&
+        AiDiagnosisService.nextAvailableTime!.isAfter(now)) {
+      _secondsLeft = AiDiagnosisService.nextAvailableTime!.difference(now).inSeconds;
+    } else {
+      _secondsLeft = 0;
+    }
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _updateSecondsLeft();
+        if (_secondsLeft <= 0) {
+          _timer?.cancel();
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _updateSecondsLeft();
+    final bool isRateLimited = _secondsLeft > 0;
+    final String icon = isRateLimited ? '⏳' : '💡';
+    final String text = isRateLimited
+        ? 'AI 目前繁忙，預計於 $_secondsLeft 秒後恢復。將暫以本地算法大綱整理...'
+        : _currentTip;
+
+    final Color bgColor = isRateLimited ? const Color(0xFFFFF3E0) : const Color(0xFFFFFDE7);
+    final Color borderColor = isRateLimited ? const Color(0xFFFFE0B2) : const Color(0xFFFFF59D);
+    final Color textColor = isRateLimited ? const Color(0xFFE65100) : const Color(0xFFF57F17);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: textColor,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
