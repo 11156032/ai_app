@@ -21,6 +21,7 @@ import 'notes_screen.dart';
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
 part 'main_screen_activity_tab.part.dart';
+part 'main_screen_leaderboard_tab.part.dart';
 
 // 移除原本在這裡的 kPresetAvatars 與 _buildAvatar，已移至 common_widgets.dart
 
@@ -70,7 +71,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _themeColorIdx = 0;
   bool _isDarkMode = false;
   String _socialFilter = '全部'; // 社群貼文分類筛選狀態
-  DateTime? _nicknameUpdatedAt;
   bool _isEmailVerified = false;
   String? _displayName;
 
@@ -87,11 +87,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   double _todayStudyHours = 0.0;
   int _todayCompletedQuestions = 0;
   int _streakDays = 0;
-  double _weeklyTotalHours = 0.0;
-  List<double> _weeklyHoursList = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+  // 本週每日正確率 (0.0~100.0)，-1 代表當天無作答
+  List<double> _weeklyAccuracyList = [-1, -1, -1, -1, -1, -1, -1];
+  double _weeklyAvgAccuracy = -1; // 本週平均正確率，-1 代表無資料
   int _totalQuestionsAnswered = 0;
   int _selectedBarIndex = DateTime.now().weekday - 1;
   String _latestQuizScore = '暫無測驗紀錄';
+
+  // --- 排行榜資料 ---
+  List<Map<String, dynamic>> _leaderboardList = [];
+  String _leaderboardSortType = 'accuracy'; // 'accuracy' | 'total'
   late DateTime _sessionStartTime;
 
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分'];
@@ -440,7 +445,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       // 載入當前使用者頭像
       final userRows =
           await db.query('users', where: 'id = ?', whereArgs: [currentUserId]);
-      DateTime? nicknameUpdatedAt;
       bool isEmailVerified = false;
       String? displayName;
       Uint8List? userAvatar;
@@ -451,10 +455,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         userAvatarColor = (userRows.first['avatar_color'] as int?) ?? 0;
         userAvatarSelected = (userRows.first['avatar_selected'] as int?) ?? 0;
         displayName = userRows.first['display_name'] as String?;
-        if (userRows.first['nickname_updated_at'] != null) {
-          nicknameUpdatedAt = DateTime.tryParse(
-              userRows.first['nickname_updated_at'].toString());
-        }
+
         isEmailVerified =
             (userRows.first['is_email_verified'] as int? ?? 0) == 1;
       }
@@ -533,40 +534,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
       }
 
-      // 4. 本週學習圖表數據 (以週一為起始點)
+      // 4. 本週時間基準點 (以週一為起始點)
       final now = DateTime.now();
       final monday = DateTime(now.year, now.month, now.day)
           .subtract(Duration(days: now.weekday - 1));
-      final weeklyRows = await db.rawQuery('''
-        SELECT timestamp, duration_seconds 
-        FROM quiz_results 
-        WHERE user_id = ? AND timestamp >= ?
-      ''', [currentUserId, monday.toIso8601String().substring(0, 10)]);
-
-      List<double> weeklyHoursList = List.filled(7, 0.0);
-      double weeklyTotalHours = 0.0;
-
-      for (var row in weeklyRows) {
-        final tsStr = row['timestamp'] as String;
-        final sec = (row['duration_seconds'] as num?)?.toDouble() ?? 0.0;
-        final double hr = sec / 3600.0;
-
-        final DateTime? ts = DateTime.tryParse(tsStr);
-        if (ts != null) {
-          final difference =
-              DateTime(ts.year, ts.month, ts.day).difference(monday).inDays;
-          if (difference >= 0 && difference < 7) {
-            weeklyHoursList[difference] += hr;
-            weeklyTotalHours += hr;
-          }
-        }
-      }
-
-      for (int i = 0; i < 7; i++) {
-        weeklyHoursList[i] =
-            double.parse(weeklyHoursList[i].toStringAsFixed(1));
-      }
-      weeklyTotalHours = double.parse(weeklyTotalHours.toStringAsFixed(1));
 
       // 5. 最近一次測驗分數（用於「測驗歷史」副標題）
       final latestQuizRows = await db.rawQuery('''
@@ -583,6 +554,75 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         latestQuizScore = '最近一次：$correct/$total 題（$pct 分）';
       }
 
+      // 6. 本週每日正確率統計
+      final weeklyAccRows = await db.rawQuery('''
+        SELECT
+          strftime('%w', timestamp) as dow,
+          SUM(correct) as sumCorrect,
+          SUM(total) as sumTotal
+        FROM quiz_results
+        WHERE user_id = ? AND total > 0
+          AND timestamp >= ?
+        GROUP BY strftime('%w', timestamp)
+      ''', [currentUserId, monday.toIso8601String().substring(0, 10)]);
+
+      List<double> weeklyAccuracyList = List.filled(7, -1);
+      for (var row in weeklyAccRows) {
+        // SQLite %w: 0=Sunday,1=Mon,...,6=Sat → 轉為 Mon=0,...,Sun=6
+        int dow = int.tryParse(row['dow'].toString()) ?? -1;
+        int dayIdx = (dow == 0) ? 6 : dow - 1; // 0=Mon,6=Sun
+        final int sumCorrect = (row['sumCorrect'] as num?)?.toInt() ?? 0;
+        final int sumTotal = (row['sumTotal'] as num?)?.toInt() ?? 0;
+        if (dayIdx >= 0 && dayIdx < 7 && sumTotal > 0) {
+          weeklyAccuracyList[dayIdx] =
+              (sumCorrect / sumTotal * 100).roundToDouble();
+        }
+      }
+
+      // 本週平均正確率
+      final validAcc = weeklyAccuracyList.where((v) => v >= 0).toList();
+      double weeklyAvgAccuracy = validAcc.isEmpty
+          ? -1
+          : validAcc.reduce((a, b) => a + b) / validAcc.length;
+      if (weeklyAvgAccuracy >= 0) {
+        weeklyAvgAccuracy = double.parse(weeklyAvgAccuracy.toStringAsFixed(1));
+      }
+
+      // 7. 排行榜資料（所有使用者的累積正確率與答題數）
+      final leaderboardRows = await db.rawQuery('''
+        SELECT
+          u.id as uid,
+          u.display_name as name,
+          u.avatar_blob,
+          u.avatar_color,
+          u.avatar_selected,
+          COALESCE(SUM(qr.total), 0) as total_answered,
+          COALESCE(SUM(qr.correct), 0) as total_correct
+        FROM users u
+        LEFT JOIN quiz_results qr ON u.id = qr.user_id AND qr.total > 0
+        WHERE u.id != 'u4'
+        GROUP BY u.id
+        ORDER BY
+          CASE WHEN COALESCE(SUM(qr.total), 0) = 0 THEN 1 ELSE 0 END,
+          (CAST(COALESCE(SUM(qr.correct), 0) AS REAL) / NULLIF(COALESCE(SUM(qr.total), 0), 0)) DESC
+      ''');
+
+      List<Map<String, dynamic>> leaderboardList = leaderboardRows.map((r) {
+        final int tot = (r['total_answered'] as num?)?.toInt() ?? 0;
+        final int cor = (r['total_correct'] as num?)?.toInt() ?? 0;
+        final double acc = tot > 0 ? (cor / tot * 100) : 0.0;
+        return {
+          'userId': r['uid'],
+          'name': r['name'],
+          'avatarBlob': r['avatar_blob'],
+          'avatarColor': (r['avatar_color'] as int?) ?? 0,
+          'avatarSelected': (r['avatar_selected'] as int?) ?? 0,
+          'totalAnswered': tot,
+          'totalCorrect': cor,
+          'accuracy': double.parse(acc.toStringAsFixed(1)),
+        };
+      }).toList();
+
       if (mounted) {
         setState(() {
           allSchedules = schedulesMap;
@@ -593,7 +633,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _userAvatarBlob = userAvatar;
           _userAvatarColor = userAvatarColor;
           _userAvatarSelected = userAvatarSelected == 1;
-          _nicknameUpdatedAt = nicknameUpdatedAt;
           _isEmailVerified = isEmailVerified;
           _displayName = displayName;
 
@@ -601,10 +640,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _todayStudyHours = todayStudyHours;
           _todayCompletedQuestions = todayCompletedQuestions;
           _streakDays = streakDays;
-          _weeklyTotalHours = weeklyTotalHours;
-          _weeklyHoursList = weeklyHoursList;
+          _weeklyAccuracyList = weeklyAccuracyList;
+          _weeklyAvgAccuracy = weeklyAvgAccuracy;
           _totalQuestionsAnswered = totalQuestionsAnswered;
           _latestQuizScore = latestQuizScore;
+          _leaderboardList = leaderboardList;
 
           // 個人化設定：安全處理資料類型並觸發 UI 更新
           if (userRows.isNotEmpty) {
@@ -619,7 +659,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         });
       }
     } catch (e) {
-      print('載入資料庫發生錯誤: $e');
+      debugPrint('載入資料庫發生錯誤: $e');
       if (mounted) {
         setState(() {});
       }
@@ -782,6 +822,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       locale: const Locale('zh', 'TW'),
                     );
                     if (date != null) {
+                      if (!ctx.mounted) return;
                       final time = await showTimePicker(
                         context: ctx,
                         initialTime: TimeOfDay.now(),
@@ -862,7 +903,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     },
                     where: 'id = ?',
                     whereArgs: [spId]);
-                Navigator.pop(ctx);
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                }
                 await _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context)
@@ -950,17 +993,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         where: 'post_id = ? AND user_id = ?',
         whereArgs: [postId, userId],
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已取消收藏')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已取消收藏')),
+        );
+      }
     } else {
       await db.insert('post_bookmarks', {
         'post_id': postId,
         'user_id': userId,
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已收藏貼文')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已收藏貼文')),
+        );
+      }
     }
     await _loadData();
   }
@@ -1330,6 +1377,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     _changePage(4, '個人檔案');
                     Navigator.pop(context);
                   }),
+              ListTile(
+                  leading: Icon(Icons.leaderboard_rounded,
+                      color: Theme.of(context).primaryColor),
+                  title: const Text('排行榜'),
+                  onTap: () {
+                    _changePage(6, '排行榜');
+                    Navigator.pop(context);
+                  }),
             ]))),
             body: SafeArea(
               child: Column(children: [
@@ -1341,6 +1396,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   _buildSocialActivityTab(),
                   _buildPersonalProfileTab(context),
                   NotesScreen(currentUser: widget.currentUser),
+                  _buildLeaderboardTab(),
                 ])),
                 if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
               ]),
@@ -1442,20 +1498,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       lastDate: DateTime(2030),
                                       locale: const Locale('zh', 'TW'),
                                     );
-                                    if (date != null && mounted) {
-                                      TimeOfDay? time = await showTimePicker(
-                                        context: context,
-                                        initialTime: TimeOfDay.now(),
-                                      );
-                                      if (time != null && mounted) {
-                                        String timeStr =
-                                            "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
-                                        String dateTimeStr =
-                                            "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} $timeStr";
-                                        _handleAISubmit(dateTimeStr,
-                                            modalController, setModalState);
-                                      }
-                                    }
+                                    if (date == null) return;
+                                    if (!context.mounted) return;
+                                    TimeOfDay? time = await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.now(),
+                                    );
+                                    if (time == null) return;
+                                    if (!context.mounted) return;
+                                    String timeStr =
+                                        "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+                                    String dateTimeStr =
+                                        "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} $timeStr";
+                                    _handleAISubmit(dateTimeStr,
+                                        modalController, setModalState);
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -3625,10 +3681,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       Navigator.pop(context);
       _changePage(2, '社群');
 
+      final navigator = Navigator.of(context);
       Future.delayed(const Duration(milliseconds: 600), () {
-        Navigator.push(
-            context,
-            MaterialPageRoute(
+        navigator
+            .push(MaterialPageRoute(
                 builder: (_) => PostReplyPage(
                     originalPost: post,
                     currentUser: widget.currentUser,
@@ -3664,7 +3720,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         _aiFlowState = 'none';
                         _openChatModal();
                       }
-                    }))).then((_) => _loadData());
+                    })))
+            .then((_) => _loadData());
       });
       return;
     }
@@ -4887,7 +4944,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Widget _buildUnifiedDayEvents(DateTime targetDate) {
     String dateKey = targetDate.toString().split(' ')[0];
-    String nowKey = DateTime.now().toString().split(' ')[0];
     bool isPast = targetDate.isBefore(_simulatedToday);
 
     // Itinerary Logic: Sort by time
@@ -5586,7 +5642,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 (idx) => RadioListTile(
                                     title: Text(q['options'][idx]),
                                     value: idx,
+                                    // ignore: deprecated_member_use
                                     groupValue: _userAnswers[i],
+                                    // ignore: deprecated_member_use
                                     onChanged: (v) => setState(
                                         () => _userAnswers[i] = v as int),
                                     activeColor: const Color(0xFF8D6E63),
@@ -6532,8 +6590,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         });
         // 重新載入資料，讓社群貼文的頭像也同步更新
         await _loadData();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('✅ 頭像已更新！'), duration: Duration(seconds: 2)));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('✅ 頭像已更新！'), duration: Duration(seconds: 2)));
+        }
       }
     } catch (e) {
       debugPrint('儲存頭像失敗: $e');
@@ -6760,6 +6820,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       whereArgs: [widget.currentUser['id']],
     );
     await _loadData();
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('簡介已更新')));
   }
@@ -6918,15 +6979,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           if (!_isEmailVerified)
             ElevatedButton(
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final navigator = Navigator.of(ctx);
                 final db = await DatabaseHelper.instance.database;
                 await db.update('users', {'is_email_verified': 1},
                     where: 'id = ?', whereArgs: [widget.currentUser['id']]);
                 await _loadData();
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('驗證成功！')));
-                }
+                navigator.pop();
+                messenger.showSnackBar(const SnackBar(content: Text('驗證成功！')));
               },
               child: const Text('發送驗證信'),
             ),
@@ -6999,33 +7059,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             child: const Text('確認修改'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showMyCollectionsPage() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (ctx) => Scaffold(
-          appBar: AppBar(title: const Text('我的收藏')),
-          body: _buildCollectionsList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCollectionsList() {
-    final List<Map<String, dynamic>> collections =
-        questionBank.where((q) => q['isFavorite'] == true).toList();
-    if (collections.isEmpty) return const Center(child: Text('尚無收藏項目'));
-    return ListView.builder(
-      itemCount: collections.length,
-      itemBuilder: (ctx, i) => ListTile(
-        leading: const Icon(Icons.quiz_outlined, color: Color(0xFF8D6E63)),
-        title: Text(collections[i]['question']),
-        subtitle: Text(collections[i]['subject']),
-        trailing: const Icon(Icons.chevron_right),
       ),
     );
   }
@@ -7380,7 +7413,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 20,
                       spreadRadius: 2,
                     ),
@@ -7566,7 +7599,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF8D6E63).withOpacity(0.2),
+                    color: const Color(0xFF8D6E63).withValues(alpha: 0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   )
@@ -7738,7 +7771,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: Colors.black.withValues(alpha: 0.02),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   )

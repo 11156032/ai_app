@@ -1,5 +1,6 @@
 part of 'main_screen.dart';
 
+// ignore: library_private_types_in_public_api
 extension MainScreenSocialTab on _MainScreenState {
   // --- 社群分頁 ---
   Widget _buildSocialTab() {
@@ -329,22 +330,33 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   Widget _buildPostActions(Map<String, dynamic> p) {
+    final bool isGuest = widget.currentUser['id'] == 'u4';
     return Row(children: [
       IconButton(
           icon: Icon(p['isLiked'] ? Icons.favorite : Icons.favorite_border,
-              size: 20, color: p['isLiked'] ? Colors.redAccent : Colors.grey),
-          onPressed: () => _toggleLike(p)),
+              size: 20,
+              color: isGuest
+                  ? Colors.grey.shade300
+                  : (p['isLiked'] ? Colors.redAccent : Colors.grey)),
+          onPressed: () => isGuest ? _showGuestLoginPrompt() : _toggleLike(p)),
       Text('${p['likes']}', style: const TextStyle(fontSize: 12)),
       const SizedBox(width: 20),
       IconButton(
-          icon: const Icon(Icons.mode_comment_outlined,
-              size: 20, color: Colors.grey),
-          onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => PostReplyPage(
-                          originalPost: p, currentUser: widget.currentUser)))
-              .then((_) => _loadData())),
+          icon: Icon(Icons.mode_comment_outlined,
+              size: 20,
+              color: isGuest ? Colors.grey.shade300 : Colors.grey),
+          onPressed: () {
+            if (isGuest) {
+              _showGuestLoginPrompt();
+              return;
+            }
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => PostReplyPage(
+                        originalPost: p, currentUser: widget.currentUser)))
+                .then((_) => _loadData());
+          }),
       Text('${p['replies']}', style: const TextStyle(fontSize: 12)),
       const Spacer(),
       IconButton(
@@ -353,14 +365,22 @@ extension MainScreenSocialTab on _MainScreenState {
                   ? Icons.bookmark
                   : Icons.bookmark_border,
               size: 20,
-              color: (p['isBookmarked'] as bool? ?? false)
-                  ? const Color(0xFF8D6E63)
-                  : Colors.grey),
-          onPressed: () => _toggleBookmark(p)),
+              color: isGuest
+                  ? Colors.grey.shade300
+                  : ((p['isBookmarked'] as bool? ?? false)
+                      ? const Color(0xFF8D6E63)
+                      : Colors.grey)),
+          onPressed: () =>
+              isGuest ? _showGuestLoginPrompt() : _toggleBookmark(p)),
     ]);
   }
 
   Future<void> _toggleLike(Map<String, dynamic> p) async {
+    // 訪客限制
+    if (widget.currentUser['id'] == 'u4') {
+      _showGuestLoginPrompt();
+      return;
+    }
     final db = await DatabaseHelper.instance.database;
     final currentUserId = widget.currentUser['id'];
     int currentLikes = p['likes'] ?? 0;
@@ -380,6 +400,59 @@ extension MainScreenSocialTab on _MainScreenState {
           'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
     }
     _loadData();
+  }
+
+  // ── 訪客登入提示 ─────────────────────────────────────────
+  void _showGuestLoginPrompt() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF3E0),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.lock_outline_rounded,
+              color: Color(0xFFFF9800), size: 32),
+        ),
+        title: const Text('需要登入才能使用',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        content: const Text(
+          '此功能僅限登入的會員使用。\n請先登入或註冊正式帳號，\n即可發文、留言與互動！',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13.5, color: Colors.black54, height: 1.6),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: const Text('待會兒再看'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // 返回登入頁
+              widget.onLogout();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8D6E63),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('去登入'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── 超連結文字渲染 ──────────────────────────────────────────────

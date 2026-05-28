@@ -1241,6 +1241,84 @@ class DatabaseHelper {
       'duration_seconds': 1200,
       'timestamp': '2026-05-26 16:00:00'
     });
+
+    // 8. 排行榜種子資料：u2 陳教授
+    await db.insert('quiz_results', {
+      'user_id': 'u2',
+      'total': 20,
+      'correct': 20,
+      'wrong_question_ids': jsonEncode([]),
+      'duration_seconds': 900,
+      'timestamp': '2026-05-24 09:00:00'
+    });
+    await db.insert('quiz_results', {
+      'user_id': 'u2',
+      'total': 25,
+      'correct': 24,
+      'wrong_question_ids': jsonEncode([5]),
+      'duration_seconds': 1100,
+      'timestamp': '2026-05-26 10:30:00'
+    });
+    await db.insert('quiz_results', {
+      'user_id': 'u2',
+      'total': 15,
+      'correct': 15,
+      'wrong_question_ids': jsonEncode([]),
+      'duration_seconds': 600,
+      'timestamp': '2026-05-27 08:00:00'
+    });
+
+    // 9. 排行榜種子資料：u5 李同學
+    await db.insert('quiz_results', {
+      'user_id': 'u5',
+      'total': 12,
+      'correct': 9,
+      'wrong_question_ids': jsonEncode([4, 7, 10]),
+      'duration_seconds': 800,
+      'timestamp': '2026-05-23 15:00:00'
+    });
+    await db.insert('quiz_results', {
+      'user_id': 'u5',
+      'total': 18,
+      'correct': 14,
+      'wrong_question_ids': jsonEncode([2, 6, 8, 11]),
+      'duration_seconds': 1300,
+      'timestamp': '2026-05-25 11:00:00'
+    });
+    await db.insert('quiz_results', {
+      'user_id': 'u5',
+      'total': 10,
+      'correct': 8,
+      'wrong_question_ids': jsonEncode([3, 9]),
+      'duration_seconds': 700,
+      'timestamp': '2026-05-27 14:00:00'
+    });
+
+    // 10. 排行榜種子資料：u6 陳助教
+    await db.insert('quiz_results', {
+      'user_id': 'u6',
+      'total': 30,
+      'correct': 27,
+      'wrong_question_ids': jsonEncode([1, 4, 12]),
+      'duration_seconds': 1500,
+      'timestamp': '2026-05-22 10:00:00'
+    });
+    await db.insert('quiz_results', {
+      'user_id': 'u6',
+      'total': 20,
+      'correct': 19,
+      'wrong_question_ids': jsonEncode([8]),
+      'duration_seconds': 950,
+      'timestamp': '2026-05-24 16:00:00'
+    });
+    await db.insert('quiz_results', {
+      'user_id': 'u6',
+      'total': 25,
+      'correct': 22,
+      'wrong_question_ids': jsonEncode([2, 6, 13]),
+      'duration_seconds': 1200,
+      'timestamp': '2026-05-27 09:30:00'
+    });
   }
 
   Future close() async {

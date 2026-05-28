@@ -1,5 +1,6 @@
 part of 'main_screen.dart';
 
+// ignore: library_private_types_in_public_api
 extension MainScreenProfileTab on _MainScreenState {
   // --- 個人資料頁面 (模組化) ---
   Widget _buildPersonalProfileTab(BuildContext context) {
@@ -137,9 +138,12 @@ extension MainScreenProfileTab on _MainScreenState {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildDashboardItem(Icons.timer_outlined, '學習時數', '${_todayStudyHours.toStringAsFixed(1)}h'),
-              _buildDashboardItem(Icons.check_circle_outline, '完成題目', '$_todayCompletedQuestions 題'),
-              _buildDashboardItem(Icons.local_fire_department, '連續天數', '$_streakDays 天'),
+              _buildDashboardItem(Icons.timer_outlined, '學習時數',
+                  '${_todayStudyHours.toStringAsFixed(1)}h'),
+              _buildDashboardItem(Icons.check_circle_outline, '完成題目',
+                  '$_todayCompletedQuestions 題'),
+              _buildDashboardItem(
+                  Icons.local_fire_department, '連續天數', '$_streakDays 天'),
             ],
           ),
         ],
@@ -173,7 +177,8 @@ extension MainScreenProfileTab on _MainScreenState {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03), blurRadius: 10),
         ],
       ),
       child: Column(
@@ -329,22 +334,34 @@ extension MainScreenProfileTab on _MainScreenState {
             value: _latestQuizScore,
             onTap: _showQuizHistoryPage,
           ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.leaderboard_rounded,
+            label: '排行榜',
+            value: '查看所有使用者的測驗成績排名',
+            onTap: () => _changePage(6, '排行榜'),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildLearningProgressModule(BuildContext context) {
+    final hasData = _weeklyAccuracyList.any((v) => v >= 0);
     return _buildModuleContainer(
       context: context,
-      title: '學習歷程 (本週時數)',
+      title: '學習歷程（本週測驗正確率）',
       child: Column(
         children: [
           const SizedBox(height: 10),
           _buildSimpleChart(context),
           const SizedBox(height: 16),
-          Text('本週累計：$_weeklyTotalHours 小時',
-              style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          hasData
+              ? Text('本週平均正確率：${_weeklyAvgAccuracy.toStringAsFixed(1)}%',
+                  style: const TextStyle(color: Colors.grey, fontSize: 13))
+              : const Text('本週尚無作答紀錄',
+                  style: TextStyle(color: Colors.grey, fontSize: 13)),
         ],
       ),
     );
@@ -352,21 +369,16 @@ extension MainScreenProfileTab on _MainScreenState {
 
   Widget _buildSimpleChart(BuildContext context) {
     final List<String> days = ['一', '二', '三', '四', '五', '六', '日'];
-    
-    // 找出本週最高時數，作為比例尺分母（最低為 3.0，防止分母為 0 或過小）
-    double maxHour = _weeklyHoursList.reduce((a, b) => a > b ? a : b);
-    if (maxHour < 3.0) maxHour = 3.0;
-
-    const double chartMaxHeight = 100.0; // 圖表最大高度
+    const double chartMaxHeight = 100.0;
 
     return Column(
       children: [
         Stack(
           alignment: Alignment.bottomCenter,
           children: [
-            // 基準參考虛線 (例如：每日學習目標 1.5h)
+            // 基準參考虛線 (60% 正確率)
             Positioned(
-              bottom: (1.5 / maxHour) * chartMaxHeight,
+              bottom: 0.6 * chartMaxHeight,
               left: 0,
               right: 0,
               child: Container(
@@ -374,7 +386,8 @@ extension MainScreenProfileTab on _MainScreenState {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: Theme.of(context).primaryColor.withOpacity(0.2),
+                      color:
+                          Theme.of(context).primaryColor.withValues(alpha: 0.2),
                       width: 1,
                       style: BorderStyle.solid,
                     ),
@@ -382,16 +395,30 @@ extension MainScreenProfileTab on _MainScreenState {
                 ),
               ),
             ),
-            
+
             // 柱狀圖列
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: List.generate(7, (i) {
-                final double hours = _weeklyHoursList[i];
-                final double barHeight = (hours / maxHour) * chartMaxHeight;
+                final double acc = _weeklyAccuracyList[i]; // -1 代表無資料
+                final bool hasData = acc >= 0;
+                final double barHeight =
+                    hasData ? (acc / 100.0) * chartMaxHeight : 4.0;
                 final bool isToday = (i == DateTime.now().weekday - 1);
                 final bool isSelected = (_selectedBarIndex == i);
+
+                // 顯示顏色：綠色=高正確率, 黃色=中, 紅=低
+                Color barColor;
+                if (!hasData) {
+                  barColor = Colors.grey.shade200;
+                } else if (acc >= 80) {
+                  barColor = const Color(0xFF66BB6A); // 綠
+                } else if (acc >= 60) {
+                  barColor = const Color(0xFFFFCA28); // 黃
+                } else {
+                  barColor = const Color(0xFFEF5350); // 紅
+                }
 
                 return GestureDetector(
                   onTap: () {
@@ -402,46 +429,61 @@ extension MainScreenProfileTab on _MainScreenState {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      // 點擊顯示的時數泡泡 Tooltip
+                      // 點擊顯示的正確率 Tooltip
                       AnimatedOpacity(
                         duration: const Duration(milliseconds: 200),
                         opacity: isSelected ? 1.0 : 0.0,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           margin: const EdgeInsets.only(bottom: 4),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor,
+                            color: hasData ? barColor : Colors.grey.shade400,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            '${hours.toStringAsFixed(1)}h',
-                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            hasData ? '${acc.toInt()}%' : '--',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
-                      
+
                       // 柱狀圖本體
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         width: 14,
                         height: barHeight < 4 ? 4 : barHeight,
                         decoration: BoxDecoration(
-                          gradient: isToday
+                          gradient: isToday && hasData
                               ? LinearGradient(
-                                  colors: [Theme.of(context).primaryColor, const Color(0xFFFFB74D)],
+                                  colors: [
+                                    barColor,
+                                    barColor.withValues(alpha: 0.6)
+                                  ],
                                   begin: Alignment.bottomCenter,
                                   end: Alignment.topCenter,
                                 )
                               : LinearGradient(
-                                  colors: [Colors.grey.shade300, Colors.grey.shade400],
+                                  colors: hasData
+                                      ? [
+                                          barColor,
+                                          barColor.withValues(alpha: 0.7)
+                                        ]
+                                      : [
+                                          Colors.grey.shade200,
+                                          Colors.grey.shade300
+                                        ],
                                   begin: Alignment.bottomCenter,
                                   end: Alignment.topCenter,
                                 ),
                           borderRadius: BorderRadius.circular(4),
-                          boxShadow: isToday
+                          boxShadow: isToday && hasData
                               ? [
                                   BoxShadow(
-                                    color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                    color: barColor.withValues(alpha: 0.35),
                                     blurRadius: 4,
                                     offset: const Offset(0, 2),
                                   )
@@ -454,8 +496,11 @@ extension MainScreenProfileTab on _MainScreenState {
                         days[i],
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                          color: isToday ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                          fontWeight:
+                              isToday ? FontWeight.bold : FontWeight.normal,
+                          color: isToday
+                              ? Theme.of(context).primaryColor
+                              : Colors.grey.shade600,
                         ),
                       ),
                     ],
@@ -465,8 +510,31 @@ extension MainScreenProfileTab on _MainScreenState {
             ),
           ],
         ),
+        // 圖例
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildLegendDot(const Color(0xFF66BB6A), '≥ 80%'),
+            const SizedBox(width: 12),
+            _buildLegendDot(const Color(0xFFFFCA28), '60~79%'),
+            const SizedBox(width: 12),
+            _buildLegendDot(const Color(0xFFEF5350), '< 60%'),
+          ],
+        ),
       ],
     );
+  }
+
+  Widget _buildLegendDot(Color color, String label) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+    ]);
   }
 
   Widget _buildProfileTile({

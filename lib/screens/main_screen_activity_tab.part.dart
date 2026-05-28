@@ -1,5 +1,6 @@
 part of 'main_screen.dart';
 
+// ignore: library_private_types_in_public_api
 extension MainScreenActivityTab on _MainScreenState {
   Widget _buildSocialActivityTab() {
     return DefaultTabController(
