@@ -51,7 +51,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const SizedBox(width: 40),
-                  const Text('AI 代理人助理',
+                  const Text('代理人助理',
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF8D6E63),
@@ -95,7 +95,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       return _buildColorStylePicker(setModalState);
                     }
                     if (msg['widgetType'] == 'color_palette') {
-                      return _buildColorPalette(msg['colorStyle'] ?? 'light', setModalState);
+                      return _buildColorPalette(
+                          msg['colorStyle'] ?? 'light', setModalState);
                     }
                     if (msg['widgetType'] == 'skip_button') {
                       return _buildSkipButton(setModalState);
@@ -104,7 +105,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       return _buildPostTypePicker(setModalState);
                     }
                     if (msg['widgetType'] == 'confirm_post') {
-                      return _buildPostConfirmation(msg['pendingData'], setModalState);
+                      return _buildPostConfirmation(
+                          msg['pendingData'], setModalState);
                     }
                     if (msg['widgetType'] == 'ai_loading') {
                       return _buildAiLoading(msg);
@@ -128,13 +130,48 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
     final options = [
       {'i': Icons.forum, 'l': '社群討論', 'v': '社群', 'c': Colors.blue},
       {'i': Icons.history_edu, 'l': '查看社群動態', 'v': '社群動態', 'c': Colors.orange},
-      {'i': Icons.calendar_month_outlined, 'l': '新增日曆行程', 'v': '新增行程', 'c': Colors.blueAccent},
-      {'i': Icons.dynamic_feed_outlined, 'l': '發佈社群貼文', 'v': '發佈貼文', 'c': Colors.deepOrange},
-      {'i': Icons.question_answer_outlined, 'l': '回覆社群留言', 'v': '回覆哪些留言', 'c': Colors.green},
-      {'i': Icons.manage_accounts_outlined, 'l': '修改個人檔案', 'v': '個人檔案', 'c': Colors.purple},
-      {'i': Icons.palette_outlined, 'l': '切換佈景主題', 'v': '切換主題', 'c': Colors.pink},
-      {'i': Icons.menu_book_outlined, 'l': '跳轉題庫測驗', 'v': '題庫', 'c': Colors.teal},
-      {'i': Icons.note_alt_outlined, 'l': '筆記本管理', 'v': '筆記本管理', 'c': Colors.brown},
+      {
+        'i': Icons.calendar_month_outlined,
+        'l': '新增日曆行程',
+        'v': '新增行程',
+        'c': Colors.blueAccent
+      },
+      {
+        'i': Icons.dynamic_feed_outlined,
+        'l': '發佈社群貼文',
+        'v': '發佈貼文',
+        'c': Colors.deepOrange
+      },
+      {
+        'i': Icons.question_answer_outlined,
+        'l': '回覆社群留言',
+        'v': '回覆哪些留言',
+        'c': Colors.green
+      },
+      {
+        'i': Icons.manage_accounts_outlined,
+        'l': '修改個人檔案',
+        'v': '個人檔案',
+        'c': Colors.purple
+      },
+      {
+        'i': Icons.palette_outlined,
+        'l': '切換佈景主題',
+        'v': '切換主題',
+        'c': Colors.pink
+      },
+      {
+        'i': Icons.menu_book_outlined,
+        'l': '跳轉題庫測驗',
+        'v': '題庫',
+        'c': Colors.teal
+      },
+      {
+        'i': Icons.note_alt_outlined,
+        'l': '筆記本管理',
+        'v': '筆記本管理',
+        'c': Colors.brown
+      },
     ];
     return Container(
         margin: const EdgeInsets.only(bottom: 16, left: 40, right: 10),
@@ -166,7 +203,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: (opt['c'] as Color).withValues(alpha: 0.1),
+                                color:
+                                    (opt['c'] as Color).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(opt['i'] as IconData,
@@ -268,7 +306,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
                 String dateTimeStr =
                     "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} $timeStr";
-                widget.onHandleSubmit(dateTimeStr, _modalController, setModalState);
+                widget.onHandleSubmit(
+                    dateTimeStr, _modalController, setModalState);
               }
             }
           },
@@ -277,13 +316,29 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
 
   /// 深淺色風格選擇器（進階版）
   Widget _buildColorStylePicker(StateSetter setModalState) {
-    const lightPreview = [Color(0xFFFFB3C1), Color(0xFFFFD6A5), Color(0xFFCAFFBF), Color(0xFFBDE0FE), Color(0xFFE2C2FF)];
-    const darkPreview  = [Color(0xFF8B2635), Color(0xFF2D6A4F), Color(0xFF1B4F72), Color(0xFF7D5A00), Color(0xFF4A235A)];
+    const lightPreview = [
+      Color(0xFFFFB3C1),
+      Color(0xFFFFD6A5),
+      Color(0xFFCAFFBF),
+      Color(0xFFBDE0FE),
+      Color(0xFFE2C2FF)
+    ];
+    const darkPreview = [
+      Color(0xFF8B2635),
+      Color(0xFF2D6A4F),
+      Color(0xFF1B4F72),
+      Color(0xFF7D5A00),
+      Color(0xFF4A235A)
+    ];
 
     Widget styleBtn({
-      required String icon, required String label, required String sub,
-      required List<Color> grad, required String value,
-      required List<Color> preview, bool isDark = false,
+      required String icon,
+      required String label,
+      required String sub,
+      required List<Color> grad,
+      required String value,
+      required List<Color> preview,
+      bool isDark = false,
     }) {
       final borderColor = isDark
           ? const Color(0xFF4A7C59).withValues(alpha: 0.45)
@@ -291,43 +346,78 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       final shadowColor = isDark
           ? Colors.black.withValues(alpha: 0.38)
           : const Color(0xFFFF8FAB).withValues(alpha: 0.32);
-      final textColor  = isDark ? Colors.white : const Color(0xFF3E2723);
-      final subColor   = isDark ? Colors.white60 : const Color(0xFF795548);
-      final arrowBg    = isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFFF8FAB).withValues(alpha: 0.18);
+      final textColor = isDark ? Colors.white : const Color(0xFF3E2723);
+      final subColor = isDark ? Colors.white60 : const Color(0xFF795548);
+      final arrowBg = isDark
+          ? Colors.white.withValues(alpha: 0.12)
+          : const Color(0xFFFF8FAB).withValues(alpha: 0.18);
       final arrowColor = isDark ? Colors.white54 : const Color(0xFFFF4081);
 
-      return Expanded(child: GestureDetector(
-        onTap: () => widget.onHandleSubmit(value, _modalController, setModalState),
+      return Expanded(
+          child: GestureDetector(
+        onTap: () =>
+            widget.onHandleSubmit(value, _modalController, setModalState),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: grad, begin: Alignment.topLeft, end: Alignment.bottomRight),
+            gradient: LinearGradient(
+                colors: grad,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: borderColor, width: 1.5),
-            boxShadow: [BoxShadow(color: shadowColor, blurRadius: 14, spreadRadius: 0, offset: const Offset(0, 5))],
+            boxShadow: [
+              BoxShadow(
+                  color: shadowColor,
+                  blurRadius: 14,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 5))
+            ],
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(icon, style: const TextStyle(fontSize: 28)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                decoration: BoxDecoration(color: arrowBg, borderRadius: BorderRadius.circular(8)),
-                child: Icon(Icons.arrow_forward_ios_rounded, size: 11, color: arrowColor),
-              ),
-            ]),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(icon, style: const TextStyle(fontSize: 28)),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                    decoration: BoxDecoration(
+                        color: arrowBg, borderRadius: BorderRadius.circular(8)),
+                    child: Icon(Icons.arrow_forward_ios_rounded,
+                        size: 11, color: arrowColor),
+                  ),
+                ]),
             const SizedBox(height: 10),
-            Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor, letterSpacing: 0.3)),
+            Text(label,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: textColor,
+                    letterSpacing: 0.3)),
             const SizedBox(height: 3),
             Text(sub, style: TextStyle(fontSize: 11, color: subColor)),
             const SizedBox(height: 12),
-            Row(children: preview.map((c) => Container(
-              width: 13, height: 13,
-              margin: const EdgeInsets.only(right: 5),
-              decoration: BoxDecoration(
-                color: c, shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: c.withValues(alpha: 0.45), blurRadius: 3, offset: const Offset(0, 2))],
-              ),
-            )).toList()),
+            Row(
+                children: preview
+                    .map((c) => Container(
+                          width: 13,
+                          height: 13,
+                          margin: const EdgeInsets.only(right: 5),
+                          decoration: BoxDecoration(
+                            color: c,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                  color: c.withValues(alpha: 0.45),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2))
+                            ],
+                          ),
+                        ))
+                    .toList()),
           ]),
         ),
       ));
@@ -336,13 +426,22 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
     return Container(
       margin: const EdgeInsets.only(bottom: 14, left: 12, right: 12),
       child: Row(children: [
-        styleBtn(icon: '🌸', label: '淺色系', sub: '清淡、輕盈、活潑',
-          grad: const [Color(0xFFFFCCDA), Color(0xFFBBE1FF)],
-          value: '淺色系', preview: lightPreview),
+        styleBtn(
+            icon: '🌸',
+            label: '淺色系',
+            sub: '清淡、輕盈、活潑',
+            grad: const [Color(0xFFFFCCDA), Color(0xFFBBE1FF)],
+            value: '淺色系',
+            preview: lightPreview),
         const SizedBox(width: 12),
-        styleBtn(icon: '🌲', label: '深色系', sub: '沉穩、質感、低調',
-          grad: const [Color(0xFF1A2A3A), Color(0xFF2E4A3E)],
-          value: '深色系', preview: darkPreview, isDark: true),
+        styleBtn(
+            icon: '🌲',
+            label: '深色系',
+            sub: '沉穩、質感、低調',
+            grad: const [Color(0xFF1A2A3A), Color(0xFF2E4A3E)],
+            value: '深色系',
+            preview: darkPreview,
+            isDark: true),
       ]),
     );
   }
@@ -350,13 +449,23 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
   /// 進階色盤（含精選色磚 + 彩虹滑桿）
   Widget _buildColorPalette(String style, StateSetter setModalState) {
     final isLight = style == 'light';
-    final presets = isLight ? <Color>[
-      const Color(0xFFFFB3C1), const Color(0xFFFFD6A5), const Color(0xFFCAFFBF),
-      const Color(0xFFBDE0FE), const Color(0xFFE2C2FF), const Color(0xFFFFF3B0),
-    ] : <Color>[
-      const Color(0xFF8B2635), const Color(0xFF2D6A4F), const Color(0xFF1B4F72),
-      const Color(0xFF7D5A00), const Color(0xFF4A235A), const Color(0xFF2E4057),
-    ];
+    final presets = isLight
+        ? <Color>[
+            const Color(0xFFFFB3C1),
+            const Color(0xFFFFD6A5),
+            const Color(0xFFCAFFBF),
+            const Color(0xFFBDE0FE),
+            const Color(0xFFE2C2FF),
+            const Color(0xFFFFF3B0),
+          ]
+        : <Color>[
+            const Color(0xFF8B2635),
+            const Color(0xFF2D6A4F),
+            const Color(0xFF1B4F72),
+            const Color(0xFF7D5A00),
+            const Color(0xFF4A235A),
+            const Color(0xFF2E4057),
+          ];
     final double sat = isLight ? 0.70 : 0.55;
     final double lig = isLight ? 0.82 : 0.35;
 
@@ -365,13 +474,33 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       final double x = c * (1 - ((h / 60) % 2 - 1).abs());
       final double m = lig - c / 2;
       double r = 0, g = 0, b = 0;
-      if (h < 60)       { r = c; g = x; b = 0; }
-      else if (h < 120) { r = x; g = c; b = 0; }
-      else if (h < 180) { r = 0; g = c; b = x; }
-      else if (h < 240) { r = 0; g = x; b = c; }
-      else if (h < 300) { r = x; g = 0; b = c; }
-      else              { r = c; g = 0; b = x; }
-      return Color.fromARGB(255, ((r + m) * 255).round(), ((g + m) * 255).round(), ((b + m) * 255).round());
+      if (h < 60) {
+        r = c;
+        g = x;
+        b = 0;
+      } else if (h < 120) {
+        r = x;
+        g = c;
+        b = 0;
+      } else if (h < 180) {
+        r = 0;
+        g = c;
+        b = x;
+      } else if (h < 240) {
+        r = 0;
+        g = x;
+        b = c;
+      } else if (h < 300) {
+        r = x;
+        g = 0;
+        b = c;
+      } else {
+        r = c;
+        g = 0;
+        b = x;
+      }
+      return Color.fromARGB(255, ((r + m) * 255).round(),
+          ((g + m) * 255).round(), ((b + m) * 255).round());
     }
 
     Color selectedColor = presets[0];
@@ -385,7 +514,12 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: const Color(0xFF8D6E63).withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 4))
+          ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // 標題
@@ -393,71 +527,128 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(color: selectedColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                  color: selectedColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10)),
               child: Icon(Icons.palette, color: selectedColor, size: 18),
             ),
             const SizedBox(width: 10),
             Text(isLight ? '🌸 淺色系 色盤' : '🌲 深色系 色盤',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF4E342E))),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Color(0xFF4E342E))),
           ]),
           const SizedBox(height: 14),
           // 精選色磚
-          const Text('精選配色', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+          const Text('精選配色',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Row(children: presets.map((c) => Expanded(child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: GestureDetector(
-              onTap: () => setLocal(() { selectedColor = c; isCustom = false; }),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                height: 36,
-                decoration: BoxDecoration(
-                  color: c,
-                  borderRadius: BorderRadius.circular(10),
-                  border: (selectedColor == c && !isCustom) ? Border.all(color: const Color(0xFF4E342E), width: 2.5) : Border.all(color: Colors.transparent),
-                  boxShadow: (selectedColor == c && !isCustom) ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 6, offset: const Offset(0, 3))] : null,
-                ),
-              ),
-            ),
-          ))).toList()),
+          Row(
+              children: presets
+                  .map((c) => Expanded(
+                          child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: GestureDetector(
+                          onTap: () => setLocal(() {
+                            selectedColor = c;
+                            isCustom = false;
+                          }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: c,
+                              borderRadius: BorderRadius.circular(10),
+                              border: (selectedColor == c && !isCustom)
+                                  ? Border.all(
+                                      color: const Color(0xFF4E342E),
+                                      width: 2.5)
+                                  : Border.all(color: Colors.transparent),
+                              boxShadow: (selectedColor == c && !isCustom)
+                                  ? [
+                                      BoxShadow(
+                                          color: c.withValues(alpha: 0.5),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 3))
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      )))
+                  .toList()),
           const SizedBox(height: 16),
           // 分隔
           Row(children: [
             const Expanded(child: Divider()),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text('自訂顏色', style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600))),
+            Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text('自訂顏色',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w600))),
             const Expanded(child: Divider()),
           ]),
           const SizedBox(height: 12),
           // 彩虹色相滑桿
           LayoutBuilder(builder: (ctx2, constraints) {
             final sw = constraints.maxWidth;
-            final thumbLeft = ((selectedHue / 360.0) * sw - 13).clamp(0.0, sw - 26);
+            final thumbLeft =
+                ((selectedHue / 360.0) * sw - 13).clamp(0.0, sw - 26);
             return GestureDetector(
               onHorizontalDragUpdate: (d) {
                 final hue = ((d.localPosition.dx / sw) * 360).clamp(0.0, 360.0);
-                setLocal(() { selectedHue = hue; selectedColor = hslToColor(hue); isCustom = true; });
+                setLocal(() {
+                  selectedHue = hue;
+                  selectedColor = hslToColor(hue);
+                  isCustom = true;
+                });
               },
               onTapDown: (d) {
                 final hue = ((d.localPosition.dx / sw) * 360).clamp(0.0, 360.0);
-                setLocal(() { selectedHue = hue; selectedColor = hslToColor(hue); isCustom = true; });
+                setLocal(() {
+                  selectedHue = hue;
+                  selectedColor = hslToColor(hue);
+                  isCustom = true;
+                });
               },
               child: Stack(clipBehavior: Clip.none, children: [
-                Container(height: 22, decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(11),
-                  gradient: const LinearGradient(colors: [
-                    Color(0xFFFF0000), Color(0xFFFFFF00), Color(0xFF00FF00),
-                    Color(0xFF00FFFF), Color(0xFF0000FF), Color(0xFFFF00FF), Color(0xFFFF0000),
-                  ]),
-                )),
-                Positioned(left: thumbLeft, top: -4, child: Container(
-                  width: 30, height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle, color: Colors.white,
-                    border: Border.all(color: selectedColor, width: 4),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
-                  ),
-                )),
+                Container(
+                    height: 22,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(11),
+                      gradient: const LinearGradient(colors: [
+                        Color(0xFFFF0000),
+                        Color(0xFFFFFF00),
+                        Color(0xFF00FF00),
+                        Color(0xFF00FFFF),
+                        Color(0xFF0000FF),
+                        Color(0xFFFF00FF),
+                        Color(0xFFFF0000),
+                      ]),
+                    )),
+                Positioned(
+                    left: thumbLeft,
+                    top: -4,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: selectedColor, width: 4),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 4)
+                        ],
+                      ),
+                    )),
               ]),
             );
           }),
@@ -466,30 +657,53 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           Row(children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 46, height: 46,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                color: selectedColor, borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: selectedColor.withValues(alpha: 0.45), blurRadius: 8, offset: const Offset(0, 3))],
+                color: selectedColor,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                      color: selectedColor.withValues(alpha: 0.45),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3))
+                ],
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('#${selectedColor.toARGB32().toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF4E342E))),
-              Text(isCustom ? '自訂顏色' : '精選配色',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-            ])),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(
+                      '#${selectedColor.toARGB32().toRadixString(16).toUpperCase().padLeft(8, '0').substring(2)}',
+                      style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4E342E))),
+                  Text(isCustom ? '自訂顏色' : '精選配色',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                ])),
             ElevatedButton.icon(
               icon: const Icon(Icons.check, size: 16),
               label: const Text('確認'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: selectedColor,
-                foregroundColor: isLight ? const Color(0xFF4E342E) : Colors.white,
-                elevation: 3, shadowColor: selectedColor.withValues(alpha: 0.4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                foregroundColor:
+                    isLight ? const Color(0xFF4E342E) : Colors.white,
+                elevation: 3,
+                shadowColor: selectedColor.withValues(alpha: 0.4),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               ),
-              onPressed: () => widget.onHandleSubmit('${selectedColor.toARGB32()}', _modalController, setModalState),
+              onPressed: () => widget.onHandleSubmit(
+                  '${selectedColor.toARGB32()}',
+                  _modalController,
+                  setModalState),
             ),
           ]),
         ]),
@@ -541,7 +755,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             builder: (ctx, idx) => Center(
               child: Text(
                 label(items[idx]),
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -576,7 +791,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.schedule, color: Color(0xFF8D6E63), size: 18),
+                  child: const Icon(Icons.schedule,
+                      color: Color(0xFF8D6E63), size: 18),
                 ),
                 const SizedBox(width: 10),
                 const Text(
@@ -592,7 +808,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             const SizedBox(height: 14),
 
             // ── 日期滾輪 ───────────────────────────────────────────────
-            const Text('日期', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text('日期',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 4),
             Stack(
               alignment: Alignment.center,
@@ -624,11 +841,15 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Container(width: 8, height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF66BB6A), shape: BoxShape.circle)),
+                        Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                                color: Color(0xFF66BB6A),
+                                shape: BoxShape.circle)),
                         const SizedBox(width: 6),
-                        const Text('開始時間', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const Text('開始時間',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
                       ]),
                       const SizedBox(height: 6),
                       Stack(
@@ -637,7 +858,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                           Container(
                             height: 38,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF66BB6A).withValues(alpha: 0.08),
+                              color: const Color(0xFF66BB6A)
+                                  .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
@@ -651,14 +873,18 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                                   selStartHour = hours[i];
                                   // 若開始 >= 結束，自動往後推 1 小時
                                   if (selStartHour > selEndHour ||
-                                      (selStartHour == selEndHour && selStartMin >= selEndMin)) {
+                                      (selStartHour == selEndHour &&
+                                          selStartMin >= selEndMin)) {
                                     selEndHour = (selStartHour + 1) % 24;
                                     setLocal(() {});
                                   }
                                 },
                                 label: (h) => fmt2(h as int),
                               ),
-                              const Text(':', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                              const Text(':',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18)),
                               buildWheel(
                                 items: minutes,
                                 initialIndex: minutes.indexOf(selStartMin),
@@ -677,7 +903,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 const Column(
                   children: [
                     SizedBox(height: 22),
-                    Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFBCAAA4)),
+                    Icon(Icons.arrow_forward_ios,
+                        size: 14, color: Color(0xFFBCAAA4)),
                   ],
                 ),
                 const SizedBox(width: 8),
@@ -686,11 +913,15 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Container(width: 8, height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEF5350), shape: BoxShape.circle)),
+                        Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                                color: Color(0xFFEF5350),
+                                shape: BoxShape.circle)),
                         const SizedBox(width: 6),
-                        const Text('結束時間', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const Text('結束時間',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
                       ]),
                       const SizedBox(height: 6),
                       Stack(
@@ -699,7 +930,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                           Container(
                             height: 38,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEF5350).withValues(alpha: 0.07),
+                              color: const Color(0xFFEF5350)
+                                  .withValues(alpha: 0.07),
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
@@ -712,7 +944,10 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                                 onSelected: (i) => selEndHour = hours[i],
                                 label: (h) => fmt2(h as int),
                               ),
-                              const Text(':', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                              const Text(':',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18)),
                               buildWheel(
                                 items: minutes,
                                 initialIndex: minutes.indexOf(selEndMin),
@@ -749,8 +984,10 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   final date = dates[selDateIdx];
                   final datePrefix =
                       '${date.year}-${fmt2(date.month)}-${fmt2(date.day)}';
-                  final startStr = '$datePrefix ${fmt2(selStartHour)}:${fmt2(selStartMin)}';
-                  final endStr   = '$datePrefix ${fmt2(selEndHour)}:${fmt2(selEndMin)}';
+                  final startStr =
+                      '$datePrefix ${fmt2(selStartHour)}:${fmt2(selStartMin)}';
+                  final endStr =
+                      '$datePrefix ${fmt2(selEndHour)}:${fmt2(selEndMin)}';
 
                   // 用 "|||" 分隔開始與結束，讓 main_screen 解析
                   widget.onHandleSubmit(
@@ -781,7 +1018,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           spacing: 8,
           children: colors
               .map((c) => ActionChip(
-                    avatar: CircleAvatar(backgroundColor: c['color'], radius: 8),
+                    avatar:
+                        CircleAvatar(backgroundColor: c['color'], radius: 8),
                     label: Text(c['name']),
                     backgroundColor: Colors.white,
                     onPressed: () {
@@ -792,6 +1030,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               .toList(),
         ));
   }
+
   Widget _buildPostTypePicker(StateSetter setModalState) {
     final typeData = [
       {
@@ -863,8 +1102,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 onTap: () => widget.onHandleSubmit(
                     t['label'] as String, _modalController, setModalState),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: bg,
                     borderRadius: BorderRadius.circular(14),
@@ -908,7 +1147,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
     );
   }
 
-  Widget _buildPostConfirmation(Map<String, dynamic> data, StateSetter setModalState) {
+  Widget _buildPostConfirmation(
+      Map<String, dynamic> data, StateSetter setModalState) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16, left: 40, right: 10),
       padding: const EdgeInsets.all(16),
@@ -920,12 +1160,14 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(children: [
-            Icon(Icons.assignment_turned_in_outlined, color: Colors.green, size: 20),
+            Icon(Icons.assignment_turned_in_outlined,
+                color: Colors.green, size: 20),
             SizedBox(width: 8),
             Text('確認發佈內容', style: TextStyle(fontWeight: FontWeight.bold))
           ]),
           const SizedBox(height: 10),
-          Text('📝 內容：${data['content']}', maxLines: 2, overflow: TextOverflow.ellipsis),
+          Text('📝 內容：${data['content']}',
+              maxLines: 2, overflow: TextOverflow.ellipsis),
           Text('🏷️ 類型：${data['type']}'),
           Text('⏰ 時間：${data['time']}'),
           const SizedBox(height: 12),
@@ -933,13 +1175,16 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               TextButton(
-                  onPressed: () => widget.onHandleSubmit('取消發佈', _modalController, setModalState),
-                  child: const Text('取消', style: TextStyle(color: Colors.grey))),
+                  onPressed: () => widget.onHandleSubmit(
+                      '取消發佈', _modalController, setModalState),
+                  child:
+                      const Text('取消', style: TextStyle(color: Colors.grey))),
               ElevatedButton(
                   style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF8D6E63),
                       foregroundColor: Colors.white),
-                  onPressed: () => widget.onHandleSubmit('確認發佈', _modalController, setModalState),
+                  onPressed: () => widget.onHandleSubmit(
+                      '確認發佈', _modalController, setModalState),
                   child: const Text('確認發佈'))
             ],
           )
@@ -967,65 +1212,18 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
   }
 
   Widget _buildAiLoading(Map<String, dynamic> msg) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Color(0xFF8D6E63),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Flexible(
-                  child: Text(
-                    '小幫手正在為您整理筆記...',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4E342E),
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const _AiLoadingTipWidget(),
-          ],
-        ),
-      ),
-    );
+    return const _NoteSummaryLoadingBubble();
   }
 
   Widget _buildMessage(Map<String, dynamic> msg, BuildContext context,
       StateSetter setModalState) {
     // 如果是圖卡類型且文字為空，直接跳過 _buildMessage，因為它已經在 itemBuilder 處理過了
-    if (msg['widgetType'] != null && (msg['text'] == null || msg['text'].isEmpty)) {
+    if (msg['widgetType'] != null &&
+        (msg['text'] == null || msg['text'].isEmpty)) {
       return const SizedBox();
     }
-    if ((msg['text'] == null || msg['text'].isEmpty) && msg['widgetType'] == null) {
+    if ((msg['text'] == null || msg['text'].isEmpty) &&
+        msg['widgetType'] == null) {
       return const SizedBox();
     }
 
@@ -1054,12 +1252,13 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           Expanded(
             child: Focus(
               onKeyEvent: (FocusNode node, KeyEvent event) {
-                final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+                final isMobile =
+                    !kIsWeb && (Platform.isAndroid || Platform.isIOS);
                 if (isMobile) {
                   return KeyEventResult.ignored;
                 }
                 final isEnter = event.logicalKey == LogicalKeyboardKey.enter ||
-                                event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                    event.logicalKey == LogicalKeyboardKey.numpadEnter;
                 if (event is KeyDownEvent && isEnter) {
                   if (HardwareKeyboard.instance.isShiftPressed) {
                     final text = _modalController.text;
@@ -1160,7 +1359,8 @@ class _AiLoadingTipWidgetState extends State<_AiLoadingTipWidget> {
     final now = DateTime.now();
     if (AiDiagnosisService.nextAvailableTime != null &&
         AiDiagnosisService.nextAvailableTime!.isAfter(now)) {
-      _secondsLeft = AiDiagnosisService.nextAvailableTime!.difference(now).inSeconds;
+      _secondsLeft =
+          AiDiagnosisService.nextAvailableTime!.difference(now).inSeconds;
     } else {
       _secondsLeft = 0;
     }
@@ -1193,9 +1393,12 @@ class _AiLoadingTipWidgetState extends State<_AiLoadingTipWidget> {
         ? 'AI 目前繁忙，預計於 $_secondsLeft 秒後恢復。將暫以本地算法大綱整理...'
         : _currentTip;
 
-    final Color bgColor = isRateLimited ? const Color(0xFFFFF3E0) : const Color(0xFFFFFDE7);
-    final Color borderColor = isRateLimited ? const Color(0xFFFFE0B2) : const Color(0xFFFFF59D);
-    final Color textColor = isRateLimited ? const Color(0xFFE65100) : const Color(0xFFF57F17);
+    final Color bgColor =
+        isRateLimited ? const Color(0xFFFFF3E0) : const Color(0xFFFFFDE7);
+    final Color borderColor =
+        isRateLimited ? const Color(0xFFFFE0B2) : const Color(0xFFFFF59D);
+    final Color textColor =
+        isRateLimited ? const Color(0xFFE65100) : const Color(0xFFF57F17);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -1221,6 +1424,116 @@ class _AiLoadingTipWidgetState extends State<_AiLoadingTipWidget> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NoteSummaryLoadingBubble extends StatefulWidget {
+  const _NoteSummaryLoadingBubble();
+
+  @override
+  State<_NoteSummaryLoadingBubble> createState() =>
+      _NoteSummaryLoadingBubbleState();
+}
+
+class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
+  double _value = 0.0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (_value < 0.90) {
+          _value += 0.03;
+          if (_value > 0.90) _value = 0.90;
+        } else {
+          _value += (0.999 - _value) * 0.05;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Flexible(
+                  child: Text(
+                    '代理人正在為您整理筆記...',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4E342E),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${(_value * 100).toInt()}%',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF8D6E63),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 8,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: _value.clamp(0.0, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFD7CCC8), Color(0xFF8D6E63)],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const _AiLoadingTipWidget(),
+          ],
+        ),
       ),
     );
   }

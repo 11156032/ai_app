@@ -113,6 +113,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _isDiagnosing = false;
   StateSetter? _sheetStateSetter;
   List<int> _lastQuizWrongIds = [];
+  // ── 串流診斷狀態 ──
+  String _streamedDiagnosisText = ''; // 逐步累積的串流文字
+  StreamSubscription<String>? _diagnosisStreamSub; // 訂閱管理
   final List<String> _quizSelectedChapters = [];
   Map<String, Map<String, int>> _quizPickedCounts = {
     '單選題': {'易': 0, '中': 0, '難': 0},
@@ -153,7 +156,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     {
       'isAI': true,
       'text':
-          '哈囉👋 我是你的專屬 AI 代理人！很高興為您服務。😊\n\n我可以協助您管理行程、發佈貼文、回覆留言以及調整個人化設定。您可以隨時輸入「幫助」或點擊下方功能來了解更多！',
+          '哈囉👋 我是你的專屬代理人！很高興為您服務。😊\n\n我可以協助您管理行程、發佈貼文、回覆留言以及調整個人化設定。您可以隨時輸入「幫助」或點擊下方功能來了解更多！',
       'isCard': false
     },
     {'isAI': true, 'text': '', 'isCard': false, 'widgetType': 'help_options'}
@@ -702,6 +705,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _isDisposed = true;
     _quizTimer?.cancel();
     _scheduleTimer?.cancel();
+    _diagnosisStreamSub?.cancel(); // 取消 AI 診斷串流訂閱
     _clearPostTimers();
     _quizScrollController.dispose();
     _profileScrollController.dispose();
@@ -943,8 +947,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
     await _loadData();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(isScheduled ? 'AI 代理人已為您完成貼文排程！' : '貼文已立即發佈！')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isScheduled ? '代理人已為您完成貼文排程！' : '貼文已立即發佈！')));
     }
   }
 
@@ -1440,7 +1444,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const SizedBox(width: 40),
-                          const Text('AI 代理人助理',
+                          const Text('代理人助理',
                               style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF8D6E63),
@@ -1455,7 +1459,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   {
                                     'isAI': true,
                                     'text':
-                                        '好的，已為您重啟對話！😊\n我是您的 AI 代理人，請問今天有什麼我可以幫您的嗎？',
+                                        '好的，已為您重啟對話！😊\n我是您的代理人，請問今天有什麼我可以幫您的嗎？',
                                     'isCard': false
                                   },
                                   {
@@ -2029,58 +2033,382 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           }
 
                           if (msg['widgetType'] == 'notebook_options') {
-                            final options = [
-                              {'l': '📖 跳轉筆記本', 'v': '查看筆記本', 'c': Colors.blue},
-                              {'l': '➕ 新增筆記', 'v': '新增筆記', 'c': Colors.green},
-                              {'l': '📝 整理筆記', 'v': '整理筆記', 'c': Colors.purple},
-                              {'l': '🔍 搜尋筆記', 'v': '搜尋筆記', 'c': Colors.orange},
-                              {'l': '🗑️ 刪除筆記', 'v': '刪除筆記', 'c': Colors.red},
+                            final categories = <Map<String, dynamic>>[
+                              {
+                                'title': '📚 筆記管理常用功能',
+                                'color': const Color(0xFF8D6E63),
+                                'bgColor': const Color(0xFFEFEBE9),
+                                'items': <Map<String, dynamic>>[
+                                  {
+                                    'icon': Icons.menu_book_outlined,
+                                    'l': '跳轉筆記本',
+                                    'sub': '切換分頁查看所有筆記',
+                                    'v': '查看筆記本',
+                                    'c': const Color(0xFF1E88E5),
+                                  },
+                                  {
+                                    'icon': Icons.add_circle_outline,
+                                    'l': '新增筆記',
+                                    'sub': '快速建立一篇新筆記',
+                                    'v': '新增筆記',
+                                    'c': const Color(0xFF43A047),
+                                  },
+                                  {
+                                    'icon': Icons.note_alt_outlined,
+                                    'l': '整理筆記',
+                                    'sub': '由 AI 為您整理重點大綱',
+                                    'v': '整理筆記',
+                                    'c': const Color(0xFF7E57C2),
+                                  },
+                                  {
+                                    'icon': Icons.search_outlined,
+                                    'l': '搜尋筆記',
+                                    'sub': '輸入關鍵字尋找特定筆記',
+                                    'v': '搜尋筆記',
+                                    'c': const Color(0xFFFB8C00),
+                                  },
+                                  {
+                                    'icon': Icons.delete_outline,
+                                    'l': '刪除筆記',
+                                    'sub': '刪除不再需要的筆記項目',
+                                    'v': '刪除筆記',
+                                    'c': const Color(0xFFE53935),
+                                  },
+                                ],
+                              }
                             ];
+
                             return Container(
-                                margin: const EdgeInsets.only(
-                                    bottom: 12, left: 40, right: 10),
-                                child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: options
-                                        .map((opt) => ActionChip(
-                                              label: Text(opt['l'] as String,
-                                                  style: TextStyle(
-                                                      color:
-                                                          opt['c'] as Color)),
-                                              backgroundColor: Colors.white,
-                                              shape: RoundedRectangleBorder(
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 40, right: 10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: categories.map((cat) {
+                                  final catColor = cat['color'] as Color;
+                                  final catBg = cat['bgColor'] as Color;
+                                  final catTitle = cat['title'] as String;
+                                  final catItems = cat['items']
+                                      as List<Map<String, dynamic>>;
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              bottom: 6, left: 2),
+                                          child: Row(children: [
+                                            Container(
+                                              width: 3,
+                                              height: 14,
+                                              decoration: BoxDecoration(
+                                                color: catColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 7),
+                                            Text(catTitle,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: catColor,
+                                                    letterSpacing: 0.4)),
+                                          ]),
+                                        ),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color:
+                                                catBg.withValues(alpha: 0.45),
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            border: Border.all(
+                                                color: catColor.withValues(
+                                                    alpha: 0.12),
+                                                width: 1),
+                                          ),
+                                          child: Column(
+                                            children: catItems
+                                                .asMap()
+                                                .entries
+                                                .map((entry) {
+                                              final idx = entry.key;
+                                              final opt = entry.value;
+                                              final isLast =
+                                                  idx == catItems.length - 1;
+                                              final itemColor =
+                                                  opt['c'] as Color;
+                                              return Column(children: [
+                                                InkWell(
+                                                  onTap: () => _handleAISubmit(
+                                                      opt['v'] as String,
+                                                      modalController,
+                                                      setModalState),
                                                   borderRadius:
-                                                      BorderRadius.circular(20),
-                                                  side: BorderSide(
+                                                      BorderRadius.circular(14),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 10),
+                                                    child: Row(children: [
+                                                      Container(
+                                                        width: 36,
+                                                        height: 36,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: itemColor
+                                                              .withValues(
+                                                                  alpha: 0.12),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(10),
+                                                        ),
+                                                        child: Icon(
+                                                            opt['icon']
+                                                                as IconData,
+                                                            size: 19,
+                                                            color: itemColor),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                                opt['l']
+                                                                    as String,
+                                                                style: const TextStyle(
+                                                                    fontSize:
+                                                                        13.5,
+                                                                    color: Colors
+                                                                        .black87,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600)),
+                                                            const SizedBox(
+                                                                height: 1),
+                                                            Text(
+                                                                opt['sub']
+                                                                    as String,
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        11,
+                                                                    color: Colors
+                                                                        .grey
+                                                                        .shade500)),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      Icon(
+                                                          Icons
+                                                              .chevron_right_rounded,
+                                                          size: 18,
+                                                          color: Colors
+                                                              .grey.shade400),
+                                                    ]),
+                                                  ),
+                                                ),
+                                                if (!isLast)
+                                                  Divider(
+                                                      height: 1,
+                                                      thickness: 0.5,
+                                                      indent: 60,
+                                                      endIndent: 12,
                                                       color:
-                                                          opt['c'] as Color)),
-                                              onPressed: () => _handleAISubmit(
-                                                  opt['v'] as String,
-                                                  modalController,
-                                                  setModalState),
-                                            ))
-                                        .toList()));
+                                                          catColor.withValues(
+                                                              alpha: 0.15)),
+                                              ]);
+                                            }).toList(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            );
                           }
 
                           if (msg['widgetType'] == 'notebook_category_picker') {
+                            final filteredCats = NotesDatabase.categories
+                                .where((c) => c != '全部')
+                                .toList();
+                            final categories = <Map<String, dynamic>>[
+                              {
+                                'title': '📁 選擇筆記分類',
+                                'color': const Color(0xFF8D6E63),
+                                'bgColor': const Color(0xFFEFEBE9),
+                                'items': filteredCats.map((cat) {
+                                  return {
+                                    'icon': Icons.folder_open_outlined,
+                                    'l': cat,
+                                    'sub': '將此筆記歸類於 $cat',
+                                    'v': cat,
+                                    'c': const Color(0xFF8D6E63),
+                                  };
+                                }).toList(),
+                              }
+                            ];
+
                             return Container(
-                                margin: const EdgeInsets.only(
-                                    bottom: 12, left: 40, right: 10),
-                                child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: NotesDatabase.categories
-                                        .where((c) => c != '全部')
-                                        .map((cat) => ActionChip(
-                                              label: Text(cat),
-                                              backgroundColor: Colors.white,
-                                              onPressed: () => _handleAISubmit(
-                                                  cat,
-                                                  modalController,
-                                                  setModalState),
-                                            ))
-                                        .toList()));
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 40, right: 10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: categories.map((cat) {
+                                  final catColor = cat['color'] as Color;
+                                  final catBg = cat['bgColor'] as Color;
+                                  final catTitle = cat['title'] as String;
+                                  final catItems = cat['items']
+                                      as List<Map<String, dynamic>>;
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              bottom: 6, left: 2),
+                                          child: Row(children: [
+                                            Container(
+                                              width: 3,
+                                              height: 14,
+                                              decoration: BoxDecoration(
+                                                color: catColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 7),
+                                            Text(catTitle,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: catColor,
+                                                    letterSpacing: 0.4)),
+                                          ]),
+                                        ),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color:
+                                                catBg.withValues(alpha: 0.45),
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            border: Border.all(
+                                                color: catColor.withValues(
+                                                    alpha: 0.12),
+                                                width: 1),
+                                          ),
+                                          child: Column(
+                                            children: catItems
+                                                .asMap()
+                                                .entries
+                                                .map((entry) {
+                                              final idx = entry.key;
+                                              final opt = entry.value;
+                                              final isLast =
+                                                  idx == catItems.length - 1;
+                                              final itemColor =
+                                                  opt['c'] as Color;
+                                              return Column(children: [
+                                                InkWell(
+                                                  onTap: () => _handleAISubmit(
+                                                      opt['v'] as String,
+                                                      modalController,
+                                                      setModalState),
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 10),
+                                                    child: Row(children: [
+                                                      Container(
+                                                        width: 36,
+                                                        height: 36,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: itemColor
+                                                              .withValues(
+                                                                  alpha: 0.12),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(10),
+                                                        ),
+                                                        child: Icon(
+                                                            opt['icon']
+                                                                as IconData,
+                                                            size: 19,
+                                                            color: itemColor),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                                opt['l']
+                                                                    as String,
+                                                                style: const TextStyle(
+                                                                    fontSize:
+                                                                        13.5,
+                                                                    color: Colors
+                                                                        .black87,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600)),
+                                                            const SizedBox(
+                                                                height: 1),
+                                                            Text(
+                                                                opt['sub']
+                                                                    as String,
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        11,
+                                                                    color: Colors
+                                                                        .grey
+                                                                        .shade500)),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      Icon(
+                                                          Icons
+                                                              .chevron_right_rounded,
+                                                          size: 18,
+                                                          color: Colors
+                                                              .grey.shade400),
+                                                    ]),
+                                                  ),
+                                                ),
+                                                if (!isLast)
+                                                  Divider(
+                                                      height: 1,
+                                                      thickness: 0.5,
+                                                      indent: 60,
+                                                      endIndent: 12,
+                                                      color:
+                                                          catColor.withValues(
+                                                              alpha: 0.15)),
+                                              ]);
+                                            }).toList(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            );
                           }
 
                           if (msg['widgetType'] == 'confirm_note') {
@@ -2202,130 +2530,285 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                           if (msg['widgetType'] == 'help_options') {
                             final isGuest = widget.currentUser['id'] == 'u4';
-                            final options = [
-                              {'n': '1', 'l': '📅 新增日曆行程', 'v': '新增行程'},
+
+                            // ── 分類結構定義 ──────────────────────────────
+                            final categories = <Map<String, dynamic>>[
+                              {
+                                'title': '📅 行程管理',
+                                'color': const Color(0xFF42A5F5),
+                                'bgColor': const Color(0xFFE3F2FD),
+                                'items': <Map<String, dynamic>>[
+                                  {
+                                    'icon': Icons.calendar_month_outlined,
+                                    'l': '新增日曆行程',
+                                    'sub': '快速建立行事曆事件',
+                                    'v': '新增行程',
+                                    'c': const Color(0xFF42A5F5),
+                                  },
+                                ],
+                              },
                               if (!isGuest)
-                                {'n': '2', 'l': '📝 發佈社群貼文', 'v': '發佈貼文'},
-                              if (!isGuest)
-                                {'n': '3', 'l': '💬 回覆社群留言', 'v': '回覆哪些留言'},
-                              {'n': '4', 'l': '👤 修改個人資料', 'v': '個人檔案'},
-                              {'n': '5', 'l': '🎨 切換佈景主題', 'v': '切換主題'},
-                              {'n': '6', 'l': '📋 跳轉題庫測驗', 'v': '題庫'},
-                              if (!isGuest)
-                                {'n': '7', 'l': '📓 筆記本管理', 'v': '筆記本管理'},
+                                {
+                                  'title': '🌐 社群互動',
+                                  'color': const Color(0xFFFF7043),
+                                  'bgColor': const Color(0xFFFBE9E7),
+                                  'items': <Map<String, dynamic>>[
+                                    {
+                                      'icon': Icons.dynamic_feed_outlined,
+                                      'l': '發佈社群貼文',
+                                      'sub': '分享學習心得與文章',
+                                      'v': '發佈貼文',
+                                      'c': const Color(0xFFFF7043),
+                                    },
+                                    {
+                                      'icon': Icons.question_answer_outlined,
+                                      'l': '回覆社群留言',
+                                      'sub': '與同學互動交流',
+                                      'v': '回覆哪些留言',
+                                      'c': const Color(0xFF26C6DA),
+                                    },
+                                  ],
+                                },
+                              {
+                                'title': '📚 學習工具',
+                                'color': const Color(0xFF26A69A),
+                                'bgColor': const Color(0xFFE0F2F1),
+                                'items': <Map<String, dynamic>>[
+                                  {
+                                    'icon': Icons.menu_book_outlined,
+                                    'l': '跳轉題庫測驗',
+                                    'sub': '開始練習與自我測試',
+                                    'v': '題庫',
+                                    'c': const Color(0xFF26A69A),
+                                  },
+                                  if (!isGuest)
+                                    {
+                                      'icon': Icons.note_alt_outlined,
+                                      'l': '筆記本管理',
+                                      'sub': '整理並查閱學習筆記',
+                                      'v': '筆記本管理',
+                                      'c': const Color(0xFF8D6E63),
+                                    },
+                                ],
+                              },
+                              {
+                                'title': '⚙️ 個人設定',
+                                'color': const Color(0xFFAB47BC),
+                                'bgColor': const Color(0xFFF3E5F5),
+                                'items': <Map<String, dynamic>>[
+                                  {
+                                    'icon': Icons.manage_accounts_outlined,
+                                    'l': '修改個人資料',
+                                    'sub': '更新頭像、暱稱與簡介',
+                                    'v': '個人檔案',
+                                    'c': const Color(0xFFAB47BC),
+                                  },
+                                  {
+                                    'icon': Icons.palette_outlined,
+                                    'l': '切換佈景主題',
+                                    'sub': '調整顏色風格與深淺模式',
+                                    'v': '切換主題',
+                                    'c': const Color(0xFFEC407A),
+                                  },
+                                ],
+                              },
                             ];
+
                             return Container(
-                                margin: const EdgeInsets.only(
-                                    bottom: 12, left: 40, right: 10),
-                                child: Column(
-                                  children: options
-                                      .map((opt) => Padding(
-                                            padding: const EdgeInsets.only(
-                                                bottom: 8),
-                                            child: InkWell(
-                                              onTap: () => _handleAISubmit(
-                                                  opt['v']!,
-                                                  modalController,
-                                                  setModalState),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 10),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                      color:
-                                                          Colors.grey.shade200),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                        color: Colors.black
-                                                            .withValues(
-                                                                alpha: 0.02),
-                                                        blurRadius: 4,
-                                                        offset:
-                                                            const Offset(0, 2))
-                                                  ],
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Container(
-                                                      width: 24,
-                                                      height: 24,
-                                                      decoration: BoxDecoration(
-                                                        color: const Color(
-                                                                0xFF8D6E63)
-                                                            .withValues(
-                                                                alpha: 0.1),
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      child: Center(
-                                                          child: Text(opt['n']!,
-                                                              style: const TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: Color(
-                                                                      0xFF8D6E63),
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold))),
-                                                    ),
-                                                    const SizedBox(width: 12),
-                                                    Text(opt['l']!,
-                                                        style: const TextStyle(
-                                                            fontSize: 14,
-                                                            color:
-                                                                Colors.black87,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w500)),
-                                                    const Spacer(),
-                                                    Icon(Icons.chevron_right,
-                                                        size: 16,
-                                                        color: Colors
-                                                            .grey.shade400),
-                                                  ],
-                                                ),
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 40, right: 10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: categories.map((cat) {
+                                  final catColor = cat['color'] as Color;
+                                  final catBg = cat['bgColor'] as Color;
+                                  final catTitle = cat['title'] as String;
+                                  final catItems = cat['items']
+                                      as List<Map<String, dynamic>>;
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // ── 分組標題列 ──────────────────
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              bottom: 6, left: 2),
+                                          child: Row(children: [
+                                            Container(
+                                              width: 3,
+                                              height: 14,
+                                              decoration: BoxDecoration(
+                                                color: catColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
                                               ),
                                             ),
-                                          ))
-                                      .toList(),
-                                ));
+                                            const SizedBox(width: 7),
+                                            Text(catTitle,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: catColor,
+                                                    letterSpacing: 0.4)),
+                                          ]),
+                                        ),
+                                        // ── 卡片群組容器 ─────────────────
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color:
+                                                catBg.withValues(alpha: 0.45),
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            border: Border.all(
+                                                color: catColor.withValues(
+                                                    alpha: 0.12),
+                                                width: 1),
+                                          ),
+                                          child: Column(
+                                            children: catItems
+                                                .asMap()
+                                                .entries
+                                                .map((entry) {
+                                              final idx = entry.key;
+                                              final opt = entry.value;
+                                              final isLast =
+                                                  idx == catItems.length - 1;
+                                              final itemColor =
+                                                  opt['c'] as Color;
+                                              return Column(children: [
+                                                InkWell(
+                                                  onTap: () => _handleAISubmit(
+                                                      opt['v'] as String,
+                                                      modalController,
+                                                      setModalState),
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 10),
+                                                    child: Row(children: [
+                                                      Container(
+                                                        width: 36,
+                                                        height: 36,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: itemColor
+                                                              .withValues(
+                                                                  alpha: 0.12),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(10),
+                                                        ),
+                                                        child: Icon(
+                                                            opt['icon']
+                                                                as IconData,
+                                                            size: 19,
+                                                            color: itemColor),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                                opt['l']
+                                                                    as String,
+                                                                style: const TextStyle(
+                                                                    fontSize:
+                                                                        13.5,
+                                                                    color: Colors
+                                                                        .black87,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600)),
+                                                            const SizedBox(
+                                                                height: 1),
+                                                            Text(
+                                                                opt['sub']
+                                                                    as String,
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        11,
+                                                                    color: Colors
+                                                                        .grey
+                                                                        .shade500)),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      Icon(
+                                                          Icons
+                                                              .chevron_right_rounded,
+                                                          size: 18,
+                                                          color: Colors
+                                                              .grey.shade400),
+                                                    ]),
+                                                  ),
+                                                ),
+                                                if (!isLast)
+                                                  Divider(
+                                                      height: 1,
+                                                      thickness: 0.5,
+                                                      indent: 60,
+                                                      endIndent: 12,
+                                                      color:
+                                                          catColor.withValues(
+                                                              alpha: 0.15)),
+                                              ]);
+                                            }).toList(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            );
                           }
 
                           if (msg['widgetType'] == 'post_type_picker') {
-                            final typeData = [
+                            final categories = <Map<String, dynamic>>[
                               {
-                                'label': '一般',
-                                'icon': '💬',
-                                'desc': '日常分享',
-                                'color': const Color(0xFF78909C),
-                                'bg': const Color(0xFFECEFF1),
-                              },
-                              {
-                                'label': '學習筆記',
-                                'icon': '📝',
-                                'desc': '記錄成長',
-                                'color': const Color(0xFF43A047),
-                                'bg': const Color(0xFFE8F5E9),
-                              },
-                              {
-                                'label': '心情文章',
-                                'icon': '💭',
-                                'desc': '抒發心情',
-                                'color': const Color(0xFF7E57C2),
-                                'bg': const Color(0xFFEDE7F6),
-                              },
-                              {
-                                'label': '分享資料',
-                                'icon': '📄',
-                                'desc': '資源共享',
-                                'color': const Color(0xFF1E88E5),
-                                'bg': const Color(0xFFE3F2FD),
-                              },
+                                'title': '🌐 選擇貼文類型',
+                                'color': const Color(0xFFFF7043),
+                                'bgColor': const Color(0xFFFBE9E7),
+                                'items': <Map<String, dynamic>>[
+                                  {
+                                    'icon': Icons.chat_bubble_outline_rounded,
+                                    'l': '一般貼文',
+                                    'sub': '日常點滴與心情分享',
+                                    'v': '一般',
+                                    'c': const Color(0xFF78909C),
+                                  },
+                                  {
+                                    'icon': Icons.note_alt_outlined,
+                                    'l': '學習筆記',
+                                    'sub': '記錄學習過程與心得',
+                                    'v': '學習筆記',
+                                    'c': const Color(0xFF43A047),
+                                  },
+                                  {
+                                    'icon': Icons.psychology_outlined,
+                                    'l': '心情文章',
+                                    'sub': '抒發生活與讀書心得',
+                                    'v': '心情文章',
+                                    'c': const Color(0xFF7E57C2),
+                                  },
+                                  {
+                                    'icon': Icons.folder_shared_outlined,
+                                    'l': '分享資料',
+                                    'sub': '提供考試或學術資源分享',
+                                    'v': '分享資料',
+                                    'c': const Color(0xFF1E88E5),
+                                  },
+                                ],
+                              }
                             ];
                             return Container(
                               margin: const EdgeInsets.only(
@@ -2333,6 +2816,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // ── 提示 Banner ──
                                   Container(
                                     margin: const EdgeInsets.only(bottom: 10),
                                     padding: const EdgeInsets.symmetric(
@@ -2360,63 +2844,158 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       ],
                                     ),
                                   ),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: typeData.map((t) {
-                                      final color = t['color'] as Color;
-                                      final bg = t['bg'] as Color;
-                                      return GestureDetector(
-                                        onTap: () => _handleAISubmit(
-                                            t['label'] as String,
-                                            modalController,
-                                            setModalState),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 14, vertical: 10),
-                                          decoration: BoxDecoration(
-                                            color: bg,
-                                            borderRadius:
-                                                BorderRadius.circular(14),
-                                            border: Border.all(
-                                                color: color, width: 1.2),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: color.withValues(
-                                                    alpha: 0.12),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 2),
-                                              )
-                                            ],
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(t['icon'] as String,
-                                                  style: const TextStyle(
-                                                      fontSize: 16)),
-                                              const SizedBox(width: 7),
-                                              Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(t['label'] as String,
-                                                      style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: color)),
-                                                  Text(t['desc'] as String,
-                                                      style: TextStyle(
-                                                          fontSize: 10,
-                                                          color:
-                                                              color.withValues(
-                                                                  alpha: 0.7))),
-                                                ],
+                                  // ── 卡片清單 ──
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: categories.map((cat) {
+                                      final catColor = cat['color'] as Color;
+                                      final catBg = cat['bgColor'] as Color;
+                                      final catTitle = cat['title'] as String;
+                                      final catItems = cat['items']
+                                          as List<Map<String, dynamic>>;
+
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 6, left: 2),
+                                            child: Row(children: [
+                                              Container(
+                                                width: 3,
+                                                height: 14,
+                                                decoration: BoxDecoration(
+                                                  color: catColor,
+                                                  borderRadius:
+                                                      BorderRadius.circular(2),
+                                                ),
                                               ),
-                                            ],
+                                              const SizedBox(width: 7),
+                                              Text(catTitle,
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: catColor,
+                                                      letterSpacing: 0.4)),
+                                            ]),
                                           ),
-                                        ),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  catBg.withValues(alpha: 0.45),
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              border: Border.all(
+                                                  color: catColor.withValues(
+                                                      alpha: 0.12),
+                                                  width: 1),
+                                            ),
+                                            child: Column(
+                                              children: catItems
+                                                  .asMap()
+                                                  .entries
+                                                  .map((entry) {
+                                                final idx = entry.key;
+                                                final opt = entry.value;
+                                                final isLast =
+                                                    idx == catItems.length - 1;
+                                                final itemColor =
+                                                    opt['c'] as Color;
+                                                return Column(children: [
+                                                  InkWell(
+                                                    onTap: () =>
+                                                        _handleAISubmit(
+                                                            opt['v'] as String,
+                                                            modalController,
+                                                            setModalState),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            14),
+                                                    child: Padding(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 10),
+                                                      child: Row(children: [
+                                                        Container(
+                                                          width: 36,
+                                                          height: 36,
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: itemColor
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.12),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        10),
+                                                          ),
+                                                          child: Icon(
+                                                              opt['icon']
+                                                                  as IconData,
+                                                              size: 19,
+                                                              color: itemColor),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 12),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                  opt['l']
+                                                                      as String,
+                                                                  style: const TextStyle(
+                                                                      fontSize:
+                                                                          13.5,
+                                                                      color: Colors
+                                                                          .black87,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600)),
+                                                              const SizedBox(
+                                                                  height: 1),
+                                                              Text(
+                                                                  opt['sub']
+                                                                      as String,
+                                                                  style: TextStyle(
+                                                                      fontSize:
+                                                                          11,
+                                                                      color: Colors
+                                                                          .grey
+                                                                          .shade500)),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        Icon(
+                                                            Icons
+                                                                .chevron_right_rounded,
+                                                            size: 18,
+                                                            color: Colors
+                                                                .grey.shade400),
+                                                      ]),
+                                                    ),
+                                                  ),
+                                                  if (!isLast)
+                                                    Divider(
+                                                        height: 1,
+                                                        thickness: 0.5,
+                                                        indent: 60,
+                                                        endIndent: 12,
+                                                        color:
+                                                            catColor.withValues(
+                                                                alpha: 0.15)),
+                                                ]);
+                                              }).toList(),
+                                            ),
+                                          ),
+                                        ],
                                       );
                                     }).toList(),
                                   ),
@@ -3534,7 +4113,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           chatLogs.add({'isAI': false, 'text': text});
           chatLogs.add({
             'isAI': true,
-            'text': '嗨！很高興見到你！😊 我是你的 AI 代理人助手，隨時準備好為你服務。今天有什麼我可以幫你的嗎？',
+            'text': '嗨！很高興見到你！😊 我是你的代理人助手，隨時準備好為你服務。今天有什麼我可以幫你的嗎？',
             'isCard': false
           });
           chatLogs.add({
@@ -3879,17 +4458,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       decoration: BoxDecoration(
                           color: previewColor, shape: BoxShape.circle)),
                   const SizedBox(width: 10),
-                  const Text('AI 代理人已為您成功加入行程！'),
+                  const Text('代理人已為您成功加入行程！'),
                 ]),
               ),
             );
           }
         } catch (e) {
-          debugPrint('AI 代理人新增行程失敗: $e');
+          debugPrint('代理人新增行程失敗: $e');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('AI 代理人新增行程失敗: $e'),
+                content: Text('代理人新增行程失敗: $e'),
                 backgroundColor: Colors.redAccent,
               ),
             );
@@ -4640,56 +5219,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildAiLoading(Map<String, dynamic> msg) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Color(0xFF8D6E63),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Flexible(
-                  child: Text(
-                    '小幫手正在為您整理筆記...',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4E342E),
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const _AiLoadingTipWidget(),
-          ],
-        ),
-      ),
-    );
+    return const _NoteSummaryLoadingBubble();
   }
 
   Widget _buildConfirmationCard(
@@ -5541,36 +6071,66 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _quizStep = 3;
       _isDiagnosing = true;
       _diagnosisResult = null;
+      _streamedDiagnosisText = ''; // 重置串流文字
     });
 
-    // 非同步進行 AI 診斷
+    // ── 串流 AI 診斷 ─────────────────────────────────────────────────────
     final score = _currentQuizQuestions.isEmpty
         ? 0
         : ((correctCount / _currentQuizQuestions.length) * 100).round();
-    AiDiagnosisService.generate(
+
+    _diagnosisStreamSub?.cancel(); // 取消舊的訂閱（如果有）
+
+    _diagnosisStreamSub = AiDiagnosisService.generateStream(
       userId: widget.currentUser['id'],
       wrongQuestions: wrongQuestions,
       correctQuestions: correctQuestions,
       score: score,
       total: _currentQuizQuestions.length,
       subject: _quizSelectedSubject,
-    ).then((result) {
-      if (mounted) {
+    ).listen(
+      // ── onData：每收到一個 chunk，累積文字並更新 UI ──
+      (chunk) {
+        if (mounted) {
+          setState(() => _streamedDiagnosisText += chunk);
+          _sheetStateSetter?.call(() {});
+        }
+      },
+      // ── onDone：串流結束，解析完整文字 → 結構化報告 ──
+      onDone: () {
+        if (!mounted) return;
+        final result = _streamedDiagnosisText.trim().isNotEmpty
+            ? AiDiagnosisService.parseStreamedText(_streamedDiagnosisText)
+            : null;
         setState(() {
           _diagnosisResult = result;
           _isDiagnosing = false;
         });
         _sheetStateSetter?.call(() {});
-      }
-    }).catchError((err) {
-      debugPrint('AI 學習診斷生成失敗: $err');
-      if (mounted) {
-        setState(() {
-          _isDiagnosing = false;
+      },
+      // ── onError：串流出錯，退回本地 fallback ──
+      onError: (err) {
+        debugPrint('AI 診斷串流錯誤: $err');
+        if (!mounted) return;
+        final fallback = AiDiagnosisService.generate(
+          userId: 'u4', // 強制走 local fallback
+          wrongQuestions: wrongQuestions,
+          correctQuestions: correctQuestions,
+          score: score,
+          total: _currentQuizQuestions.length,
+          subject: _quizSelectedSubject,
+        );
+        fallback.then((result) {
+          if (!mounted) return;
+          setState(() {
+            _diagnosisResult = result;
+            _isDiagnosing = false;
+          });
+          _sheetStateSetter?.call(() {});
         });
-        _sheetStateSetter?.call(() {});
-      }
-    });
+      },
+      cancelOnError: true,
+    );
 
     // 延遲約 500 毫秒後自動彈出 AI 學習診斷報告
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -5704,7 +6264,55 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF8D6E63)))),
       const SizedBox(height: 20),
-      ElevatedButton(onPressed: _resetQuiz, child: const Text('回測驗首頁')),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: const BorderSide(color: Color(0xFF8D6E63)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _resetQuiz,
+              child: const Text(
+                '回測驗首頁',
+                style: TextStyle(
+                  color: Color(0xFF8D6E63),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                backgroundColor: const Color(0xFF8D6E63),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              onPressed: _showAiDiagnosisSheet,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.auto_awesome, size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    '查看學習診斷',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
       const Divider(height: 40),
       const Text('詳解區', style: TextStyle(fontWeight: FontWeight.bold)),
       ...List.generate(_currentQuizQuestions.length, (i) {
@@ -7328,7 +7936,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   // Body
                   Expanded(
                     child: _isDiagnosing
-                        ? _buildLoadingState()
+                        ? (_streamedDiagnosisText.isEmpty
+                            ? _buildLoadingState() // 第一個 chunk 還沒來：轉圈
+                            : _buildStreamingState()) // 逐字顯示串流文字
                         : (_diagnosisResult == null
                             ? _buildErrorState()
                             : _buildReportContent(sc)),
@@ -7397,62 +8007,77 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
   }
 
+  /// 第一個 chunk 還沒來：顯示具體進度條動畫 (非卡死 95% 版本)
   Widget _buildLoadingState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FadeInUp(
-              duration: const Duration(milliseconds: 800),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
+    return const _DiagnosisLoadingProgress();
+  }
+
+  /// 串流進行中：逐字顯示已到達的文字（ListView.builder + 打字機效果）
+  Widget _buildStreamingState() {
+    // 將累積文字依行展開
+    final lines = _streamedDiagnosisText.split('\n');
+    return Column(
+      children: [
+        // 頂部轉圈提示列
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: const Color(0xFFFFF8F5),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8D6E63)),
                 ),
-                child: const SizedBox(
-                  width: 50,
-                  height: 50,
-                  child: CircularProgressIndicator(
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFF8D6E63)),
-                    strokeWidth: 3,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'AI 導師正在產出診斷內容...',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.brown.shade400,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // 逐行顯示串流文字
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            itemCount: lines.length,
+            itemBuilder: (ctx, i) {
+              final line = lines[i];
+              final isHeader = line.startsWith('[') && line.endsWith(']');
+              final isBullet = line.trimLeft().startsWith('•');
+              return FadeInUp(
+                duration: const Duration(milliseconds: 300),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: isHeader ? 4 : 3,
+                    top: isHeader && i > 0 ? 12 : 0,
+                  ),
+                  child: Text(
+                    line,
+                    style: TextStyle(
+                      fontSize: isHeader ? 13.5 : 13,
+                      fontWeight:
+                          isHeader ? FontWeight.w700 : FontWeight.normal,
+                      color: isHeader
+                          ? const Color(0xFF6D4C41)
+                          : (isBullet ? Colors.black87 : Colors.grey.shade700),
+                      height: 1.55,
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            FadeInUp(
-              duration: const Duration(milliseconds: 1000),
-              child: const Text(
-                'AI 導師正在進行深度診斷...',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF4E342E)),
-              ),
-            ),
-            const SizedBox(height: 8),
-            FadeInUp(
-              duration: const Duration(milliseconds: 1200),
-              child: Text(
-                '正在為您分析答錯概念、提煉強項並生成個人化建議。',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -7491,20 +8116,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       controller: sc,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
-        // 提示 Banner (若使用本地 fallback)
         if (!report.isAiGenerated)
           FadeInUp(
             duration: const Duration(milliseconds: 400),
             child: Builder(builder: (context) {
-              final now = DateTime.now();
-              int secondsLeft = 0;
-              if (AiDiagnosisService.nextAvailableTime != null &&
-                  AiDiagnosisService.nextAvailableTime!.isAfter(now)) {
-                secondsLeft = AiDiagnosisService.nextAvailableTime!
-                    .difference(now)
-                    .inSeconds;
-              }
-
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
@@ -7539,7 +8154,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           Text(
                             widget.currentUser['id'] == 'u4'
                                 ? '登入解鎖 AI 智慧報告'
-                                : '目前 AI 伺服器流量繁忙',
+                                : '目前內建 AI 額度已達上限',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -7552,9 +8167,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           Text(
                             widget.currentUser['id'] == 'u4'
                                 ? '訪客帳戶目前不支援 AI 智慧診斷功能。立即註冊或登入正式帳號，即可啟用由 Gemini 生成的客製化學習診斷與複習建議！'
-                                : (secondsLeft > 0
-                                    ? '內建的 AI 診斷目前使用流量較大（已達分鐘調用上限），系統已自動切換為本地學術分析。預計將於 $secondsLeft 秒後恢復 AI 服務，請您稍候再試！'
-                                    : '內建的 AI 診斷目前使用流量較大（已達分鐘調用上限），系統已自動切換為本地學術分析。請您稍候在下一次測驗時再試，即可恢復 AI 智慧生成報告！'),
+                                : '目前測試金鑰為所有使用者共享，今日免費額度已耗盡。系統已自動切換為「本地規則分析」報告，造成不便敬請見諒！',
                             style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF5D4037),
@@ -7635,128 +8248,63 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
 
-        // 2. 強項與弱項兩欄
+        // 2. 待加強單元 (弱項)
         FadeInUp(
           duration: const Duration(milliseconds: 600),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 強項
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.green.shade100),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.check_circle_outline,
-                              color: Colors.green.shade600, size: 18),
-                          const SizedBox(width: 6),
-                          Text(
-                            '掌握度佳 (強項)',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Colors.green.shade800),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      if (report.strengths.isEmpty)
-                        Text('無特別明顯強項',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade500))
-                      else
-                        ...report.strengths.map((str) => Padding(
-                              padding: const EdgeInsets.only(bottom: 6.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('• ',
-                                      style: TextStyle(
-                                          color: Colors.green.shade600,
-                                          fontWeight: FontWeight.bold)),
-                                  Expanded(
-                                    child: Text(
-                                      str,
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade800,
-                                          height: 1.4),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )),
-                    ],
-                  ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.orange.shade100),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.warning_amber_outlined,
+                        color: Colors.orange.shade800, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      '待加強單元 (弱項)',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.orange.shade900),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              // 弱項
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.orange.shade100),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.warning_amber_outlined,
-                              color: Colors.orange.shade800, size: 18),
-                          const SizedBox(width: 6),
-                          Text(
-                            '待加強單元 (弱項)',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Colors.orange.shade900),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      if (report.weaknesses.isEmpty)
-                        Text('無特別明顯弱項',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade500))
-                      else
-                        ...report.weaknesses.map((weak) => Padding(
-                              padding: const EdgeInsets.only(bottom: 6.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('• ',
-                                      style: TextStyle(
-                                          color: Colors.orange.shade800,
-                                          fontWeight: FontWeight.bold)),
-                                  Expanded(
-                                    child: Text(
-                                      weak,
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade800,
-                                          height: 1.4),
-                                    ),
-                                  ),
-                                ],
+                const SizedBox(height: 10),
+                if (report.weaknesses.isEmpty)
+                  Text('無特別明顯弱項',
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade500))
+                else
+                  ...report.weaknesses.map((weak) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('• ',
+                                style: TextStyle(
+                                    color: Colors.orange.shade800,
+                                    fontWeight: FontWeight.bold)),
+                            Expanded(
+                              child: Text(
+                                weak,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade800,
+                                    height: 1.4),
                               ),
-                            )),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+                            ),
+                          ],
+                        ),
+                      )),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -8838,7 +9386,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
     if (!mounted) return;
     _submitComment();
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('AI 代理人已為您自動輸入並送出！')));
+        .showSnackBar(const SnackBar(content: Text('代理人已為您自動輸入並送出！')));
     await Future.delayed(const Duration(milliseconds: 1500));
     if (mounted) {
       Navigator.pop(context);
@@ -10160,6 +10708,264 @@ class _AiLoadingTipWidgetState extends State<_AiLoadingTipWidget> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DiagnosisLoadingProgress extends StatefulWidget {
+  const _DiagnosisLoadingProgress();
+
+  @override
+  State<_DiagnosisLoadingProgress> createState() =>
+      _DiagnosisLoadingProgressState();
+}
+
+class _DiagnosisLoadingProgressState extends State<_DiagnosisLoadingProgress> {
+  double _value = 0.0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (_value < 0.90) {
+          // 前段：前 3 秒內快跑到 90% (每 100ms 跑 3%)
+          _value += 0.03;
+          if (_value > 0.90) _value = 0.90;
+        } else {
+          // 後段：極慢速逼近 99.9% (每次增加剩餘空間的 5%)
+          // 這會使進度 91%, 92%, 93%, 94%, 95%, 96%, 97%... 持續增加，永不停止
+          _value += (0.999 - _value) * 0.05;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    int step = (_value * 4).ceil();
+    if (step > 4) step = 4;
+    if (step < 1) step = 1;
+
+    String loadingText = '';
+    switch (step) {
+      case 1:
+        loadingText = '資料彙整中... (1/4)';
+        break;
+      case 2:
+        loadingText = '分析答錯概念... (2/4)';
+        break;
+      case 3:
+        loadingText = '深度診斷運算中... (3/4)';
+        break;
+      case 4:
+        loadingText = '生成個人化建議... (4/4)';
+        break;
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0),
+        child: FadeInUp(
+          duration: const Duration(milliseconds: 600),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 24,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // 進度條外框與內層填充
+                    Container(
+                      height: 14,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: _value.clamp(0.0, 1.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(7),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFD7CCC8), Color(0xFF8D6E63)],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // 動態文字與百分比
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          loadingText,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4E342E),
+                          ),
+                        ),
+                        Text(
+                          '${(_value * 100).toInt()}%',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF8D6E63),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                '系統正在為您量身打造專屬報告，請稍候...',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade500,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoteSummaryLoadingBubble extends StatefulWidget {
+  const _NoteSummaryLoadingBubble();
+
+  @override
+  State<_NoteSummaryLoadingBubble> createState() =>
+      _NoteSummaryLoadingBubbleState();
+}
+
+class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
+  double _value = 0.0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (_value < 0.90) {
+          _value += 0.03;
+          if (_value > 0.90) _value = 0.90;
+        } else {
+          _value += (0.999 - _value) * 0.05;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Flexible(
+                  child: Text(
+                    '代理人正在為您整理筆記...',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4E342E),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${(_value * 100).toInt()}%',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF8D6E63),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 8,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: _value.clamp(0.0, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFD7CCC8), Color(0xFF8D6E63)],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const _AiLoadingTipWidget(),
+          ],
+        ),
       ),
     );
   }
