@@ -60,3 +60,59 @@ String formatRelativeTime(dynamic timeStr) {
     return timeStr.toString();
   }
 }
+
+// ── Google 專屬向量圖示 ────────────────────────────────────────────────────────
+
+class GoogleLogo extends StatelessWidget {
+  final double size;
+  const GoogleLogo({super.key, this.size = 20});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _GoogleLogoPainter(),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double r = size.width / 2;
+    final double strokeWidth = r * 0.42;
+
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.square;
+
+    final double radius = r - strokeWidth / 2;
+    final Rect arcRect = Rect.fromCircle(center: Offset(r, r), radius: radius);
+
+    // 紅色 (Top)
+    canvas.drawArc(arcRect, -0.785 - 1.57, 1.57, false,
+        paint..color = const Color(0xFFEA4335));
+    // 黃色 (Left)
+    canvas.drawArc(
+        arcRect, 1.57, 1.57, false, paint..color = const Color(0xFFFBBC05));
+    // 綠色 (Bottom)
+    canvas.drawArc(
+        arcRect, 0.785, 1.57, false, paint..color = const Color(0xFF34A853));
+
+    // 藍色 (Right arc + horizontal bar)
+    canvas.drawArc(
+        arcRect, -0.785, 1.57, false, paint..color = const Color(0xFF4285F4));
+
+    // 繪製藍色橫條
+    final Paint barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(
+        Rect.fromLTWH(r, r - strokeWidth / 2, r - strokeWidth / 2, strokeWidth),
+        barPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}

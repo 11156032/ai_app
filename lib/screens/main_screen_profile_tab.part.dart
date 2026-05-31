@@ -90,10 +90,40 @@ extension MainScreenProfileTab on _MainScreenState {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _displayName ?? '使用者',
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Text(
+                    _displayName ?? '使用者',
+                    style:
+                        const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  if (widget.currentUser['is_google'] == 1) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F0FE),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFADCCF9), width: 1),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GoogleLogo(size: 11),
+                          SizedBox(width: 4),
+                          Text(
+                            'Google',
+                            style: TextStyle(
+                              color: Color(0xFF1967D2),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 4),
               Text(
@@ -282,7 +312,7 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.email_outlined,
             label: '綁定 Email',
-            value: widget.currentUser['email'] ?? '未設定',
+            value: '${widget.currentUser['email'] ?? '未設定'}${widget.currentUser['is_google'] == 1 ? ' (Google)' : ''}',
             valueColor: Colors.grey,
             onTap: () {
               ScaffoldMessenger.of(context)
@@ -294,8 +324,15 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.lock_outline,
             label: '修改密碼',
-            value: '定期修改更安全',
-            onTap: _showChangePasswordDialog,
+            value: widget.currentUser['is_google'] == 1 ? '已使用 Google 帳號登入' : '定期修改更安全',
+            valueColor: widget.currentUser['is_google'] == 1 ? Colors.grey : null,
+            onTap: widget.currentUser['is_google'] == 1
+                ? () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('您已透過 Google 登入，無須修改密碼')),
+                    );
+                  }
+                : _showChangePasswordDialog,
           ),
           if (widget.currentUser['id'] != 'u4') ...[
             const Divider(height: 24),

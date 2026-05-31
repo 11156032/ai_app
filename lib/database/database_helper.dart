@@ -87,6 +87,12 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Added gemini_api_key column to users table.');
       }
 
+      if (!userCols.any((c) => c['name'] == 'is_google')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN is_google INTEGER DEFAULT 0');
+        debugPrint('Dynamic migration: Added is_google column to users table.');
+      }
+
       // 自動清理超過 30 天未復原的帳號
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
       final count = await db.delete('users', where: "deleted_at IS NOT NULL AND deleted_at <= ?", whereArgs: [thirtyDaysAgo]);
@@ -245,6 +251,9 @@ class DatabaseHelper {
       if (!cols.any((c) => c['name'] == 'gemini_api_key')) {
         await db.execute('ALTER TABLE users ADD COLUMN gemini_api_key TEXT');
       }
+      if (!cols.any((c) => c['name'] == 'is_google')) {
+        await db.execute('ALTER TABLE users ADD COLUMN is_google INTEGER DEFAULT 0');
+      }
     }
   }
 
@@ -273,6 +282,7 @@ class DatabaseHelper {
         theme_color_idx INTEGER DEFAULT 0,
         is_dark_mode INTEGER DEFAULT 0,
         gemini_api_key TEXT,
+        is_google INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');

@@ -7636,6 +7636,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showChangePasswordDialog() {
+    if (widget.currentUser['is_google'] == 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('您已透過 Google 登入，無須修改密碼')),
+      );
+      return;
+    }
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     showDialog(

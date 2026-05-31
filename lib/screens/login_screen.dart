@@ -1,6 +1,7 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
+import '../widgets/common_widgets.dart';
 
 // ── 通用精美進場組件 ─────────────────────────────────────────────────────────
 Widget _exquisiteFadeIn({
@@ -773,6 +774,102 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // ── Google 登入邏輯 ────────────────────────────────────────────────────────
+  void _showGoogleSignInDialog() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Google Sign In',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (ctx, anim1, anim2) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return Transform.scale(
+          scale: Curves.easeOutBack.transform(anim1.value) * 0.12 + 0.88,
+          child: Opacity(
+            opacity: anim1.value,
+            child: _GoogleSignInModal(
+              onAccountSelected: (email, name) async {
+                Navigator.pop(ctx);
+                await _handleGoogleLogin(email, name);
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleGoogleLogin(String email, String displayName) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final res = await db.query('users', where: 'email = ?', whereArgs: [email]);
+      if (!mounted) return;
+
+      Map<String, dynamic> userMap;
+      if (res.isNotEmpty) {
+        userMap = Map<String, dynamic>.from(res.first);
+        // 如果存在但尚未標記為 google 登入，則更新為 google 登入
+        if (userMap['is_google'] != 1) {
+          await db.update('users', {'is_google': 1}, where: 'id = ?', whereArgs: [userMap['id']]);
+          userMap['is_google'] = 1;
+        }
+
+        // 處理刪除復原邏輯
+        if (userMap['deleted_at'] != null) {
+          if (!mounted) return;
+          final shouldRestore = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('帳號復原提示'),
+              content: const Text('您的帳號已排程刪除。是否要取消刪除並復原帳號？'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('取消')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('確認復原')),
+              ],
+            ),
+          );
+          if (shouldRestore == true) {
+            await db.update('users', {'deleted_at': null},
+                where: 'id = ?', whereArgs: [userMap['id']]);
+            userMap['deleted_at'] = null;
+          } else {
+            return; // 放棄登入
+          }
+        }
+      } else {
+        // 註冊新的 Google 帳號
+        String newId = 'g_${DateTime.now().millisecondsSinceEpoch}';
+        final newUserData = {
+          'id': newId,
+          'username': displayName,
+          'email': email,
+          'hashed_password': 'google_oauth_bypass',
+          'display_name': displayName,
+          'is_google': 1,
+          'is_email_verified': 1,
+        };
+        await db.insert('users', newUserData);
+        userMap = newUserData;
+      }
+
+      userMap['session_post_ids'] = <int>{};
+      userMap['session_comment_ids'] = <int>{};
+      _showSuccessOverlay(userMap);
+    } catch (e) {
+      debugPrint('Google 登入失敗: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google 登入失敗：$e')),
+        );
+      }
+    }
+  }
+
   // ── UI ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -978,6 +1075,44 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
+                  // Google 登入按鈕
+                  _exquisiteFadeIn(
+                    delayMs: 500 + (isLogin ? 480 : 680),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(color: Color(0xFFDADCE0), width: 1.2),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            elevation: 1,
+                            shadowColor: Colors.black.withValues(alpha: 0.1),
+                          ),
+                          onPressed: _showGoogleSignInDialog,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const GoogleLogo(size: 20),
+                              const SizedBox(width: 12),
+                              Text(
+                                isLogin ? '使用 Google 帳號登入' : '使用 Google 帳號註冊',
+                                style: const TextStyle(
+                                  color: Color(0xFF3C4043),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
                   // 分隔線
                   _exquisiteFadeIn(
                     delayMs: 500 + (isLogin ? 540 : 740),
@@ -1060,6 +1195,418 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Google 專屬模擬登入視窗組件 ──────────────────────────────────────────────────
+
+class GoogleSpinner extends StatefulWidget {
+  const GoogleSpinner({super.key});
+  @override
+  State<GoogleSpinner> createState() => _GoogleSpinnerState();
+}
+
+class _GoogleSpinnerState extends State<GoogleSpinner> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+  }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  @override
+  Widget build(BuildContext context) {
+    return RotationTransition(
+      turns: _controller,
+      child: SizedBox(
+        width: 45,
+        height: 45,
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            Color color;
+            if (_controller.value < 0.25) {
+              color = const Color(0xFF4285F4); // Blue
+            } else if (_controller.value < 0.5) {
+              color = const Color(0xFFEA4335); // Red
+            } else if (_controller.value < 0.75) {
+              color = const Color(0xFFFBBC05); // Yellow
+            } else {
+              color = const Color(0xFF34A853); // Green
+            }
+            return CircularProgressIndicator(
+              strokeWidth: 4,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleSignInModal extends StatefulWidget {
+  final Function(String email, String name) onAccountSelected;
+  const _GoogleSignInModal({required this.onAccountSelected});
+
+  @override
+  State<_GoogleSignInModal> createState() => _GoogleSignInModalState();
+}
+
+class _GoogleSignInModalState extends State<_GoogleSignInModal> {
+  bool _isLoading = false;
+  bool _isAddingAccount = false;
+  
+  final _emailCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  List<Map<String, String>> _presetAccounts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingAccounts();
+  }
+
+  Future<void> _loadExistingAccounts() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      // 查詢 SQLite 中所有曾以 Google 登入 (is_google = 1) 的使用者
+      final res = await db.query(
+        'users',
+        where: 'is_google = 1',
+      );
+      if (!mounted) return;
+      setState(() {
+        _presetAccounts = res.map((row) {
+          final name = (row['display_name'] ?? row['username'] ?? '').toString();
+          final email = (row['email'] ?? '').toString();
+          final initial = name.isNotEmpty ? name.substring(0, 1) : '?';
+          return {
+            'name': name,
+            'email': email,
+            'initial': initial,
+          };
+        }).toList();
+
+        // 若無任何已登入的 Google 帳號，直接進入輸入畫面
+        if (_presetAccounts.isEmpty) {
+          _isAddingAccount = true;
+        }
+      });
+    } catch (e) {
+      debugPrint('載入 Google 帳號清單失敗: $e');
+    }
+  }
+
+  void _selectAccount(String email, String name) {
+    setState(() {
+      _isLoading = true;
+    });
+    Future.delayed(const Duration(milliseconds: 1400), () {
+      if (mounted) {
+        widget.onAccountSelected(email, name);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _buildGoogleLogoText() {
+    final styles = [
+      const TextStyle(color: Color(0xFF4285F4), fontWeight: FontWeight.bold),
+      const TextStyle(color: Color(0xFFEA4335), fontWeight: FontWeight.bold),
+      const TextStyle(color: Color(0xFFFBBC05), fontWeight: FontWeight.bold),
+      const TextStyle(color: Color(0xFF4285F4), fontWeight: FontWeight.bold),
+      const TextStyle(color: Color(0xFF34A853), fontWeight: FontWeight.bold),
+      const TextStyle(color: Color(0xFFEA4335), fontWeight: FontWeight.bold),
+    ];
+    final letters = ['G', 'o', 'o', 'g', 'l', 'e'];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(6, (i) {
+        return Text(
+          letters[i],
+          style: styles[i].copyWith(fontSize: 22, letterSpacing: 0.5),
+        );
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double modalWidth = MediaQuery.of(context).size.width.clamp(300.0, 420.0);
+    
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: Container(
+        width: modalWidth,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: _isLoading
+              ? _buildLoadingState()
+              : (_isAddingAccount ? _buildAddAccountState() : _buildAccountSelectorState()),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 20),
+        const GoogleSpinner(),
+        const SizedBox(height: 24),
+        Text(
+          '正在透過 Google 安全驗證...',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildAccountSelectorState() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _buildGoogleLogoText(),
+        const SizedBox(height: 16),
+        const Text(
+          '選取帳號',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF202124),
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          '以繼續前往 YeBang 家教',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: Color(0xFF5F6368),
+          ),
+        ),
+        const SizedBox(height: 24),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 280),
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            itemCount: _presetAccounts.length,
+            separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F3F4)),
+            itemBuilder: (ctx, i) {
+              final acc = _presetAccounts[i];
+              return InkWell(
+                onTap: () => _selectAccount(acc['email']!, acc['name']!),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  child: Row(
+                    children: [
+                      _buildAccountAvatar(acc['initial']!, i),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              acc['name']!,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF3C4043),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              acc['email']!,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: Color(0xFF5F6368),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF747775)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(height: 1, color: Color(0xFFF1F3F4)),
+        InkWell(
+          onTap: () => setState(() => _isAddingAccount = true),
+          borderRadius: BorderRadius.circular(8),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+            child: Row(
+              children: [
+                Icon(Icons.person_add_alt_1_rounded, size: 20, color: Color(0xFF1A73E8)),
+                SizedBox(width: 14),
+                Text(
+                  '使用其他帳號',
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A73E8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          '若要繼續，Google 會將您的姓名、電子郵件地址和個人資料相片與 YeBang 家教共用。請務必詳閱 YeBang 家教的服務條款和隱私權政策。',
+          textAlign: TextAlign.start,
+          style: TextStyle(
+            fontSize: 11,
+            color: Color(0xFF70757A),
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddAccountState() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _buildGoogleLogoText(),
+          const SizedBox(height: 16),
+          const Text(
+            '新增 Google 帳號',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF202124),
+            ),
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _emailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(
+              labelText: '電子郵件地址 (Gmail)',
+              hintText: 'user@gmail.com',
+              labelStyle: const TextStyle(fontSize: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF1A73E8), width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) return '請輸入電子郵件';
+              if (!val.contains('@') || !val.endsWith('.com')) return '電子郵件格式不正確';
+              return null;
+            },
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _nameCtrl,
+            decoration: InputDecoration(
+              labelText: '您的姓名',
+              hintText: '如：小明',
+              labelStyle: const TextStyle(fontSize: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF1A73E8), width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) return '請輸入姓名';
+              return null;
+            },
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: () => setState(() => _isAddingAccount = false),
+                child: const Text('返回', style: TextStyle(color: Color(0xFF1A73E8), fontWeight: FontWeight.bold)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A73E8),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    _selectAccount(_emailCtrl.text.trim(), _nameCtrl.text.trim());
+                  }
+                },
+                child: const Text('下一步', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountAvatar(String initial, int index) {
+    final colors = [
+      const Color(0xFF4285F4), // Blue
+      const Color(0xFFEA4335), // Red
+      const Color(0xFFFBBC05), // Yellow
+      const Color(0xFF34A853), // Green
+      Colors.purple,
+    ];
+    final color = colors[index % colors.length];
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          initial,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
       ),
     );
   }
