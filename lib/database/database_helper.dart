@@ -93,18 +93,12 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Added is_google column to users table.');
       }
 
-      // 自動清理超過 30 天未復原的帳號
-      final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
-      final count = await db.delete('users', where: "deleted_at IS NOT NULL AND deleted_at <= ?", whereArgs: [thirtyDaysAgo]);
-      if (count > 0) debugPrint('自動清理了 $count 個超過 30 天未復原的帳號。');
-      
-      var quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
-      if (!quizCols.any((c) => c['name'] == 'duration_seconds')) {
-        await db.execute(
-            'ALTER TABLE quiz_results ADD COLUMN duration_seconds INTEGER DEFAULT 0');
-        debugPrint('Dynamic migration: Added duration_seconds column to quiz_results table.');
+      // 自我修復：如果原廠測試帳號被清空，自動重新導入 (以 Sharon 帳號 id = u1 為指標)
+      final u1Check = await db.query('users', where: "id = 'u1'");
+      if (u1Check.isEmpty) {
+        debugPrint('Dynamic migration: Restoring original seed users and data (Sharon, etc.)...');
+        await _seedDatabase(db);
       }
-      
     } catch (e) {
       debugPrint('Error checking/adding dynamic columns or cleaning up: $e');
     }
@@ -549,28 +543,28 @@ class DatabaseHelper {
       'email': 'sharon@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': 'Sharon',
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('users', {
       'id': 'u2',
       'username': '陳教授',
       'email': 'prof@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '陳教授',
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('users', {
       'id': 'u3',
       'username': '系統',
       'email': 'sys@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '系統',
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('users', {
       'id': 'u4',
       'username': '訪客',
       'email': 'guest@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '訪客',
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await db.insert('users', {
       'id': 'u5',
@@ -578,7 +572,7 @@ class DatabaseHelper {
       'email': 'lee@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '李同學',
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await db.insert('users', {
       'id': 'u6',
@@ -586,7 +580,7 @@ class DatabaseHelper {
       'email': 'ta@gmail.com',
       'hashed_password': 'mock_password',
       'display_name': '陳助教',
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 2. Calendar Event
     await db.insert('calendar_events', {
@@ -595,7 +589,7 @@ class DatabaseHelper {
       'start_time': '2026-03-30 09:10:00',
       'end_time': '2026-03-30 12:00:00',
       'color': '0xFFFFE082',
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 3. Todo
     await db.insert('todos', {
@@ -603,7 +597,7 @@ class DatabaseHelper {
       'text': '確認 AutoCAD 圓角圖層',
       'done': 0,
       'created_at': '2026-03-30 00:00:00',
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 4. Posts (Seed a real functional post, but no hardcoded test strings from Sharon)
     await db.insert('posts', {
@@ -614,7 +608,7 @@ class DatabaseHelper {
       'type': 'text',
       'created_at':
           DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 5. Questions
     await db.insert('questions', {
@@ -628,7 +622,7 @@ class DatabaseHelper {
       'subject': '資訊管理',
       'difficulty': '中',
       'bookmarked': 1,
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await db.insert('questions', {
       'id': 2,
@@ -640,7 +634,7 @@ class DatabaseHelper {
       'subject': '國文',
       'difficulty': '易',
       'bookmarked': 0,
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await db.insert('questions', {
       'id': 3,
@@ -652,16 +646,16 @@ class DatabaseHelper {
       'subject': '數學',
       'difficulty': '易',
       'bookmarked': 0,
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 6. Tags map (for chapter matching in old logic)
-    await db.insert('tags', {'id': 1, 'name': '第二章 資料庫管理'});
-    await db.insert('tags', {'id': 2, 'name': '師說'});
-    await db.insert('tags', {'id': 3, 'name': '面積'});
+    await db.insert('tags', {'id': 1, 'name': '第二章 資料庫管理'}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('tags', {'id': 2, 'name': '師說'}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('tags', {'id': 3, 'name': '面積'}, conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert('question_tag_map', {'question_id': 1, 'tag_id': 1});
-    await db.insert('question_tag_map', {'question_id': 2, 'tag_id': 2});
-    await db.insert('question_tag_map', {'question_id': 3, 'tag_id': 3});
+    await db.insert('question_tag_map', {'question_id': 1, 'tag_id': 1}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('question_tag_map', {'question_id': 2, 'tag_id': 2}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('question_tag_map', {'question_id': 3, 'tag_id': 3}, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // TOEIC 題庫 (101-250: Part 5-7 試題)
     // Part 5: 101-130
@@ -674,7 +668,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 5,
       'user_id': 'u2',
@@ -685,7 +679,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 6,
       'user_id': 'u2',
@@ -695,7 +689,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 7,
       'user_id': 'u2',
@@ -705,7 +699,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 8,
       'user_id': 'u2',
@@ -715,7 +709,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 9,
       'user_id': 'u2',
@@ -725,7 +719,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 10,
       'user_id': 'u2',
@@ -736,7 +730,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 11,
       'user_id': 'u2',
@@ -747,7 +741,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 12,
       'user_id': 'u2',
@@ -757,7 +751,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 13,
       'user_id': 'u2',
@@ -767,7 +761,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 14,
       'user_id': 'u2',
@@ -778,7 +772,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 15,
       'user_id': 'u2',
@@ -788,7 +782,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 16,
       'user_id': 'u2',
@@ -798,7 +792,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 17,
       'user_id': 'u2',
@@ -808,7 +802,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 18,
       'user_id': 'u2',
@@ -818,7 +812,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 19,
       'user_id': 'u2',
@@ -828,7 +822,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 20,
       'user_id': 'u2',
@@ -838,7 +832,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 21,
       'user_id': 'u2',
@@ -849,7 +843,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 22,
       'user_id': 'u2',
@@ -860,7 +854,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 23,
       'user_id': 'u2',
@@ -870,7 +864,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 24,
       'user_id': 'u2',
@@ -881,7 +875,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 25,
       'user_id': 'u2',
@@ -891,7 +885,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 26,
       'user_id': 'u2',
@@ -901,7 +895,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 27,
       'user_id': 'u2',
@@ -911,7 +905,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 28,
       'user_id': 'u2',
@@ -922,7 +916,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 29,
       'user_id': 'u2',
@@ -932,7 +926,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 30,
       'user_id': 'u2',
@@ -942,7 +936,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 31,
       'user_id': 'u2',
@@ -957,7 +951,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 32,
       'user_id': 'u2',
@@ -968,7 +962,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 33,
       'user_id': 'u2',
@@ -979,7 +973,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // Part 6: 131-146
     await db.insert('questions', {
@@ -996,7 +990,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 35,
       'user_id': 'u2',
@@ -1011,7 +1005,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 36,
       'user_id': 'u2',
@@ -1026,7 +1020,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 37,
       'user_id': 'u2',
@@ -1036,7 +1030,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 38,
       'user_id': 'u2',
@@ -1046,7 +1040,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 39,
       'user_id': 'u2',
@@ -1057,7 +1051,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 40,
       'user_id': 'u2',
@@ -1072,7 +1066,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 41,
       'user_id': 'u2',
@@ -1083,7 +1077,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 42,
       'user_id': 'u2',
@@ -1092,7 +1086,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 43,
       'user_id': 'u2',
@@ -1107,7 +1101,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 44,
       'user_id': 'u2',
@@ -1117,7 +1111,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 45,
       'user_id': 'u2',
@@ -1128,7 +1122,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 46,
       'user_id': 'u2',
@@ -1143,7 +1137,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 47,
       'user_id': 'u2',
@@ -1154,7 +1148,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 48,
       'user_id': 'u2',
@@ -1164,7 +1158,7 @@ class DatabaseHelper {
       'answer': '3',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 49,
       'user_id': 'u2',
@@ -1175,7 +1169,7 @@ class DatabaseHelper {
       'answer': '0',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // Part 7: 147-150
     await db.insert('questions', {
@@ -1188,7 +1182,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 51,
       'user_id': 'u2',
@@ -1203,7 +1197,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 52,
       'user_id': 'u2',
@@ -1218,7 +1212,7 @@ class DatabaseHelper {
       'answer': '1',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('questions', {
       'id': 53,
       'user_id': 'u2',
@@ -1232,7 +1226,7 @@ class DatabaseHelper {
       'answer': '2',
       'subject': 'TOEIC',
       'bookmarked': 0
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 7. Simulated wrong question records in quiz_results to match ui state isWrong: true
     await db.insert('quiz_results', {
@@ -1242,7 +1236,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([1, 3]),
       'duration_seconds': 720,
       'timestamp': '2026-05-25 14:30:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('quiz_results', {
       'user_id': 'u1',
       'total': 15,
@@ -1250,7 +1244,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([2]),
       'duration_seconds': 1200,
       'timestamp': '2026-05-26 16:00:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 8. 排行榜種子資料：u2 陳教授
     await db.insert('quiz_results', {
@@ -1260,7 +1254,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([]),
       'duration_seconds': 900,
       'timestamp': '2026-05-24 09:00:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('quiz_results', {
       'user_id': 'u2',
       'total': 25,
@@ -1268,7 +1262,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([5]),
       'duration_seconds': 1100,
       'timestamp': '2026-05-26 10:30:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('quiz_results', {
       'user_id': 'u2',
       'total': 15,
@@ -1276,7 +1270,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([]),
       'duration_seconds': 600,
       'timestamp': '2026-05-27 08:00:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 9. 排行榜種子資料：u5 李同學
     await db.insert('quiz_results', {
@@ -1286,7 +1280,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([4, 7, 10]),
       'duration_seconds': 800,
       'timestamp': '2026-05-23 15:00:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('quiz_results', {
       'user_id': 'u5',
       'total': 18,
@@ -1294,7 +1288,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([2, 6, 8, 11]),
       'duration_seconds': 1300,
       'timestamp': '2026-05-25 11:00:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('quiz_results', {
       'user_id': 'u5',
       'total': 10,
@@ -1302,7 +1296,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([3, 9]),
       'duration_seconds': 700,
       'timestamp': '2026-05-27 14:00:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 10. 排行榜種子資料：u6 陳助教
     await db.insert('quiz_results', {
@@ -1312,7 +1306,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([1, 4, 12]),
       'duration_seconds': 1500,
       'timestamp': '2026-05-22 10:00:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('quiz_results', {
       'user_id': 'u6',
       'total': 20,
@@ -1320,7 +1314,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([8]),
       'duration_seconds': 950,
       'timestamp': '2026-05-24 16:00:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.insert('quiz_results', {
       'user_id': 'u6',
       'total': 25,
@@ -1328,7 +1322,7 @@ class DatabaseHelper {
       'wrong_question_ids': jsonEncode([2, 6, 13]),
       'duration_seconds': 1200,
       'timestamp': '2026-05-27 09:30:00'
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future close() async {

@@ -1518,7 +1518,7 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
-              labelText: '電子郵件地址 (Gmail)',
+              labelText: '電子郵件地址 (Google 帳號)',
               hintText: 'user@gmail.com',
               labelStyle: const TextStyle(fontSize: 14),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1530,7 +1530,8 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
             ),
             validator: (val) {
               if (val == null || val.trim().isEmpty) return '請輸入電子郵件';
-              if (!val.contains('@') || !val.endsWith('.com')) return '電子郵件格式不正確';
+              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+              if (!emailRegex.hasMatch(val.trim())) return '電子郵件格式不正確';
               return null;
             },
           ),

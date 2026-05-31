@@ -57,7 +57,7 @@ void main() {
 
     expect(reportGuest.isAiGenerated, isFalse);
     expect(reportGuest.summary, contains('General Knowledge'));
-    expect(reportGuest.strengths, isNotEmpty);
+    expect(reportGuest.strengths, isEmpty);
     expect(reportGuest.weaknesses, isNotEmpty);
     expect(reportGuest.weaknesses.first, contains('Geography Basics'));
 

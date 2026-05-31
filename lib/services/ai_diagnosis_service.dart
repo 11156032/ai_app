@@ -46,7 +46,7 @@ class DiagnosisResult {
 
 class AiDiagnosisService {
   static const String _kSystemGeminiApiKey =
-      'AIzaSyCTkO0XLKss6oEELbB4rVpIX_XdshJKc8I';
+      'AQ.Ab8RN6IKYCJChp7vSzpJovc-SnuoM2tvq-2AAXXC-UtS0nWFwQ';
   static DateTime? nextAvailableTime;
 
   // ─────────────────────────────────────────────────────────────────────────

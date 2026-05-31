@@ -6081,56 +6081,40 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     _diagnosisStreamSub?.cancel(); // 取消舊的訂閱（如果有）
 
-    _diagnosisStreamSub = AiDiagnosisService.generateStream(
+    _diagnosisStreamSub?.cancel();
+    AiDiagnosisService.generate(
       userId: widget.currentUser['id'],
       wrongQuestions: wrongQuestions,
       correctQuestions: correctQuestions,
       score: score,
       total: _currentQuizQuestions.length,
       subject: _quizSelectedSubject,
-    ).listen(
-      // ── onData：每收到一個 chunk，累積文字並更新 UI ──
-      (chunk) {
-        if (mounted) {
-          setState(() => _streamedDiagnosisText += chunk);
-          _sheetStateSetter?.call(() {});
-        }
-      },
-      // ── onDone：串流結束，解析完整文字 → 結構化報告 ──
-      onDone: () {
+    ).then((result) {
+      if (!mounted) return;
+      setState(() {
+        _diagnosisResult = result;
+        _isDiagnosing = false;
+      });
+      _sheetStateSetter?.call(() {});
+    }).catchError((err) {
+      debugPrint('AI 診斷發生錯誤，自動進入本地規則分析: $err');
+      if (!mounted) return;
+      AiDiagnosisService.generate(
+        userId: 'u4', // 強制走 local fallback
+        wrongQuestions: wrongQuestions,
+        correctQuestions: correctQuestions,
+        score: score,
+        total: _currentQuizQuestions.length,
+        subject: _quizSelectedSubject,
+      ).then((result) {
         if (!mounted) return;
-        final result = _streamedDiagnosisText.trim().isNotEmpty
-            ? AiDiagnosisService.parseStreamedText(_streamedDiagnosisText)
-            : null;
         setState(() {
           _diagnosisResult = result;
           _isDiagnosing = false;
         });
         _sheetStateSetter?.call(() {});
-      },
-      // ── onError：串流出錯，退回本地 fallback ──
-      onError: (err) {
-        debugPrint('AI 診斷串流錯誤: $err');
-        if (!mounted) return;
-        final fallback = AiDiagnosisService.generate(
-          userId: 'u4', // 強制走 local fallback
-          wrongQuestions: wrongQuestions,
-          correctQuestions: correctQuestions,
-          score: score,
-          total: _currentQuizQuestions.length,
-          subject: _quizSelectedSubject,
-        );
-        fallback.then((result) {
-          if (!mounted) return;
-          setState(() {
-            _diagnosisResult = result;
-            _isDiagnosing = false;
-          });
-          _sheetStateSetter?.call(() {});
-        });
-      },
-      cancelOnError: true,
-    );
+      });
+    });
 
     // 延遲約 500 毫秒後自動彈出 AI 學習診斷報告
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -8059,24 +8043,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               final line = lines[i];
               final isHeader = line.startsWith('[') && line.endsWith(']');
               final isBullet = line.trimLeft().startsWith('•');
-              return FadeInUp(
-                duration: const Duration(milliseconds: 300),
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: isHeader ? 4 : 3,
-                    top: isHeader && i > 0 ? 12 : 0,
-                  ),
-                  child: Text(
-                    line,
-                    style: TextStyle(
-                      fontSize: isHeader ? 13.5 : 13,
-                      fontWeight:
-                          isHeader ? FontWeight.w700 : FontWeight.normal,
-                      color: isHeader
-                          ? const Color(0xFF6D4C41)
-                          : (isBullet ? Colors.black87 : Colors.grey.shade700),
-                      height: 1.55,
-                    ),
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: isHeader ? 4 : 3,
+                  top: isHeader && i > 0 ? 12 : 0,
+                ),
+                child: Text(
+                  line,
+                  style: TextStyle(
+                    fontSize: isHeader ? 13.5 : 13,
+                    fontWeight:
+                        isHeader ? FontWeight.w700 : FontWeight.normal,
+                    color: isHeader
+                        ? const Color(0xFF6D4C41)
+                        : (isBullet ? Colors.black87 : Colors.grey.shade700),
+                    height: 1.55,
                   ),
                 ),
               );
@@ -10737,14 +10718,14 @@ class _DiagnosisLoadingProgressState extends State<_DiagnosisLoadingProgress> {
     _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (!mounted) return;
       setState(() {
-        if (_value < 0.90) {
-          // 前段：前 3 秒內快跑到 90% (每 100ms 跑 3%)
-          _value += 0.03;
-          if (_value > 0.90) _value = 0.90;
+        if (_value < 0.92) {
+          // 前段：以更溫和的步幅前進 (每 100ms 跑 1.5%，約 6 秒跑到 92%)
+          // 這與 AI 生成首字元的時間 (TTFT) 更為貼合
+          _value += 0.015;
+          if (_value > 0.92) _value = 0.92;
         } else {
-          // 後段：極慢速逼近 99.9% (每次增加剩餘空間的 5%)
-          // 這會使進度 91%, 92%, 93%, 94%, 95%, 96%, 97%... 持續增加，永不停止
-          _value += (0.999 - _value) * 0.05;
+          // 後段：極慢速逼近 99.9% (每次增加剩餘空間的 3%，使增長更平滑)
+          _value += (0.999 - _value) * 0.03;
         }
       });
     });
