@@ -45,8 +45,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
 
   Future<void> _loadUserPapers() async {
     try {
-      final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
-      final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
+      final uid =
+          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+      final papers =
+          await DatabaseHelper.instance.getPapersForUser(uid.toString());
       if (!mounted) return;
       setState(() {
         _userPapers = papers;
@@ -64,11 +66,13 @@ class _QuestionListPageState extends State<QuestionListPage> {
       await DatabaseHelper.instance.deletePaper(id);
       await _loadUserPapers();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已刪除考卷')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已刪除考卷')));
     } catch (e) {
       debugPrint('刪除考卷失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('刪除失敗')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('刪除失敗')));
     }
   }
 
@@ -77,11 +81,15 @@ class _QuestionListPageState extends State<QuestionListPage> {
       final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
       if (!mounted) return;
       if (ids.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('此考卷尚無題目')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('此考卷尚無題目')));
         return;
       }
       final db = await DatabaseHelper.instance.database;
-      final rows = await db.query('questions', where: 'id IN (${List.filled(ids.length, '?').join(',')})', whereArgs: ids, orderBy: 'created_at DESC');
+      final rows = await db.query('questions',
+          where: 'id IN (${List.filled(ids.length, '?').join(',')})',
+          whereArgs: ids,
+          orderBy: 'created_at DESC');
       final chapterRows = await db.rawQuery('''
         SELECT qm.question_id, t.name AS chapter
         FROM question_tag_map qm
@@ -133,7 +141,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
     } catch (e) {
       debugPrint('啟動考卷練習失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法啟動考卷')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('無法啟動考卷')));
     }
   }
 
@@ -202,7 +211,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
       final db = await DatabaseHelper.instance.database;
       List<Map<String, dynamic>> initial = [];
       if (ids.isNotEmpty) {
-        final rows = await db.query('questions', where: 'id IN (${List.filled(ids.length, '?').join(',')})', whereArgs: ids);
+        final rows = await db.query('questions',
+            where: 'id IN (${List.filled(ids.length, '?').join(',')})',
+            whereArgs: ids);
         initial = rows.map((r) {
           final id = int.tryParse(r['id'].toString()) ?? 0;
           return {'id': id, 'question': r['text'] ?? ''};
@@ -224,7 +235,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
     } catch (e) {
       debugPrint('編輯考卷失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法編輯考卷')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('無法編輯考卷')));
     }
   }
 
@@ -347,7 +359,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
     }
   }
 
-  void _openPractice([List<Map<String, dynamic>>? questions, int initialIndex = 0]) {
+  void _openPractice(
+      [List<Map<String, dynamic>>? questions, int initialIndex = 0]) {
     final target = questions ?? filteredQuestions;
     if (target.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -409,7 +422,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
         : <String>[];
 
     final snippet = (question['question'] ?? '').toString();
-    final displayText = snippet.length > 90 ? '${snippet.substring(0, 90)}...' : snippet;
+    final displayText =
+        snippet.length > 90 ? '${snippet.substring(0, 90)}...' : snippet;
 
     return Card(
       elevation: 0,
@@ -431,9 +445,24 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _TagPill(label: question['subject']?.toString().isEmpty == true ? '未分類' : question['subject'].toString(), color: cs.primary),
-                        _TagPill(label: question['chapter']?.toString().isEmpty == true ? '未分類' : question['chapter'].toString(), color: cs.secondary),
-                        _TagPill(label: question['difficulty']?.toString().isEmpty == true ? '中' : question['difficulty'].toString(), color: cs.tertiary),
+                        _TagPill(
+                            label:
+                                question['subject']?.toString().isEmpty == true
+                                    ? '未分類'
+                                    : question['subject'].toString(),
+                            color: cs.primary),
+                        _TagPill(
+                            label:
+                                question['chapter']?.toString().isEmpty == true
+                                    ? '未分類'
+                                    : question['chapter'].toString(),
+                            color: cs.secondary),
+                        _TagPill(
+                            label: question['difficulty']?.toString().isEmpty ==
+                                    true
+                                ? '中'
+                                : question['difficulty'].toString(),
+                            color: cs.tertiary),
                         if (question['isFavorite'] == true)
                           _TagPill(label: '收藏', color: Colors.amber.shade700),
                       ],
@@ -446,7 +475,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       question['isFavorite'] == true
                           ? Icons.bookmark_rounded
                           : Icons.bookmark_border_rounded,
-                      color: question['isFavorite'] == true ? Colors.amber.shade700 : cs.primary,
+                      color: question['isFavorite'] == true
+                          ? Colors.amber.shade700
+                          : cs.primary,
                     ),
                   ),
                 ],
@@ -523,7 +554,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
             onPressed: () async {
               final result = await Navigator.push<bool>(
                 context,
-                MaterialPageRoute(builder: (_) => WrongQuestionsPage(currentUser: widget.currentUser)),
+                MaterialPageRoute(
+                    builder: (_) =>
+                        WrongQuestionsPage(currentUser: widget.currentUser)),
               );
               if (result == true) await _loadQuestions();
             },
@@ -551,7 +584,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 children: [
                   Row(
                     children: [
-                      Text('我的考卷', style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w800)),
+                      Text('我的考卷',
+                          style: TextStyle(
+                              color: cs.onSurface,
+                              fontWeight: FontWeight.w800)),
                       const Spacer(),
                       TextButton.icon(
                         onPressed: () async {
@@ -575,12 +611,15 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   if (_isLoadingPapers)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Center(child: CircularProgressIndicator(color: cs.primary)),
+                      child: Center(
+                          child: CircularProgressIndicator(color: cs.primary)),
                     )
                   else if (_userPapers.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text('尚無已儲存的考卷', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7))),
+                      child: Text('尚無已儲存的考卷',
+                          style: TextStyle(
+                              color: cs.onSurface.withValues(alpha: 0.7))),
                     )
                   else
                     Column(
@@ -588,24 +627,29 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         final pid = int.tryParse(p['id'].toString()) ?? 0;
                         final name = p['name'] ?? '';
                         return ListTile(
-                          title: Text(name, style: TextStyle(color: cs.onSurface)),
-                          subtitle: Text('建立於 ${p['created_at']}', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6), fontSize: 12)),
-                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                          title:
+                              Text(name, style: TextStyle(color: cs.onSurface)),
+                          subtitle: Text('建立於 ${p['created_at']}',
+                              style: TextStyle(
+                                  color: cs.onSurface.withValues(alpha: 0.6),
+                                  fontSize: 12)),
+                          trailing:
+                              Row(mainAxisSize: MainAxisSize.min, children: [
                             IconButton(
                               tooltip: '開始作答',
                               onPressed: () => _startPaperPractice(pid),
                               icon: const Icon(Icons.play_arrow_rounded),
                             ),
-                                        IconButton(
-                                          tooltip: '編輯考卷',
-                                          onPressed: () => _editPaper(pid),
-                                          icon: const Icon(Icons.edit_outlined),
-                                        ),
-                                        IconButton(
-                                          tooltip: '刪除考卷',
-                                          onPressed: () => _deletePaper(pid),
-                                          icon: const Icon(Icons.delete_outline_rounded),
-                                        ),
+                            IconButton(
+                              tooltip: '編輯考卷',
+                              onPressed: () => _editPaper(pid),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            IconButton(
+                              tooltip: '刪除考卷',
+                              onPressed: () => _deletePaper(pid),
+                              icon: const Icon(Icons.delete_outline_rounded),
+                            ),
                           ]),
                         );
                       }).toList(),
@@ -696,7 +740,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         child: FilterChip(
                           selected: favoritesOnly,
                           label: const Text('只看收藏'),
-                          onSelected: (value) => setState(() => favoritesOnly = value),
+                          onSelected: (value) =>
+                              setState(() => favoritesOnly = value),
                         ),
                       ),
                     ],
@@ -714,7 +759,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: filtered.isEmpty ? null : () => _openPractice(filtered),
+                          onPressed: filtered.isEmpty
+                              ? null
+                              : () => _openPractice(filtered),
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: const Text('開始練習'),
                           style: ElevatedButton.styleFrom(
@@ -762,7 +809,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         ),
                       );
                       if (result == true) {
-                        messenger.showSnackBar(const SnackBar(content: Text('考卷已儲存')));
+                        messenger.showSnackBar(
+                            const SnackBar(content: Text('考卷已儲存')));
                       }
                     },
                     icon: const Icon(Icons.playlist_add_check_rounded),
@@ -815,7 +863,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
               )
             else
               ...filtered.asMap().entries.map(
-                    (entry) => _questionCard(context, entry.value, entry.key, cs),
+                    (entry) =>
+                        _questionCard(context, entry.value, entry.key, cs),
                   ),
           ],
         ),
