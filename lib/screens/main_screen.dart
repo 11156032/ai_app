@@ -11,7 +11,6 @@ import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
 import '../services/ai_intent_service.dart';
 import 'question_list_page.dart';
-import 'question_practice_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:animate_do/animate_do.dart';
 import '../services/ai_diagnosis_service.dart';
@@ -110,6 +109,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _quizSelectedSubject = "";
   DiagnosisResult? _diagnosisResult;
   bool _isDiagnosing = false;
+  // ignore: unused_field
   StateSetter? _sheetStateSetter;
   List<int> _lastQuizWrongIds = [];
   // ── 串流診斷狀態 ──
@@ -135,14 +135,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _postTimers.clear();
   }
 
+  // ignore: unused_field
   int _remainingSeconds = 1800;
   final ScrollController _quizScrollController = ScrollController();
 
+  // ignore: unused_field
   bool _showStudyAnswers = false;
+  // ignore: unused_field
   String _studySearchQuery = "";
 
+  // ignore: unused_field
   int _personalFilterIndex = 0;
+  // ignore: unused_field
   String? _selectedFolder;
+  // ignore: unused_field
   String? _selectedSubjectForStudy; // 新增：追蹤題庫中選擇的科目
 
   String _aiFlowState = 'none';
@@ -1204,6 +1210,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   // --- 測驗精靈邏輯 ---
+  // ignore: unused_element
   void _calculateAvailableQuestions() {
     _availableCounts = {
       '單選題': {'易': 0, '中': 0, '難': 0},
@@ -1229,6 +1236,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
+  // ignore: unused_element
   void _generateQuizPaper() {
     _currentQuizQuestions.clear();
     List<Map<String, dynamic>> scopeQs = questionBank
@@ -6847,6 +6855,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
+  // ignore: unused_element
   void _showAiDiagnosisSheet() {
     if (!mounted) return;
     showModalBottomSheet(

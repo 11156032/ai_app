@@ -35,12 +35,6 @@ class _QuestionListPageState extends State<QuestionListPage> {
   List<Map<String, dynamic>> _userPapers = [];
 
   List<Map<String, dynamic>> _questions = [];
-  Map<String, int> _stats = {
-    'total': 0,
-    'favorites': 0,
-    'public': 0,
-    'subjects': 0,
-  };
 
   @override
   void initState() {
@@ -188,20 +182,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
         };
       }).toList();
 
-      final subjects = mapped
-          .map((question) => question['subject'].toString())
-          .where((value) => value.isNotEmpty)
-          .toSet();
-
       if (!mounted) return;
       setState(() {
         _questions = mapped;
-        _stats = {
-          'total': mapped.length,
-          'favorites': mapped.where((q) => q['isFavorite'] == true).length,
-          'public': mapped.where((q) => q['isPublic'] == true).length,
-          'subjects': subjects.length,
-        };
         _isLoading = false;
       });
     } catch (e) {
