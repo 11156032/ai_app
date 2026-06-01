@@ -416,70 +416,6 @@ class _QuestionListPageState extends State<QuestionListPage> {
     );
   }
 
-  Widget _summaryCard(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [cs.primary, cs.primaryContainer],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '題庫中心',
-            style: TextStyle(
-              color: cs.onPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '搜尋、收藏、練習、編輯與刪除都集中在這裡。',
-            style: TextStyle(
-              color: cs.onPrimary.withOpacity(0.85),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniStatCard(
-                  label: '總題數',
-                  value: '${_stats['total'] ?? 0}',
-                  foreground: cs.onPrimary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MiniStatCard(
-                  label: '收藏',
-                  value: '${_stats['favorites'] ?? 0}',
-                  foreground: cs.onPrimary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MiniStatCard(
-                  label: '科目',
-                  value: '${_stats['subjects'] ?? 0}',
-                  foreground: cs.onPrimary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _questionCard(BuildContext context, Map<String, dynamic> question,
       int index, ColorScheme cs) {
     final options = question['options'] is List
@@ -616,8 +552,6 @@ class _QuestionListPageState extends State<QuestionListPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
-            // _summaryCard(context), 移除「題庫中心」大標與裝飾以保持簡潔
-            const SizedBox(height: 12),
             // 我的考卷區塊
             Container(
               padding: const EdgeInsets.all(12),
@@ -900,50 +834,6 @@ class _QuestionListPageState extends State<QuestionListPage> {
         ),
       ),
       // Floating action for adding questions removed to simplify UI
-    );
-  }
-}
-
-class _MiniStatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color foreground;
-
-  const _MiniStatCard({
-    required this.label,
-    required this.value,
-    required this.foreground,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: foreground,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: foreground.withOpacity(0.9),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
