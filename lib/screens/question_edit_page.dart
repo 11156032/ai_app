@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+
+import 'package:flutter/material.dart';
+
 import '../database/database_helper.dart';
 
 class QuestionEditPage extends StatefulWidget {
@@ -22,13 +24,18 @@ class QuestionEditPage extends StatefulWidget {
 
 class _QuestionEditPageState extends State<QuestionEditPage> {
   final _formKey = GlobalKey<FormState>();
-  late String subject;
-  late String type;
-  late String difficulty;
   final TextEditingController _questionCtrl = TextEditingController();
   final TextEditingController _explanationCtrl = TextEditingController();
-  List<TextEditingController> _optionCtrls = [];
+
+  late String subject;
+  late String chapter;
+  late String type;
+  late String difficulty;
+  late bool isPublic;
+  late bool isBookmarked;
+  final List<TextEditingController> _optionCtrls = [];
   int answerIndex = 0;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -36,134 +43,469 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     subject = widget.initialData?['subject'] ?? widget.allSubjects.first;
     type = widget.initialData?['type'] ?? '單選題';
     difficulty = widget.initialData?['difficulty'] ?? '易';
+    chapter = widget.initialData?['chapter'] ?? '未分類';
+    isPublic = (widget.initialData?['is_public'] as int? ?? 0) == 1;
+    isBookmarked = (widget.initialData?['bookmarked'] as int? ?? 0) == 1;
+
     _questionCtrl.text = widget.initialData?['question'] ?? '';
     _explanationCtrl.text = widget.initialData?['explanation'] ?? '';
+
     final options = widget.initialData?['options'];
     if (options is List) {
-      _optionCtrls = options.map((o) => TextEditingController(text: o)).toList();
-    } else {
-      _optionCtrls = List.generate(4, (_) => TextEditingController());
+      for (final option in options) {
+        _optionCtrls.add(TextEditingController(text: option.toString()));
+      }
     }
-    answerIndex = widget.initialData?['answerIndex'] ?? 0;
+    while (_optionCtrls.length < 4) {
+      _optionCtrls.add(TextEditingController());
+    }
+
+    final rawAnswer = widget.initialData?['answerIndex'] ?? widget.initialData?['answer'] ?? 0;
+    answerIndex = int.tryParse(rawAnswer.toString()) ?? 0;
+    if (answerIndex < 0) answerIndex = 0;
   }
 
   @override
   void dispose() {
     _questionCtrl.dispose();
     _explanationCtrl.dispose();
-    for (var c in _optionCtrls) c.dispose();
+    for (final ctrl in _optionCtrls) {
+      ctrl.dispose();
+    }
     super.dispose();
   }
 
+  List<String> _chaptersForSubject(String subjectName) {
+    final chapters = <String>['未分類'];
+    final extras = widget.subjectChapters[subjectName];
+    if (extras != null) {
+      chapters.addAll(extras);
+    }
+    return chapters;
+  }
+
+  Future<int?> _ensureTagId(DatabaseHelper dbHelper, String tagName) async {
+    final db = await dbHelper.database;
+    final existing = await db.query(
+      'tags',
+      columns: ['id'],
+      where: 'name = ?',
+      whereArgs: [tagName],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) {
+      return int.tryParse(existing.first['id'].toString());
+    }
+    return db.insert('tags', {'name': tagName});
+  }
+
+  Future<void> _syncChapterTag(dynamic db, int questionId) async {
+    await db.delete('question_tag_map', where: 'question_id = ?', whereArgs: [questionId]);
+    if (chapter == '未分類' || chapter.trim().isEmpty) return;
+
+    final tagId = await _ensureTagId(DatabaseHelper.instance, chapter);
+    if (tagId == null) return;
+    await db.insert('question_tag_map', {
+      'question_id': questionId,
+      'tag_id': tagId,
+    });
+  }
+
   Future<void> _saveQuestion() async {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
-    final text = _questionCtrl.text.trim();
-    final explanation = _explanationCtrl.text.trim();
-    final options = _optionCtrls.map((c) => c.text.trim()).where((s) => s.isNotEmpty).toList();
-    final answer = answerIndex.toString();
 
-    final db = await DatabaseHelper.instance.database;
-    final values = {
-      'user_id': widget.initialData?['user_id'] ?? widget.currentUser['id'],
-      'text': text,
-      'options': jsonEncode(options),
-      'answer': answer,
-      'explanation': explanation,
-      'subject': subject,
-      'difficulty': difficulty,
-      'bookmarked': widget.initialData?['bookmarked'] ?? 0,
-      'is_public': widget.initialData?['is_public'] ?? 0,
-    };
+    final options = _optionCtrls
+        .map((c) => c.text.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
 
-    if (widget.initialData?['id'] != null) {
-      await db.update(
-        'questions',
-        values,
-        where: 'id = ?',
-        whereArgs: [widget.initialData!['id']],
+    if (options.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('至少需要兩個選項')),
       );
-    } else {
-      await db.insert('questions', values);
+      return;
     }
 
-    if (mounted) Navigator.pop(context, true);
+    if (answerIndex < 0 || answerIndex >= options.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('請選擇正確答案')),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final values = <String, dynamic>{
+        'user_id': widget.initialData?['user_id'] ?? widget.currentUser['id'],
+        'text': _questionCtrl.text.trim(),
+        'options': jsonEncode(options),
+        'answer': answerIndex.toString(),
+        'explanation': _explanationCtrl.text.trim(),
+        'subject': subject,
+        'type': type,
+        'difficulty': difficulty,
+        'is_public': isPublic ? 1 : 0,
+        'bookmarked': isBookmarked ? 1 : 0,
+      };
+
+      int questionId;
+      if (widget.initialData?['id'] != null) {
+        questionId = int.tryParse(widget.initialData!['id'].toString()) ?? 0;
+        await db.update(
+          'questions',
+          values,
+          where: 'id = ?',
+          whereArgs: [questionId],
+        );
+      } else {
+        questionId = await db.insert('questions', values);
+      }
+
+      if (questionId > 0) {
+        await _syncChapterTag(db, questionId);
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      debugPrint('儲存題目失敗: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('儲存失敗，請稍後再試')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   void _addOption() {
-    setState(() => _optionCtrls.add(TextEditingController()));
+    setState(() {
+      _optionCtrls.add(TextEditingController());
+    });
+  }
+
+  void _removeOption(int index) {
+    if (_optionCtrls.length <= 2) return;
+    setState(() {
+      _optionCtrls[index].dispose();
+      _optionCtrls.removeAt(index);
+      if (answerIndex >= _optionCtrls.length) {
+        answerIndex = 0;
+      }
+    });
+  }
+
+  InputDecoration _fieldDecoration(BuildContext context, String label,
+      {String? hint, Widget? suffixIcon}) {
+    final cs = Theme.of(context).colorScheme;
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      filled: true,
+      fillColor: cs.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: cs.outline.withOpacity(0.2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: cs.outline.withOpacity(0.2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: cs.primary, width: 2),
+      ),
+      suffixIcon: suffixIcon,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final chapterItems = _chaptersForSubject(subject);
+    if (!chapterItems.contains(chapter)) {
+      chapter = chapterItems.first;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.initialData == null ? '新增題目' : '編輯題目'),
-        backgroundColor: const Color(0xFF8D6E63),
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+        actions: [
+          TextButton.icon(
+            onPressed: _saving ? null : _saveQuestion,
+            icon: Icon(Icons.save_rounded, color: cs.onPrimary),
+            label: Text(
+              '儲存',
+              style: TextStyle(color: cs.onPrimary),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: subject,
-                decoration: const InputDecoration(labelText: '科目'),
-                items: widget.allSubjects
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                    .toList(),
-                onChanged: (v) => setState(() => subject = v!),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.outline.withOpacity(0.15)),
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: difficulty,
-                decoration: const InputDecoration(labelText: '難度'),
-                items: ['易', '中', '難']
-                    .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                    .toList(),
-                onChanged: (v) => setState(() => difficulty = v!),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _questionCtrl,
-                decoration: const InputDecoration(labelText: '題目'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? '請輸入題目' : null,
-              ),
-              const SizedBox(height: 12),
-              const Text('選項'),
-              const SizedBox(height: 8),
-              ..._optionCtrls.asMap().entries.map((e) {
-                final idx = e.key;
-                final ctrl = e.value;
-                return Row(children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: ctrl,
-                      decoration: InputDecoration(labelText: '選項 ${idx + 1}'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.initialData == null ? '建立新題目' : '編輯既有題目',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
                     ),
                   ),
-                  Radio<int>(
-                    value: idx,
-                    groupValue: answerIndex,
-                    onChanged: (v) => setState(() => answerIndex = v ?? 0),
-                  )
-                ]);
-              }).toList(),
-              TextButton.icon(onPressed: _addOption, icon: const Icon(Icons.add), label: const Text('新增選項')),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _explanationCtrl,
-                decoration: const InputDecoration(labelText: '解析（選填）'),
-                maxLines: 4,
+                  const SizedBox(height: 4),
+                  Text(
+                    '題目、章節、答案與解析會同步保存到資料庫。',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withOpacity(0.65),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: subject,
+                    decoration: _fieldDecoration(context, '科目'),
+                    items: widget.allSubjects
+                        .map((item) => DropdownMenuItem(
+                              value: item,
+                              child: Text(item),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        subject = value;
+                        final options = _chaptersForSubject(subject);
+                        if (!options.contains(chapter)) {
+                          chapter = options.first;
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: chapter,
+                    decoration: _fieldDecoration(context, '章節'),
+                    items: chapterItems
+                        .map((item) => DropdownMenuItem(
+                              value: item,
+                              child: Text(item),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => chapter = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: type,
+                    decoration: _fieldDecoration(context, '題型'),
+                    items: const [
+                      DropdownMenuItem(value: '單選題', child: Text('單選題')),
+                      DropdownMenuItem(value: '多選題', child: Text('多選題')),
+                      DropdownMenuItem(value: '是非題', child: Text('是非題')),
+                      DropdownMenuItem(value: '申論題', child: Text('申論題')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => type = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: difficulty,
+                    decoration: _fieldDecoration(context, '難度'),
+                    items: const ['易', '中', '難']
+                        .map((item) => DropdownMenuItem(
+                              value: item,
+                              child: Text(item),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => difficulty = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _questionCtrl,
+                    decoration: _fieldDecoration(context, '題目內容', hint: '輸入題目敘述'),
+                    minLines: 3,
+                    maxLines: 6,
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? '請輸入題目' : null,
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8D6E63)),
-                onPressed: _saveQuestion,
-                child: const Text('儲存'),
-              )
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.outline.withOpacity(0.15)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '選項與答案',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: _addOption,
+                        icon: const Icon(Icons.add),
+                        label: const Text('新增選項'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ..._optionCtrls.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final controller = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: controller,
+                              decoration: _fieldDecoration(
+                                context,
+                                '選項 ${index + 1}',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            children: [
+                              Radio<int>(
+                                value: index,
+                                groupValue: answerIndex,
+                                onChanged: (value) {
+                                  setState(() => answerIndex = value ?? 0);
+                                },
+                              ),
+                              IconButton(
+                                tooltip: '刪除選項',
+                                onPressed: () => _removeOption(index),
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: cs.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 4),
+                  Text(
+                    '請至少保留兩個選項，並勾選正確答案。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.outline.withOpacity(0.15)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '附加資訊',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _explanationCtrl,
+                    decoration: _fieldDecoration(context, '解析（選填）', hint: '寫下解題說明或提示'),
+                    minLines: 3,
+                    maxLines: 6,
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('公開題目'),
+                    subtitle: const Text('未來可擴充成分享/匯入題庫'),
+                    value: isPublic,
+                    onChanged: (value) => setState(() => isPublic = value),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('加入收藏'),
+                    subtitle: const Text('方便之後快速篩選'),
+                    value: isBookmarked,
+                    onChanged: (value) => setState(() => isBookmarked = value),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: _saving ? null : _saveQuestion,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_rounded),
+                label: Text(_saving ? '儲存中...' : '儲存題目'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

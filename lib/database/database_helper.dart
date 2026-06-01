@@ -58,7 +58,7 @@ class DatabaseHelper {
     final db = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 10,
+        version: 12,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -192,6 +192,38 @@ class DatabaseHelper {
       await db.execute(
           "UPDATE users SET email = REPLACE(email, '@example.com', '@gmail.com') WHERE email LIKE '%@example.com'");
     }
+    if (oldVersion < 11) {
+      final questionCols = await db.rawQuery('PRAGMA table_info(questions)');
+      if (!questionCols.any((c) => c['name'] == 'type')) {
+        await db.execute(
+            "ALTER TABLE questions ADD COLUMN type VARCHAR DEFAULT '單選題'");
+      }
+    }
+    if (oldVersion < 12) {
+      // Add user-defined papers and wrong question tracking
+      await db.execute('''
+        CREATE TABLE user_papers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id VARCHAR NOT NULL,
+          name VARCHAR NOT NULL,
+          question_ids TEXT NOT NULL DEFAULT '[]',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE wrong_questions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id VARCHAR NOT NULL,
+          question_id INTEGER NOT NULL,
+          note TEXT DEFAULT '',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+          FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE
+        )
+      ''');
+    }
   }
 
   Future _onConfigure(Database db) async {
@@ -258,6 +290,7 @@ class DatabaseHelper {
         answer VARCHAR NOT NULL,
         explanation TEXT DEFAULT '',
         subject VARCHAR DEFAULT '',
+        type VARCHAR DEFAULT '單選題',
         difficulty VARCHAR DEFAULT 'easy',
         is_public BOOLEAN DEFAULT 0,
         bookmarked BOOLEAN DEFAULT 0,
@@ -388,6 +421,90 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_comments_post_id ON comments (post_id)');
 
     await _seedDatabase(db);
+  }
+
+  // --- Paper helpers ---
+  Future<int> createPaper(String userId, String name, List<int> questionIds) async {
+    final db = await database;
+    final data = {
+      'user_id': userId,
+      'name': name,
+      'question_ids': jsonEncode(questionIds),
+    };
+    return await db.insert('user_papers', data);
+  }
+
+  Future<List<Map<String, dynamic>>> getPapersForUser(String userId) async {
+    final db = await database;
+    return await db.query('user_papers', where: 'user_id = ?', whereArgs: [userId], orderBy: 'created_at DESC');
+  }
+
+  Future<Map<String, dynamic>?> getPaperById(int id) async {
+    final db = await database;
+    final rows = await db.query('user_papers', where: 'id = ?', whereArgs: [id], limit: 1);
+    if (rows.isEmpty) return null;
+    return rows.first;
+  }
+
+  Future<List<int>> getQuestionIdsForPaper(int paperId) async {
+    final row = await getPaperById(paperId);
+    if (row == null) return [];
+    final raw = row['question_ids']?.toString() ?? '[]';
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) return decoded.map((e) => int.tryParse(e.toString()) ?? 0).where((v) => v > 0).toList();
+    } catch (_) {}
+    return [];
+  }
+
+  Future<int> deletePaper(int id) async {
+    final db = await database;
+    return await db.delete('user_papers', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> updatePaper(int id, String name, List<int> questionIds) async {
+    final db = await database;
+    return await db.update('user_papers', {
+      'name': name,
+      'question_ids': jsonEncode(questionIds),
+      'created_at': DateTime.now().toIso8601String(),
+    }, where: 'id = ?', whereArgs: [id]);
+  }
+
+  // --- Wrong question helpers ---
+  Future<int> addWrongQuestion(String userId, int questionId, {String note = ''}) async {
+    final db = await database;
+    return await db.insert('wrong_questions', {
+      'user_id': userId,
+      'question_id': questionId,
+      'note': note,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getWrongQuestions(String userId) async {
+    final db = await database;
+    return await db.query('wrong_questions', where: 'user_id = ?', whereArgs: [userId], orderBy: 'created_at DESC');
+  }
+
+  Future<int> deleteWrongQuestionByRecordId(int recordId) async {
+    final db = await database;
+    return await db.delete('wrong_questions', where: 'id = ?', whereArgs: [recordId]);
+  }
+
+  Future<int> deleteWrongQuestionsBulk(List<int> recordIds) async {
+    if (recordIds.isEmpty) return 0;
+    final db = await database;
+    final placeholders = List.filled(recordIds.length, '?').join(',');
+    return await db.delete('wrong_questions', where: 'id IN ($placeholders)', whereArgs: recordIds);
+  }
+
+  Future<int> createNote(String userId, String title, String content) async {
+    final db = await database;
+    return await db.insert('notes', {
+      'user_id': userId,
+      'title': title,
+      'content': content,
+    });
   }
 
   Future<void> _seedDatabase(Database db) async {

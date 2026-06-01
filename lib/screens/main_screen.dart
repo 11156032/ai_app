@@ -12,6 +12,7 @@ import '../widgets/common_widgets.dart';
 import '../services/ai_intent_service.dart';
 import 'question_list_page.dart';
 import 'question_edit_page.dart';
+import 'question_practice_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'notes_screen.dart';
 
@@ -4968,43 +4969,11 @@ class _MainScreenState extends State<MainScreen> {
 
   // --- 2. 題庫系統 (測驗/題庫/個人) ---
   Widget _buildQuestionBankTab() {
-    if (_quizStep >= 2) return _buildQuizTakingOrResult();
-    return DefaultTabController(
-      length: 3,
-      child: Column(children: [
-        // 新增：題目列表快速入口按鈕
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8D6E63),
-              foregroundColor: Colors.white),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => QuestionListPage(
-                    currentUser: widget.currentUser,
-                    allSubjects: allSubjects,
-                    subjectChapters: subjectChapters,
-                  ))),
-            icon: const Icon(Icons.list),
-            label: const Text('題目列表')),
-          ])),
-        const TabBar(
-          indicatorColor: Color(0xFF8D6E63),
-          labelColor: Color(0xFF8D6E63),
-          unselectedLabelColor: Colors.grey,
-          tabs: [Tab(text: '測驗'), Tab(text: '題庫'), Tab(text: '個人題庫')]),
-        Expanded(
-          child: TabBarView(
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-          _buildQuizWizard(),
-          _buildStudyMode(),
-          _buildPersonalMode()
-          ]))
-      ]));
+    return QuestionListPage(
+      currentUser: widget.currentUser,
+      allSubjects: allSubjects,
+      subjectChapters: subjectChapters,
+    );
   }
 
   // 測驗精靈 (Step 0 & 1)
@@ -5635,9 +5604,25 @@ class _MainScreenState extends State<MainScreen> {
                               onPressed: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => QuestionPracticePage(
-                                    questionData: q,
-                                  ),
+                                  builder: (_) {
+                                    final mapped = {
+                                      'id': q['id'],
+                                      'subject': q['subject'] ?? '',
+                                      'chapter': q['chapter'] ?? '',
+                                      'difficulty': q['difficulty'] ?? '',
+                                      'type': q['type'] ?? '單選題',
+                                      'question': q['question'] ?? q['text'] ?? '',
+                                      'options': q['options'] ?? [],
+                                      'answerIndex': q['answerIndex'] ?? q['answer'] ?? 0,
+                                      'explanation': q['explanation'] ?? '',
+                                      'isFavorite': (q['isFavorite'] == true) || (q['bookmarked'] == 1),
+                                    };
+                                    return QuestionPracticePage(
+                                      questions: [mapped],
+                                      initialIndex: 0,
+                                      currentUser: widget.currentUser,
+                                    );
+                                  },
                                 ),
                               ),
                             ),
@@ -5756,30 +5741,7 @@ class _MainScreenState extends State<MainScreen> {
             _pChip('新增', 1, Icons.add),
             _pChip('收藏', 2, Icons.favorite_border)
           ])),
-      if (_personalFilterIndex == 1)
-        Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8D6E63),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 45)),
-                icon: const Icon(Icons.add),
-                label: const Text('新增題目'),
-                onPressed: () async {
-                  final res = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => QuestionEditPage(
-                                currentUser: widget.currentUser,
-                                allSubjects: allSubjects,
-                                subjectChapters: subjectChapters,
-                              )));
-                  if (res == true) {
-                    // reload questions from DB
-                    _loadData();
-                  }
-                })),
+      // 新增題目功能已暫時停用（使用者要求），不顯示按鈕
       Expanded(
           child: folderCounts.isEmpty
               ? const Center(
@@ -8107,242 +8069,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
   }
 }
 
-// 題目作答頁面
-class QuestionPracticePage extends StatefulWidget {
-  final Map<String, dynamic> questionData;
-  const QuestionPracticePage({super.key, required this.questionData});
 
-  @override
-  State<QuestionPracticePage> createState() => _QuestionPracticePageState();
-}
-
-class _QuestionPracticePageState extends State<QuestionPracticePage> {
-  int? _selectedAnswerIndex;
-  bool _showResult = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final q = widget.questionData;
-    final options = (q['options'] as List?)?.cast<String>() ?? [];
-    final correctIndex = q['answerIndex'] as int?;
-    final explanation = q['explanation'] as String? ?? '';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('題目作答'),
-        backgroundColor: const Color(0xFF8D6E63),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 題目
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '科目：${q['subject']}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    q['question'] ?? '',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            // 選項
-            const Text(
-              '請選擇答案：',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ...List.generate(
-              options.length,
-              (i) => GestureDetector(
-                onTap: _showResult
-                    ? null
-                    : () {
-                        setState(() {
-                          _selectedAnswerIndex = i;
-                          _showResult = true;
-                        });
-                      },
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _selectedAnswerIndex == i
-                        ? (_showResult
-                            ? (i == correctIndex
-                                ? Colors.green.shade100
-                                : Colors.red.shade100)
-                            : const Color(0xFF8D6E63).withValues(alpha: 0.1))
-                        : Colors.white,
-                    border: Border.all(
-                      color: _selectedAnswerIndex == i
-                          ? (_showResult
-                              ? (i == correctIndex ? Colors.green : Colors.red)
-                              : const Color(0xFF8D6E63))
-                          : Colors.grey.shade300,
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        String.fromCharCode(65 + i), // A, B, C, D
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: _selectedAnswerIndex == i
-                              ? (_showResult
-                                  ? (i == correctIndex
-                                      ? Colors.green
-                                      : Colors.red)
-                                  : const Color(0xFF8D6E63))
-                              : Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          options[i],
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: _selectedAnswerIndex == i
-                                ? Colors.black87
-                                : Colors.black,
-                          ),
-                        ),
-                      ),
-                      if (_showResult && i == correctIndex)
-                        const Icon(Icons.check_circle, color: Colors.green),
-                      if (_showResult &&
-                          _selectedAnswerIndex == i &&
-                          i != correctIndex)
-                        const Icon(Icons.close, color: Colors.red),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // 結果顯示
-            if (_showResult)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _selectedAnswerIndex == correctIndex
-                          ? Colors.green.shade100
-                          : Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _selectedAnswerIndex == correctIndex
-                              ? Icons.check_circle
-                              : Icons.close,
-                          color: _selectedAnswerIndex == correctIndex
-                              ? Colors.green
-                              : Colors.red,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _selectedAnswerIndex == correctIndex
-                                    ? '✓ 答對了！'
-                                    : '✗ 答錯了',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: _selectedAnswerIndex == correctIndex
-                                      ? Colors.green
-                                      : Colors.red,
-                                ),
-                              ),
-                              if (_selectedAnswerIndex != correctIndex)
-                                Text(
-                                  '正確答案：${String.fromCharCode(65 + (correctIndex ?? 0))}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '解釋：',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    explanation,
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => setState(() {
-                        _selectedAnswerIndex = null;
-                        _showResult = false;
-                      }),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8D6E63),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text('重新作答'),
-                    ),
-                  ),
-                ],
-              ),
-            if (!_showResult && _selectedAnswerIndex != null)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => setState(() => _showResult = true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8D6E63),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text('顯示答案與解釋'),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class QuestionDiscussionPage extends StatelessWidget {
   final Map<String, dynamic> questionData;
