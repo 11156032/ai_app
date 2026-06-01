@@ -1325,6 +1325,44 @@ class DatabaseHelper {
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
+  Future<void> clearVisitorData() async {
+    final db = await database;
+    // 1. 刪除所有與訪客 (u4) 關聯的資料庫表資料
+    await db.delete('calendar_events', where: 'user_id = ?', whereArgs: ['u4']);
+    await db.delete('todos', where: 'user_id = ?', whereArgs: ['u4']);
+    await db.delete('quiz_results', where: 'user_id = ?', whereArgs: ['u4']);
+    await db.delete('questions', where: 'user_id = ?', whereArgs: ['u4']);
+    await db.delete('notes', where: 'user_id = ?', whereArgs: ['u4']);
+    await db.delete('posts', where: 'user_id = ?', whereArgs: ['u4']);
+    await db.delete('post_likes', where: 'user_id = ?', whereArgs: ['u4']);
+    await db.delete('post_bookmarks', where: 'user_id = ?', whereArgs: ['u4']);
+    await db.delete('comments', where: 'user_id = ?', whereArgs: ['u4']);
+
+    // 2. 重新計算所有貼文的 likes 數量（扣除訪客點讚）
+    await db.execute(
+        'UPDATE posts SET likes = (SELECT COUNT(*) FROM post_likes WHERE post_likes.post_id = posts.id)');
+
+    // 3. 重置訪客帳號的設定與基本資訊
+    await db.update('users', {
+      'username': '訪客',
+      'email': 'guest@gmail.com',
+      'hashed_password': 'mock_password',
+      'display_name': '訪客',
+      'bio': '',
+      'tags': '[]',
+      'avatar_blob': null,
+      'avatar_color': 0,
+      'avatar_selected': 0,
+      'nickname_updated_at': null,
+      'is_email_verified': 0,
+      'font_size_factor': 1.0,
+      'theme_color_idx': 0,
+      'is_dark_mode': 0,
+      'gemini_api_key': null,
+      'is_google': 0,
+    }, where: 'id = ?', whereArgs: ['u4']);
+  }
+
   Future close() async {
     final db = await instance.database;
     db.close();

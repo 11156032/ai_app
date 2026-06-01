@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'database/database_helper.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
+import 'screens/notes_screen.dart';
 
 void main() => runApp(const MyApp());
 
@@ -47,11 +48,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _logout() async {
     if (_currentUser != null && _currentUser!['id'] == 'u4') {
       try {
-        final db = await DatabaseHelper.instance.database;
-        await db
-            .delete('calendar_events', where: 'user_id = ?', whereArgs: ['u4']);
-        await db.delete('todos', where: 'user_id = ?', whereArgs: ['u4']);
-        debugPrint('訪客資料已清除');
+        await DatabaseHelper.instance.clearVisitorData();
+
+        // 清除記憶體中的訪客筆記與重置分類
+        NotesDatabase.notes.removeWhere((note) => note.userId == 'u4');
+        NotesDatabase.categories = ['全部', '未分類', '學習', '工作', '生活'];
+
+        debugPrint('訪客資料已完整清除');
       } catch (e) {
         debugPrint('清除訪客資料失敗: $e');
       }
