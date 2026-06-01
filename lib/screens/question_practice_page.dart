@@ -372,7 +372,6 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               height: 50,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  if (selectedIndex == null) return;
                   setState(() => _revealed.add(_currentIndex));
                   // if answered wrong, save to wrong_questions
                   final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'];
@@ -542,7 +541,6 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
   }
 
   Future<void> _addNoteDialog(Map<String, dynamic> question) async {
-    final cs = Theme.of(context).colorScheme;
     final titleCtrl = TextEditingController(text: '筆記：題 ${question['id'] ?? ''}');
     final contentCtrl = TextEditingController();
     final result = await showDialog<bool>(
@@ -590,7 +588,6 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
       if (ans != null && ans != correctIdx) wrongIds.add(qid);
     }
 
-    final score = correct;
     final action = await showDialog<String?>(
       context: context,
       builder: (ctx) => AlertDialog(

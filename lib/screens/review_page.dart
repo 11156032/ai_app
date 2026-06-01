@@ -91,7 +91,6 @@ class _ReviewPageState extends State<ReviewPage> {
         itemCount: widget.questions.length,
         itemBuilder: (context, idx) {
           final q = widget.questions[idx];
-          final qid = q['id'] is int ? q['id'] as int : int.tryParse(q['id'].toString()) ?? 0;
           final options = _parseOptions(q['options']);
           final correct = _correctIndex(q);
           final chosen = widget.selectedAnswers[idx];
