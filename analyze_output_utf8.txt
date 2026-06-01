@@ -1,0 +1,31 @@
+﻿Analyzing ai_app...                                             
+
+   info - The private field _isDiagnosing could be 'final' - lib\screens\main_screen.dart:111:8 - prefer_final_fields
+   info - The private field _lastQuizWrongIds could be 'final' - lib\screens\main_screen.dart:114:13 - prefer_final_fields
+   info - The private field _streamedDiagnosisText could be 'final' - lib\screens\main_screen.dart:116:10 - prefer_final_fields
+   info - The private field _remainingSeconds could be 'final' - lib\screens\main_screen.dart:139:7 - prefer_final_fields
+   info - The private field _showStudyAnswers could be 'final' - lib\screens\main_screen.dart:143:8 - prefer_final_fields
+   info - The private field _studySearchQuery could be 'final' - lib\screens\main_screen.dart:145:10 - prefer_final_fields
+   info - The private field _personalFilterIndex could be 'final' - lib\screens\main_screen.dart:148:7 - prefer_final_fields
+   info - Unnecessary use of 'toList' in a spread - lib\screens\notes_screen.dart:1554:20 - unnecessary_to_list_in_spreads
+   info - Statements in a for should be enclosed in a block - lib\screens\paper_builder_page.dart:79:37 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\paper_builder_page.dart:177:44 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\paper_builder_page.dart:177:71 - curly_braces_in_flow_control_structures
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\question_edit_page.dart:412:33 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\question_edit_page.dart:413:33 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\screens\question_list_page.dart:79:30 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\screens\question_list_page.dart:122:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\screens\question_list_page.dart:211:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\screens\question_list_page.dart:761:46 - use_build_context_synchronously
+   info - Statements in an if should be enclosed in a block - lib\screens\question_practice_page.dart:145:37 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\question_practice_page.dart:145:67 - curly_braces_in_flow_control_structures
+   info - Statements in a for should be enclosed in a block - lib\screens\question_practice_page.dart:606:59 - curly_braces_in_flow_control_structures
+   info - Statements in a for should be enclosed in a block - lib\screens\review_page.dart:31:40 - curly_braces_in_flow_control_structures
+   info - Unnecessary use of 'toList' in a spread - lib\screens\review_page.dart:138:24 - unnecessary_to_list_in_spreads
+   info - Statements in an if should be enclosed in a block - lib\screens\review_page.dart:147:112 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\review_page.dart:147:140 - curly_braces_in_flow_control_structures
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\wrong_questions_page.dart:180:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\wrong_questions_page.dart:184:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\wrong_questions_page.dart:223:58 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\wrong_questions_page.dart:245:52 - use_build_context_synchronously
+

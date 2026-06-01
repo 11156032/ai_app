@@ -1551,7 +1551,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                       ),
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),
@@ -1645,7 +1645,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _isEraser ? const Color(0xFF8D6E63).withOpacity(0.15) : Colors.transparent,
+                    color: _isEraser ? const Color(0xFF8D6E63).withValues(alpha: 0.15) : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: _isEraser ? const Color(0xFF8D6E63) : Colors.grey.shade300,

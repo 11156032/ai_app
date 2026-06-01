@@ -28,7 +28,9 @@ class _ReviewPageState extends State<ReviewPage> {
 
   @override
   void dispose() {
-    for (final c in _noteCtrls.values) c.dispose();
+    for (final c in _noteCtrls.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -129,22 +131,31 @@ class _ReviewPageState extends State<ReviewPage> {
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: isCorrect ? Colors.green.withOpacity(0.06) : (isChosen ? Colors.orange.withOpacity(0.06) : null),
+                          color: isCorrect ? Colors.green.withValues(alpha: 0.06) : (isChosen ? Colors.orange.withValues(alpha: 0.06) : null),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: isCorrect ? Colors.green : (isChosen ? Colors.orange : Colors.grey.shade200)),
                         ),
                         child: Row(children: [Text(String.fromCharCode(65 + i)), const SizedBox(width: 8), Expanded(child: Text(text))]),
                       );
-                    }).toList(),
+                    }),
                   const SizedBox(height: 8),
                   if ((q['explanation'] ?? '').toString().trim().isNotEmpty)
-                    Text('解析：${q['explanation']}', style: TextStyle(color: cs.onSurface.withOpacity(0.8))),
+                    Text('解析：${q['explanation']}', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.8))),
                   const SizedBox(height: 12),
                   TextField(controller: _noteCtrls[idx], minLines: 2, maxLines: 5, decoration: const InputDecoration(labelText: '筆記（選填）')),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Checkbox(value: _toSaveWrong.contains(idx), onChanged: (v) => setState(() { if (v==true) _toSaveWrong.add(idx); else _toSaveWrong.remove(idx); })),
+                      Checkbox(
+                        value: _toSaveWrong.contains(idx),
+                        onChanged: (v) => setState(() {
+                          if (v == true) {
+                            _toSaveWrong.add(idx);
+                          } else {
+                            _toSaveWrong.remove(idx);
+                          }
+                        }),
+                      ),
                       const SizedBox(width: 8),
                       const Text('加入錯題本'),
                     ],

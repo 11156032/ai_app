@@ -76,7 +76,9 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         _selectedIds.clear();
       } else {
         _selectedIds.clear();
-        for (final q in _questions) _selectedIds.add(q['id'] as int);
+        for (final q in _questions) {
+          _selectedIds.add(q['id'] as int);
+        }
       }
     });
   }
@@ -171,10 +173,14 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                       return CheckboxListTile(
                         value: _selectedIds.contains(id),
                         title: Text(display, style: TextStyle(color: cs.onSurface)),
-                        subtitle: Text(q['subject'] ?? '', style: TextStyle(color: cs.onSurface.withOpacity(0.65))),
+                        subtitle: Text(q['subject'] ?? '', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65))),
                         onChanged: (v) {
                           setState(() {
-                            if (v == true) _selectedIds.add(id); else _selectedIds.remove(id);
+                            if (v == true) {
+                              _selectedIds.add(id);
+                            } else {
+                              _selectedIds.remove(id);
+                            }
                           });
                         },
                       );

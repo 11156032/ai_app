@@ -108,7 +108,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
         body: Center(
           child: Text(
             '目前沒有可練習的題目',
-            style: TextStyle(color: cs.onSurface.withOpacity(0.7)),
+            style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
           ),
         ),
       );
@@ -142,7 +142,11 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                 final nextVal = _marked.contains(currentQid) ? 0 : 1;
                 await db.update('questions', {'bookmarked': nextVal}, where: 'id = ?', whereArgs: [currentQid]);
                 setState(() {
-                  if (nextVal == 1) _marked.add(currentQid); else _marked.remove(currentQid);
+                  if (nextVal == 1) {
+                    _marked.add(currentQid);
+                  } else {
+                    _marked.remove(currentQid);
+                  }
                 });
               } catch (e) {
                 debugPrint('切換收藏失敗: $e');
@@ -171,7 +175,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               gradient: LinearGradient(
                 colors: [
                   cs.primary,
-                  cs.primary.withOpacity(0.82),
+                  cs.primary.withValues(alpha: 0.82),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -187,7 +191,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                       Text(
                         '練習進度',
                         style: TextStyle(
-                          color: cs.onPrimary.withOpacity(0.8),
+                          color: cs.onPrimary.withValues(alpha: 0.8),
                           fontSize: 13,
                         ),
                       ),
@@ -208,7 +212,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                           value: (widget.questions.isEmpty)
                               ? 0
                               : (_currentIndex + 1) / widget.questions.length,
-                          backgroundColor: cs.onPrimary.withOpacity(0.16),
+                          backgroundColor: cs.onPrimary.withValues(alpha: 0.16),
                           valueColor:
                               AlwaysStoppedAnimation<Color>(cs.onPrimary),
                         ),
@@ -234,7 +238,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
             decoration: BoxDecoration(
               color: cs.surface,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: cs.outline.withOpacity(0.12)),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +256,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                 Text(
                   currentQuestion['type']?.toString() ?? '單選題',
                   style: TextStyle(
-                    color: cs.onSurface.withOpacity(0.6),
+                    color: cs.onSurface.withValues(alpha: 0.6),
                     fontSize: 12,
                   ),
                 ),
@@ -287,11 +291,11 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               decoration: BoxDecoration(
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withOpacity(0.12)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
               ),
               child: Text(
                 '這題沒有設定選項，請直接閱讀解析。',
-                style: TextStyle(color: cs.onSurface.withOpacity(0.7)),
+                style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
               ),
             )
           else
@@ -303,13 +307,13 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                   ? Colors.green
                   : isWrongSelection
                       ? Colors.red
-                      : (isSelected ? cs.primary : cs.outline.withOpacity(0.18));
+                      : (isSelected ? cs.primary : cs.outline.withValues(alpha: 0.18));
               final backgroundColor = isCorrect
-                  ? Colors.green.withOpacity(0.08)
+                  ? Colors.green.withValues(alpha: 0.08)
                   : isWrongSelection
-                      ? Colors.red.withOpacity(0.08)
+                      ? Colors.red.withValues(alpha: 0.08)
                       : isSelected
-                          ? cs.primary.withOpacity(0.08)
+                          ? cs.primary.withValues(alpha: 0.08)
                           : cs.surface;
 
               return GestureDetector(
@@ -399,8 +403,8 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: (selectedIndex == answerIndex)
-                    ? Colors.green.withOpacity(0.08)
-                    : Colors.red.withOpacity(0.08),
+                    ? Colors.green.withValues(alpha: 0.08)
+                    : Colors.red.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: (selectedIndex == answerIndex) ? Colors.green : Colors.red,
@@ -444,7 +448,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                     Text(
                       currentQuestion['explanation'].toString(),
                       style: TextStyle(
-                        color: cs.onSurface.withOpacity(0.8),
+                        color: cs.onSurface.withValues(alpha: 0.8),
                         height: 1.6,
                       ),
                     ),
@@ -514,7 +518,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               decoration: BoxDecoration(
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withOpacity(0.12)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,7 +534,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                   const SizedBox(height: 8),
                   Text(
                     '答對 $correctCount 題，共 ${widget.questions.length} 題。',
-                    style: TextStyle(color: cs.onSurface.withOpacity(0.75)),
+                    style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75)),
                   ),
                 ],
               ),
@@ -584,8 +588,12 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
       final qid = q['id'] as int? ?? int.tryParse(q['id'].toString()) ?? 0;
       final ans = _selectedAnswers[i];
       final correctIdx = _correctIndex(q);
-      if (ans != null && ans == correctIdx) correct++;
-      if (ans != null && ans != correctIdx) wrongIds.add(qid);
+      if (ans != null && ans == correctIdx) {
+        correct++;
+      }
+      if (ans != null && ans != correctIdx) {
+        wrongIds.add(qid);
+      }
     }
 
     final action = await showDialog<String?>(
@@ -603,7 +611,9 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
 
     if (action == 'reveal') {
       setState(() {
-        for (int i = 0; i < widget.questions.length; i++) _revealed.add(i);
+        for (int i = 0; i < widget.questions.length; i++) {
+          _revealed.add(i);
+        }
       });
       return;
     }
@@ -636,7 +646,7 @@ class _SummaryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.14),
+        color: Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -662,7 +672,7 @@ class _TagChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(

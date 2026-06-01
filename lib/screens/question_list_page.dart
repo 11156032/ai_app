@@ -75,6 +75,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
   Future<void> _startPaperPractice(int paperId) async {
     try {
       final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
+      if (!mounted) return;
       if (ids.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('此考卷尚無題目')));
         return;
@@ -118,6 +119,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
         };
       }).toList();
 
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -207,6 +209,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
         }).toList();
       }
 
+      if (!mounted) return;
       final result = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
@@ -386,11 +389,11 @@ class _QuestionListPageState extends State<QuestionListPage> {
       prefixIcon: prefixIcon,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.outline.withOpacity(0.18)),
+        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.18)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.outline.withOpacity(0.18)),
+        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.18)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -462,7 +465,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               Text(
                 '${question['type'] ?? '單選題'} · ${options.length} 選項 · ${question['author']?.toString().isEmpty == true ? '未知作者' : question['author']}',
                 style: TextStyle(
-                  color: cs.onSurface.withOpacity(0.65),
+                  color: cs.onSurface.withValues(alpha: 0.65),
                   fontSize: 12,
                 ),
               ),
@@ -541,7 +544,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               decoration: BoxDecoration(
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.outline.withOpacity(0.08)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -577,7 +580,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   else if (_userPapers.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text('尚無已儲存的考卷', style: TextStyle(color: cs.onSurface.withOpacity(0.7))),
+                      child: Text('尚無已儲存的考卷', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7))),
                     )
                   else
                     Column(
@@ -586,7 +589,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         final name = p['name'] ?? '';
                         return ListTile(
                           title: Text(name, style: TextStyle(color: cs.onSurface)),
-                          subtitle: Text('建立於 ${p['created_at']}', style: TextStyle(color: cs.onSurface.withOpacity(0.6), fontSize: 12)),
+                          subtitle: Text('建立於 ${p['created_at']}', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6), fontSize: 12)),
                           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                             IconButton(
                               tooltip: '開始作答',
@@ -616,7 +619,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               decoration: BoxDecoration(
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: cs.outline.withOpacity(0.12)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
               ),
               child: Column(
                 children: [
@@ -748,6 +751,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
                       final result = await Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
@@ -758,7 +762,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         ),
                       );
                       if (result == true) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('考卷已儲存')));
+                        messenger.showSnackBar(const SnackBar(content: Text('考卷已儲存')));
                       }
                     },
                     icon: const Icon(Icons.playlist_add_check_rounded),
@@ -781,7 +785,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 decoration: BoxDecoration(
                   color: cs.surface,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: cs.outline.withOpacity(0.12)),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
                 ),
                 child: Column(
                   children: [
@@ -803,7 +807,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     Text(
                       '試著放寬條件。',
                       style: TextStyle(
-                        color: cs.onSurface.withOpacity(0.65),
+                        color: cs.onSurface.withValues(alpha: 0.65),
                       ),
                     ),
                   ],
@@ -832,7 +836,7 @@ class _TagPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(

@@ -160,6 +160,7 @@ class _WrongQuestionsPageState extends State<WrongQuestionsPage> {
           IconButton(onPressed: _loadWrongQuestions, icon: const Icon(Icons.refresh_rounded)),
           IconButton(
             onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
@@ -176,12 +177,10 @@ class _WrongQuestionsPageState extends State<WrongQuestionsPage> {
                 final ids = _rows.map((r) => int.tryParse(r['id'].toString()) ?? 0).where((v) => v > 0).toList();
                 await DatabaseHelper.instance.deleteWrongQuestionsBulk(ids);
                 await _loadWrongQuestions();
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('錯題本已清空')));
+                messenger.showSnackBar(const SnackBar(content: Text('錯題本已清空')));
               } catch (e) {
                 debugPrint('清空失敗: $e');
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('清空失敗')));
+                messenger.showSnackBar(const SnackBar(content: Text('清空失敗')));
               }
             },
             icon: const Icon(Icons.delete_sweep_rounded),
@@ -192,7 +191,7 @@ class _WrongQuestionsPageState extends State<WrongQuestionsPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _rows.isEmpty
-              ? Center(child: Text('錯題本目前為空', style: TextStyle(color: cs.onSurface.withOpacity(0.7))))
+              ? Center(child: Text('錯題本目前為空', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7))))
               : Column(
                   children: [
                     Expanded(
@@ -213,20 +212,21 @@ class _WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                 onChanged: (v) => setState(() => v == true ? _selected.add(rid) : _selected.remove(rid)),
                               ),
                               title: Text('題目 ID: $qid', style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w700)),
-                              subtitle: note.isEmpty ? null : Text(note, style: TextStyle(color: cs.onSurface.withOpacity(0.8))),
+                              subtitle: note.isEmpty ? null : Text(note, style: TextStyle(color: cs.onSurface.withValues(alpha: 0.8))),
                               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                                 IconButton(onPressed: () async {
+                                  final messenger = ScaffoldMessenger.of(context);
                                   try {
                                     await DatabaseHelper.instance.deleteWrongQuestionByRecordId(rid);
                                     await _loadWrongQuestions();
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已移除')));
+                                    messenger.showSnackBar(const SnackBar(content: Text('已移除')));
                                   } catch (e) {
                                     debugPrint('移除失敗: $e');
                                   }
                                 }, icon: const Icon(Icons.delete_outline_rounded)),
                                 IconButton(onPressed: () async {
                                   // open single question practice
+                                  final navigator = Navigator.of(context);
                                   try {
                                     final db = await DatabaseHelper.instance.database;
                                     final rows = await db.query('questions', where: 'id = ?', whereArgs: [qid]);
@@ -241,8 +241,7 @@ class _WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                       'subject': row['subject'] ?? '',
                                       'type': row['type'] ?? '單選題',
                                     };
-                                    if (!mounted) return;
-                                    Navigator.push(context, MaterialPageRoute(builder: (_) => QuestionPracticePage(questions: [mapped], currentUser: widget.currentUser, title: '錯題練習')));
+                                    navigator.push(MaterialPageRoute(builder: (_) => QuestionPracticePage(questions: [mapped], currentUser: widget.currentUser, title: '錯題練習')));
                                   } catch (e) {
                                     debugPrint('啟動題目練習失敗: $e');
                                   }

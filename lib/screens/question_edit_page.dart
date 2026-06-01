@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -210,11 +211,11 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
       fillColor: cs.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.outline.withOpacity(0.2)),
+        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: cs.outline.withOpacity(0.2)),
+        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -259,7 +260,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
               decoration: BoxDecoration(
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withOpacity(0.15)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,7 +278,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     '題目、章節、答案與解析會同步保存到資料庫。',
                     style: TextStyle(
                       fontSize: 13,
-                      color: cs.onSurface.withOpacity(0.65),
+                      color: cs.onSurface.withValues(alpha: 0.65),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -364,7 +365,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
               decoration: BoxDecoration(
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withOpacity(0.15)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,7 +434,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     '請至少保留兩個選項，並勾選正確答案。',
                     style: TextStyle(
                       fontSize: 12,
-                      color: cs.onSurface.withOpacity(0.6),
+                      color: cs.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -445,7 +446,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
               decoration: BoxDecoration(
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withOpacity(0.15)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -10,8 +10,8 @@ Widget _exquisiteFadeIn({
   double from = 40,
 }) {
   // Disable animate_do timers during widget tests to avoid pending Timer issues
-  final bool _isInTest = WidgetsBinding.instance.runtimeType.toString().toLowerCase().contains('test');
-  if (_isInTest) return child;
+  final bool isInTest = WidgetsBinding.instance.runtimeType.toString().toLowerCase().contains('test');
+  if (isInTest) return child;
 
   return FadeInUp(
     delay: Duration(milliseconds: (delayMs * 0.7).toInt()), // 縮短延遲時間
@@ -47,13 +47,13 @@ class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    final bool _isInTest = WidgetsBinding.instance.runtimeType.toString().toLowerCase().contains('test');
+    final bool isInTest = WidgetsBinding.instance.runtimeType.toString().toLowerCase().contains('test');
 
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     );
-    if (!_isInTest) _ctrl.repeat();
+    if (!isInTest) _ctrl.repeat();
 
     _introCtrl = AnimationController(
       vsync: this,
