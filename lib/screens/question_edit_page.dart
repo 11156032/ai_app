@@ -61,7 +61,9 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
       _optionCtrls.add(TextEditingController());
     }
 
-    final rawAnswer = widget.initialData?['answerIndex'] ?? widget.initialData?['answer'] ?? 0;
+    final rawAnswer = widget.initialData?['answerIndex'] ??
+        widget.initialData?['answer'] ??
+        0;
     answerIndex = int.tryParse(rawAnswer.toString()) ?? 0;
     if (answerIndex < 0) answerIndex = 0;
   }
@@ -101,7 +103,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
   }
 
   Future<void> _syncChapterTag(dynamic db, int questionId) async {
-    await db.delete('question_tag_map', where: 'question_id = ?', whereArgs: [questionId]);
+    await db.delete('question_tag_map',
+        where: 'question_id = ?', whereArgs: [questionId]);
     if (chapter == '未分類' || chapter.trim().isEmpty) return;
 
     final tagId = await _ensureTagId(DatabaseHelper.instance, chapter);
@@ -350,10 +353,14 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     ],
                     selectedItemBuilder: (BuildContext context) {
                       return const [
-                        Text('單選題', overflow: TextOverflow.ellipsis, maxLines: 1),
-                        Text('多選題', overflow: TextOverflow.ellipsis, maxLines: 1),
-                        Text('是非題', overflow: TextOverflow.ellipsis, maxLines: 1),
-                        Text('申論題', overflow: TextOverflow.ellipsis, maxLines: 1),
+                        Text('單選題',
+                            overflow: TextOverflow.ellipsis, maxLines: 1),
+                        Text('多選題',
+                            overflow: TextOverflow.ellipsis, maxLines: 1),
+                        Text('是非題',
+                            overflow: TextOverflow.ellipsis, maxLines: 1),
+                        Text('申論題',
+                            overflow: TextOverflow.ellipsis, maxLines: 1),
                       ];
                     },
                     onChanged: (value) {
@@ -389,11 +396,14 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _questionCtrl,
-                    decoration: _fieldDecoration(context, '題目內容', hint: '輸入題目敘述'),
+                    decoration:
+                        _fieldDecoration(context, '題目內容', hint: '輸入題目敘述'),
                     minLines: 3,
                     maxLines: 6,
                     validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? '請輸入題目' : null,
+                        (value == null || value.trim().isEmpty)
+                            ? '請輸入題目'
+                            : null,
                   ),
                 ],
               ),
@@ -442,6 +452,10 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                                 context,
                                 '選項 ${index + 1}',
                               ),
+                              validator: (value) =>
+                                  (value == null || value.trim().isEmpty)
+                                      ? '請輸入選項內容，或點擊右側按鈕刪除該選項'
+                                      : null,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -501,7 +515,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _explanationCtrl,
-                    decoration: _fieldDecoration(context, '解析（選填）', hint: '寫下解題說明或提示'),
+                    decoration:
+                        _fieldDecoration(context, '解析（選填）', hint: '寫下解題說明或提示'),
                     minLines: 3,
                     maxLines: 6,
                   ),

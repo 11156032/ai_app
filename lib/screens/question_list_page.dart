@@ -36,6 +36,30 @@ class _QuestionListPageState extends State<QuestionListPage> {
 
   List<Map<String, dynamic>> _questions = [];
 
+  int _currentPage = 1;
+  int _pageSize = 10;
+
+  int get totalPages {
+    final count = filteredQuestions.length;
+    if (count == 0) return 1;
+    return (count / _pageSize).ceil();
+  }
+
+  int get safeCurrentPage {
+    final maxPage = totalPages;
+    if (_currentPage > maxPage) return maxPage;
+    if (_currentPage < 1) return 1;
+    return _currentPage;
+  }
+
+  List<Map<String, dynamic>> get paginatedQuestions {
+    final filtered = filteredQuestions;
+    final start = (safeCurrentPage - 1) * _pageSize;
+    if (start >= filtered.length) return [];
+    final end = (start + _pageSize).clamp(0, filtered.length);
+    return filtered.sublist(start, end);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -389,6 +413,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
       selectedDifficulty = '全部';
       searchQuery = '';
       favoritesOnly = false;
+      _currentPage = 1;
     });
   }
 
@@ -673,7 +698,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       '搜尋題目、章節、科目、作者',
                       prefixIcon: const Icon(Icons.search_rounded),
                     ),
-                    onChanged: (value) => setState(() => searchQuery = value),
+                    onChanged: (value) => setState(() {
+                      searchQuery = value;
+                      _currentPage = 1;
+                    }),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -703,6 +731,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                             setState(() {
                               selectedSubject = value;
                               selectedChapter = '全部';
+                              _currentPage = 1;
                             });
                           },
                         ),
@@ -730,7 +759,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
                           },
                           onChanged: (value) {
                             if (value == null) return;
-                            setState(() => selectedChapter = value);
+                            setState(() {
+                              selectedChapter = value;
+                              _currentPage = 1;
+                            });
                           },
                         ),
                       ),
@@ -761,7 +793,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
                           },
                           onChanged: (value) {
                             if (value == null) return;
-                            setState(() => selectedDifficulty = value);
+                            setState(() {
+                              selectedDifficulty = value;
+                              _currentPage = 1;
+                            });
                           },
                         ),
                       ),
@@ -771,7 +806,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
                           selected: favoritesOnly,
                           label: const Text('只看收藏'),
                           onSelected: (value) =>
-                              setState(() => favoritesOnly = value),
+                              setState(() {
+                                favoritesOnly = value;
+                                _currentPage = 1;
+                              }),
                         ),
                       ),
                     ],
@@ -891,11 +929,83 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   ],
                 ),
               )
-            else
-              ...filtered.asMap().entries.map(
+            else ...[
+              ...paginatedQuestions.asMap().entries.map(
                     (entry) =>
-                        _questionCard(context, entry.value, entry.key, cs),
+                        _questionCard(context, entry.value,
+                            (safeCurrentPage - 1) * _pageSize + entry.key, cs),
                   ),
+              if (filtered.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '每頁顯示',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      DropdownButton<int>(
+                        value: _pageSize,
+                        dropdownColor: cs.surface,
+                        underline: const SizedBox(),
+                        style: TextStyle(
+                          color: cs.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        items: [5, 10, 20, 50]
+                            .map((size) => DropdownMenuItem<int>(
+                                  value: size,
+                                  child: Text('$size 題'),
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _pageSize = val;
+                              _currentPage = 1;
+                            });
+                          }
+                        },
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: safeCurrentPage > 1
+                            ? () => setState(() => _currentPage = safeCurrentPage - 1)
+                            : null,
+                        icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
+                        color: cs.primary,
+                      ),
+                      Text(
+                        '$safeCurrentPage / $totalPages 頁',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: safeCurrentPage < totalPages
+                            ? () => setState(() => _currentPage = safeCurrentPage + 1)
+                            : null,
+                        icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                        color: cs.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ],
         ),
       ),
