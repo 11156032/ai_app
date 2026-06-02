@@ -680,6 +680,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: selectedSubject,
                           decoration: _fieldDecoration(context, '科目'),
                           items: ['全部', ...widget.allSubjects]
@@ -688,6 +689,15 @@ class _QuestionListPageState extends State<QuestionListPage> {
                                     child: Text(subject),
                                   ))
                               .toList(),
+                          selectedItemBuilder: (BuildContext context) {
+                            return ['全部', ...widget.allSubjects]
+                                .map((subject) => Text(
+                                      subject,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ))
+                                .toList();
+                          },
                           onChanged: (value) {
                             if (value == null) return;
                             setState(() {
@@ -700,6 +710,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: selectedChapter,
                           decoration: _fieldDecoration(context, '章節'),
                           items: chaptersForSelectedSubject
@@ -708,6 +719,15 @@ class _QuestionListPageState extends State<QuestionListPage> {
                                     child: Text(chapter),
                                   ))
                               .toList(),
+                          selectedItemBuilder: (BuildContext context) {
+                            return chaptersForSelectedSubject
+                                .map((chapter) => Text(
+                                      chapter,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ))
+                                .toList();
+                          },
                           onChanged: (value) {
                             if (value == null) return;
                             setState(() => selectedChapter = value);
@@ -721,6 +741,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: selectedDifficulty,
                           decoration: _fieldDecoration(context, '難度'),
                           items: ['全部', '易', '中', '難']
@@ -729,6 +750,15 @@ class _QuestionListPageState extends State<QuestionListPage> {
                                     child: Text(difficulty),
                                   ))
                               .toList(),
+                          selectedItemBuilder: (BuildContext context) {
+                            return ['全部', '易', '中', '難']
+                                .map((difficulty) => Text(
+                                      difficulty,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ))
+                                .toList();
+                          },
                           onChanged: (value) {
                             if (value == null) return;
                             setState(() => selectedDifficulty = value);

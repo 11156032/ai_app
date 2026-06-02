@@ -283,6 +283,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: subject,
                     decoration: _fieldDecoration(context, '科目'),
                     items: widget.allSubjects
@@ -291,6 +292,15 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                               child: Text(item),
                             ))
                         .toList(),
+                    selectedItemBuilder: (BuildContext context) {
+                      return widget.allSubjects
+                          .map((item) => Text(
+                                item,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ))
+                          .toList();
+                    },
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() {
@@ -304,6 +314,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: chapter,
                     decoration: _fieldDecoration(context, '章節'),
                     items: chapterItems
@@ -312,6 +323,15 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                               child: Text(item),
                             ))
                         .toList(),
+                    selectedItemBuilder: (BuildContext context) {
+                      return chapterItems
+                          .map((item) => Text(
+                                item,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ))
+                          .toList();
+                    },
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() => chapter = value);
@@ -319,6 +339,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: type,
                     decoration: _fieldDecoration(context, '題型'),
                     items: const [
@@ -327,6 +348,14 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                       DropdownMenuItem(value: '是非題', child: Text('是非題')),
                       DropdownMenuItem(value: '申論題', child: Text('申論題')),
                     ],
+                    selectedItemBuilder: (BuildContext context) {
+                      return const [
+                        Text('單選題', overflow: TextOverflow.ellipsis, maxLines: 1),
+                        Text('多選題', overflow: TextOverflow.ellipsis, maxLines: 1),
+                        Text('是非題', overflow: TextOverflow.ellipsis, maxLines: 1),
+                        Text('申論題', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ];
+                    },
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() => type = value);
@@ -334,6 +363,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: difficulty,
                     decoration: _fieldDecoration(context, '難度'),
                     items: const ['易', '中', '難']
@@ -342,6 +372,15 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                               child: Text(item),
                             ))
                         .toList(),
+                    selectedItemBuilder: (BuildContext context) {
+                      return const ['易', '中', '難']
+                          .map((item) => Text(
+                                item,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ))
+                          .toList();
+                    },
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() => difficulty = value);

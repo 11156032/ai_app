@@ -10,7 +10,10 @@ Widget _exquisiteFadeIn({
   double from = 40,
 }) {
   // Disable animate_do timers during widget tests to avoid pending Timer issues
-  final bool isInTest = WidgetsBinding.instance.runtimeType.toString().toLowerCase().contains('test');
+  final bool isInTest = WidgetsBinding.instance.runtimeType
+      .toString()
+      .toLowerCase()
+      .contains('test');
   if (isInTest) return child;
 
   return FadeInUp(
@@ -47,7 +50,10 @@ class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    final bool isInTest = WidgetsBinding.instance.runtimeType.toString().toLowerCase().contains('test');
+    final bool isInTest = WidgetsBinding.instance.runtimeType
+        .toString()
+        .toLowerCase()
+        .contains('test');
 
     _ctrl = AnimationController(
       vsync: this,
@@ -337,7 +343,8 @@ class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
         return Opacity(
           opacity: _exitOpacity.value,
           child: Container(
-            color: const Color(0xFFF7F3F0).withValues(alpha: _bgOpacity.value * 0.97),
+            color: const Color(0xFFF7F3F0)
+                .withValues(alpha: _bgOpacity.value * 0.97),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -504,8 +511,8 @@ class _BloomingLogoPainter extends CustomPainter {
 
       // 核心發光/變色
       final centerPaint = Paint()
-        ..color =
-            const Color(0xFFFFD54F).withValues(alpha: bloomProgress.clamp(0.0, 1.0))
+        ..color = const Color(0xFFFFD54F)
+            .withValues(alpha: bloomProgress.clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(w * 0.5, h * 0.35),
           baseDotRadius * 0.6 * bloomProgress, centerPaint);
@@ -553,9 +560,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     });
   }
-
-  // Simple test counter to satisfy widget_test expectations
-  int _testCounter = 0;
 
   @override
   void dispose() {
@@ -615,6 +619,204 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _forgotPassword() async {
+    final TextEditingController emailResetCtrl = TextEditingController();
+    if (_emailCtrl.text.isNotEmpty && _emailCtrl.text != '@gmail.com') {
+      emailResetCtrl.text = _emailCtrl.text;
+    }
+
+    final bool? emailExists = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('忘記密碼'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('請輸入您註冊時使用的電子信箱，以進行密碼重設。'),
+            const SizedBox(height: 14),
+            TextField(
+              controller: emailResetCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: _inputDeco('電子信箱',
+                  suffix: const Icon(Icons.email_outlined, color: Color(0xFFBCAAA4))),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              final email = emailResetCtrl.text.trim();
+              if (email.isEmpty || email == '@gmail.com') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('請輸入有效的信箱')),
+                );
+                return;
+              }
+              
+              try {
+                final db = await DatabaseHelper.instance.database;
+                final res = await db.query('users', where: 'email = ?', whereArgs: [email]);
+                if (res.isEmpty) {
+                  if (!ctx.mounted) return;
+                  showDialog(
+                    context: ctx,
+                    builder: (c) => AlertDialog(
+                      title: const Text('提示'),
+                      content: const Text('找不到此信箱對應的帳號，請確認信箱是否輸入正確。'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(c),
+                          child: const Text('確定'),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx, true);
+                }
+              } catch (e) {
+                debugPrint('查詢帳號失敗: $e');
+              }
+            },
+            child: const Text('下一步'),
+          ),
+        ],
+      ),
+    );
+
+    if (emailExists == true) {
+      final targetEmail = emailResetCtrl.text.trim();
+      if (!mounted) return;
+      
+      final TextEditingController newPasswordCtrl = TextEditingController();
+      final TextEditingController confirmPasswordCtrl = TextEditingController();
+      bool obscureNew = true;
+      bool obscureConfirm = true;
+      
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('重設新密碼'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('帳號驗證成功！請輸入您的新密碼。'),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: newPasswordCtrl,
+                    obscureText: obscureNew,
+                    decoration: _inputDeco(
+                      '新密碼',
+                      suffix: IconButton(
+                        icon: Icon(
+                          obscureNew
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: const Color(0xFFBCAAA4),
+                        ),
+                        onPressed: () => setState(() => obscureNew = !obscureNew),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: confirmPasswordCtrl,
+                    obscureText: obscureConfirm,
+                    decoration: _inputDeco(
+                      '確認新密碼',
+                      suffix: IconButton(
+                        icon: Icon(
+                          obscureConfirm
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: const Color(0xFFBCAAA4),
+                        ),
+                        onPressed: () => setState(() => obscureConfirm = !obscureConfirm),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('取消', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom( 
+                    backgroundColor: _primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    final newPass = newPasswordCtrl.text;
+                    final confPass = confirmPasswordCtrl.text;
+                    
+                    if (newPass.isEmpty || confPass.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('欄位不可為空')),
+                      );
+                      return;
+                    }
+                    if (newPass != confPass) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('兩次輸入密碼不同')),
+                      );
+                      return;
+                    }
+                    
+                    try {
+                      final db = await DatabaseHelper.instance.database;
+                      await db.update(
+                        'users',
+                        {'hashed_password': newPass},
+                        where: 'email = ?',
+                        whereArgs: [targetEmail],
+                      );
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      
+                      showDialog(
+                        context: context,
+                        builder: (c) => AlertDialog(
+                          title: const Text('重設成功'),
+                          content: const Text('您的密碼已成功更新！請使用新密碼進行登入。'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(c),
+                              child: const Text('確定'),
+                            ),
+                          ],
+                        ),
+                      );
+                    } catch (e) {
+                      debugPrint('更新密碼失敗: $e');
+                    }
+                  },
+                  child: const Text('完成重設'),
+                ),
+              ],
+            );
+          }
+        ),
+      );
+    }
+  }
+
   Future<void> _submit() async {
     if (isLogin) {
       if (_emailCtrl.text.isEmpty ||
@@ -659,7 +861,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         if (res.isNotEmpty) {
           final userMap = Map<String, dynamic>.from(res.first);
-          
+
           // 處理刪除復原邏輯 (自動刪除由系統背景或啟動時處理)
           if (userMap['deleted_at'] != null) {
             if (!mounted) return;
@@ -803,7 +1005,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleGoogleLogin(String email, String displayName) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      final res = await db.query('users', where: 'email = ?', whereArgs: [email]);
+      final res =
+          await db.query('users', where: 'email = ?', whereArgs: [email]);
       if (!mounted) return;
 
       Map<String, dynamic> userMap;
@@ -811,7 +1014,8 @@ class _LoginScreenState extends State<LoginScreen> {
         userMap = Map<String, dynamic>.from(res.first);
         // 如果存在但尚未標記為 google 登入，則更新為 google 登入
         if (userMap['is_google'] != 1) {
-          await db.update('users', {'is_google': 1}, where: 'id = ?', whereArgs: [userMap['id']]);
+          await db.update('users', {'is_google': 1},
+              where: 'id = ?', whereArgs: [userMap['id']]);
           userMap['is_google'] = 1;
         }
 
@@ -879,10 +1083,6 @@ class _LoginScreenState extends State<LoginScreen> {
     // 每次切換 isLogin 時，key 重建讓動畫重播
     return Scaffold(
       backgroundColor: _bgColor,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => setState(() => _testCounter++),
-        child: const Icon(Icons.add),
-      ),
       body: Stack(
         children: [
           // 背景裝飾圓
@@ -971,8 +1171,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Color(0xFFBCAAA4))),
                         ),
                         const SizedBox(height: 14),
-                        // test counter display (for widget_test)
-                        Text('$_testCounter', key: const Key('testCounter'), style: const TextStyle(color: Colors.transparent)),
 
                         // 帳號名稱欄（僅註冊）
                         if (!isLogin) ...[
@@ -1001,7 +1199,30 @@ class _LoginScreenState extends State<LoginScreen> {
                                     () => _obscurePassword = !_obscurePassword),
                               )),
                         ),
-                        const SizedBox(height: 14),
+                        if (isLogin) ...[
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _forgotPassword,
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 30),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text(
+                                '忘記密碼？',
+                                style: TextStyle(
+                                  color: Color(0xFF8D6E63),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ] else ...[
+                          const SizedBox(height: 14),
+                        ],
 
                         // 確認密碼（僅註冊）
                         if (!isLogin) ...[
@@ -1039,7 +1260,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           backgroundColor: _primaryColor,
                           foregroundColor: Colors.white,
                           elevation: 4,
-                          shadowColor: const Color(0xFF8D6E63).withValues(alpha: 0.4),
+                          shadowColor:
+                              const Color(0xFF8D6E63).withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16)),
                         ),
@@ -1086,7 +1308,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             backgroundColor: Colors.white,
-                            side: const BorderSide(color: Color(0xFFDADCE0), width: 1.2),
+                            side: const BorderSide(
+                                color: Color(0xFFDADCE0), width: 1.2),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16)),
                             elevation: 1,
@@ -1208,18 +1431,23 @@ class GoogleSpinner extends StatefulWidget {
   State<GoogleSpinner> createState() => _GoogleSpinnerState();
 }
 
-class _GoogleSpinnerState extends State<GoogleSpinner> with SingleTickerProviderStateMixin {
+class _GoogleSpinnerState extends State<GoogleSpinner>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat();
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return RotationTransition(
@@ -1262,7 +1490,8 @@ class _GoogleSignInModal extends StatefulWidget {
 class _GoogleSignInModalState extends State<_GoogleSignInModal> {
   bool _isLoading = false;
   bool _isAddingAccount = false;
-  
+  bool _isRemovingMode = false;
+
   final _emailCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -1286,7 +1515,8 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
       if (!mounted) return;
       setState(() {
         _presetAccounts = res.map((row) {
-          final name = (row['display_name'] ?? row['username'] ?? '').toString();
+          final name =
+              (row['display_name'] ?? row['username'] ?? '').toString();
           final email = (row['email'] ?? '').toString();
           final initial = name.isNotEmpty ? name.substring(0, 1) : '?';
           return {
@@ -1299,10 +1529,52 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
         // 若無任何已登入的 Google 帳號，直接進入輸入畫面
         if (_presetAccounts.isEmpty) {
           _isAddingAccount = true;
+          _isRemovingMode = false;
         }
       });
     } catch (e) {
       debugPrint('載入 Google 帳號清單失敗: $e');
+    }
+  }
+
+  Future<void> _removeAccount(String email) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      // 方案一：僅將 is_google 設為 0
+      await db.update(
+        'users',
+        {'is_google': 0},
+        where: 'email = ?',
+        whereArgs: [email],
+      );
+      await _loadExistingAccounts();
+    } catch (e) {
+      debugPrint('移除 Google 帳號連結失敗: $e');
+    }
+  }
+
+  Future<void> _confirmRemoveAccount(String email, String name) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('移除帳號？'),
+        content: Text('這會將「$name ($email)」從此裝置的登入清單中移除。\n\n您在此APP所有資料仍會妥善保留。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child:
+                const Text('確認移除', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _removeAccount(email);
     }
   }
 
@@ -1347,8 +1619,9 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
 
   @override
   Widget build(BuildContext context) {
-    final double modalWidth = MediaQuery.of(context).size.width.clamp(300.0, 420.0);
-    
+    final double modalWidth =
+        MediaQuery.of(context).size.width.clamp(300.0, 420.0);
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       backgroundColor: Colors.white,
@@ -1361,7 +1634,9 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
           curve: Curves.easeInOut,
           child: _isLoading
               ? _buildLoadingState()
-              : (_isAddingAccount ? _buildAddAccountState() : _buildAccountSelectorState()),
+              : (_isAddingAccount
+                  ? _buildAddAccountState()
+                  : _buildAccountSelectorState()),
         ),
       ),
     );
@@ -1417,14 +1692,18 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
             shrinkWrap: true,
             padding: EdgeInsets.zero,
             itemCount: _presetAccounts.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F3F4)),
+            separatorBuilder: (_, __) =>
+                const Divider(height: 1, color: Color(0xFFF1F3F4)),
             itemBuilder: (ctx, i) {
               final acc = _presetAccounts[i];
               return InkWell(
-                onTap: () => _selectAccount(acc['email']!, acc['name']!),
+                onTap: _isRemovingMode
+                    ? () => _confirmRemoveAccount(acc['email']!, acc['name']!)
+                    : () => _selectAccount(acc['email']!, acc['name']!),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                   child: Row(
                     children: [
                       _buildAccountAvatar(acc['initial']!, i),
@@ -1452,7 +1731,11 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF747775)),
+                      _isRemovingMode
+                          ? const Icon(Icons.remove_circle_outline_rounded,
+                              size: 20, color: Colors.redAccent)
+                          : const Icon(Icons.chevron_right_rounded,
+                              size: 18, color: Color(0xFF747775)),
                     ],
                   ),
                 ),
@@ -1461,27 +1744,77 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
           ),
         ),
         const Divider(height: 1, color: Color(0xFFF1F3F4)),
-        InkWell(
-          onTap: () => setState(() => _isAddingAccount = true),
-          borderRadius: BorderRadius.circular(8),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-            child: Row(
-              children: [
-                Icon(Icons.person_add_alt_1_rounded, size: 20, color: Color(0xFF1A73E8)),
-                SizedBox(width: 14),
-                Text(
-                  '使用其他帳號',
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A73E8),
+        if (!_isRemovingMode) ...[
+          InkWell(
+            onTap: () => setState(() => _isAddingAccount = true),
+            borderRadius: BorderRadius.circular(8),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.person_add_alt_1_rounded,
+                      size: 20, color: Color(0xFF1A73E8)),
+                  SizedBox(width: 14),
+                  Text(
+                    '使用其他帳號',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A73E8),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
+          const Divider(height: 1, color: Color(0xFFF1F3F4)),
+          InkWell(
+            onTap: () => setState(() => _isRemovingMode = true),
+            borderRadius: BorderRadius.circular(8),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.remove_circle_outline_rounded,
+                      size: 20, color: Color(0xFF5F6368)),
+                  SizedBox(width: 14),
+                  Text(
+                    '移除帳號',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF5F6368),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
+          InkWell(
+            onTap: () => setState(() => _isRemovingMode = false),
+            borderRadius: BorderRadius.circular(8),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_outline_rounded,
+                      size: 20, color: Color(0xFF1A73E8)),
+                  SizedBox(width: 8),
+                  Text(
+                    '完成',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A73E8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         const Text(
           '若要繼續，Google 會將您的姓名、電子郵件地址和個人資料相片與 YeBang 家教共用。請務必詳閱 YeBang 家教的服務條款和隱私權政策。',
@@ -1521,12 +1854,15 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
               labelText: '電子郵件地址 (Google 帳號)',
               hintText: 'user@gmail.com',
               labelStyle: const TextStyle(fontSize: 14),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF1A73E8), width: 2),
+                borderSide:
+                    const BorderSide(color: Color(0xFF1A73E8), width: 2),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             ),
             validator: (val) {
               if (val == null || val.trim().isEmpty) return '請輸入電子郵件';
@@ -1542,12 +1878,15 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
               labelText: '您的姓名',
               hintText: '如：小明',
               labelStyle: const TextStyle(fontSize: 14),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF1A73E8), width: 2),
+                borderSide:
+                    const BorderSide(color: Color(0xFF1A73E8), width: 2),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             ),
             validator: (val) {
               if (val == null || val.trim().isEmpty) return '請輸入姓名';
@@ -1560,21 +1899,27 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
             children: [
               TextButton(
                 onPressed: () => setState(() => _isAddingAccount = false),
-                child: const Text('返回', style: TextStyle(color: Color(0xFF1A73E8), fontWeight: FontWeight.bold)),
+                child: const Text('返回',
+                    style: TextStyle(
+                        color: Color(0xFF1A73E8), fontWeight: FontWeight.bold)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1A73E8),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
-                    _selectAccount(_emailCtrl.text.trim(), _nameCtrl.text.trim());
+                    _selectAccount(
+                        _emailCtrl.text.trim(), _nameCtrl.text.trim());
                   }
                 },
-                child: const Text('下一步', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('下一步',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
