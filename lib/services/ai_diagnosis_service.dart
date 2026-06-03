@@ -45,8 +45,10 @@ class DiagnosisResult {
 }
 
 class AiDiagnosisService {
-  static const String _kSystemGeminiApiKey =
-      'AQ.Ab8RN6J5i4B6JXQWONipSgRD7T624iSBdxv-6u6A5oFT0qcQkQ';
+  static const String _kSystemGeminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: 'AQ.Ab8RN6J5i4B6JXQWONipSgRD7T624iSBdxv-6u6A5oFT0qcQkQ',
+  );
   static DateTime? nextAvailableTime;
 
   // ─────────────────────────────────────────────────────────────────────────
