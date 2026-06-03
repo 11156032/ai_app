@@ -46,7 +46,7 @@ class DiagnosisResult {
 
 class AiDiagnosisService {
   static const String _kSystemGeminiApiKey =
-      'AQ.Ab8RN6IKYCJChp7vSzpJovc-SnuoM2tvq-2AAXXC-UtS0nWFwQ';
+      'AQ.Ab8RN6J5i4B6JXQWONipSgRD7T624iSBdxv-6u6A5oFT0qcQkQ';
   static DateTime? nextAvailableTime;
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -162,7 +162,7 @@ $correctDetails
 
     try {
       final model = GenerativeModel(
-        model: 'gemini-3.5-flash',
+        model: 'gemini-2.5-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
@@ -255,7 +255,7 @@ $correctDetails
 
     try {
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$_kSystemGeminiApiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_kSystemGeminiApiKey',
       );
 
       final prompt = '''
@@ -362,7 +362,7 @@ $noteContent
 
     try {
       final model = GenerativeModel(
-        model: 'gemini-3.5-flash',
+        model: 'gemini-2.5-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
@@ -469,7 +469,7 @@ $noteContent
     required String subject,
   }) async {
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
 
     final wrongDetails = wrongQuestions.map((q) {

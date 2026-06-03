@@ -284,6 +284,14 @@ extension MainScreenProfileTab on _MainScreenState {
             onTap: _showThemeColorDialog,
           ),
           const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.calendar_view_month,
+            label: '行事曆顯示樣式',
+            value: _calendarViewMode == 'bar' ? '橫條跨天模式' : '經典短條模式',
+            onTap: _showCalendarViewModeDialog,
+          ),
+          const Divider(height: 24),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('深色模式',
@@ -605,5 +613,313 @@ extension MainScreenProfileTab on _MainScreenState {
         ],
       ),
     );
+  }
+
+  void _showCalendarViewModeDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF5EAE6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Center(
+          child: Text(
+            '選擇行事曆顯示樣式',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.white : const Color(0xFF8D6E63),
+            ),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildCalendarViewModeOption(ctx, 'dot', '經典短條模式', '日期下方以彩色短條標示行程，簡潔清晰'),
+            const SizedBox(height: 12),
+            _buildCalendarViewModeOption(ctx, 'bar', '橫條跨天模式', '以彩色橫條橫跨日期顯示，方便看清名稱與區間'),
+          ],
+        ),
+        actions: [
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                '取消',
+                style: TextStyle(
+                  color: _isDarkMode ? Colors.white70 : const Color(0xFF8D6E63),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarViewModeOption(
+      BuildContext dialogContext, String mode, String title, String subtitle) {
+    bool isSelected = (_calendarViewMode == mode);
+    Widget previewWidget = _buildHighFidelityPreview(mode);
+
+    return InkWell(
+      onTap: () async {
+        Navigator.pop(dialogContext);
+        _update(() {
+          _calendarViewMode = mode;
+        });
+        await _updatePersonalization();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected
+              ? const Color(0xFF8D6E63).withValues(alpha: 0.05)
+              : Colors.transparent,
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(
+                  mode == 'dot' ? Icons.fiber_manual_record : Icons.calendar_view_month,
+                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.bold,
+                          fontSize: 14,
+                          color: _isDarkMode ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  const Icon(Icons.check_circle, color: Color(0xFF8D6E63), size: 18),
+              ],
+            ),
+            const SizedBox(height: 10),
+            previewWidget,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHighFidelityPreview(String mode) {
+    bool isDark = _isDarkMode;
+    Color cellBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    Color textCol = isDark ? Colors.white54 : Colors.black54;
+    Color borderCol = isDark ? Colors.white12 : Colors.grey.shade200;
+
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: cellBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderCol),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          // Weekday header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: ['一', '二', '三', '四', '五', '六', '日'].map((w) {
+              return SizedBox(
+                width: 32,
+                child: Center(
+                  child: Text(
+                    w,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 4),
+          // 3 Weeks grid (21 days)
+          ...List.generate(3, (wIndex) {
+            double colWidth = (260 - 16) / 7;
+            return SizedBox(
+              height: 24,
+              child: Stack(
+                children: [
+                  // Base grid numbers
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: List.generate(7, (dIndex) {
+                      int dayNum = wIndex * 7 + dIndex + 1;
+                      return SizedBox(
+                        width: 32,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 2),
+                            Text(
+                              '$dayNum',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w500,
+                                color: textCol,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+                  // Foreground dots or bars
+                  if (mode == 'dot')
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(7, (dIndex) {
+                        int dayNum = wIndex * 7 + dIndex + 1;
+                        List<Color> dots = [];
+                        if (dayNum == 3) dots = [const Color(0xFFF48FB1)];
+                        if (dayNum == 8) dots = [const Color(0xFF90CAF9), const Color(0xFFA5D6A7)];
+                        if (dayNum == 14) dots = [const Color(0xFFFFCC80)];
+                        if (dayNum == 15) dots = [const Color(0xFFCE93D8)];
+                        if (dayNum == 19) dots = [const Color(0xFF80CBC4), const Color(0xFFFFCC80)];
+                        
+                        return SizedBox(
+                          width: 32,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (dots.isNotEmpty)
+                                Wrap(
+                                  spacing: 1.5,
+                                  alignment: WrapAlignment.center,
+                                  children: dots.map((c) => Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                                    width: 8, // Changed from 6
+                                    height: 4, // Changed from 2
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(2), // Changed from 1
+                                      color: c,
+                                    ),
+                                  )).toList(),
+                                )
+                              else
+                                const SizedBox(height: 2),
+                              const SizedBox(height: 2),
+                            ],
+                          ),
+                        );
+                      }),
+                    )
+                  else // mode == 'bar'
+                    ..._buildMiniBarsForWeek(wIndex, colWidth),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildMiniBarsForWeek(int wIndex, double colWidth) {
+    List<Widget> bars = [];
+    
+    // Week 0: Day 3 to 5 (Index 2 to 4)
+    if (wIndex == 0) {
+      double left = 8 + 2 * colWidth + 2;
+      double width = 3 * colWidth - 4;
+      bars.add(Positioned(
+        left: left,
+        width: width,
+        top: 14,
+        height: 6,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF90CAF9).withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ));
+    }
+    // Week 1: Day 8 to 10 (Index 0 to 2)
+    if (wIndex == 1) {
+      double left = 8 + 0 * colWidth + 2;
+      double width = 3 * colWidth - 4;
+      bars.add(Positioned(
+        left: left,
+        width: width,
+        top: 14,
+        height: 6,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFA5D6A7).withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ));
+      // Day 14 (Index 6)
+      double left2 = 8 + 6 * colWidth + 2;
+      double width2 = 1 * colWidth - 4;
+      bars.add(Positioned(
+        left: left2,
+        width: width2,
+        top: 14,
+        height: 6,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFCC80).withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ));
+    }
+    // Week 2: Day 15 to 19 (Index 0 to 4)
+    if (wIndex == 2) {
+      double left = 8 + 0 * colWidth + 2;
+      double width = 5 * colWidth - 4;
+      bars.add(Positioned(
+        left: left,
+        width: width,
+        top: 14,
+        height: 6,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFCE93D8).withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ));
+    }
+    return bars;
   }
 }

@@ -93,6 +93,12 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Added is_google column to users table.');
       }
 
+      if (!userCols.any((c) => c['name'] == 'calendar_view_mode')) {
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN calendar_view_mode TEXT DEFAULT 'dot'");
+        debugPrint('Dynamic migration: Added calendar_view_mode column to users table.');
+      }
+
       // 自我修復：如果原廠測試帳號被清空，自動重新導入 (以 Sharon 帳號 id = u1 為指標)
       final u1Check = await db.query('users', where: "id = 'u1'");
       if (u1Check.isEmpty) {
@@ -277,6 +283,7 @@ class DatabaseHelper {
         is_dark_mode INTEGER DEFAULT 0,
         gemini_api_key TEXT,
         is_google INTEGER DEFAULT 0,
+        calendar_view_mode TEXT DEFAULT 'dot',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');

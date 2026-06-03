@@ -131,10 +131,16 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       {'i': Icons.forum, 'l': '社群討論', 'v': '社群', 'c': Colors.blue},
       {'i': Icons.history_edu, 'l': '查看社群動態', 'v': '社群動態', 'c': Colors.orange},
       {
-        'i': Icons.calendar_month_outlined,
-        'l': '新增日曆行程',
-        'v': '新增行程',
+        'i': Icons.add_circle_outline,
+        'l': '新增行程或待辦',
+        'v': '新增',
         'c': Colors.blueAccent
+      },
+      {
+        'i': Icons.edit_note_outlined,
+        'l': '修改行程或待辦',
+        'v': '修改',
+        'c': Colors.orangeAccent
       },
       {
         'i': Icons.dynamic_feed_outlined,

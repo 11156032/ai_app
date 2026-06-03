@@ -159,6 +159,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
             questions: mapped,
             initialIndex: 0,
             title: '自訂考卷練習',
+            currentUser: widget.currentUser,
           ),
         ),
       );

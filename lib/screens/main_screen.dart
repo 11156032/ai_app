@@ -56,6 +56,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   // --- 資料庫區 ---
   // 使用真實今天（只取年月日，去掉時分秒）
+  String _calendarViewMode = 'dot';
   late final DateTime _simulatedToday;
   late DateTime _selectedDate;
   late DateTime _calendarMonth;
@@ -224,13 +225,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       // Fetch schedules
       final schedulesList = await db.query('calendar_events',
           where: 'user_id = ?', whereArgs: [currentUserId]);
-      
+
       final List<Map<String, dynamic>> validSchedulesList = [];
       for (var s in schedulesList) {
         final startTimeStr = s['start_time'] as String? ?? '';
         if (!RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(startTimeStr.trim())) {
-          await db.delete('calendar_events', where: 'id = ?', whereArgs: [s['id']]);
-          debugPrint('Deleted malformed calendar event: ${s['id']} (${s['title']})');
+          await db
+              .delete('calendar_events', where: 'id = ?', whereArgs: [s['id']]);
+          debugPrint(
+              'Deleted malformed calendar event: ${s['id']} (${s['title']})');
         } else {
           validSchedulesList.add(s);
         }
@@ -241,18 +244,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final startTimeStr = s['start_time'] as String? ?? '';
         final endTimeStr = s['end_time'] as String? ?? '';
 
-        String date = '';
         String startHr = '00:00';
         String endHr = '00:00';
 
         final startParts = startTimeStr.split(' ');
-        if (startParts.isNotEmpty) {
-          date = startParts[0];
-          if (startParts.length > 1) {
-            final rawTime = startParts[1];
-            startHr =
-                rawTime.substring(0, rawTime.length >= 5 ? 5 : rawTime.length);
-          }
+        if (startParts.isNotEmpty && startParts.length > 1) {
+          final rawTime = startParts[1];
+          startHr =
+              rawTime.substring(0, rawTime.length >= 5 ? 5 : rawTime.length);
         }
 
         final endParts = endTimeStr.split(' ');
@@ -273,13 +272,44 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         } catch (e) {
           debugPrint('顏色解析失敗: $e');
         }
-        schedulesMap.putIfAbsent(date, () => []).add({
-          'id': s['id'],
-          'time': '$startHr~$endHr',
-          'title': s['title'],
-          'color': colorVal,
-          'date': date,
-        });
+
+        // Parse date range for multi-day support
+        try {
+          DateTime startDate = DateTime.parse(startTimeStr.split(' ')[0]);
+          DateTime endDate = DateTime.parse(endTimeStr.split(' ')[0]);
+          if (endDate.isBefore(startDate)) {
+            endDate = startDate;
+          }
+          int diffDays = endDate.difference(startDate).inDays;
+          for (int idx = 0; idx <= diffDays; idx++) {
+            DateTime currentDay = startDate.add(Duration(days: idx));
+            String dateKey =
+                "${currentDay.year}-${currentDay.month.toString().padLeft(2, '0')}-${currentDay.day.toString().padLeft(2, '0')}";
+            schedulesMap.putIfAbsent(dateKey, () => []).add({
+              'id': s['id'],
+              'time': '$startHr~$endHr',
+              'title': s['title'],
+              'color': colorVal,
+              'date': startTimeStr.split(' ')[
+                  0], // Keep start date for single-day list match if needed
+              'start_date': startTimeStr.split(' ')[0],
+              'end_date': endTimeStr.split(' ')[0],
+            });
+          }
+        } catch (e) {
+          debugPrint('時間範圍解析失敗: $e');
+          // Fallback if parsing fails
+          String date = startTimeStr.split(' ')[0];
+          schedulesMap.putIfAbsent(date, () => []).add({
+            'id': s['id'],
+            'time': '$startHr~$endHr',
+            'title': s['title'],
+            'color': colorVal,
+            'date': date,
+            'start_date': date,
+            'end_date': date,
+          });
+        }
       }
 
       // Fetch todos
@@ -675,8 +705,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 ((userRows.first['font_size_factor'] ?? 1.0) as num).toDouble();
             _themeColorIdx = (userRows.first['theme_color_idx'] ?? 0) as int;
             _isDarkMode = (userRows.first['is_dark_mode'] ?? 0) == 1;
+            _calendarViewMode =
+                (userRows.first['calendar_view_mode'] as String?) ?? 'dot';
             debugPrint(
-                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode');
+                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _calendarViewMode=$_calendarViewMode');
           }
         });
       }
@@ -1036,12 +1068,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   // 補回：手動新增行程
-  void _addSchedule(String timeRange, String title, int color) async {
+  void _addSchedule(String timeRange, String title, int color,
+      {DateTime? startDate, DateTime? endDate}) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      String key = _selectedDate.toString().split(' ')[0];
-      String startStr = "$key ${timeRange.split('~')[0]}:00";
-      String endStr = "$key ${timeRange.split('~')[1]}:00";
+      DateTime sDate = startDate ?? _selectedDate;
+      DateTime eDate = endDate ?? _selectedDate;
+      String startKey = sDate.toString().split(' ')[0];
+      String endKey = eDate.toString().split(' ')[0];
+      String startStr = "$startKey ${timeRange.split('~')[0]}:00";
+      String endStr = "$endKey ${timeRange.split('~')[1]}:00";
       await db.insert('calendar_events', {
         'user_id': widget.currentUser['id'],
         'title': title,
@@ -1067,12 +1103,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   // 新增：編輯現有行程
-  void _editSchedule(int id, String timeRange, String title, int color, {String? dateOverride}) async {
+  void _editSchedule(int id, String timeRange, String title, int color,
+      {DateTime? startDate, DateTime? endDate}) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      String key = dateOverride ?? _selectedDate.toString().split(' ')[0];
-      String startStr = "$key ${timeRange.split('~')[0]}:00";
-      String endStr = "$key ${timeRange.split('~')[1]}:00";
+      DateTime sDate = startDate ?? _selectedDate;
+      DateTime eDate = endDate ?? _selectedDate;
+      String startKey = sDate.toString().split(' ')[0];
+      String endKey = eDate.toString().split(' ')[0];
+      String startStr = "$startKey ${timeRange.split('~')[0]}:00";
+      String endStr = "$endKey ${timeRange.split('~')[1]}:00";
       await db.update(
           'calendar_events',
           {
@@ -2560,17 +2600,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 'bgColor': const Color(0xFFE3F2FD),
                                 'items': <Map<String, dynamic>>[
                                   {
-                                    'icon': Icons.calendar_month_outlined,
-                                    'l': '新增日曆行程',
-                                    'sub': '快速建立行事曆事件',
-                                    'v': '新增行程',
+                                    'icon': Icons.add_circle_outline,
+                                    'l': '新增行程或待辦',
+                                    'sub': '對話建立日曆行程或待辦事項',
+                                    'v': '新增',
                                     'c': const Color(0xFF42A5F5),
                                   },
                                   {
-                                    'icon': Icons.edit_calendar_outlined,
-                                    'l': '修改日曆行程',
-                                    'sub': '編輯已建立行程內容',
-                                    'v': '修改行程',
+                                    'icon': Icons.edit_note_outlined,
+                                    'l': '修改行程或待辦',
+                                    'sub': '編輯或刪除已建立項目',
+                                    'v': '修改',
                                     'c': const Color(0xFF66BB6A),
                                   },
                                 ],
@@ -3159,22 +3199,272 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 });
                           }
 
-                          // ── 行程選擇器（AI 修改行程流程） ──
+                          if (msg['widgetType'] == 'add_type_confirmation') {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                                      label: const Text('日曆行程'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF42A5F5),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '日曆行程', modalController, setModalState),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.check_box_outlined, size: 16),
+                                      label: const Text('待辦事項'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFFFF9800),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '待辦事項', modalController, setModalState),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          if (msg['widgetType'] == 'edit_type_confirmation') {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.edit_calendar_outlined, size: 16),
+                                      label: const Text('修改行程'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF66BB6A),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '日曆行程', modalController, setModalState),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.check_box_outlined, size: 16),
+                                      label: const Text('修改待辦'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFFFF9800),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '待辦事項', modalController, setModalState),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          if (msg['widgetType'] == 'edit_todo_picker') {
+                            if (allTodos.isEmpty) {
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12, left: 40),
+                                alignment: Alignment.centerLeft,
+                                child: const Text('目前您沒有任何待辦事項。',
+                                    style: TextStyle(color: Colors.grey)),
+                              );
+                            }
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12, left: 16, right: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: allTodos.map((todo) {
+                                  final isDone = todo['isDone'] as bool? ?? false;
+                                  final titleStr = todo['title'] as String? ?? '無內容';
+                                  final todoId = todo['id'].toString();
+                                  return GestureDetector(
+                                    onTap: () => _handleAISubmit(
+                                        'EDIT_TODO:$todoId|||$titleStr',
+                                        modalController,
+                                        setModalState),
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: isDone
+                                            ? Colors.grey.shade100
+                                            : const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                                        border: Border.all(
+                                            color: isDone
+                                                ? Colors.grey.shade300
+                                                : const Color(0xFF8D6E63).withValues(alpha: 0.4)),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            isDone ? Icons.check_circle_outline : Icons.circle_outlined,
+                                            color: isDone ? Colors.grey : const Color(0xFF8D6E63),
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              titleStr,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                decoration: isDone ? TextDecoration.lineThrough : null,
+                                                color: isDone ? Colors.grey : Colors.black87,
+                                              ),
+                                            ),
+                                          ),
+                                          const Icon(Icons.edit, size: 14, color: Colors.grey),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            );
+                          }
+
+                          if (msg['widgetType'] == 'edit_todo_field_picker') {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.edit, size: 16),
+                                      label: const Text('修改內容'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF8D6E63),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '修改內容', modalController, setModalState),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.delete_outline, size: 16),
+                                      label: const Text('刪除待辦'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.redAccent,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '刪除待辦', modalController, setModalState),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          if (msg['widgetType'] == 'confirm_cancel_picker') {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.check, size: 16),
+                                      label: const Text('確定'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.redAccent,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '確定', modalController, setModalState),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.close, size: 16),
+                                      label: const Text('取消'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.grey.shade400,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '取消', modalController, setModalState),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          if (msg['widgetType'] == 'add_type_confirmation' || msg['widgetType'] == 'edit_type_confirmation') {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.event, size: 16),
+                                      label: Text(msg['widgetType'] == 'add_type_confirmation' ? '新增行程' : '修改行程'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF8D6E63),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '行程', modalController, setModalState),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.check_box_outlined, size: 16),
+                                      label: Text(msg['widgetType'] == 'add_type_confirmation' ? '新增待辦' : '修改待辦'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blueAccent,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _handleAISubmit(
+                                          '待辦', modalController, setModalState),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
                           if (msg['widgetType'] == 'edit_event_picker') {
-                            final allEvtList = <Map<String, dynamic>>[];
                             final sortedKeys = allSchedules.keys.toList()
                               ..sort();
-                            for (final dk in sortedKeys) {
-                              for (final ev in (allSchedules[dk] ?? [])) {
-                                allEvtList.add({...ev, 'date': dk});
-                              }
-                            }
-                            if (allEvtList.isEmpty) {
+                            // Filter out dates that are too old (e.g., before today)
+                            final todayStr = DateTime.now()
+                                .toIso8601String()
+                                .substring(0, 10);
+                            final futureKeys = sortedKeys
+                                .where((k) => k.compareTo(todayStr) >= 0)
+                                .toList();
+
+                            if (futureKeys.isEmpty) {
                               return Container(
-                                margin: const EdgeInsets.only(
-                                    bottom: 12, left: 40),
+                                margin:
+                                    const EdgeInsets.only(bottom: 12, left: 40),
                                 alignment: Alignment.centerLeft,
-                                child: const Text('目前您沒有任何行程。',
+                                child: const Text('目前您沒有任何即將到來的行程。',
                                     style: TextStyle(color: Colors.grey)),
                               );
                             }
@@ -3183,51 +3473,98 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   bottom: 12, left: 16, right: 8),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                children: allEvtList.map((ev) {
-                                  final colorVal = ev['color'] as int? ?? 0xFFFFCC80;
-                                  final dateStr = ev['date'] as String? ?? '';
-                                  final timeStr = ev['time'] as String? ?? '';
-                                  final titleStr = ev['title'] as String? ?? '無標題';
-                                  final evId = ev['id'].toString();
-                                  return GestureDetector(
-                                    onTap: () => _handleAISubmit(
-                                        'EDIT_EVENT:$evId|||$titleStr|||$dateStr|||$timeStr',
-                                        modalController,
-                                        setModalState),
-                                    child: Container(
-                                      margin: const EdgeInsets.only(bottom: 8),
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Color(colorVal).withValues(alpha: 0.25),
-                                        border: Border.all(
-                                            color: Color(colorVal).withValues(alpha: 0.7)),
-                                        borderRadius: BorderRadius.circular(12),
+                                children: futureKeys.map((dk) {
+                                  final dayEvs = allSchedules[dk] ?? [];
+                                  if (dayEvs.isEmpty)
+                                    return const SizedBox.shrink();
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            left: 4, bottom: 8, top: 12),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              dk,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.grey.shade800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      child: Row(children: [
-                                        Container(
-                                          width: 12, height: 12,
-                                          decoration: BoxDecoration(
-                                            color: Color(colorVal),
-                                            shape: BoxShape.circle,
+                                      ...dayEvs.map((ev) {
+                                        final colorVal =
+                                            ev['color'] as int? ?? 0xFFFFCC80;
+                                        final timeStr =
+                                            ev['time'] as String? ?? '';
+                                        final titleStr =
+                                            ev['title'] as String? ?? '無標題';
+                                        final evId = ev['id'].toString();
+                                        return GestureDetector(
+                                          onTap: () => _handleAISubmit(
+                                              'EDIT_EVENT:$evId|||$titleStr|||$dk|||$timeStr',
+                                              modalController,
+                                              setModalState),
+                                          child: Container(
+                                            margin: const EdgeInsets.only(
+                                                bottom: 8),
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Color(colorVal)
+                                                  .withValues(alpha: 0.25),
+                                              border: Border.all(
+                                                  color: Color(colorVal)
+                                                      .withValues(alpha: 0.7)),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Row(children: [
+                                              Container(
+                                                width: 12,
+                                                height: 12,
+                                                decoration: BoxDecoration(
+                                                  color: Color(colorVal),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(titleStr,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 13)),
+                                                    Text(timeStr,
+                                                        style: const TextStyle(
+                                                            fontSize: 11,
+                                                            color:
+                                                                Colors.grey)),
+                                                  ],
+                                                ),
+                                              ),
+                                              const Icon(
+                                                  Icons.arrow_forward_ios,
+                                                  size: 12,
+                                                  color: Colors.grey),
+                                            ]),
                                           ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(titleStr,
-                                                  style: const TextStyle(
-                                                      fontWeight: FontWeight.bold, fontSize: 13)),
-                                              Text('$dateStr  $timeStr',
-                                                  style: const TextStyle(
-                                                      fontSize: 11, color: Colors.grey)),
-                                            ],
-                                          ),
-                                        ),
-                                        const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
-                                      ]),
-                                    ),
+                                        );
+                                      }).toList(),
+                                      const SizedBox(height: 6),
+                                    ],
                                   );
                                 }).toList(),
                               ),
@@ -3237,7 +3574,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           // ── 修改行程欄位選擇器 ──
                           if (msg['widgetType'] == 'edit_event_field_picker') {
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12, left: 40),
+                              margin:
+                                  const EdgeInsets.only(bottom: 12, left: 40),
                               alignment: Alignment.centerLeft,
                               child: Wrap(spacing: 8, children: [
                                 ActionChip(
@@ -3249,13 +3587,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 ActionChip(
                                   label: const Text('🕒 修改時間與日期'),
                                   backgroundColor: const Color(0xFFE3F2FD),
-                                  onPressed: () => _handleAISubmit(
-                                      '修改時間與日期', modalController, setModalState),
+                                  onPressed: () => _handleAISubmit('修改時間與日期',
+                                      modalController, setModalState),
                                 ),
                               ]),
                             );
                           }
-
 
                           if (msg['widgetType'] == 'confirm_post') {
                             var pData = msg['pendingData'] ?? {};
@@ -3598,43 +3935,63 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                   title: const Text('編輯'),
                                                   onTap: () async {
                                                     Navigator.pop(ctx);
-                                                    
-                                                    final confirm = await showDialog<bool>(
+
+                                                    final confirm =
+                                                        await showDialog<bool>(
                                                       context: context,
-                                                      builder: (dialogCtx) => AlertDialog(
-                                                        title: const Text('編輯並回溯對話'),
-                                                        content: const Text('您確定要重新執行此步驟嗎？這會清除該步驟之後的所有對話紀錄。'),
+                                                      builder: (dialogCtx) =>
+                                                          AlertDialog(
+                                                        title: const Text(
+                                                            '編輯並回溯對話'),
+                                                        content: const Text(
+                                                            '您確定要重新執行此步驟嗎？這會清除該步驟之後的所有對話紀錄。'),
                                                         actions: [
                                                           TextButton(
-                                                            onPressed: () => Navigator.pop(dialogCtx, false),
-                                                            child: const Text('取消'),
+                                                            onPressed: () =>
+                                                                Navigator.pop(
+                                                                    dialogCtx,
+                                                                    false),
+                                                            child: const Text(
+                                                                '取消'),
                                                           ),
                                                           TextButton(
-                                                            onPressed: () => Navigator.pop(dialogCtx, true),
-                                                            child: const Text('確定'),
+                                                            onPressed: () =>
+                                                                Navigator.pop(
+                                                                    dialogCtx,
+                                                                    true),
+                                                            child: const Text(
+                                                                '確定'),
                                                           ),
                                                         ],
                                                       ),
                                                     );
 
                                                     if (confirm == true) {
-                                                      final targetState = msg['stateAtTime'] ?? 'none';
+                                                      final targetState =
+                                                          msg['stateAtTime'] ??
+                                                              'none';
                                                       const pickerStates = {
                                                         'editing_event_pick',
                                                         'editing_event_field',
                                                         'editing_event_new_time',
                                                         'organizing_note_select'
                                                       };
-                                                      
+
                                                       setModalState(() {
-                                                        _aiFlowState = targetState;
+                                                        _aiFlowState =
+                                                            targetState;
                                                         // Remove the edited message and all subsequent messages
-                                                        chatLogs.removeRange(i, chatLogs.length);
-                                                        
-                                                        if (pickerStates.contains(targetState)) {
-                                                          modalController.clear();
+                                                        chatLogs.removeRange(
+                                                            i, chatLogs.length);
+
+                                                        if (pickerStates
+                                                            .contains(
+                                                                targetState)) {
+                                                          modalController
+                                                              .clear();
                                                         } else {
-                                                          modalController.text = msg['text'];
+                                                          modalController.text =
+                                                              msg['text'];
                                                         }
                                                       });
                                                     }
@@ -3918,7 +4275,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '我很樂意幫您新增行程！📅\n首先，請問這個行程的標題是什麼？',
+            'text': '我很樂意幫您新增行程！\n請問這個行程的標題是什麼？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.createTodo:
+        // 觸發新增待辦流程
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'adding_todo_title';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '我很樂意幫您新增待辦事項！\n，請問這個待辦事項的標題是什麼？',
             'isCard': false
           });
           _scrollToBottom();
@@ -3941,6 +4313,69 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             'text': '',
             'isCard': false,
             'widgetType': 'edit_event_picker',
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.editTodo:
+        // 觸發修改現有待辦流程
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'editing_todo_pick';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的！請問您想修改哪一個待辦事項？\n請從下方列表點選：',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'edit_todo_picker',
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.addGeneric:
+        // 觸發新增確認流程
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'confirming_add_type';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的，請問您想要新增『日曆行程』還是『待辦事項』呢？',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'add_type_confirmation',
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.editGeneric:
+        // 觸發修改確認流程
+        updateLogs(() {
+          chatLogs.add(
+              {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'confirming_edit_type';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的，請問您想要修改『日曆行程』還是『待辦事項』呢？',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'edit_type_confirmation',
           });
           _scrollToBottom();
         });
@@ -4179,6 +4614,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         '社群',
         '社群動態',
         '新增行程',
+        '新增待辦',
         '發佈貼文',
         '回覆哪些留言',
         '個人檔案',
@@ -4187,76 +4623,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         '重來',
         '取消',
         '取消行程',
-        '取消發佈'
+        '取消待辦',
+        '取消發佈',
+        '新增',
+        '修改',
+        '修改待辦'
       };
       if (systemCommands.contains(text)) {
         _aiFlowState = 'none';
       }
     }
 
-    // 僅在非任務流程中處理快捷指令與對話
     if (_aiFlowState == 'none') {
-      // 數字快捷指令處理 (1-8)
-      if (RegExp(r'^[1-8]$').hasMatch(text)) {
-        String command = "";
-        String featureName = "";
-        switch (text) {
-          case '1':
-            command = "新增行程";
-            featureName = "新增行程";
-            break;
-          case '2':
-            command = "發佈貼文";
-            featureName = "發佈社群貼文";
-            break;
-          case '3':
-            command = "回覆哪些留言";
-            featureName = "回覆社群留言";
-            break;
-          case '4':
-            command = "個人檔案";
-            featureName = "個人檔案";
-            break;
-          case '5':
-            command = "切換主題";
-            featureName = "切換佈景主題";
-            break;
-          case '6':
-            command = "題庫";
-            featureName = "跳轉題庫測驗";
-            break;
-          case '7':
-            command = "筆記本管理";
-            featureName = "筆記本管理";
-            break;
-          case '8':
-            command = "社群動態";
-            featureName = "我的發佈與收藏";
-            break;
-        }
-        if (command.isNotEmpty) {
-          try {
-            setModalState(() {
-              chatLogs.add({'isAI': false, 'text': text});
-              chatLogs.add({
-                'isAI': true,
-                'text': '好的，沒問題！這就為您處理「$featureName」',
-                'isCard': false
-              });
-              _scrollToBottom();
-            });
-          } catch (_) {}
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              try {
-                _handleAISubmit(command, controller, setModalState);
-              } catch (_) {}
-            }
-          });
-          return;
-        }
-      }
-
       if (text == '筆記本管理') {
         setModalState(() {
           chatLogs.add({'isAI': false, 'text': text});
@@ -4353,11 +4731,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             'isCard': false,
             'widgetType': 'help_options'
           });
-          chatLogs.add({
-            'isAI': true,
-            'text': '您可以點擊上方選項，或直接輸入對應的數字。想做什麼都儘管跟我說吧！',
-            'isCard': false
-          });
+          chatLogs.add(
+              {'isAI': true, 'text': '您可以點擊上方選項，或直接說給我聽吧！', 'isCard': false});
           _scrollToBottom();
         });
         return;
@@ -4681,8 +5056,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final evDate = _aiFlowData['edit_event_date'] ?? '';
         final evTime = _aiFlowData['edit_event_time'] ?? '';
         setModalState(() {
-          chatLogs.add(
-              {'isAI': false, 'text': '選擇行程：$evTitle', 'stateAtTime': _aiFlowState});
+          chatLogs.add({
+            'isAI': false,
+            'text': '選擇行程：$evTitle',
+            'stateAtTime': _aiFlowState
+          });
           _aiFlowState = 'editing_event_field';
           chatLogs.add({
             'isAI': true,
@@ -4707,8 +5085,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           chatLogs
               .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'editing_event_new_title';
-          chatLogs.add(
-              {'isAI': true, 'text': '請輸入新的行程標題：', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': '請輸入新的行程標題：', 'isCard': false});
           _scrollToBottom();
         });
         return;
@@ -4718,11 +5095,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           chatLogs
               .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'editing_event_new_time';
-          chatLogs.add({
-            'isAI': true,
-            'text': '請使用滾輪選擇新的日期與時段：',
-            'isCard': false
-          });
+          chatLogs
+              .add({'isAI': true, 'text': '請使用滾輪選擇新的日期與時段：', 'isCard': false});
           chatLogs.add({
             'isAI': true,
             'text': '',
@@ -4742,10 +5116,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _aiFlowData['edit_event_time'] as String? ?? '00:00~00:00';
       final eventDate = _aiFlowData['edit_event_date'] as String?;
       setModalState(() {
-        chatLogs
-            .add({'isAI': false, 'text': newTitle, 'stateAtTime': _aiFlowState});
-        chatLogs
-            .add({'isAI': true, 'text': '正在更新行程標題...', 'isCard': false});
+        chatLogs.add(
+            {'isAI': false, 'text': newTitle, 'stateAtTime': _aiFlowState});
+        chatLogs.add({'isAI': true, 'text': '正在更新行程標題...', 'isCard': false});
         _scrollToBottom();
       });
       Future.delayed(const Duration(milliseconds: 400), () async {
@@ -4763,30 +5136,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       colorVal;
             }
           }
+          DateTime? parsedDate = DateTime.tryParse(eventDate ?? "");
           _editSchedule(eventId, oldTimeRange, newTitle, colorVal,
-              dateOverride: eventDate);
+              startDate: parsedDate, endDate: parsedDate);
           if (mounted) {
-            setModalState(() {
-              chatLogs.add({
-                'isAI': true,
-                'text': '✅ 行程標題已更新為「$newTitle」！',
-                'isCard': false
-              });
-              _aiFlowState = 'none';
-              _scrollToBottom();
-            });
+            if (Navigator.canPop(context)) Navigator.pop(context);
+            _changePage(0, '日曆行程');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ 行程標題已更新為「$newTitle」！'),
+                backgroundColor: const Color(0xFF8D6E63),
+              ),
+            );
           }
         } catch (e) {
           debugPrint('AI修改行程標題失敗: $e');
         }
       });
+      _aiFlowState = 'none';
       return;
     }
 
     if (_aiFlowState == 'editing_event_new_time') {
       // 格式: '2026-06-03 09:00|||2026-06-03 10:00'
       String cleanText = text;
-      if (cleanText.contains('開始') || cleanText.contains('結束') || cleanText.contains('時段') || cleanText.contains('新時段')) {
+      if (cleanText.contains('開始') ||
+          cleanText.contains('結束') ||
+          cleanText.contains('時段') ||
+          cleanText.contains('新時段')) {
         final matches = RegExp(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}')
             .allMatches(cleanText)
             .map((m) => m.group(0)!)
@@ -4810,16 +5187,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final startTime = startParts.length > 1 ? startParts[1] : '09:00';
         final endTime = endParts.length > 1 ? endParts[1] : '10:00';
         final newTimeRange = '$startTime~$endTime';
-        final eventTitle =
-            _aiFlowData['edit_event_title'] as String? ?? '行程';
+        final eventTitle = _aiFlowData['edit_event_title'] as String? ?? '行程';
         setModalState(() {
           chatLogs.add({
             'isAI': false,
-            'text': '新時段：$newStartFull ~ ${endParts.length > 1 ? endParts[1] : ""}',
+            'text':
+                '新時段：$newStartFull ~ ${endParts.length > 1 ? endParts[1] : ""}',
             'stateAtTime': _aiFlowState
           });
-          chatLogs
-              .add({'isAI': true, 'text': '正在更新行程時間...', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': '正在更新行程時間...', 'isCard': false});
           _scrollToBottom();
         });
         Future.delayed(const Duration(milliseconds: 400), () async {
@@ -4832,33 +5208,315 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               final colorStr = current.first['color'] as String? ?? '';
               if (colorStr.isNotEmpty) {
                 final hex = colorStr.replaceAll('0x', '');
-                colorVal = int.tryParse(
-                        hex.length == 6 ? 'FF$hex' : hex, radix: 16) ??
-                    colorVal;
+                colorVal =
+                    int.tryParse(hex.length == 6 ? 'FF$hex' : hex, radix: 16) ??
+                        colorVal;
               }
             }
+            DateTime? parsedDate = DateTime.tryParse(newDate);
             _editSchedule(eventId, newTimeRange, eventTitle, colorVal,
-                dateOverride: newDate);
+                startDate: parsedDate, endDate: parsedDate);
             if (mounted) {
-              setModalState(() {
-                chatLogs.add({
-                  'isAI': true,
-                  'text': '✅ 行程「$eventTitle」時間已更新至 $newDate $newTimeRange！',
-                  'isCard': false
-                });
-                _aiFlowState = 'none';
-                _scrollToBottom();
-              });
+              if (Navigator.canPop(context)) Navigator.pop(context);
+              _changePage(0, '日曆行程');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✅ 行程「$eventTitle」時間已更新至 $newDate $newTimeRange！'),
+                  backgroundColor: const Color(0xFF8D6E63),
+                ),
+              );
             }
           } catch (e) {
             debugPrint('AI修改行程時間失敗: $e');
           }
         });
+        _aiFlowState = 'none';
         return;
       }
     }
 
+    if (_aiFlowState == 'adding_todo_title') {
+      _aiFlowData['title'] = text;
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        _aiFlowState = 'none';
+        chatLogs.add({'isAI': true, 'text': '為您建立待辦事項中...', 'isCard': false});
+        _scrollToBottom();
+      });
 
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        try {
+          final db = await DatabaseHelper.instance.database;
+          await db.insert('todos', {
+            'user_id': widget.currentUser['id'],
+            'text': _aiFlowData['title'] ?? '無標題待辦',
+            'done': 0,
+            'created_at': DateTime.now().toIso8601String(),
+          });
+          await _loadData();
+
+          if (mounted) {
+            if (Navigator.canPop(context)) Navigator.pop(context);
+            _changePage(0, '日曆行程');
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ 代理人已新增待辦：${_aiFlowData['title']}'),
+                backgroundColor: const Color(0xFF8D6E63),
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('代理人新增待辦失敗: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('新增待辦事項失敗，請稍後再試。'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+        }
+      });
+      return;
+    }
+
+    if (_aiFlowState == 'confirming_add_type') {
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+      });
+      if (text.contains('行程') || text.contains('日曆')) {
+        setModalState(() {
+          _aiFlowState = 'adding_event_title';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的，開始建立新行程！請問這個行程的標題是什麼？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+      } else if (text.contains('待辦') || text.contains('代辦')) {
+        setModalState(() {
+          _aiFlowState = 'adding_todo_title';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的，開始建立新待辦事項！請問這個待辦事項的標題是什麼？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+      } else {
+        setModalState(() {
+          _aiFlowState = 'none';
+          chatLogs.add({
+            'isAI': true,
+            'text': '已取消新增。請問還有什麼我可以幫忙的？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+      }
+      return;
+    }
+
+    if (_aiFlowState == 'confirming_edit_type') {
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+      });
+      if (text.contains('行程') || text.contains('日曆')) {
+        setModalState(() {
+          _aiFlowState = 'editing_event_pick';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的！請問您想修改哪一個行程？\n請從下方列表點選：',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'edit_event_picker',
+          });
+          _scrollToBottom();
+        });
+      } else if (text.contains('待辦') || text.contains('代辦')) {
+        setModalState(() {
+          _aiFlowState = 'editing_todo_pick';
+          _aiFlowData = {};
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的！請問您想修改哪一個待辦事項？\n請從下方列表點選：',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'edit_todo_picker',
+          });
+          _scrollToBottom();
+        });
+      } else {
+        setModalState(() {
+          _aiFlowState = 'none';
+          chatLogs.add({
+            'isAI': true,
+            'text': '已取消修改。請問還有什麼我可以幫忙的？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+      }
+      return;
+    }
+
+    // --- 編輯待辦事項流程 ---
+    if (_aiFlowState == 'editing_todo_pick') {
+      if (text.startsWith('EDIT_TODO:')) {
+        final payload = text.substring('EDIT_TODO:'.length);
+        final parts = payload.split('|||');
+        if (parts.length >= 2) {
+          _aiFlowData['edit_todo_id'] = parts[0];
+          _aiFlowData['edit_todo_title'] = parts[1];
+        }
+        final todoTitle = _aiFlowData['edit_todo_title'] ?? '這個待辦事項';
+        setModalState(() {
+          chatLogs.add({
+            'isAI': false,
+            'text': '選擇待辦事項：$todoTitle',
+            'stateAtTime': _aiFlowState
+          });
+          _aiFlowState = 'editing_todo_field';
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的！您選擇了「$todoTitle」。\n請問您想做什麼？',
+            'isCard': false,
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'edit_todo_field_picker',
+          });
+          _scrollToBottom();
+        });
+        return;
+      }
+    }
+
+    if (_aiFlowState == 'editing_todo_field') {
+      if (text == '修改內容') {
+        setModalState(() {
+          chatLogs
+              .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'editing_todo_new_title';
+          chatLogs.add({'isAI': true, 'text': '請輸入新的待辦事項內容：', 'isCard': false});
+          _scrollToBottom();
+        });
+        return;
+      }
+      if (text == '刪除待辦') {
+        final todoTitle = _aiFlowData['edit_todo_title'] ?? '這個待辦事項';
+        setModalState(() {
+          chatLogs
+              .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'confirming_delete_todo';
+          chatLogs.add({
+            'isAI': true,
+            'text': '確定要刪除待辦事項「$todoTitle」嗎？(請輸入 確定/取消)',
+            'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'confirm_cancel_picker'
+          });
+          _scrollToBottom();
+        });
+        return;
+      }
+    }
+
+    if (_aiFlowState == 'editing_todo_new_title') {
+      final newTitle = text;
+      final todoId = int.tryParse(_aiFlowData['edit_todo_id'] ?? '') ?? -1;
+      setModalState(() {
+        chatLogs.add(
+            {'isAI': false, 'text': newTitle, 'stateAtTime': _aiFlowState});
+        chatLogs.add({'isAI': true, 'text': '正在更新待辦事項內容...', 'isCard': false});
+        _scrollToBottom();
+      });
+      Future.delayed(const Duration(milliseconds: 400), () async {
+        try {
+          final db = await DatabaseHelper.instance.database;
+          await db.update('todos', {'text': newTitle},
+              where: 'id = ?', whereArgs: [todoId]);
+          await _loadData();
+          if (mounted) {
+            if (Navigator.canPop(context)) Navigator.pop(context);
+            _changePage(0, '日曆行程');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ 待辦事項內容已更新為「$newTitle」！'),
+                backgroundColor: const Color(0xFF8D6E63),
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('AI修改待辦內容失敗: $e');
+        }
+      });
+      _aiFlowState = 'none';
+      return;
+    }
+
+    if (_aiFlowState == 'confirming_delete_todo') {
+      final todoId = int.tryParse(_aiFlowData['edit_todo_id'] ?? '') ?? -1;
+      final todoTitle = _aiFlowData['edit_todo_title'] ?? '這個待辦事項';
+      setModalState(() {
+        chatLogs
+            .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+        _aiFlowState = 'none';
+      });
+
+      if (text.contains('確認') ||
+          text.contains('確定') ||
+          text.toLowerCase() == 'yes' ||
+          text.toLowerCase() == 'y') {
+        Future.delayed(const Duration(milliseconds: 400), () async {
+          try {
+            final db = await DatabaseHelper.instance.database;
+            await db.delete('todos', where: 'id = ?', whereArgs: [todoId]);
+            await _loadData();
+            if (mounted) {
+              if (Navigator.canPop(context)) Navigator.pop(context);
+              _changePage(0, '日曆行程');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✅ 已刪除待辦事項：「$todoTitle」！'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
+          } catch (e) {
+            debugPrint('AI刪除待辦失敗: $e');
+          }
+        });
+      } else {
+        setModalState(() {
+          chatLogs.add({'isAI': true, 'text': '已取消刪除待辦事項。👌', 'isCard': false});
+          _scrollToBottom();
+        });
+      }
+      return;
+    }
 
     if (_aiFlowState == 'adding_note_title') {
       _aiFlowData['title'] = text;
@@ -5005,6 +5663,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             'text': '找到筆記「${note.title}」，確定要刪除嗎？(輸入 確定/取消)',
             'isCard': false
           });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'confirm_cancel_picker'
+          });
           _scrollToBottom();
         });
       } else {
@@ -5118,13 +5782,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               {'isAI': true, 'text': '好的！正在為您發佈貼文... 🚀', 'isCard': false});
         });
         await _addPostFromAI(_aiFlowData);
-        setModalState(() {
-          chatLogs.add({
-            'isAI': true,
-            'text': '✅ 貼文已成功發佈！您可以在「社群動態」中查看。',
-            'isCard': false
-          });
-        });
+        if (mounted) {
+          if (Navigator.canPop(context)) Navigator.pop(context);
+          _changePage(3, '社群動態');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ 貼文已成功發佈！'),
+              backgroundColor: Color(0xFF8D6E63),
+            ),
+          );
+        }
         _aiFlowState = 'none';
       } else if (text == '取消發佈') {
         setModalState(() {
@@ -5675,7 +6342,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   // --- 1. 日曆行程 (含待辦) ---
   Widget _buildCalendarTab() => Column(children: [
         SizedBox(
-            height: 330,
+            height: _calendarViewMode == 'bar' ? 380 : 330,
             child: PageView.builder(
                 controller: _calendarPageController,
                 // page 12 固定 = 2026年3月（全域基準），initialPage 動態偏移以跳到今月
@@ -5736,6 +6403,376 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       double childAspectRatio = itemWidth / itemHeight;
 
+      if (_calendarViewMode == 'bar') {
+        // Build the weeks list of dates
+        List<List<DateTime>> weeks = [];
+        for (int w = 0; w < rows; w++) {
+          List<DateTime> week = [];
+          for (int col = 0; col < 7; col++) {
+            int i = w * 7 + col;
+            week.add(DateTime(date.year, date.month, i - empty + 1));
+          }
+          weeks.add(week);
+        }
+
+        return Column(children: [
+          // 星期標題行
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                  children: ['一', '二', '三', '四', '五', '六', '日']
+                      .map((d) => Expanded(
+                          child: Center(
+                              child: Text(d,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.bold)))))
+                      .toList())),
+
+          // 週行渲染
+          ...weeks.asMap().entries.map((entry) {
+            int idx = entry.key;
+            List<DateTime> week = entry.value;
+            bool isLast = (idx == weeks.length - 1);
+            // Find all unique events that overlap with this week
+            List<Map<String, dynamic>> weekEvents = [];
+            Set<int> seenEventIds = {};
+            for (var day in week) {
+              String key =
+                  "${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}";
+              List<Map<String, dynamic>> dayEvs = allSchedules[key] ?? [];
+              for (var ev in dayEvs) {
+                if (ev['id'] != null && !seenEventIds.contains(ev['id'])) {
+                  seenEventIds.add(ev['id']);
+                  weekEvents.add(ev);
+                }
+              }
+            }
+
+            // Sort events by start date and span length
+            weekEvents.sort((a, b) {
+              String startA = a['start_date'] ?? a['date'] ?? '';
+              String startB = b['start_date'] ?? b['date'] ?? '';
+              int comp = startA.compareTo(startB);
+              if (comp != 0) return comp;
+              return b['title']
+                  .toString()
+                  .length
+                  .compareTo(a['title'].toString().length);
+            });
+
+            // Greedy interval scheduling for vertical levels (lanes)
+            List<List<bool>> lanes = [
+              List.filled(7, false), // Lane 0
+              List.filled(7, false), // Lane 1
+            ];
+            Map<int, int> eventLanes = {};
+
+            // Reserve Lane 1 for "+N" badge if the day has > 2 events
+            for (int col = 0; col < 7; col++) {
+              DateTime cellDate = week[col];
+              String key =
+                  "${cellDate.year}-${cellDate.month.toString().padLeft(2, '0')}-${cellDate.day.toString().padLeft(2, '0')}";
+              int dayEvCount = allSchedules[key]?.length ?? 0;
+              if (dayEvCount > 2) {
+                lanes[1][col] = true;
+              }
+            }
+
+            for (var ev in weekEvents) {
+              String startStr = ev['start_date'] ?? ev['date'] ?? '';
+              String endStr = ev['end_date'] ?? ev['date'] ?? '';
+              DateTime evStart = DateTime.tryParse(startStr) ?? week.first;
+              DateTime evEnd = DateTime.tryParse(endStr) ?? week.last;
+
+              int startCol = 0;
+              if (evStart.isAfter(week.first)) {
+                startCol = week.indexWhere((d) =>
+                    d.year == evStart.year &&
+                    d.month == evStart.month &&
+                    d.day == evStart.day);
+                if (startCol == -1) startCol = 0;
+              }
+
+              int endCol = 6;
+              if (evEnd.isBefore(week.last)) {
+                endCol = week.indexWhere((d) =>
+                    d.year == evEnd.year &&
+                    d.month == evEnd.month &&
+                    d.day == evEnd.day);
+                if (endCol == -1) endCol = 6;
+              }
+
+              int assignedLane = -1;
+              for (int l = 0; l < lanes.length; l++) {
+                bool isFree = true;
+                for (int c = startCol; c <= endCol; c++) {
+                  if (lanes[l][c]) {
+                    isFree = false;
+                    break;
+                  }
+                }
+                if (isFree) {
+                  assignedLane = l;
+                  break;
+                }
+              }
+
+              if (assignedLane == -1) {
+                lanes.add(List.filled(7, false));
+                assignedLane = lanes.length - 1;
+              }
+
+              for (int c = startCol; c <= endCol; c++) {
+                lanes[assignedLane][c] = true;
+              }
+              eventLanes[ev['id']] = assignedLane;
+            }
+
+            // Draw stack of backgrounds and positioned bars
+            return Container(
+              height: itemHeight,
+              margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
+              child: Stack(
+                children: [
+                  // 1. Background layer: Day grid numbers
+                  Row(
+                    children: week.map((cellDate) {
+                      bool isCurrentMonth = cellDate.month == date.month;
+                      if (!isCurrentMonth)
+                        return const Expanded(child: SizedBox());
+
+                      int d = cellDate.day;
+                      bool isSel = _selectedDate.day == d &&
+                          _selectedDate.month == cellDate.month &&
+                          _selectedDate.year == cellDate.year;
+                      bool isToday = _simulatedToday.day == d &&
+                          _simulatedToday.month == cellDate.month &&
+                          _simulatedToday.year == cellDate.year;
+
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => _syncDate(cellDate, fromCalendar: true),
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: Container(
+                              margin: const EdgeInsets.only(
+                                  top: 2), // Small offset from top
+                              width: 20, // Reduced from 24
+                              height: 20, // Reduced from 24
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isSel
+                                    ? const Color(0xFF8D6E63)
+                                    : (isToday
+                                        ? (Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Colors.redAccent
+                                                .withValues(alpha: 0.15)
+                                            : const Color(0xFFF5E6E6))
+                                        : Colors.transparent),
+                                border: Border.all(
+                                  color: isSel
+                                      ? const Color(0xFF8D6E63)
+                                      : (isToday
+                                          ? Colors.redAccent
+                                              .withValues(alpha: 0.5)
+                                          : Colors.transparent),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '$d',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSel || isToday
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSel
+                                        ? Colors.white
+                                        : (isToday
+                                            ? Colors.redAccent
+                                            : (Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? Colors.white70
+                                                : Colors.black87)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  // 2. Foreground layer: Positioned event bars
+                  ...weekEvents.map((ev) {
+                    String startStr = ev['start_date'] ?? ev['date'] ?? '';
+                    String endStr = ev['end_date'] ?? ev['date'] ?? '';
+                    DateTime evStart =
+                        DateTime.tryParse(startStr) ?? week.first;
+                    DateTime evEnd = DateTime.tryParse(endStr) ?? week.last;
+
+                    int startCol = 0;
+                    bool isStartOfWeek = true;
+                    if (evStart.isAfter(week.first)) {
+                      startCol = week.indexWhere((d) =>
+                          d.year == evStart.year &&
+                          d.month == evStart.month &&
+                          d.day == evStart.day);
+                      if (startCol == -1) startCol = 0;
+                    } else {
+                      isStartOfWeek = false; // Event started in previous week
+                    }
+
+                    int endCol = 6;
+                    bool isEndOfWeek = true;
+                    if (evEnd.isBefore(week.last)) {
+                      endCol = week.indexWhere((d) =>
+                          d.year == evEnd.year &&
+                          d.month == evEnd.month &&
+                          d.day == evEnd.day);
+                      if (endCol == -1) endCol = 6;
+                    } else {
+                      isEndOfWeek = false; // Event ends in subsequent week
+                    }
+
+                    int lane = eventLanes[ev['id']] ?? 0;
+
+                    // We only render up to 2 lanes to prevent vertical overflow of the row height
+                    if (lane >= 2) return const SizedBox();
+
+                    // Increased top offset to avoid being too close to dates
+                    double topOffset = 30.0 + lane * 13.0;
+
+                    // Prevent rendering if the bar overflows the height of the row
+                    if (topOffset + 10.0 > itemHeight) return const SizedBox();
+
+                    bool isSingleDay = startCol == endCol &&
+                        isStartOfWeek &&
+                        isEndOfWeek &&
+                        (evStart.year == evEnd.year &&
+                            evStart.month == evEnd.month &&
+                            evStart.day == evEnd.day);
+
+                    // Calculate positioning using parent constraints
+                    double availableWidth = constraints.maxWidth - 40;
+                    double colWidth = (availableWidth - (6 * 8)) / 7;
+                    double left = 20 + startCol * (colWidth + 8);
+                    double width = (endCol - startCol + 1) * colWidth +
+                        (endCol - startCol) * 8;
+
+                    if (isSingleDay) {
+                      left += 3;
+                      width -= 6;
+                    }
+
+                    return Positioned(
+                      left: left,
+                      width: width,
+                      top: topOffset,
+                      height:
+                          14, // Adjusted height to fit text without clipping
+                      child: GestureDetector(
+                        onTap: () => _showEditScheduleDialog(ev),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Color(ev['color']),
+                            borderRadius: BorderRadius.only(
+                              topLeft: isStartOfWeek || isSingleDay
+                                  ? const Radius.circular(4)
+                                  : Radius.zero,
+                              bottomLeft: isStartOfWeek || isSingleDay
+                                  ? const Radius.circular(4)
+                                  : Radius.zero,
+                              topRight: isEndOfWeek || isSingleDay
+                                  ? const Radius.circular(4)
+                                  : Radius.zero,
+                              bottomRight: isEndOfWeek || isSingleDay
+                                  ? const Radius.circular(4)
+                                  : Radius.zero,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
+                              )
+                            ],
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            ev['title'],
+                            style: const TextStyle(
+                              fontSize: 8.5, // Slightly larger font size
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                              height:
+                                  1.1, // Adjust line height to prevent clipping
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+
+                  // 3. Foreground layer: Positioned "+N" badges
+                  ...List.generate(7, (col) {
+                    DateTime cellDate = week[col];
+                    bool isCurrentMonth = cellDate.month == date.month;
+                    if (!isCurrentMonth) return const SizedBox();
+
+                    String key =
+                        "${cellDate.year}-${cellDate.month.toString().padLeft(2, '0')}-${cellDate.day.toString().padLeft(2, '0')}";
+                    int dayEvCount = allSchedules[key]?.length ?? 0;
+                    if (dayEvCount > 2) {
+                      double availableWidth = constraints.maxWidth - 40;
+                      double colWidth = (availableWidth - (6 * 8)) / 7;
+                      double left = 20 + col * (colWidth + 8);
+
+                      return Positioned(
+                        left: left,
+                        width: colWidth,
+                        top:
+                            55.0, // Placed below the second lane (30 + 13 + 8 + small gap)
+                        height: 10,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _isDarkMode
+                                ? Colors.white12
+                                : const Color(0xFF8D6E63)
+                                    .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '+${dayEvCount - 1}',
+                            style: TextStyle(
+                              fontSize: 7,
+                              fontWeight: FontWeight.bold,
+                              color: _isDarkMode
+                                  ? Colors.white70
+                                  : const Color(0xFF8D6E63),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox();
+                  }),
+                ],
+              ),
+            );
+          }),
+        ]);
+      }
+
+      // Default classic dot mode (the original implementation)
       return Column(children: [
         Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -5827,8 +6864,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             alignment: WrapAlignment.center,
                             children: [
                               ...dayEvents.take(3).map((e) => Container(
-                                    width: 8,
-                                    height: 3,
+                                    width: 12, // Increased width
+                                    height: 4, // Increased height
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(2),
                                       color: Color(
@@ -5845,7 +6882,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           ),
                         )
                       else
-                        const SizedBox(height: 5), // u{6e1b}u{5c11}u{9810}u{7559}u{9ad8}u{5ea6}u{ff0c}u{907f}u{514d}u{6ea2}u{51fa}
+                        const SizedBox(
+                            height:
+                                5), // u{6e1b}u{5c11}u{9810}u{7559}u{9ad8}u{5ea6}u{ff0c}u{907f}u{514d}u{6ea2}u{51fa}
                     ],
                   ));
             })
@@ -6085,9 +7124,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       selectedColor = vibrantColors[0];
     }
 
-    // 解析行程原本的日期（格式 YYYY-MM-DD）
-    DateTime pickedDate =
-        DateTime.tryParse(event['date'] as String? ?? '') ?? _selectedDate;
+    // 解析行程原本的日期區間（格式 YYYY-MM-DD）
+    DateTime pickedStartDate =
+        DateTime.tryParse(event['start_date'] as String? ?? '') ??
+            DateTime.tryParse(event['date'] as String? ?? '') ??
+            _selectedDate;
+    DateTime pickedEndDate =
+        DateTime.tryParse(event['end_date'] as String? ?? '') ??
+            DateTime.tryParse(event['date'] as String? ?? '') ??
+            _selectedDate;
+
+    bool isMultiDay = (pickedStartDate.year != pickedEndDate.year ||
+        pickedStartDate.month != pickedEndDate.month ||
+        pickedStartDate.day != pickedEndDate.day);
 
     StateSetter? dialogSetState;
     Future<void> selectTime(bool isStart) async {
@@ -6119,87 +7168,201 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   dialogSetState = setDialogState;
                   return SingleChildScrollView(
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    TextField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: '行程名稱')),
-                    const SizedBox(height: 16),
-                    // ── 日期選擇 ──
-                    const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('行程日期',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey))),
-                    const SizedBox(height: 6),
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: pickedDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                          locale: const Locale('zh', 'TW'),
-                        );
-                        if (picked != null) {
-                          setDialogState(() => pickedDate = picked);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(children: [
-                          const Icon(Icons.calendar_today,
-                              size: 16, color: Color(0xFF8D6E63)),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${pickedDate.year}/${pickedDate.month.toString().padLeft(2, '0')}/${pickedDate.day.toString().padLeft(2, '0')}',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ]),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('選擇顏色標籤',
+                      TextField(
+                          controller: titleController,
+                          decoration: const InputDecoration(labelText: '行程名稱')),
+                      const SizedBox(height: 16),
+                      // ── 跨日行程切換 ──
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('跨日行程',
                             style:
-                                TextStyle(fontSize: 12, color: Colors.grey))),
-                    const SizedBox(height: 8),
-                    Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: vibrantColors
-                            .map((c) => GestureDetector(
-                                onTap: () =>
-                                    setDialogState(() => selectedColor = c),
+                                TextStyle(fontSize: 13, color: Colors.black87)),
+                        value: isMultiDay,
+                        activeThumbColor: const Color(0xFF8D6E63),
+                        onChanged: (val) {
+                          setDialogState(() {
+                            isMultiDay = val;
+                            if (!isMultiDay) {
+                              pickedEndDate = pickedStartDate;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      if (!isMultiDay) ...[
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('行程日期',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey))),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: pickedStartDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2030),
+                              locale: const Locale('zh', 'TW'),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                pickedStartDate = picked;
+                                pickedEndDate = picked;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(children: [
+                              const Icon(Icons.calendar_today,
+                                  size: 16, color: Color(0xFF8D6E63)),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ]),
+                          ),
+                        ),
+                      ] else ...[
+                        // ── 日期區間選擇 ──
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('行程日期區間',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey))),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: pickedStartDate,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2030),
+                                    locale: const Locale('zh', 'TW'),
+                                  );
+                                  if (picked != null) {
+                                    setDialogState(() {
+                                      pickedStartDate = picked;
+                                      if (pickedEndDate
+                                          .isBefore(pickedStartDate)) {
+                                        pickedEndDate = pickedStartDate;
+                                      }
+                                    });
+                                  }
+                                },
                                 child: Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                        color: Color(c),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                            color: selectedColor == c
-                                                ? Colors.black87
-                                                : Colors.transparent,
-                                            width: 2)))))
-                            .toList()),
-                    const SizedBox(height: 20),
-                    Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          TextButton.icon(
-                              icon: const Icon(Icons.access_time, size: 16),
-                              label: Text(formatTime(pickedStartTime)),
-                              onPressed: () => selectTime(true)),
-                          const Text('~'),
-                          TextButton.icon(
-                              icon: const Icon(Icons.access_time, size: 16),
-                              label: Text(formatTime(pickedEndTime)),
-                              onPressed: () => selectTime(false))
-                        ])
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    border:
+                                        Border.all(color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(children: [
+                                    const Icon(Icons.calendar_today,
+                                        size: 16, color: Color(0xFF8D6E63)),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ]),
+                                ),
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              child: Text('至'),
+                            ),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: pickedEndDate,
+                                    firstDate: pickedStartDate,
+                                    lastDate: DateTime(2030),
+                                    locale: const Locale('zh', 'TW'),
+                                  );
+                                  if (picked != null) {
+                                    setDialogState(() {
+                                      pickedEndDate = picked;
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    border:
+                                        Border.all(color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(children: [
+                                    const Icon(Icons.calendar_today,
+                                        size: 16, color: Color(0xFF8D6E63)),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ]),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('選擇顏色標籤',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey))),
+                      const SizedBox(height: 8),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: vibrantColors
+                              .map((c) => GestureDetector(
+                                  onTap: () =>
+                                      setDialogState(() => selectedColor = c),
+                                  child: Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                          color: Color(c),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: selectedColor == c
+                                                  ? Colors.black87
+                                                  : Colors.transparent,
+                                              width: 2)))))
+                              .toList()),
+                      const SizedBox(height: 20),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton.icon(
+                                icon: const Icon(Icons.access_time, size: 16),
+                                label: Text(formatTime(pickedStartTime)),
+                                onPressed: () => selectTime(true)),
+                            const Text('~'),
+                            TextButton.icon(
+                                icon: const Icon(Icons.access_time, size: 16),
+                                label: Text(formatTime(pickedEndTime)),
+                                onPressed: () => selectTime(false))
+                          ])
                     ]),
                   );
                 }),
@@ -6215,11 +7378,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         if (titleController.text.isEmpty) return;
                         String range =
                             "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
-                        final dateOverride =
-                            '${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}';
-                        _editSchedule(event['id'], range, titleController.text,
-                            selectedColor,
-                            dateOverride: dateOverride);
+                        _editSchedule(
+                          event['id'],
+                          range,
+                          titleController.text,
+                          selectedColor,
+                          startDate: pickedStartDate,
+                          endDate: pickedEndDate,
+                        );
                         Navigator.pop(ctx);
                       },
                       child: const Text('儲存修改'))
@@ -6241,6 +7407,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     int selectedType = 0;
     TimeOfDay pickedStartTime = const TimeOfDay(hour: 10, minute: 0);
     TimeOfDay pickedEndTime = const TimeOfDay(hour: 11, minute: 0);
+    DateTime pickedStartDate = _selectedDate;
+    DateTime pickedEndDate = _selectedDate;
+    bool isMultiDay = false;
     StateSetter? dialogSetState;
     Future<void> selectTime(bool isStart) async {
       final TimeOfDay? picked = await showTimePicker(
@@ -6279,68 +7448,225 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 title: const Text('手動新增項目'),
                 content: StatefulBuilder(builder: (context, setDialogState) {
                   dialogSetState = setDialogState;
-                  return Column(mainAxisSize: MainAxisSize.min, children: [
-                    TextField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: '標題名稱')),
-                    const SizedBox(height: 20),
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      ChoiceChip(
-                          label: const Text('時間行程'),
-                          selected: selectedType == 0,
-                          selectedColor: const Color(0xFFD7CCC8),
-                          onSelected: (v) =>
-                              setDialogState(() => selectedType = 0)),
-                      const SizedBox(width: 10),
-                      ChoiceChip(
-                          label: const Text('待辦事項'),
-                          selected: selectedType == 1,
-                          selectedColor: const Color(0xFFD7CCC8),
-                          onSelected: (v) =>
-                              setDialogState(() => selectedType = 1))
-                    ]),
-                    if (selectedType == 0) ...[
-                      const SizedBox(height: 15),
-                      const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('選擇顏色標籤',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey))),
-                      const SizedBox(height: 8),
+                  return SingleChildScrollView(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      TextField(
+                          controller: titleController,
+                          decoration: const InputDecoration(labelText: '標題名稱')),
+                      const SizedBox(height: 20),
                       Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: vibrantColors
-                              .map((c) => GestureDetector(
-                                  onTap: () =>
-                                      setDialogState(() => selectedColor = c),
-                                  child: Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                          color: Color(c),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: selectedColor == c
-                                                  ? Colors.black87
-                                                  : Colors.transparent,
-                                              width: 2)))))
-                              .toList()),
-                      const SizedBox(height: 15),
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            TextButton.icon(
-                                icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(formatTime(pickedStartTime)),
-                                onPressed: () => selectTime(true)),
-                            const Text('~'),
-                            TextButton.icon(
-                                icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(formatTime(pickedEndTime)),
-                                onPressed: () => selectTime(false))
-                          ])
-                    ]
-                  ]);
+                            ChoiceChip(
+                                label: const Text('時間行程'),
+                                selected: selectedType == 0,
+                                selectedColor: const Color(0xFFD7CCC8),
+                                onSelected: (v) =>
+                                    setDialogState(() => selectedType = 0)),
+                            const SizedBox(width: 10),
+                            ChoiceChip(
+                                label: const Text('待辦事項'),
+                                selected: selectedType == 1,
+                                selectedColor: const Color(0xFFD7CCC8),
+                                onSelected: (v) =>
+                                    setDialogState(() => selectedType = 1))
+                          ]),
+                      if (selectedType == 0) ...[
+                        const SizedBox(height: 15),
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('選擇顏色標籤',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey))),
+                        const SizedBox(height: 8),
+                        Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: vibrantColors
+                                .map((c) => GestureDetector(
+                                    onTap: () =>
+                                        setDialogState(() => selectedColor = c),
+                                    child: Container(
+                                        width: 20, // Reduced from 24
+                                        height: 20, // Reduced from 24
+                                        decoration: BoxDecoration(
+                                            color: Color(c),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                                color: selectedColor == c
+                                                    ? Colors.black87
+                                                    : Colors.transparent,
+                                                width: 2)))))
+                                .toList()),
+                        const SizedBox(height: 15),
+                        // ── 跨日行程切換 ──
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('跨日行程',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.black87)),
+                          value: isMultiDay,
+                          activeThumbColor: const Color(0xFF8D6E63),
+                          onChanged: (val) {
+                            setDialogState(() {
+                              isMultiDay = val;
+                              if (!isMultiDay) {
+                                pickedEndDate = pickedStartDate;
+                              }
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        if (!isMultiDay) ...[
+                          const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text('行程日期',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey))),
+                          const SizedBox(height: 6),
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: pickedStartDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2030),
+                                locale: const Locale('zh', 'TW'),
+                              );
+                              if (picked != null) {
+                                setDialogState(() {
+                                  pickedStartDate = picked;
+                                  pickedEndDate = picked;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(children: [
+                                const Icon(Icons.calendar_today,
+                                    size: 16, color: Color(0xFF8D6E63)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ] else ...[
+                          // ── 日期區間選擇 ──
+                          const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text('行程日期區間',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey))),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: ctx,
+                                      initialDate: pickedStartDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2030),
+                                      locale: const Locale('zh', 'TW'),
+                                    );
+                                    if (picked != null) {
+                                      setDialogState(() {
+                                        pickedStartDate = picked;
+                                        if (pickedEndDate
+                                            .isBefore(pickedStartDate)) {
+                                          pickedEndDate = pickedStartDate;
+                                        }
+                                      });
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                          color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(children: [
+                                      const Icon(Icons.calendar_today,
+                                          size: 16, color: Color(0xFF8D6E63)),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ]),
+                                  ),
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('至'),
+                              ),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: ctx,
+                                      initialDate: pickedEndDate,
+                                      firstDate: pickedStartDate,
+                                      lastDate: DateTime(2030),
+                                      locale: const Locale('zh', 'TW'),
+                                    );
+                                    if (picked != null) {
+                                      setDialogState(() {
+                                        pickedEndDate = picked;
+                                      });
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                          color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(children: [
+                                      const Icon(Icons.calendar_today,
+                                          size: 16, color: Color(0xFF8D6E63)),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ]),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 15),
+                        Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              TextButton.icon(
+                                  icon: const Icon(Icons.access_time, size: 16),
+                                  label: Text(formatTime(pickedStartTime)),
+                                  onPressed: () => selectTime(true)),
+                              const Text('~'),
+                              TextButton.icon(
+                                  icon: const Icon(Icons.access_time, size: 16),
+                                  label: Text(formatTime(pickedEndTime)),
+                                  onPressed: () => selectTime(false))
+                            ])
+                      ]
+                    ]),
+                  );
                 }),
                 actions: [
                   ElevatedButton(
@@ -6350,7 +7676,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           String range =
                               "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
                           _addSchedule(
-                              range, titleController.text, selectedColor);
+                              range, titleController.text, selectedColor,
+                              startDate: pickedStartDate,
+                              endDate:
+                                  isMultiDay ? pickedEndDate : pickedStartDate);
                         } else {
                           _addTodo(titleController.text);
                         }
@@ -6960,6 +8289,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         'font_size_factor': _fontSizeFactor,
         'theme_color_idx': _themeColorIdx,
         'is_dark_mode': _isDarkMode ? 1 : 0,
+        'calendar_view_mode': _calendarViewMode,
       },
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],
@@ -7517,8 +8847,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   line,
                   style: TextStyle(
                     fontSize: isHeader ? 13.5 : 13,
-                    fontWeight:
-                        isHeader ? FontWeight.w700 : FontWeight.normal,
+                    fontWeight: isHeader ? FontWeight.w700 : FontWeight.normal,
                     color: isHeader
                         ? const Color(0xFF6D4C41)
                         : (isBullet ? Colors.black87 : Colors.grey.shade700),
@@ -9578,9 +10907,6 @@ class _PostReplyPageState extends State<PostReplyPage> {
     );
   }
 }
-
-
-
 
 class QuestionDiscussionPage extends StatelessWidget {
   final Map<String, dynamic> questionData;
