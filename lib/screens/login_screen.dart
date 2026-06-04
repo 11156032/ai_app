@@ -1,5 +1,6 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
 
@@ -45,7 +46,9 @@ class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
   late Animation<double> _rotateAnim;
   late Animation<double> _pulseAnim;
   late Animation<double> _drawAnim;
-  late Animation<double> _dotScaleAnim;
+  late Animation<double> _leftLeafScaleAnim;
+  late Animation<double> _rightLeafScaleAnim;
+  late Animation<double> _shimmerAnim;
 
   @override
   void initState() {
@@ -63,7 +66,7 @@ class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
 
     _introCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1800),
     );
 
     _rotateAnim = Tween<double>(begin: 0, end: 1).animate(
@@ -71,20 +74,30 @@ class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
     );
 
     _pulseAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.08), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 1.08, end: 1.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.04), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.04, end: 1.0), weight: 1),
     ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
 
     _drawAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
           parent: _introCtrl,
-          curve: const Interval(0.0, 0.7, curve: Curves.easeInOutCubic)),
+          curve: const Interval(0.0, 0.6, curve: Curves.easeInOutCubic)),
     );
 
-    _dotScaleAnim = Tween<double>(begin: 0, end: 1).animate(
+    _leftLeafScaleAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
           parent: _introCtrl,
-          curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack)),
+          curve: const Interval(0.5, 0.85, curve: Curves.easeOutBack)),
+    );
+
+    _rightLeafScaleAnim = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+          parent: _introCtrl,
+          curve: const Interval(0.6, 1.0, curve: Curves.easeOutBack)),
+    );
+
+    _shimmerAnim = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine),
     );
 
     _introCtrl.forward();
@@ -107,53 +120,51 @@ class _BrandMarkState extends State<_BrandMark> with TickerProviderStateMixin {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // 外光暈
+              // 外光暈 (青色柔和發光)
               Container(
-                width: 96,
-                height: 96,
+                width: 150,
+                height: 150,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFA1887F).withValues(alpha: 0.35),
+                      const Color(0xFF4DD0E1).withValues(alpha: 0.15),
                       Colors.transparent,
                     ],
                   ),
                 ),
               ),
-              // 旋轉外環
+              // 旋轉外環 (綠色至青色漸變)
               Transform.rotate(
                 angle: _rotateAnim.value * 6.2832,
                 child: CustomPaint(
-                  size: const Size(76, 76),
+                  size: const Size(130, 130),
                   painter: _ArcRingPainter(),
                 ),
               ),
-              // 中心圖示
+              // 中心圓形容器 (白底加精美投影)
               Container(
-                width: 52,
-                height: 52,
+                width: 110,
+                height: 110,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFBCAAA4), Color(0xFF795548)],
-                  ),
+                  color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF8D6E63).withValues(alpha: 0.4),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
+                      color: const Color(0xFF9CCC65).withValues(alpha: 0.15),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
                 child: Center(
                   child: CustomPaint(
-                    size: const Size(26, 26),
-                    painter: _YeBangLogoPainter(
+                    size: const Size(72, 72),
+                    painter: _LeafYLogoPainter(
                       progress: _drawAnim.value,
-                      dotScale: _dotScaleAnim.value,
+                      leftLeafScale: _leftLeafScaleAnim.value,
+                      rightLeafScale: _rightLeafScaleAnim.value,
+                      shimmerProgress: _shimmerAnim.value,
                     ),
                   ),
                 ),
@@ -176,16 +187,16 @@ class _ArcRingPainter extends CustomPainter {
 
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
 
-    // 弧段 1
-    paint.color = const Color(0xFF8D6E63).withValues(alpha: 0.8);
+    // 弧段 1: 青藍色
+    paint.color = const Color(0xFF4DD0E1).withValues(alpha: 0.8);
     canvas.drawArc(rect, 0, 1.8, false, paint);
 
-    // 弧段 2（另一側）
-    paint.color = const Color(0xFFBCAAA4).withValues(alpha: 0.5);
+    // 弧段 2: 綠色
+    paint.color = const Color(0xFF9CCC65).withValues(alpha: 0.6);
     canvas.drawArc(rect, 2.4, 1.2, false, paint);
 
-    // 弧段 3（小點綴）
-    paint.color = const Color(0xFF8D6E63).withValues(alpha: 0.3);
+    // 弧段 3: 淺綠/藍綠色
+    paint.color = const Color(0xFF80CBC4).withValues(alpha: 0.4);
     canvas.drawArc(rect, 4.0, 0.6, false, paint);
   }
 
@@ -193,38 +204,85 @@ class _ArcRingPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ── 獨一無二的 YeBang 標誌繪製 ───────────────────────────────────────────────
-class _YeBangLogoPainter extends CustomPainter {
+class _LeafYLogoPainter extends CustomPainter {
   final double progress;
-  final double dotScale;
-  const _YeBangLogoPainter({required this.progress, required this.dotScale});
+  final double leftLeafScale;
+  final double rightLeafScale;
+  final double shimmerProgress;
+
+  const _LeafYLogoPainter({
+    required this.progress,
+    required this.leftLeafScale,
+    required this.rightLeafScale,
+    required this.shimmerProgress,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
 
-    final fillPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
+    final Rect bounds = Rect.fromLTWH(0, 0, w, h);
 
-    final strokePaint = Paint()
-      ..color = Colors.white
+    // 主漸層色彩 (綠色至青色)
+    final baseGradient = LinearGradient(
+      begin: Alignment.bottomLeft,
+      end: Alignment.topRight,
+      colors: const [
+        Color(0xFF9CCC65), // 綠色
+        Color(0xFF4DD0E1), // 青色/藍綠色
+      ],
+    );
+
+    final Paint strokePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
 
-    final path = Path();
-    // 左側枝枒 (從底向上生長)
-    path.moveTo(w * 0.5, h * 0.85);
-    path.quadraticBezierTo(w * 0.5, h * 0.5, w * 0.2, h * 0.2);
-    // 右側枝枒 (從底向上生長)
-    path.moveTo(w * 0.5, h * 0.85);
-    path.quadraticBezierTo(w * 0.5, h * 0.5, w * 0.8, h * 0.2);
+    // 當生長完成，加入一束白色扫光的漸層效果
+    if (progress >= 1.0) {
+      final double shimmerWidth = 0.4;
+      final double start = shimmerProgress - shimmerWidth;
+      final double end = shimmerProgress + shimmerWidth;
+
+      strokePaint.shader = LinearGradient(
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+        colors: [
+          const Color(0xFF9CCC65),
+          const Color(0xFF4DD0E1),
+          Colors.white,
+          const Color(0xFF4DD0E1),
+          const Color(0xFF9CCC65),
+        ],
+        stops: [
+          0.0,
+          (start.clamp(0.0, 1.0)),
+          (shimmerProgress.clamp(0.0, 1.0)),
+          (end.clamp(0.0, 1.0)),
+          1.0,
+        ],
+      ).createShader(bounds);
+    } else {
+      strokePaint.shader = baseGradient.createShader(bounds);
+    }
+
+    final Paint fillPaint = Paint()..style = PaintingStyle.fill;
+
+    // 繪製 y 的草寫主莖幹
+    final yBodyPath = Path();
+    yBodyPath.moveTo(w * 0.25, h * 0.42);
+    yBodyPath.quadraticBezierTo(w * 0.28, h * 0.62, w * 0.42, h * 0.62);
+    yBodyPath.quadraticBezierTo(w * 0.52, h * 0.62, w * 0.55, h * 0.42);
+    yBodyPath.cubicTo(
+        w * 0.55, h * 0.65, w * 0.50, h * 0.88, w * 0.38, h * 0.88);
+    yBodyPath.cubicTo(
+        w * 0.24, h * 0.88, w * 0.24, h * 0.70, w * 0.35, h * 0.58);
+    yBodyPath.quadraticBezierTo(w * 0.45, h * 0.48, w * 0.65, h * 0.62);
+    yBodyPath.quadraticBezierTo(w * 0.72, h * 0.68, w * 0.70, h * 0.55);
 
     if (progress < 1.0) {
-      final metrics = path.computeMetrics();
+      final metrics = yBodyPath.computeMetrics();
       final animPath = Path();
       for (final metric in metrics) {
         animPath.addPath(
@@ -232,19 +290,99 @@ class _YeBangLogoPainter extends CustomPainter {
       }
       canvas.drawPath(animPath, strokePaint);
     } else {
-      canvas.drawPath(path, strokePaint);
+      canvas.drawPath(yBodyPath, strokePaint);
     }
 
-    // 核心智慧圓點
-    if (dotScale > 0) {
-      canvas.drawCircle(
-          Offset(w * 0.5, h * 0.35), w * 0.12 * dotScale, fillPaint);
+    // 繪製左小葉 (含萌芽縮放)
+    if (leftLeafScale > 0) {
+      canvas.save();
+      final Offset base = Offset(w * 0.25, h * 0.42);
+      canvas.translate(base.dx, base.dy);
+      canvas.scale(leftLeafScale);
+      canvas.translate(-base.dx, -base.dy);
+
+      final leftLeaf = Path();
+      leftLeaf.moveTo(w * 0.25, h * 0.42);
+      leftLeaf.cubicTo(
+          w * 0.20, h * 0.35, w * 0.12, h * 0.30, w * 0.10, h * 0.32);
+      leftLeaf.cubicTo(
+          w * 0.14, h * 0.45, w * 0.22, h * 0.48, w * 0.25, h * 0.42);
+
+      fillPaint.shader = LinearGradient(
+        begin: Alignment.bottomRight,
+        end: Alignment.topLeft,
+        colors: [
+          const Color(0xFF9CCC65).withValues(alpha: 0.15 * leftLeafScale),
+          const Color(0xFF9CCC65).withValues(alpha: 0.4 * leftLeafScale),
+        ],
+      ).createShader(bounds);
+      canvas.drawPath(leftLeaf, fillPaint);
+      canvas.drawPath(leftLeaf, strokePaint);
+
+      // 左葉脈
+      final leftVein = Path();
+      leftVein.moveTo(w * 0.25, h * 0.42);
+      leftVein.quadraticBezierTo(w * 0.18, h * 0.37, w * 0.11, h * 0.33);
+
+      final Paint veinPaint = Paint()
+        ..shader = strokePaint.shader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(leftVein, veinPaint);
+
+      canvas.restore();
+    }
+
+    // 繪製右大葉 (含萌芽縮放)
+    if (rightLeafScale > 0) {
+      canvas.save();
+      final Offset base = Offset(w * 0.55, h * 0.42);
+      canvas.translate(base.dx, base.dy);
+      canvas.scale(rightLeafScale);
+      canvas.translate(-base.dx, -base.dy);
+
+      final rightLeaf = Path();
+      rightLeaf.moveTo(w * 0.55, h * 0.42);
+      rightLeaf.cubicTo(
+          w * 0.60, h * 0.28, w * 0.72, h * 0.10, w * 0.85, h * 0.15);
+      rightLeaf.cubicTo(
+          w * 0.78, h * 0.32, w * 0.64, h * 0.45, w * 0.55, h * 0.42);
+
+      fillPaint.shader = LinearGradient(
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+        colors: [
+          const Color(0xFF4DD0E1).withValues(alpha: 0.15 * rightLeafScale),
+          const Color(0xFF4DD0E1).withValues(alpha: 0.4 * rightLeafScale),
+        ],
+      ).createShader(bounds);
+      canvas.drawPath(rightLeaf, fillPaint);
+      canvas.drawPath(rightLeaf, strokePaint);
+
+      // 右葉脈
+      final rightVein = Path();
+      rightVein.moveTo(w * 0.55, h * 0.42);
+      rightVein.quadraticBezierTo(w * 0.68, h * 0.28, w * 0.82, h * 0.17);
+
+      final Paint veinPaint = Paint()
+        ..shader = strokePaint.shader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(rightVein, veinPaint);
+
+      canvas.restore();
     }
   }
 
   @override
-  bool shouldRepaint(covariant _YeBangLogoPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.dotScale != dotScale;
+  bool shouldRepaint(covariant _LeafYLogoPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.leftLeafScale != leftLeafScale ||
+        oldDelegate.rightLeafScale != rightLeafScale ||
+        oldDelegate.shimmerProgress != shimmerProgress;
+  }
 }
 
 // ── 登入成功動畫 Overlay ────────────────────────────────────────────────────
@@ -263,73 +401,80 @@ class _LoginSuccessOverlay extends StatefulWidget {
 
 class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
     with TickerProviderStateMixin {
-  // 各階段動畫控制器
-  late AnimationController _bgCtrl; // 背景淡入
-  late AnimationController _rippleCtrl; // 光圈擴散
-  late AnimationController _bloomCtrl; // 花朵綻放描繪
-  late AnimationController _textCtrl; // 文字淡入
-  late AnimationController _exitCtrl; // 整體淡出
+  late AnimationController _bgCtrl; // Ambient drift
+  late AnimationController _shimmerCtrl; // Text shimmer reflection
+  late AnimationController _entranceCtrl; // Elements slide/fade/scale
+  late AnimationController _exitCtrl; // Overall fade out
 
-  late Animation<double> _bgOpacity;
-  late Animation<double> _rippleScale;
-  late Animation<double> _rippleOpacity;
-  late Animation<double> _bloomProgress;
-  late Animation<double> _textOpacity;
-  late Animation<Offset> _textSlide;
+  late Animation<double> _entranceOpacity;
+  late Animation<double> _textSlideY;
+  late Animation<double> _dividerProgress;
+  late Animation<double> _welcomeOpacity;
   late Animation<double> _exitOpacity;
+
+  final List<_LeafParticle> _leaves = [];
 
   @override
   void initState() {
     super.initState();
 
-    _bgCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 350));
-    _rippleCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 700));
-    _bloomCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 800));
-    _textCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
+    _bgCtrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 10))
+          ..repeat(reverse: true);
+    _shimmerCtrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 3))
+          ..repeat();
+
+    _entranceCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1500));
     _exitCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 450));
+        vsync: this, duration: const Duration(milliseconds: 600));
 
-    _bgOpacity = Tween<double>(begin: 0, end: 1).animate(_bgCtrl);
-    _rippleScale = Tween<double>(begin: 0.3, end: 2.4).animate(
-        CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOutExpo));
-    _rippleOpacity = Tween<double>(begin: 0.6, end: 0)
-        .animate(CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeIn));
+    _entranceOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: const Interval(0, 0.4, curve: Curves.easeOut)));
+    _textSlideY = Tween<double>(begin: 30, end: 0).animate(CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: const Interval(0.1, 0.7, curve: Curves.easeOutCubic)));
+    _dividerProgress = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: const Interval(0.4, 0.9, curve: Curves.easeOut)));
+    _welcomeOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: const Interval(0.6, 1.0, curve: Curves.easeOut)));
 
-    _bloomProgress = Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(parent: _bloomCtrl, curve: Curves.easeOutBack));
-
-    _textOpacity = Tween<double>(begin: 0, end: 1)
-        .animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOut));
-    _textSlide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutExpo));
     _exitOpacity = Tween<double>(begin: 1, end: 0)
         .animate(CurvedAnimation(parent: _exitCtrl, curve: Curves.easeIn));
+
+    // Initialize 6 drifting leaves
+    final random = math.Random();
+    for (int i = 0; i < 6; i++) {
+      _leaves.add(_LeafParticle(
+        x: random.nextDouble(),
+        y: random.nextDouble() * 0.6 - 0.2, // Start in upper half
+        size: 10 + random.nextDouble() * 12,
+        rotation: random.nextDouble() * 2 * math.pi,
+        speedY: 0.04 + random.nextDouble() * 0.04,
+        speedX: -0.015 + random.nextDouble() * 0.03,
+        spinSpeed: -0.3 + random.nextDouble() * 0.6,
+      ));
+    }
 
     _runSequence();
   }
 
   Future<void> _runSequence() async {
-    await _bgCtrl.forward(); // 0ms   – 背景淡入
-    _rippleCtrl.forward(); // 350ms – 光圈
-    await Future.delayed(const Duration(milliseconds: 100));
-    await _bloomCtrl.forward(); // 450ms – 綻放
-    await Future.delayed(const Duration(milliseconds: 80));
-    await _textCtrl.forward(); // 歡迎文字
-    await Future.delayed(const Duration(milliseconds: 1200)); // 整體淡出前多停留一下看動畫
-    await _exitCtrl.forward(); // 整體淡出
+    _entranceCtrl.forward();
+    await Future.delayed(const Duration(milliseconds: 2200));
+    await _exitCtrl.forward();
     widget.onComplete();
   }
 
   @override
   void dispose() {
     _bgCtrl.dispose();
-    _rippleCtrl.dispose();
-    _bloomCtrl.dispose();
-    _textCtrl.dispose();
+    _shimmerCtrl.dispose();
+    _entranceCtrl.dispose();
     _exitCtrl.dispose();
     super.dispose();
   }
@@ -337,98 +482,107 @@ class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge(
-          [_bgCtrl, _rippleCtrl, _bloomCtrl, _textCtrl, _exitCtrl]),
+      animation:
+          Listenable.merge([_bgCtrl, _shimmerCtrl, _entranceCtrl, _exitCtrl]),
       builder: (_, __) {
         return Opacity(
           opacity: _exitOpacity.value,
-          child: Container(
-            color: const Color(0xFFF7F3F0)
-                .withValues(alpha: _bgOpacity.value * 0.97),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 光圈 + 綻放
-                  SizedBox(
-                    width: 160,
-                    height: 160,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // 擴散光圈
-                        Transform.scale(
-                          scale: _rippleScale.value,
-                          child: Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFF8D6E63)
-                                    .withValues(alpha: _rippleOpacity.value),
-                                width: 3,
+          child: Material(
+            color: Colors.transparent,
+            child: Stack(
+              children: [
+                // Natural Ambient Light Background
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: _entranceOpacity.value,
+                    child: Container(
+                      color: const Color(0xFFF7F3F0), // Warm off-white
+                      child: CustomPaint(
+                        painter: _DriftingLeavesPainter(
+                          leaves: _leaves,
+                          animationValue: _bgCtrl.value,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Center Content: Shimmer Text, Minimalist Divider, Welcome
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Shimmer Brand text
+                      Opacity(
+                        opacity: _entranceOpacity.value,
+                        child: Transform.translate(
+                          offset: Offset(0, _textSlideY.value),
+                          child: ShaderMask(
+                            shaderCallback: (bounds) {
+                              return LinearGradient(
+                                colors: const [
+                                  Color(0xFF4E342E), // Deep brown
+                                  Color(0xFF8D6E63), // Light warm brown
+                                  Color(0xFF4E342E), // Deep brown
+                                ],
+                                stops: [
+                                  0.0,
+                                  0.5 +
+                                      0.5 *
+                                          math.sin(
+                                              _shimmerCtrl.value * 2 * math.pi),
+                                  1.0,
+                                ],
+                              ).createShader(bounds);
+                            },
+                            child: const Text(
+                              'YeLaiYeBang',
+                              style: TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white, // Required for ShaderMask
+                                letterSpacing: 1.5,
                               ),
                             ),
                           ),
                         ),
-                        // 背景圓 (漸層)
-                        Container(
-                          width: 88,
-                          height: 88,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFFBCAAA4),
-                                Color(0xFF795548),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // 綻放的 YeBang
-                        CustomPaint(
-                          size: const Size(88, 88),
-                          painter: _BloomingLogoPainter(
-                              bloomProgress: _bloomProgress.value),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  // 歡迎文字
-                  SlideTransition(
-                    position: _textSlide,
-                    child: Opacity(
-                      opacity: _textOpacity.value,
-                      child: Column(
-                        children: [
-                          const Text(
-                            '登入成功',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF4E342E),
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '歡迎回來，${widget.displayName}！👋',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: Color(0xFF8D6E63),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
                       ),
-                    ),
+
+                      const SizedBox(height: 16),
+
+                      // Minimalist leaf divider
+                      Opacity(
+                        opacity: _entranceOpacity.value,
+                        child: CustomPaint(
+                          size: const Size(200, 30),
+                          painter: _LeafBranchDivider(
+                            progress: _dividerProgress.value,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Welcome text
+                      Opacity(
+                        opacity: _welcomeOpacity.value,
+                        child: Transform.translate(
+                          offset: Offset(0, _textSlideY.value * 0.5),
+                          child: Text(
+                            'Welcome, ${widget.displayName}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF8D6E63),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -437,91 +591,153 @@ class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
   }
 }
 
-// 描繪綻放的 CustomPainter
-class _BloomingLogoPainter extends CustomPainter {
-  final double bloomProgress;
-  const _BloomingLogoPainter({required this.bloomProgress});
+class _LeafParticle {
+  double x;
+  double y;
+  double size;
+  double rotation;
+  double speedY;
+  double speedX;
+  double spinSpeed;
+
+  _LeafParticle({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.rotation,
+    required this.speedY,
+    required this.speedX,
+    required this.spinSpeed,
+  });
+}
+
+class _DriftingLeavesPainter extends CustomPainter {
+  final List<_LeafParticle> leaves;
+  final double animationValue;
+
+  _DriftingLeavesPainter({required this.leaves, required this.animationValue});
+
+  // Helper: fractional part, always 0..1
+  static double _frac(double v) => v - v.floor();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final strokePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final fillPaint = Paint()
-      ..color = Colors.white
+    // Fill colour: a warm sage-green visible on the off-white (#F7F3F0) background
+    final paint = Paint()
+      ..color = const Color(0xFF7CB38A).withValues(alpha: 0.22)
       ..style = PaintingStyle.fill;
 
-    // Base Y / Tree
-    final path = Path();
-    path.moveTo(w * 0.5, h * 0.85);
-    path.quadraticBezierTo(w * 0.5, h * 0.5, w * 0.2, h * 0.2);
-    path.moveTo(w * 0.5, h * 0.85);
-    path.quadraticBezierTo(w * 0.5, h * 0.5, w * 0.8, h * 0.2);
-    canvas.drawPath(path, strokePaint);
+    final strokePaint = Paint()
+      ..color = const Color(0xFF5A8C6A).withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
 
-    final baseDotRadius = w * 0.12;
-    canvas.drawCircle(Offset(w * 0.5, h * 0.35), baseDotRadius, fillPaint);
+    for (var leaf in leaves) {
+      // Each leaf has its own perpetual fall: wraps at 1.0
+      final rawY = leaf.y + leaf.speedY * animationValue * 12;
+      final rawX = leaf.x + leaf.speedX * animationValue * 12;
+      // Slight sinusoidal sway so leaves drift side-to-side as they fall
+      final swayX = math.sin(rawY * 2 * math.pi * 1.5) * 0.04;
 
-    if (bloomProgress > 0) {
-      final bloomPaint = Paint()
-        ..color = Colors.white.withValues(alpha: bloomProgress.clamp(0.0, 1.0))
-        ..style = PaintingStyle.fill;
+      final nx = _frac(rawX + swayX + 1.0); // normalised 0-1
+      final ny = _frac(rawY); // normalised 0-1
 
-      // 側邊長出葉子
-      final leafScale = bloomProgress;
-      // 左葉
+      final px = nx * size.width;
+      final py = ny * size.height;
+      final rotation = leaf.rotation + leaf.spinSpeed * animationValue * 8;
+
       canvas.save();
-      canvas.translate(w * 0.32, h * 0.48);
-      canvas.scale(leafScale);
-      canvas.rotate(-0.8);
-      canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset.zero, width: w * 0.15, height: w * 0.08),
-          bloomPaint);
+      canvas.translate(px, py);
+      canvas.rotate(rotation);
+
+      final path = Path();
+      path.moveTo(0, 0);
+      path.quadraticBezierTo(
+          -leaf.size * 0.45, -leaf.size * 0.5, 0, -leaf.size * 1.2);
+      path.quadraticBezierTo(leaf.size * 0.45, -leaf.size * 0.5, 0, 0);
+
+      canvas.drawPath(path, paint);
+      canvas.drawPath(path, strokePaint);
+      // leaf vein
+      canvas.drawLine(Offset.zero, Offset(0, -leaf.size * 0.9), strokePaint);
+
       canvas.restore();
-
-      // 右葉
-      canvas.save();
-      canvas.translate(w * 0.68, h * 0.48);
-      canvas.scale(leafScale);
-      canvas.rotate(0.8);
-      canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset.zero, width: w * 0.15, height: w * 0.08),
-          bloomPaint);
-      canvas.restore();
-
-      // 中心點綻放花瓣
-      final petalRadius = w * 0.08 * bloomProgress;
-      for (int i = 0; i < 5; i++) {
-        canvas.save();
-        canvas.translate(w * 0.5, h * 0.35);
-        canvas.rotate(i * 3.14159 * 2 / 5 + bloomProgress);
-        canvas.drawCircle(
-            Offset(0, -baseDotRadius * 1.1), petalRadius, bloomPaint);
-        canvas.restore();
-      }
-
-      // 核心發光/變色
-      final centerPaint = Paint()
-        ..color = const Color(0xFFFFD54F)
-            .withValues(alpha: bloomProgress.clamp(0.0, 1.0))
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(w * 0.5, h * 0.35),
-          baseDotRadius * 0.6 * bloomProgress, centerPaint);
     }
   }
 
   @override
-  bool shouldRepaint(_BloomingLogoPainter old) =>
-      old.bloomProgress != bloomProgress;
+  bool shouldRepaint(covariant _DriftingLeavesPainter oldDelegate) => true;
+}
+
+class _LeafBranchDivider extends CustomPainter {
+  final double progress;
+  _LeafBranchDivider({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF8D6E63).withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+
+    final fillPaint = Paint()
+      ..color = const Color(0xFF8D6E63).withValues(alpha: 0.1)
+      ..style = PaintingStyle.fill;
+
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final cy = h / 2;
+
+    // Draw central horizontal line with a slight organic curve
+    final path = Path();
+    path.moveTo(cx - (w * 0.3 * progress), cy);
+    path.quadraticBezierTo(cx, cy - 2 * math.sin(progress * math.pi),
+        cx + (w * 0.3 * progress), cy);
+    canvas.drawPath(path, paint);
+
+    // Leaves branching out
+    if (progress > 0.4) {
+      final t = (progress - 0.4) / 0.6; // 0.0 to 1.0
+
+      // Leaf 1 (Left-top)
+      _drawLeaf(
+          canvas, Offset(cx - w * 0.12, cy - 1), -0.8, t, paint, fillPaint);
+
+      // Leaf 2 (Right-top)
+      _drawLeaf(
+          canvas, Offset(cx + w * 0.12, cy - 1), 0.8, t, paint, fillPaint);
+
+      // Leaf 3 (Center-bottom)
+      _drawLeaf(canvas, Offset(cx, cy + 1), math.pi + 0.1, t, paint, fillPaint);
+    }
+  }
+
+  void _drawLeaf(Canvas canvas, Offset origin, double angle, double scale,
+      Paint strokePaint, Paint fillPaint) {
+    canvas.save();
+    canvas.translate(origin.dx, origin.dy);
+    canvas.rotate(angle);
+    canvas.scale(scale);
+
+    final leafPath = Path();
+    leafPath.moveTo(0, 0);
+    leafPath.quadraticBezierTo(-5, -8, 0, -14);
+    leafPath.quadraticBezierTo(5, -8, 0, 0);
+
+    canvas.drawPath(leafPath, fillPaint);
+    canvas.drawPath(leafPath, strokePaint);
+
+    // Draw leaf vein
+    canvas.drawLine(const Offset(0, 0), const Offset(0, -10), strokePaint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _LeafBranchDivider oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 // ── 主體 ─────────────────────────────────────────────────────────────────────
@@ -639,7 +855,8 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: emailResetCtrl,
               keyboardType: TextInputType.emailAddress,
               decoration: _inputDeco('電子信箱',
-                  suffix: const Icon(Icons.email_outlined, color: Color(0xFFBCAAA4))),
+                  suffix: const Icon(Icons.email_outlined,
+                      color: Color(0xFFBCAAA4))),
             ),
           ],
         ),
@@ -652,7 +869,8 @@ class _LoginScreenState extends State<LoginScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: _primaryColor,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () async {
               final email = emailResetCtrl.text.trim();
@@ -662,10 +880,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 );
                 return;
               }
-              
+
               try {
                 final db = await DatabaseHelper.instance.database;
-                final res = await db.query('users', where: 'email = ?', whereArgs: [email]);
+                final res = await db
+                    .query('users', where: 'email = ?', whereArgs: [email]);
                 if (res.isEmpty) {
                   if (!ctx.mounted) return;
                   showDialog(
@@ -698,121 +917,121 @@ class _LoginScreenState extends State<LoginScreen> {
     if (emailExists == true) {
       final targetEmail = emailResetCtrl.text.trim();
       if (!mounted) return;
-      
+
       final TextEditingController newPasswordCtrl = TextEditingController();
       final TextEditingController confirmPasswordCtrl = TextEditingController();
       bool obscureNew = true;
       bool obscureConfirm = true;
-      
+
       await showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('重設新密碼'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('帳號驗證成功！請輸入您的新密碼。'),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: newPasswordCtrl,
-                    obscureText: obscureNew,
-                    decoration: _inputDeco(
-                      '新密碼',
-                      suffix: IconButton(
-                        icon: Icon(
-                          obscureNew
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: const Color(0xFFBCAAA4),
-                        ),
-                        onPressed: () => setState(() => obscureNew = !obscureNew),
+        builder: (ctx) => StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('重設新密碼'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('帳號驗證成功！請輸入您的新密碼。'),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: newPasswordCtrl,
+                  obscureText: obscureNew,
+                  decoration: _inputDeco(
+                    '新密碼',
+                    suffix: IconButton(
+                      icon: Icon(
+                        obscureNew
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: const Color(0xFFBCAAA4),
                       ),
+                      onPressed: () => setState(() => obscureNew = !obscureNew),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: confirmPasswordCtrl,
-                    obscureText: obscureConfirm,
-                    decoration: _inputDeco(
-                      '確認新密碼',
-                      suffix: IconButton(
-                        icon: Icon(
-                          obscureConfirm
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: const Color(0xFFBCAAA4),
-                        ),
-                        onPressed: () => setState(() => obscureConfirm = !obscureConfirm),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('取消', style: TextStyle(color: Colors.grey)),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom( 
-                    backgroundColor: _primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: confirmPasswordCtrl,
+                  obscureText: obscureConfirm,
+                  decoration: _inputDeco(
+                    '確認新密碼',
+                    suffix: IconButton(
+                      icon: Icon(
+                        obscureConfirm
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: const Color(0xFFBCAAA4),
+                      ),
+                      onPressed: () =>
+                          setState(() => obscureConfirm = !obscureConfirm),
+                    ),
                   ),
-                  onPressed: () async {
-                    final newPass = newPasswordCtrl.text;
-                    final confPass = confirmPasswordCtrl.text;
-                    
-                    if (newPass.isEmpty || confPass.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('欄位不可為空')),
-                      );
-                      return;
-                    }
-                    if (newPass != confPass) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('兩次輸入密碼不同')),
-                      );
-                      return;
-                    }
-                    
-                    try {
-                      final db = await DatabaseHelper.instance.database;
-                      await db.update(
-                        'users',
-                        {'hashed_password': newPass},
-                        where: 'email = ?',
-                        whereArgs: [targetEmail],
-                      );
-                      if (!ctx.mounted) return;
-                      Navigator.pop(ctx);
-                      
-                      showDialog(
-                        context: context,
-                        builder: (c) => AlertDialog(
-                          title: const Text('重設成功'),
-                          content: const Text('您的密碼已成功更新！請使用新密碼進行登入。'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(c),
-                              child: const Text('確定'),
-                            ),
-                          ],
-                        ),
-                      );
-                    } catch (e) {
-                      debugPrint('更新密碼失敗: $e');
-                    }
-                  },
-                  child: const Text('完成重設'),
                 ),
               ],
-            );
-          }
-        ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('取消', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  final newPass = newPasswordCtrl.text;
+                  final confPass = confirmPasswordCtrl.text;
+
+                  if (newPass.isEmpty || confPass.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('欄位不可為空')),
+                    );
+                    return;
+                  }
+                  if (newPass != confPass) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('兩次輸入密碼不同')),
+                    );
+                    return;
+                  }
+
+                  try {
+                    final db = await DatabaseHelper.instance.database;
+                    await db.update(
+                      'users',
+                      {'hashed_password': newPass},
+                      where: 'email = ?',
+                      whereArgs: [targetEmail],
+                    );
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx);
+
+                    showDialog(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text('重設成功'),
+                        content: const Text('您的密碼已成功更新！請使用新密碼進行登入。'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(c),
+                            child: const Text('確定'),
+                          ),
+                        ],
+                      ),
+                    );
+                  } catch (e) {
+                    debugPrint('更新密碼失敗: $e');
+                  }
+                },
+                child: const Text('完成重設'),
+              ),
+            ],
+          );
+        }),
       );
     }
   }
@@ -1110,6 +1329,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+
           // 主體內容
           Center(
             child: SingleChildScrollView(

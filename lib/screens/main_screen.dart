@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_final_fields
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:convert';
@@ -70,6 +71,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   double _fontSizeFactor = 1.0;
   int _themeColorIdx = 0;
   bool _isDarkMode = false;
+  bool _showFloatingNavBar = false;
   String _socialFilter = '全部'; // 社群貼文分類筛選狀態
   bool _isEmailVerified = false;
   String? _displayName;
@@ -1339,7 +1341,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         child: Builder(builder: (context) {
           return Scaffold(
             resizeToAvoidBottomInset: false,
-            backgroundColor: _isDarkMode ? Colors.black87 : Colors.white,
+            backgroundColor: Colors.transparent, // Let Container behind it show
+            extendBody: true, // Allow body to scroll under bottom nav bar
             appBar: _quizStep == 2
                 ? null
                 : AppBar(
@@ -1352,26 +1355,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   "${_calendarMonth.year}年 ${_calendarMonth.month}月",
                                   style: const TextStyle(
                                       fontSize: 16,
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold)),
-                              const Icon(Icons.arrow_drop_down,
-                                  color: Colors.black)
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.w700)),
+                              const Icon(Icons.keyboard_arrow_down,
+                                  color: Colors.black87)
                             ]))
                         : Text(_appBarTitle,
                             style: const TextStyle(
-                                fontSize: 16, color: Colors.black)),
-                    backgroundColor: Colors.white,
+                                fontSize: 18,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.bold)),
+                    backgroundColor: Colors.white.withValues(alpha: 0.7),
+                    flexibleSpace: ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(color: Colors.transparent),
+                      ),
+                    ),
                     elevation: 0,
                     actions: [
                         if (_currentIndex == 0)
                           IconButton(
-                              icon: const Icon(Icons.today,
+                              icon: const Icon(Icons.today_rounded,
                                   color: Colors.black87),
                               onPressed: _returnToToday,
                               tooltip: '回到今日'),
                         IconButton(
-                            icon:
-                                const Icon(Icons.logout, color: Colors.black87),
+                            icon: const Icon(Icons.logout_rounded,
+                                color: Colors.black87),
                             onPressed: _showLogoutDialog)
                       ]),
             drawer: Drawer(
@@ -1451,23 +1462,129 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     Navigator.pop(context);
                   }),
             ]))),
-            body: SafeArea(
-              child: Column(children: [
-                Expanded(
-                    child: IndexedStack(index: _currentIndex, children: [
-                  _buildCalendarTab(),
-                  _buildQuestionBankTab(),
-                  _buildSocialTab(),
-                  _buildSocialActivityTab(),
-                  _buildPersonalProfileTab(context),
-                  NotesScreen(currentUser: widget.currentUser),
-                  _buildLeaderboardTab(),
-                ])),
-                if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
-              ]),
+            body: Container(
+              color: _isDarkMode ? Colors.black87 : Colors.white,
+              child: SafeArea(
+                bottom: false, // Let bottom bar handle bottom safe area
+                child: Column(children: [
+                  Expanded(
+                      child: IndexedStack(index: _currentIndex, children: [
+                    _buildCalendarTab(),
+                    _buildQuestionBankTab(),
+                    _buildSocialTab(),
+                    _buildSocialActivityTab(),
+                    _buildPersonalProfileTab(context),
+                    NotesScreen(currentUser: widget.currentUser),
+                    _buildLeaderboardTab(),
+                  ])),
+                  if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
+                  if (_showFloatingNavBar) const SizedBox(height: 80), // Padding for floating nav bar
+                ]),
+              ),
             ),
+            floatingActionButtonLocation:
+                FloatingActionButtonLocation.centerFloat,
+            floatingActionButton: (_quizStep == 2 || !_showFloatingNavBar)
+                ? null
+                : FadeInUp(
+                    duration: const Duration(milliseconds: 600),
+                    child: _buildFloatingNavBar(),
+                  ),
           );
         }),
+      ),
+    );
+  }
+
+  Widget _buildFloatingNavBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      height: 65,
+      decoration: BoxDecoration(
+        color: _isDarkMode
+            ? Colors.black.withValues(alpha: 0.6)
+            : Colors.white.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavItem(Icons.calendar_month_rounded, '日曆行程', 0),
+              _buildNavItem(Icons.menu_book_rounded, '題庫', 1),
+              _buildNavItem(Icons.forum_rounded, '社群', 2),
+              _buildNavItem(Icons.person_rounded, '個人檔案', 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(IconData icon, String fullLabel, int index) {
+    final bool isSelected = _currentIndex == index;
+    final primaryColor = Theme.of(context).primaryColor;
+
+    // 取前兩個字當作簡稱
+    final String label =
+        fullLabel.length > 2 ? fullLabel.substring(0, 2) : fullLabel;
+
+    return GestureDetector(
+      onTap: () {
+        _changePage(index, fullLabel);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutBack,
+        padding:
+            EdgeInsets.symmetric(horizontal: isSelected ? 16 : 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? primaryColor.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? primaryColor : Colors.grey.shade500,
+              size: isSelected ? 26 : 24,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: primaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ]
+          ],
+        ),
       ),
     );
   }
@@ -3201,34 +3318,44 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                           if (msg['widgetType'] == 'add_type_confirmation') {
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 40, right: 10),
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                                      icon: const Icon(
+                                          Icons.calendar_month_outlined,
+                                          size: 16),
                                       label: const Text('日曆行程'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF42A5F5),
+                                        backgroundColor:
+                                            const Color(0xFF42A5F5),
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _handleAISubmit(
-                                          '日曆行程', modalController, setModalState),
+                                      onPressed: () => _handleAISubmit('日曆行程',
+                                          modalController, setModalState),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.check_box_outlined, size: 16),
+                                      icon: const Icon(Icons.check_box_outlined,
+                                          size: 16),
                                       label: const Text('待辦事項'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFFFF9800),
+                                        backgroundColor:
+                                            const Color(0xFFFF9800),
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _handleAISubmit(
-                                          '待辦事項', modalController, setModalState),
+                                      onPressed: () => _handleAISubmit('待辦事項',
+                                          modalController, setModalState),
                                     ),
                                   ),
                                 ],
@@ -3238,34 +3365,44 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                           if (msg['widgetType'] == 'edit_type_confirmation') {
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 40, right: 10),
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.edit_calendar_outlined, size: 16),
+                                      icon: const Icon(
+                                          Icons.edit_calendar_outlined,
+                                          size: 16),
                                       label: const Text('修改行程'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF66BB6A),
+                                        backgroundColor:
+                                            const Color(0xFF66BB6A),
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _handleAISubmit(
-                                          '日曆行程', modalController, setModalState),
+                                      onPressed: () => _handleAISubmit('日曆行程',
+                                          modalController, setModalState),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.check_box_outlined, size: 16),
+                                      icon: const Icon(Icons.check_box_outlined,
+                                          size: 16),
                                       label: const Text('修改待辦'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFFFF9800),
+                                        backgroundColor:
+                                            const Color(0xFFFF9800),
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _handleAISubmit(
-                                          '待辦事項', modalController, setModalState),
+                                      onPressed: () => _handleAISubmit('待辦事項',
+                                          modalController, setModalState),
                                     ),
                                   ),
                                 ],
@@ -3276,19 +3413,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           if (msg['widgetType'] == 'edit_todo_picker') {
                             if (allTodos.isEmpty) {
                               return Container(
-                                margin: const EdgeInsets.only(bottom: 12, left: 40),
+                                margin:
+                                    const EdgeInsets.only(bottom: 12, left: 40),
                                 alignment: Alignment.centerLeft,
                                 child: const Text('目前您沒有任何待辦事項。',
                                     style: TextStyle(color: Colors.grey)),
                               );
                             }
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12, left: 16, right: 8),
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 16, right: 8),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: allTodos.map((todo) {
-                                  final isDone = todo['isDone'] as bool? ?? false;
-                                  final titleStr = todo['title'] as String? ?? '無內容';
+                                  final isDone =
+                                      todo['isDone'] as bool? ?? false;
+                                  final titleStr =
+                                      todo['title'] as String? ?? '無內容';
                                   final todoId = todo['id'].toString();
                                   return GestureDetector(
                                     onTap: () => _handleAISubmit(
@@ -3301,18 +3442,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       decoration: BoxDecoration(
                                         color: isDone
                                             ? Colors.grey.shade100
-                                            : const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                                            : const Color(0xFF8D6E63)
+                                                .withValues(alpha: 0.1),
                                         border: Border.all(
                                             color: isDone
                                                 ? Colors.grey.shade300
-                                                : const Color(0xFF8D6E63).withValues(alpha: 0.4)),
+                                                : const Color(0xFF8D6E63)
+                                                    .withValues(alpha: 0.4)),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Row(
                                         children: [
                                           Icon(
-                                            isDone ? Icons.check_circle_outline : Icons.circle_outlined,
-                                            color: isDone ? Colors.grey : const Color(0xFF8D6E63),
+                                            isDone
+                                                ? Icons.check_circle_outline
+                                                : Icons.circle_outlined,
+                                            color: isDone
+                                                ? Colors.grey
+                                                : const Color(0xFF8D6E63),
                                             size: 16,
                                           ),
                                           const SizedBox(width: 10),
@@ -3322,12 +3469,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 13,
-                                                decoration: isDone ? TextDecoration.lineThrough : null,
-                                                color: isDone ? Colors.grey : Colors.black87,
+                                                decoration: isDone
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                                color: isDone
+                                                    ? Colors.grey
+                                                    : Colors.black87,
                                               ),
                                             ),
                                           ),
-                                          const Icon(Icons.edit, size: 14, color: Colors.grey),
+                                          const Icon(Icons.edit,
+                                              size: 14, color: Colors.grey),
                                         ],
                                       ),
                                     ),
@@ -3339,7 +3491,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                           if (msg['widgetType'] == 'edit_todo_field_picker') {
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 40, right: 10),
                               child: Row(
                                 children: [
                                   Expanded(
@@ -3347,26 +3500,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       icon: const Icon(Icons.edit, size: 16),
                                       label: const Text('修改內容'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF8D6E63),
+                                        backgroundColor:
+                                            const Color(0xFF8D6E63),
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _handleAISubmit(
-                                          '修改內容', modalController, setModalState),
+                                      onPressed: () => _handleAISubmit('修改內容',
+                                          modalController, setModalState),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.delete_outline, size: 16),
+                                      icon: const Icon(Icons.delete_outline,
+                                          size: 16),
                                       label: const Text('刪除待辦'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.redAccent,
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _handleAISubmit(
-                                          '刪除待辦', modalController, setModalState),
+                                      onPressed: () => _handleAISubmit('刪除待辦',
+                                          modalController, setModalState),
                                     ),
                                   ),
                                 ],
@@ -3376,7 +3535,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                           if (msg['widgetType'] == 'confirm_cancel_picker') {
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 40, right: 10),
                               child: Row(
                                 children: [
                                   Expanded(
@@ -3386,7 +3546,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.redAccent,
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
                                       onPressed: () => _handleAISubmit(
                                           '確定', modalController, setModalState),
@@ -3400,7 +3562,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.grey.shade400,
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
                                       onPressed: () => _handleAISubmit(
                                           '取消', modalController, setModalState),
@@ -3411,19 +3575,27 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             );
                           }
 
-                          if (msg['widgetType'] == 'add_type_confirmation' || msg['widgetType'] == 'edit_type_confirmation') {
+                          if (msg['widgetType'] == 'add_type_confirmation' ||
+                              msg['widgetType'] == 'edit_type_confirmation') {
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12, left: 40, right: 10),
+                              margin: const EdgeInsets.only(
+                                  bottom: 12, left: 40, right: 10),
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       icon: const Icon(Icons.event, size: 16),
-                                      label: Text(msg['widgetType'] == 'add_type_confirmation' ? '新增行程' : '修改行程'),
+                                      label: Text(msg['widgetType'] ==
+                                              'add_type_confirmation'
+                                          ? '新增行程'
+                                          : '修改行程'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF8D6E63),
+                                        backgroundColor:
+                                            const Color(0xFF8D6E63),
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
                                       onPressed: () => _handleAISubmit(
                                           '行程', modalController, setModalState),
@@ -3432,12 +3604,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.check_box_outlined, size: 16),
-                                      label: Text(msg['widgetType'] == 'add_type_confirmation' ? '新增待辦' : '修改待辦'),
+                                      icon: const Icon(Icons.check_box_outlined,
+                                          size: 16),
+                                      label: Text(msg['widgetType'] ==
+                                              'add_type_confirmation'
+                                          ? '新增待辦'
+                                          : '修改待辦'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blueAccent,
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
                                       onPressed: () => _handleAISubmit(
                                           '待辦', modalController, setModalState),
@@ -3475,8 +3653,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: futureKeys.map((dk) {
                                   final dayEvs = allSchedules[dk] ?? [];
-                                  if (dayEvs.isEmpty)
+                                  if (dayEvs.isEmpty) {
                                     return const SizedBox.shrink();
+                                  }
                                   return Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -3486,7 +3665,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                             left: 4, bottom: 8, top: 12),
                                         child: Row(
                                           children: [
-                                            Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                                            Icon(Icons.calendar_today,
+                                                size: 14,
+                                                color: Colors.grey.shade600),
                                             const SizedBox(width: 6),
                                             Text(
                                               dk,
@@ -3542,7 +3723,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                   children: [
                                                     Text(titleStr,
                                                         maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                         style: const TextStyle(
                                                             fontWeight:
                                                                 FontWeight.bold,
@@ -3562,7 +3744,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                             ]),
                                           ),
                                         );
-                                      }).toList(),
+                                      }),
                                       const SizedBox(height: 6),
                                     ],
                                   );
@@ -5221,7 +5403,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               _changePage(0, '日曆行程');
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('✅ 行程「$eventTitle」時間已更新至 $newDate $newTimeRange！'),
+                  content:
+                      Text('✅ 行程「$eventTitle」時間已更新至 $newDate $newTimeRange！'),
                   backgroundColor: const Color(0xFF8D6E63),
                 ),
               );
@@ -5259,7 +5442,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           if (mounted) {
             if (Navigator.canPop(context)) Navigator.pop(context);
             _changePage(0, '日曆行程');
-            
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('✅ 代理人已新增待辦：${_aiFlowData['title']}'),
@@ -5312,11 +5495,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       } else {
         setModalState(() {
           _aiFlowState = 'none';
-          chatLogs.add({
-            'isAI': true,
-            'text': '已取消新增。請問還有什麼我可以幫忙的？',
-            'isCard': false
-          });
+          chatLogs.add(
+              {'isAI': true, 'text': '已取消新增。請問還有什麼我可以幫忙的？', 'isCard': false});
           _scrollToBottom();
         });
       }
@@ -5365,11 +5545,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       } else {
         setModalState(() {
           _aiFlowState = 'none';
-          chatLogs.add({
-            'isAI': true,
-            'text': '已取消修改。請問還有什麼我可以幫忙的？',
-            'isCard': false
-          });
+          chatLogs.add(
+              {'isAI': true, 'text': '已取消修改。請問還有什麼我可以幫忙的？', 'isCard': false});
           _scrollToBottom();
         });
       }
@@ -6540,8 +6717,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   Row(
                     children: week.map((cellDate) {
                       bool isCurrentMonth = cellDate.month == date.month;
-                      if (!isCurrentMonth)
+                      if (!isCurrentMonth) {
                         return const Expanded(child: SizedBox());
+                      }
 
                       int d = cellDate.day;
                       bool isSel = _selectedDate.day == d &&
@@ -6863,7 +7041,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             runSpacing: 2,
                             alignment: WrapAlignment.center,
                             children: [
-                              ...dayEvents.take(3).map((e) => Container(
+                              ...dayEvents.take(2).map((e) => Container(
                                     width: 12, // Increased width
                                     height: 4, // Increased height
                                     decoration: BoxDecoration(
@@ -6872,8 +7050,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                           e['color'] as int? ?? 0xFF8D6E63),
                                     ),
                                   )),
-                              if (dayEvents.length > 3)
-                                Text('+${dayEvents.length - 3}',
+                              if (dayEvents.length > 2)
+                                Text('+${dayEvents.length - 2}',
                                     style: const TextStyle(
                                         fontSize: 7,
                                         fontWeight: FontWeight.bold,
@@ -6882,9 +7060,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           ),
                         )
                       else
-                        const SizedBox(
-                            height:
-                                5), // u{6e1b}u{5c11}u{9810}u{7559}u{9ad8}u{5ea6}u{ff0c}u{907f}u{514d}u{6ea2}u{51fa}
+                        const SizedBox(height: 5), // 減少預留高度，避免溢出
                     ],
                   ));
             })
@@ -6920,57 +7096,71 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               child: Text('本日尚無行程與待辦', style: TextStyle(color: Colors.grey))));
     }
 
+    int delay = 0;
+    Widget staggered(Widget child) {
+      delay += 50;
+      return FadeInUp(
+        delay: Duration(milliseconds: delay),
+        duration: const Duration(milliseconds: 500),
+        child: child,
+      );
+    }
+
     return ListView(
         padding: const EdgeInsets.symmetric(horizontal: 25),
         children: [
           // --- Itinerary Section ---
           if (schedules.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+            staggered(Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Row(children: [
                 const Icon(Icons.event_note,
-                    size: 18, color: Color(0xFF8D6E63)),
+                    size: 20, color: Color(0xFF8D6E63)),
                 const SizedBox(width: 8),
                 const Text('今日行程',
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF8D6E63),
-                        fontSize: 15)),
+                        letterSpacing: 1,
+                        fontSize: 16)),
               ]),
-            ),
-            ...schedules.map((event) => _buildScheduleItem(event)),
+            )),
+            ...schedules.map((event) => staggered(_buildScheduleItem(event))),
             const SizedBox(height: 10),
           ],
 
           // --- Todo Section ---
           if (uncompletedTodos.isNotEmpty || completedTodos.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+            staggered(Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Row(children: [
                 const Icon(Icons.check_box_outlined,
-                    size: 18, color: Color(0xFF8D6E63)),
+                    size: 20, color: Color(0xFF8D6E63)),
                 const SizedBox(width: 8),
                 const Text('待辦事項',
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF8D6E63),
-                        fontSize: 15)),
+                        letterSpacing: 1,
+                        fontSize: 16)),
               ]),
-            ),
-            ...uncompletedTodos.map((item) => _buildTodoItem(item, isPast)),
+            )),
+            ...uncompletedTodos
+                .map((item) => staggered(_buildTodoItem(item, isPast))),
             if (completedTodos.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.only(top: 10, bottom: 5),
+              staggered(const Padding(
+                padding: EdgeInsets.only(top: 15, bottom: 8),
                 child: Text('已完成',
                     style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: Colors.grey,
                         fontWeight: FontWeight.bold)),
-              ),
-              ...completedTodos.map((item) => _buildTodoItem(item, isPast)),
+              )),
+              ...completedTodos
+                  .map((item) => staggered(_buildTodoItem(item, isPast))),
             ],
           ],
-          const SizedBox(height: 50), // bottom padding
+          const SizedBox(height: 100), // bottom padding for floating nav bar
         ]);
   }
 
@@ -6999,26 +7189,36 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       ]));
         },
         child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             decoration: BoxDecoration(
-                color: Color(event['color']),
-                borderRadius: BorderRadius.circular(15),
+                color: Color(event['color']).withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4)
-                ]),
+                      color: Color(event['color']).withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6))
+                ],
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  width: 1.5,
+                )),
             child: Row(children: [
               SizedBox(
                   width: 95,
                   child: Text(event['time'],
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 13))),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.black87))),
               Expanded(
                   child: Text(event['title'],
-                      style: const TextStyle(fontWeight: FontWeight.w500))),
-              const Icon(Icons.edit, size: 16, color: Colors.black38)
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: Colors.black87))),
+              const Icon(Icons.edit_rounded, size: 18, color: Colors.black38)
             ])));
   }
 
@@ -7052,17 +7252,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           }
         },
         child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
-                color: done ? const Color(0xFFF5F5F5) : Colors.white,
-                borderRadius: BorderRadius.circular(15),
+                color: done
+                    ? Colors.white.withValues(alpha: 0.4)
+                    : Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                    color: done ? Colors.transparent : Colors.grey.shade200),
+                    color: done ? Colors.transparent : Colors.white,
+                    width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: done ? 0.01 : 0.03),
-                      blurRadius: 4)
+                      color: Colors.black.withValues(alpha: done ? 0.02 : 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4))
                 ]),
             child: Row(children: [
               AnimatedContainer(

@@ -94,17 +94,19 @@ extension MainScreenProfileTab on _MainScreenState {
                 children: [
                   Text(
                     _displayName ?? '使用者',
-                    style:
-                        const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   if (widget.currentUser['is_google'] == 1) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F0FE),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFADCCF9), width: 1),
+                        border: Border.all(
+                            color: const Color(0xFFADCCF9), width: 1),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -204,11 +206,11 @@ extension MainScreenProfileTab on _MainScreenState {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03), blurRadius: 10),
+              color: Colors.black.withValues(alpha: _isDarkMode ? 0.2 : 0.03), blurRadius: 10),
         ],
       ),
       child: Column(
@@ -218,7 +220,7 @@ extension MainScreenProfileTab on _MainScreenState {
               style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor)),
+                  color: _isDarkMode ? const Color(0xFFD7CCC8) : Theme.of(context).primaryColor)),
           const SizedBox(height: 16),
           child,
         ],
@@ -294,8 +296,21 @@ extension MainScreenProfileTab on _MainScreenState {
           const Divider(height: 24),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('深色模式',
-                style: TextStyle(fontSize: 14, color: Colors.black87)),
+            title: Text('顯示底部導覽列',
+                style: TextStyle(fontSize: 14, color: _isDarkMode ? Colors.white70 : Colors.black87)),
+            secondary: Icon(Icons.dock_rounded,
+                size: 20, color: Colors.grey.shade600),
+            value: _showFloatingNavBar,
+            activeThumbColor: const Color(0xFF8D6E63),
+            onChanged: (val) {
+              _update(() => _showFloatingNavBar = val);
+            },
+          ),
+          const Divider(height: 24),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('深色模式',
+                style: TextStyle(fontSize: 14, color: _isDarkMode ? Colors.white70 : Colors.black87)),
             secondary: Icon(Icons.dark_mode_outlined,
                 size: 20, color: Colors.grey.shade600),
             value: _isDarkMode,
@@ -320,7 +335,8 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.email_outlined,
             label: '綁定 Email',
-            value: '${widget.currentUser['email'] ?? '未設定'}${widget.currentUser['is_google'] == 1 ? ' (Google)' : ''}',
+            value:
+                '${widget.currentUser['email'] ?? '未設定'}${widget.currentUser['is_google'] == 1 ? ' (Google)' : ''}',
             valueColor: Colors.grey,
             onTap: () {
               ScaffoldMessenger.of(context)
@@ -332,8 +348,11 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.lock_outline,
             label: '修改密碼',
-            value: widget.currentUser['is_google'] == 1 ? '已使用 Google 帳號登入' : '定期修改更安全',
-            valueColor: widget.currentUser['is_google'] == 1 ? Colors.grey : null,
+            value: widget.currentUser['is_google'] == 1
+                ? '已使用 Google 帳號登入'
+                : '定期修改更安全',
+            valueColor:
+                widget.currentUser['is_google'] == 1 ? Colors.grey : null,
             onTap: widget.currentUser['is_google'] == 1
                 ? () {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -594,7 +613,7 @@ extension MainScreenProfileTab on _MainScreenState {
       onTap: onTap,
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Theme.of(context).primaryColor),
+          Icon(icon, size: 20, color: _isDarkMode ? const Color(0xFFD7CCC8) : Theme.of(context).primaryColor),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -605,7 +624,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 const SizedBox(height: 4),
                 Text(value,
                     style: TextStyle(
-                        fontSize: 14, color: valueColor ?? Colors.black87)),
+                        fontSize: 14, color: valueColor ?? (_isDarkMode ? Colors.white70 : Colors.black87))),
               ],
             ),
           ),
@@ -619,7 +638,8 @@ extension MainScreenProfileTab on _MainScreenState {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF5EAE6),
+        backgroundColor:
+            _isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF5EAE6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Center(
           child: Text(
@@ -634,9 +654,11 @@ extension MainScreenProfileTab on _MainScreenState {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildCalendarViewModeOption(ctx, 'dot', '經典短條模式', '日期下方以彩色短條標示行程，簡潔清晰'),
+            _buildCalendarViewModeOption(
+                ctx, 'dot', '經典短條模式', '日期下方以彩色短條標示行程，簡潔清晰'),
             const SizedBox(height: 12),
-            _buildCalendarViewModeOption(ctx, 'bar', '橫條跨天模式', '以彩色橫條橫跨日期顯示，方便看清名稱與區間'),
+            _buildCalendarViewModeOption(
+                ctx, 'bar', '橫條跨天模式', '以彩色橫條橫跨日期顯示，方便看清名稱與區間'),
           ],
         ),
         actions: [
@@ -687,7 +709,9 @@ extension MainScreenProfileTab on _MainScreenState {
             Row(
               children: [
                 Icon(
-                  mode == 'dot' ? Icons.fiber_manual_record : Icons.calendar_view_month,
+                  mode == 'dot'
+                      ? Icons.fiber_manual_record
+                      : Icons.calendar_view_month,
                   color: isSelected ? const Color(0xFF8D6E63) : Colors.grey,
                 ),
                 const SizedBox(width: 12),
@@ -698,7 +722,8 @@ extension MainScreenProfileTab on _MainScreenState {
                       Text(
                         title,
                         style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.bold,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.bold,
                           fontSize: 14,
                           color: _isDarkMode ? Colors.white : Colors.black87,
                         ),
@@ -715,7 +740,8 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                 ),
                 if (isSelected)
-                  const Icon(Icons.check_circle, color: Color(0xFF8D6E63), size: 18),
+                  const Icon(Icons.check_circle,
+                      color: Color(0xFF8D6E63), size: 18),
               ],
             ),
             const SizedBox(height: 10),
@@ -808,11 +834,21 @@ extension MainScreenProfileTab on _MainScreenState {
                         int dayNum = wIndex * 7 + dIndex + 1;
                         List<Color> dots = [];
                         if (dayNum == 3) dots = [const Color(0xFFF48FB1)];
-                        if (dayNum == 8) dots = [const Color(0xFF90CAF9), const Color(0xFFA5D6A7)];
+                        if (dayNum == 8) {
+                          dots = [
+                            const Color(0xFF90CAF9),
+                            const Color(0xFFA5D6A7)
+                          ];
+                        }
                         if (dayNum == 14) dots = [const Color(0xFFFFCC80)];
                         if (dayNum == 15) dots = [const Color(0xFFCE93D8)];
-                        if (dayNum == 19) dots = [const Color(0xFF80CBC4), const Color(0xFFFFCC80)];
-                        
+                        if (dayNum == 19) {
+                          dots = [
+                            const Color(0xFF80CBC4),
+                            const Color(0xFFFFCC80)
+                          ];
+                        }
+
                         return SizedBox(
                           width: 32,
                           child: Column(
@@ -822,15 +858,20 @@ extension MainScreenProfileTab on _MainScreenState {
                                 Wrap(
                                   spacing: 1.5,
                                   alignment: WrapAlignment.center,
-                                  children: dots.map((c) => Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 0.5),
-                                    width: 8, // Changed from 6
-                                    height: 4, // Changed from 2
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(2), // Changed from 1
-                                      color: c,
-                                    ),
-                                  )).toList(),
+                                  children: dots
+                                      .map((c) => Container(
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 0.5),
+                                            width: 8, // Changed from 6
+                                            height: 4, // Changed from 2
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      2), // Changed from 1
+                                              color: c,
+                                            ),
+                                          ))
+                                      .toList(),
                                 )
                               else
                                 const SizedBox(height: 2),
@@ -853,7 +894,7 @@ extension MainScreenProfileTab on _MainScreenState {
 
   List<Widget> _buildMiniBarsForWeek(int wIndex, double colWidth) {
     List<Widget> bars = [];
-    
+
     // Week 0: Day 3 to 5 (Index 2 to 4)
     if (wIndex == 0) {
       double left = 8 + 2 * colWidth + 2;
