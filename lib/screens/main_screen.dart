@@ -6991,9 +6991,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
               return GestureDetector(
                   onTap: () => _syncDate(cellDate, fromCalendar: true),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: ClipRect(
+                    child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
+                      const SizedBox(height: 4),
                       Container(
                           width: 32,
                           height: 32,
@@ -7031,19 +7033,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                       Brightness.dark
                                                   ? Colors.white70
                                                   : Colors.black87)))))),
-                      // u{884c}u{7a0b}u{6a19}u{8a18}u{ff1a}u{6539}u{7528}u{81a0}u{56ca}u{578b}u{8272}u{689d} (Pills)u{ff0c}u{5916}u{89c0}u{66f4}u{73fe}u{4ee3}u{4e14}u{8272}u{5f69}u{9bae}u{660e}
+                      // 行程標記：Pills + 行內 +N Badge
                       if (dayEvents.isNotEmpty)
                         Padding(
                           padding:
-                              const EdgeInsets.only(top: 2, left: 4, right: 4),
+                              const EdgeInsets.only(top: 3, left: 2, right: 2),
                           child: Wrap(
-                            spacing: 2,
+                            spacing: 3,
                             runSpacing: 2,
                             alignment: WrapAlignment.center,
                             children: [
                               ...dayEvents.take(2).map((e) => Container(
-                                    width: 12, // Increased width
-                                    height: 4, // Increased height
+                                    width: 10,
+                                    height: 4,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(2),
                                       color: Color(
@@ -7051,18 +7053,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     ),
                                   )),
                               if (dayEvents.length > 2)
-                                Text('+${dayEvents.length - 2}',
-                                    style: const TextStyle(
-                                        fontSize: 7,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.grey))
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 3, vertical: 0),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Colors.white.withValues(alpha: 0.14)
+                                        : Colors.black.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text('+${dayEvents.length - 2}',
+                                      style: TextStyle(
+                                          fontSize: 6,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.6,
+                                          color: Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors.white60
+                                              : Colors.black45,
+                                          letterSpacing: 0.1)),
+                                ),
                             ],
                           ),
-                        )
-                      else
-                        const SizedBox(height: 5), // 減少預留高度，避免溢出
+                        ),
                     ],
-                  ));
+                  )));
             })
       ]);
     });
