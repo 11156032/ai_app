@@ -4,6 +4,7 @@ import 'database/database_helper.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/notes_screen.dart';
+
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
