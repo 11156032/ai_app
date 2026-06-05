@@ -4189,22 +4189,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             alignment: msg['isAI']
                                 ? Alignment.centerLeft
                                 : Alignment.centerRight,
-                            child: msg['isAI']
-                                ? Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: Color(0xFF8D6E63),
-                                        child: Icon(Icons.smart_toy,
-                                            size: 18, color: Colors.white),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      messageWidget,
-                                    ],
-                                  )
-                                : messageWidget,
+                            child: messageWidget,
                           );
                         },
                       ),
@@ -4809,7 +4794,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         '取消發佈',
         '新增',
         '修改',
-        '修改待辦'
+        '修改待辦',
+        '算了',
+        '不要了',
+        '不要',
+        '放棄',
+        '停',
+        '不用了',
+        '不行了',
       };
       if (systemCommands.contains(text)) {
         _aiFlowState = 'none';
@@ -4836,62 +4828,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         });
         return;
       }
-
-      // 簡單對話處理 (Chitchat)
-      if (inputLower == '哈囉' ||
-          inputLower == '你好' ||
-          inputLower == '嗨' ||
-          inputLower == 'hi' ||
-          inputLower == 'hello') {
-        setModalState(() {
-          chatLogs.add({'isAI': false, 'text': text});
-          chatLogs.add({
-            'isAI': true,
-            'text': '嗨！很高興見到你！😊 我是你的代理人助手，隨時準備好為你服務。今天有什麼我可以幫你的嗎？',
-            'isCard': false
-          });
-          chatLogs.add({
-            'isAI': true,
-            'text': '',
-            'isCard': false,
-            'widgetType': 'help_options'
-          });
-          _scrollToBottom();
-        });
-        return;
-      }
-
-      // 意圖解析處理已移至下方統一由 _parseIntent 處理
-
-      if (inputLower.contains('謝謝') ||
-          inputLower.contains('感恩') ||
-          inputLower.contains('太棒了') ||
-          inputLower.contains('thanks')) {
-        setModalState(() {
-          chatLogs.add({'isAI': false, 'text': text});
-          chatLogs.add({
-            'isAI': true,
-            'text': '不客氣！這是我應該做的。😊 如果還有其他需要，隨時跟我說喔！',
-            'isCard': false
-          });
-          _scrollToBottom();
-        });
-        return;
-      }
-
-      if (inputLower == '掰掰' ||
-          inputLower == '再見' ||
-          inputLower == '掰' ||
-          inputLower == 'bye' ||
-          inputLower.contains('下次見')) {
-        setModalState(() {
-          chatLogs.add({'isAI': false, 'text': text});
-          chatLogs.add(
-              {'isAI': true, 'text': '好的，下次見囉！👋 祝你有個美好的一天！', 'isCard': false});
-          _scrollToBottom();
-        });
-        return;
-      }
+      // 簡單對話已全權交由後端的 OpenRouter/Qwen 免費模型處理，此處僅保留功能卡片與系統狀態控制指令
 
       // 幫助指令處理
       if (inputLower == 'help' ||
@@ -4934,6 +4871,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         _scrollToBottom();
       });
       return;
+    }
+
+    // 處理口語式取消詞（在任意流程中）
+    if (_aiFlowState != 'none') {
+      const oralCancelWords = {'算了', '不要了', '不要', '放棄', '停', '不用了', '不行了'};
+      if (oralCancelWords.contains(text)) {
+        setModalState(() {
+          chatLogs.add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+          _aiFlowState = 'none';
+          chatLogs.add({
+            'isAI': true,
+            'text': '好的，已取消目前操作囉！👌 還有其他需要幫忙的嗎？',
+            'isCard': false
+          });
+          _scrollToBottom();
+        });
+        return;
+      }
     }
 
     if (_aiFlowState == 'replying') {
@@ -6051,23 +6006,65 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return;
     }
 
+    // ── 詢問句型偵測 ──────────────────────────────────────────────────────────
+    // 若使用者是在「問問題」而非「下指令」，直接讓 AI 自由回答，
+    // 避免「怎麼發貼文？」誤觸發發文流程，或「給我出一道題」誤跳轉題庫頁。
+    final questionPatterns = ['怎麼', '如何', '什麼', '為什麼', '哪裡', '能嗎', '可以嗎', '有辦法', '怎樣', '哪個', '甚麼', '幹嘛'];
+    final isQuestion = questionPatterns.any((w) => inputLower.contains(w));
+
     // 意圖解析 (處理加行程、發貼文、改設定、跳轉頁面、幫助等)
-    if (_aiFlowState == 'none' && _parseIntent(text, setModalState)) {
+    // 若是詢問句型，跳過意圖解析，直接交給 AI 回覆
+    if (_aiFlowState == 'none' && !isQuestion && _parseIntent(text, setModalState)) {
       return;
     }
 
-    // 最終後備：如果完全聽不懂，且不在任何流程中
+
+    // 最終後備：如果沒有匹配到內建功能意圖，則呼叫 OpenRouter 免費模型進行 APP 導覽問答
     setModalState(() {
       chatLogs.add({'isAI': false, 'text': text});
       chatLogs.add({
         'isAI': true,
-        'text':
-            '抱歉抱歉!我還太笨了~沒能理解您的意思... 😅\n但我可以幫您處理行程、貼文、或是修改個人設定！您可以輸入「幫助」來看看我能做什麼。',
+        'text': '⏳ 正在查詢中...',
         'isCard': false,
-        'widgetType': 'help_options'
       });
       _scrollToBottom();
     });
+
+    final targetIndex = chatLogs.length - 1;
+    String buffer = '';
+
+    try {
+      final historyContext = chatLogs
+          .where((m) => m['widgetType'] == null && m['text'] != null && m['text'].isNotEmpty)
+          .toList();
+
+      final stream = AiDiagnosisService.generateOpenRouterGuideStream(
+        userInput: text,
+        history: historyContext,
+      );
+
+      await for (final chunk in stream) {
+        buffer += chunk;
+        setModalState(() {
+          chatLogs[targetIndex] = {
+            'isAI': true,
+            'text': buffer,
+            'isCard': false,
+          };
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint('OpenRouter 導覽服務異常: $e');
+      setModalState(() {
+        chatLogs[targetIndex] = {
+          'isAI': true,
+          'text': '哎呀，我好像暫時連不上網路，沒辦法即時回覆你... 😅\n請稍等一下再試試看！如果想操作 APP 功能，也可以輸入「幫助」查看我能做什麼喔！',
+          'isCard': false,
+        };
+      });
+      _scrollToBottom();
+    }
   }
 
   // ── 風格選擇按鈕 ────────────────────────────────────────────────────────
@@ -8873,7 +8870,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 colors: [Color(0xFF8D6E63), Color(0xFFD7CCC8)],
                               ).createShader(bounds),
                               child: const Icon(
-                                Icons.auto_awesome,
+                                Icons.analytics_outlined,
                                 color: Colors.white,
                                 size: 24,
                               ),
@@ -9167,7 +9164,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           const SizedBox(height: 4),
                           Text(
                             widget.currentUser['id'] == 'u4'
-                                ? '訪客帳戶目前不支援 AI 智慧診斷功能。立即註冊或登入正式帳號，即可啟用由 Gemini 生成的客製化學習診斷與複習建議！'
+                                ? '訪客帳戶目前不支援 AI 智慧診斷功能。立即註冊或登入正式帳號，即可啟用由代理人助理生成的客製化學習診斷與複習建議！'
                                 : '目前測試金鑰為所有使用者共享，今日免費額度已耗盡。系統已自動切換為「本地規則分析」報告，造成不便敬請見諒！',
                             style: const TextStyle(
                                 fontSize: 11,
@@ -11431,7 +11428,7 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.auto_awesome, color: Colors.white70, size: 16),
+                const Icon(Icons.summarize_outlined, color: Colors.white70, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -11446,7 +11443,7 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 buildChip(
-                    isAi ? 'Gemini AI' : '本地摘要',
+                    isAi ? 'AI 摘要' : '本地摘要',
                     isAi
                         ? Colors.white.withValues(alpha: 0.22)
                         : Colors.orange.withValues(alpha: 0.25),

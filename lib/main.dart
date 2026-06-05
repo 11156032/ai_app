@@ -4,8 +4,17 @@ import 'database/database_helper.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/notes_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() => runApp(const MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: "assets/keys.env");
+  } catch (e) {
+    debugPrint('Warning: Could not load assets/keys.env file: $e');
+  }
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
 
@@ -45,11 +46,158 @@ class DiagnosisResult {
 }
 
 class AiDiagnosisService {
-  static const String _kSystemGeminiApiKey = String.fromEnvironment(
-    'GEMINI_API_KEY',
-    defaultValue: 'AQ.Ab8RN6J5i4B6JXQWONipSgRD7T624iSBdxv-6u6A5oFT0qcQkQ',
-  );
+  static String get _kSystemGeminiApiKey {
+    try {
+      return dotenv.env['GEMINI_API_KEY'] ?? const String.fromEnvironment('GEMINI_API_KEY');
+    } catch (_) {
+      return const String.fromEnvironment('GEMINI_API_KEY');
+    }
+  }
+
+  static String get _kOpenRouterApiKey {
+    try {
+      return dotenv.env['OPENROUTER_API_KEY'] ?? const String.fromEnvironment('OPENROUTER_API_KEY');
+    } catch (_) {
+      return const String.fromEnvironment('OPENROUTER_API_KEY');
+    }
+  }
+
+
   static DateTime? nextAvailableTime;
+
+  /// 呼叫 OpenRouter 免費模型進行 APP 導覽 (使用 HTTP 串流 + 備援模型)
+  static Stream<String> generateOpenRouterGuideStream({
+    required String userInput,
+    required List<Map<String, dynamic>> history,
+  }) async* {
+    // 系統提示詞：定義導覽員的角色與對答規則
+    const systemInstruction = '''
+你是「代理人助理」，這款學習 APP 專屬的親切導覽助理。
+
+【你的定位與任務】
+- 你的主業是引導使用者探索本 APP 功能，但你也非常樂意與使用者進行溫暖的日常對話、心情分享、給予讀書鼓勵，或回答簡單的學科知識與小常識。
+- 當使用者問起本 APP 功能以外的話題時，請用輕鬆、口語化的方式給予解答與關懷，並在適當時候提及「如果累了，也可以用本 APP 的筆記本或行程表來規劃學習喔！」。
+
+【本 APP 支援的功能】
+1. 📅 日曆行程與待辦：管理行程、待辦事項。說「新增行程」或「新增待辦」可啟動引導。
+2. 💬 社群：發佈學習筆記、心情等貼文，並與其他人留言互動。說「發貼文」或「回覆留言」可啟動。
+3. 📚 題庫與 AI 診斷：提供各科測驗，完成後 AI 自動診斷弱項並給建議。
+4. 📓 筆記本：記錄個人筆記，支援 AI 摘要整理功能。
+5. ⚙️ 個人設定：修改暱稱、頭像、個人簡介、主題顏色、字體大小、密碼。
+
+【本 APP 目前不支援的功能（請誠實告知使用者）】
+- 提醒/鬧鐘通知功能、連接 Google 日曆或其他外部日曆、記帳或財務管理。
+
+【重要角色規則】
+- 你不是 ChatGPT、Gemini，你是溫暖親切的「代理人助理」。
+- 永遠使用繁體中文（Traditional Chinese）回覆，絕不使用簡體字。
+- 回答請保持簡明親切、溫馨溫暖，控制在 3-4 句以內，並適當使用合適的表情符號 😊✨。
+''';
+
+    // 組建對話訊息（保留最近 6 輪對話以提升上下文理解）
+    final messages = <Map<String, String>>[];
+    messages.add({'role': 'system', 'content': systemInstruction});
+    for (var msg in history.take(6)) {
+      final isAi = msg['isAI'] == true;
+      final text = msg['text'] as String? ?? '';
+      if (text.isNotEmpty) {
+        messages.add({'role': isAi ? 'assistant' : 'user', 'content': text});
+      }
+    }
+    messages.add({'role': 'user', 'content': userInput});
+
+    // 備援模型清單：依序嘗試，某模型失敗則自動切換下一個
+    // 優先使用 google/gemma-4-31b-it:free，因為它在中文與提示詞理解上極度穩定。若失效再由 openrouter 尋找免費模型
+    const fallbackModels = [
+      'google/gemma-4-31b-it:free',             // 主力：Google 強大開源模型，測試表現極佳
+      'openrouter/free',                        // 備援1：平台自動路由到可用的免費模型
+      'moonshotai/kimi-k2.6:free',              // 備援2：中文支援極佳的 Kimi
+    ];
+
+    Exception? lastError;
+    for (final model in fallbackModels) {
+      debugPrint('代理人助理：嘗試使用模型 $model');
+      try {
+        bool hasYielded = false;
+        await for (final chunk in _tryOpenRouterModel(
+          model: model,
+          messages: messages,
+        )) {
+          yield chunk;
+          hasYielded = true;
+        }
+        if (hasYielded) return; // 成功產出內容，退出
+      } catch (e) {
+        lastError = e is Exception ? e : Exception(e.toString());
+        debugPrint('模型 $model 失敗（$e），嘗試備援模型...');
+      }
+    }
+
+    // 所有備援模型都失敗，向上拋出最後一個錯誤
+    throw lastError ?? Exception('所有 OpenRouter 備援模型均無法使用');
+  }
+
+  /// 內部輔助：向指定模型發送串流請求，每個 chunk 逐一 yield。
+  static Stream<String> _tryOpenRouterModel({
+    required String model,
+    required List<Map<String, String>> messages,
+  }) async* {
+    final url = Uri.parse('https://openrouter.ai/api/v1/chat/completions');
+    final client = http.Client();
+    final request = http.Request('POST', url);
+    request.headers.addAll({
+      'Authorization': 'Bearer $_kOpenRouterApiKey',
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://hihi-app.local',
+      'X-Title': 'HiHi Assistant',
+    });
+    request.body = jsonEncode({
+      'model': model,
+      'stream': true,
+      'messages': messages,
+      'max_tokens': 512,
+    });
+
+    try {
+      // 加入 15 秒連線 Timeout，防止網路卡住無限等待
+      final response = await client.send(request).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('請求逾時（15s），請檢查網路連線'),
+      );
+
+      if (response.statusCode != 200) {
+        final errorBody = await response.stream.bytesToString();
+        throw Exception('OpenRouter API 錯誤 [${response.statusCode}]: $errorBody');
+      }
+
+      final byteStream = response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+
+      await for (final line in byteStream) {
+        if (line.startsWith('data: ')) {
+          final dataStr = line.substring(6).trim();
+          if (dataStr == '[DONE]') break;
+
+          try {
+            final json = jsonDecode(dataStr);
+            final content = json['choices']?[0]?['delta']?['content'] as String?;
+            if (content != null && content.isNotEmpty) {
+              yield content;
+            }
+          } catch (_) {
+            // 忽略個別行解析錯誤，不中斷串流
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('_tryOpenRouterModel ($model) error: $e');
+      rethrow;
+    } finally {
+      client.close();
+    }
+  }
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // 原有非串流版本（保留 fallback 用）

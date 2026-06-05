@@ -366,7 +366,7 @@ class _ReviewPageState extends State<ReviewPage>
                     color: Colors.white.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 26),
+                  child: const Icon(Icons.analytics_outlined, color: Colors.white, size: 26),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -434,7 +434,7 @@ class _ReviewPageState extends State<ReviewPage>
             ),
             child: Row(
               children: [
-                const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                const Icon(Icons.analytics_outlined, color: Colors.white, size: 20),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Text('AI 學習診斷報告',
@@ -451,7 +451,7 @@ class _ReviewPageState extends State<ReviewPage>
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    d.isAiGenerated ? 'Gemini 生成' : '本機分析',
+                    d.isAiGenerated ? 'AI 生成' : '本機分析',
                     style: const TextStyle(color: Colors.white, fontSize: 11),
                   ),
                 ),
