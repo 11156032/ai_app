@@ -385,7 +385,7 @@ extension MainScreenSocialTab on _MainScreenState {
   Widget _buildPostCard(Map<String, dynamic> p, [int? index]) {
     final idx = index ?? 0;
     return FadeInUp(
-      key: ValueKey('${p['id']}_${_socialFilter}_${_socialAuthorFilter}_${_socialFeedLayout}'),
+      key: ValueKey('${p['id']}_${_socialFilter}_${_socialAuthorFilter}_$_socialFeedLayout'),
       duration: const Duration(milliseconds: 350),
       delay: Duration(milliseconds: 50 * (idx % 10)),
       child: _buildPostItem(p),
@@ -521,7 +521,7 @@ extension MainScreenSocialTab on _MainScreenState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildLinkifiedText(
-                      content.substring(0, content.length > 120 ? 120 : content.length) + '...',
+                      '${content.substring(0, content.length > 120 ? 120 : content.length)}...',
                     ),
                     const SizedBox(height: 4),
                     GestureDetector(
