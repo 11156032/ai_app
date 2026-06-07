@@ -294,6 +294,14 @@ extension MainScreenProfileTab on _MainScreenState {
             onTap: _showCalendarViewModeDialog,
           ),
           const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.grid_view_rounded,
+            label: '社群貼文版面樣式',
+            value: _socialFeedLayout == 'list' ? '新聞式列表' : '規格化卡片',
+            onTap: _showSocialFeedLayoutDialog,
+          ),
+          const Divider(height: 24),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text('顯示底部導覽列',
@@ -962,5 +970,223 @@ extension MainScreenProfileTab on _MainScreenState {
       ));
     }
     return bars;
+  }
+
+  // ── 社群貼文版面設定對話框與預覽 ─────────────────────────────────────
+  void _showSocialFeedLayoutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor:
+            _isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF5EAE6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Center(
+          child: Text(
+            '選擇社群貼文版面',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.white : const Color(0xFF8D6E63),
+            ),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSocialFeedLayoutOption(
+                ctx, 'card', '規格化卡片', '卡片式呈現，文字最多3行，附帶精美縮圖預覽'),
+            const SizedBox(height: 12),
+            _buildSocialFeedLayoutOption(
+                ctx, 'list', '新聞式列表', 'Row 左右佈局，左邊文章標題與摘要，右邊 80x80 小縮圖'),
+          ],
+        ),
+        actions: [
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                '取消',
+                style: TextStyle(
+                  color: _isDarkMode ? Colors.white70 : const Color(0xFF8D6E63),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialFeedLayoutOption(
+      BuildContext dialogContext, String mode, String title, String subtitle) {
+    bool isSelected = (_socialFeedLayout == mode);
+    Widget previewWidget = _buildSocialFeedLayoutPreview(mode);
+
+    return InkWell(
+      onTap: () async {
+        Navigator.pop(dialogContext);
+        _update(() {
+          _socialFeedLayout = mode;
+        });
+        await _updatePersonalization();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected
+              ? const Color(0xFF8D6E63).withValues(alpha: 0.05)
+              : Colors.transparent,
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(
+                  mode == 'card' ? Icons.crop_square_rounded : Icons.reorder_rounded,
+                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: _isDarkMode ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  const Icon(Icons.check_circle,
+                      color: Color(0xFF8D6E63), size: 18),
+              ],
+            ),
+            const SizedBox(height: 10),
+            previewWidget,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialFeedLayoutPreview(String mode) {
+    bool isDark = _isDarkMode;
+    Color cellBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    Color textCol = isDark ? Colors.white54 : Colors.black54;
+    Color borderCol = isDark ? Colors.white12 : Colors.grey.shade200;
+    Color primary = const Color(0xFF8D6E63);
+
+    if (mode == 'card') {
+      return Container(
+        width: 260,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: cellBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderCol),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 8,
+                  backgroundColor: primary.withValues(alpha: 0.3),
+                  child: Text('A', style: TextStyle(fontSize: 6, color: primary)),
+                ),
+                const SizedBox(width: 6),
+                Container(width: 30, height: 6, color: textCol.withValues(alpha: 0.3)),
+                const Spacer(),
+                Container(width: 20, height: 6, color: textCol.withValues(alpha: 0.15)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(width: 200, height: 6, color: textCol.withValues(alpha: 0.4)),
+            const SizedBox(height: 3),
+            Container(width: 140, height: 6, color: textCol.withValues(alpha: 0.4)),
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              height: 36,
+              decoration: BoxDecoration(
+                color: textCol.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.image, size: 16, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // mode == 'list'
+      return Container(
+        width: 260,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: cellBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderCol),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 8,
+                        backgroundColor: primary.withValues(alpha: 0.3),
+                        child: Text('A', style: TextStyle(fontSize: 6, color: primary)),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(width: 30, height: 6, color: textCol.withValues(alpha: 0.3)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(width: 130, height: 6, color: textCol.withValues(alpha: 0.4)),
+                  const SizedBox(height: 3),
+                  Container(width: 100, height: 6, color: textCol.withValues(alpha: 0.3)),
+                  const SizedBox(height: 6),
+                  Container(width: 50, height: 6, color: textCol.withValues(alpha: 0.15)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: textCol.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.image, size: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }

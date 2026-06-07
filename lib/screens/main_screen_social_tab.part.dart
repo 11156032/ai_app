@@ -5,48 +5,18 @@ extension MainScreenSocialTab on _MainScreenState {
   // --- 社群分頁 ---
   Widget _buildSocialTab() {
     final typeFilter = kSocialFilterMap[_socialFilter];
-    final filtered = typeFilter == null
+    var filtered = typeFilter == null
         ? socialPosts
         : socialPosts.where((p) => p['postType'] == typeFilter).toList();
 
+    if (_socialAuthorFilter.isNotEmpty) {
+      filtered = filtered.where((p) => p['userId'] == _socialAuthorFilter).toList();
+    }
+
     return Stack(children: [
       Column(children: [
-        SizedBox(
-          height: 50,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-            children: kSocialFilterMap.keys.map((label) {
-              final isSelected = _socialFilter == label;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () => _update(() => _socialFilter = label),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF8D6E63)
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(label,
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.grey.shade700,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal)),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
+        _buildStoriesBar(),
+        _buildFilterBar(),
         Expanded(
             child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
@@ -66,7 +36,7 @@ extension MainScreenSocialTab on _MainScreenState {
                               const TextStyle(color: Colors.grey, fontSize: 14),
                         )))
               else
-                ...filtered.map((p) => _buildPostItem(p))
+                ...filtered.asMap().entries.map((e) => _buildPostCard(e.value, e.key))
             ])),
       ]),
       if (widget.currentUser['id'] != 'u4')
@@ -79,6 +49,184 @@ extension MainScreenSocialTab on _MainScreenState {
                 onPressed: _showCreatePostScreen,
                 child: const Icon(Icons.add, color: Colors.white)))
     ]);
+  }
+
+  // ── Stories 活躍成員列 ───────────────────────────────────────────
+  Widget _buildStoriesBar() {
+    final Map<String, Map<String, dynamic>> authorMap = {};
+    for (var p in socialPosts) {
+      final uid = p['userId'];
+      if (uid != null && !authorMap.containsKey(uid)) {
+        authorMap[uid] = {
+          'userId': uid,
+          'author': p['author'],
+          'avatarColor': p['authorAvatarColor'],
+          'avatarBlob': p['authorAvatarBlob'],
+          'avatarSelected': p['authorAvatarSelected'],
+        };
+      }
+    }
+    final stories = authorMap.values.toList();
+
+    if (stories.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      height: 90,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.black26 : Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: _isDarkMode ? Colors.white10 : Colors.grey.shade100,
+            width: 1,
+          ),
+        ),
+      ),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: stories.length,
+        itemBuilder: (context, index) {
+          final story = stories[index];
+          final String uid = story['userId'];
+          final String authorName = story['author'];
+          final bool isSelected = (_socialAuthorFilter == uid);
+
+          return GestureDetector(
+            onTap: () {
+              _update(() {
+                if (_socialAuthorFilter == uid) {
+                  _socialAuthorFilter = ''; // 點擊已選中的則清除篩選
+                } else {
+                  _socialAuthorFilter = uid; // 篩選該成員
+                }
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              child: Column(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFFFF9800)
+                            : Colors.transparent,
+                        width: 2.5,
+                      ),
+                    ),
+                    child: buildAvatar(
+                      blob: story['avatarBlob'] as Uint8List?,
+                      colorIdx: story['avatarColor'] as int,
+                      initial: authorName.substring(0, 1),
+                      radius: 20,
+                      usePreset: story['avatarSelected'] == 1 && story['avatarBlob'] == null,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    authorName,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected
+                          ? const Color(0xFFFF9800)
+                          : (_isDarkMode ? Colors.white70 : Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── 貼文篩選列與成員標籤 ──────────────────────────────────────────
+  Widget _buildFilterBar() {
+    String authorName = '';
+    if (_socialAuthorFilter.isNotEmpty) {
+      final postWithAuthor = socialPosts.firstWhere(
+        (p) => p['userId'] == _socialAuthorFilter,
+        orElse: () => <String, dynamic>{},
+      );
+      if (postWithAuthor.isNotEmpty) {
+        authorName = postWithAuthor['author'];
+      } else {
+        authorName = '未知用戶';
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 48,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            children: kSocialFilterMap.keys.map((label) {
+              final isSelected = _socialFilter == label;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => _update(() => _socialFilter = label),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF8D6E63)
+                          : (_isDarkMode ? Colors.white10 : Colors.grey.shade100),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(label,
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            color: isSelected
+                                ? Colors.white
+                                : (_isDarkMode ? Colors.white70 : Colors.grey.shade700),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal)),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        if (_socialAuthorFilter.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                InputChip(
+                  label: Text(
+                    '🔍 $authorName 的貼文',
+                    style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500),
+                  ),
+                  backgroundColor: const Color(0xFFFF9800),
+                  deleteIconColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 1.5,
+                  shadowColor: Colors.black26,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  onDeleted: () {
+                    _update(() {
+                      _socialAuthorFilter = '';
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildScheduledSection() {
@@ -226,81 +374,418 @@ extension MainScreenSocialTab on _MainScreenState {
                 )));
   }
 
-  Widget _buildPostItem(Map<String, dynamic> p) => Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        GestureDetector(
-          onTap: () => _showUserProfilePopup(p),
-          child: buildAvatar(
-              blob: p['authorAvatarBlob'] as Uint8List?,
-              colorIdx: (p['authorAvatarColor'] as int?) ??
-                  getAvatarColorIdx(p['author'] ?? ''),
-              initial: (p['author'] ?? '?').substring(0, 1),
-              radius: 18,
-              usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
-                  p['authorAvatarBlob'] == null),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Text(p['author'],
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(width: 10),
-            Text(p['time'],
-                style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            if ((p['isEdited'] as int? ?? 0) == 1) ...[
-              const SizedBox(width: 5),
-              const Text('已編輯',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
-            ],
-            const Spacer(),
-            if (p['userId'].toString() == widget.currentUser['id'].toString())
-              PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                iconSize: 18,
-                icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                onSelected: (val) {
-                  if (val == 'edit') _editPost(p);
-                  if (val == 'delete') _deletePost(p);
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'edit', child: Text('編輯貼文')),
-                  const PopupMenuItem(value: 'delete', child: Text('刪除貼文', style: TextStyle(color: Colors.red))),
-                ],
+  Widget _buildPostItem(Map<String, dynamic> p) {
+    if (_socialFeedLayout == 'list') {
+      return _buildPostItemNewsList(p);
+    } else {
+      return _buildPostItemPremiumCard(p);
+    }
+  }
+
+  Widget _buildPostCard(Map<String, dynamic> p, [int? index]) {
+    final idx = index ?? 0;
+    return FadeInUp(
+      key: ValueKey('${p['id']}_${_socialFilter}_${_socialAuthorFilter}_${_socialFeedLayout}'),
+      duration: const Duration(milliseconds: 350),
+      delay: Duration(milliseconds: 50 * (idx % 10)),
+      child: _buildPostItem(p),
+    );
+  }
+
+  // ── 方案A：規格化卡片呈現 ──────────────────────────────────────────
+  Widget _buildPostItemPremiumCard(Map<String, dynamic> p) {
+    final bool isDark = _isDarkMode;
+    final Color cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
+    final Color shadowCol = isDark ? Colors.black54 : Colors.black.withValues(alpha: 0.03);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderCol, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: shadowCol,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Avatar, Name, Time, Actions
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => _showUserProfilePopup(p),
+                child: buildAvatar(
+                  blob: p['authorAvatarBlob'] as Uint8List?,
+                  colorIdx: (p['authorAvatarColor'] as int?) ??
+                      getAvatarColorIdx(p['author'] ?? ''),
+                  initial: (p['author'] ?? '?').substring(0, 1),
+                  radius: 20,
+                  usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                      p['authorAvatarBlob'] == null,
+                ),
               ),
-          ]),
-          if (kPostTypeLabel.containsKey(p['postType'])) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFF5F0EE),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Text(kPostTypeLabel[p['postType']]!,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF8D6E63))),
-            ),
-          ],
-          const SizedBox(height: 5),
-          _buildLinkifiedText(p['content'] ?? ''),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          p['author'],
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14.5,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        if (kPostTypeLabel.containsKey(p['postType'])) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.brown.shade800 : const Color(0xFFF5F0EE),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              kPostTypeLabel[p['postType']]!,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF8D6E63),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          p['time'],
+                          style: TextStyle(
+                            color: isDark ? Colors.white38 : Colors.grey.shade500,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if ((p['isEdited'] as int? ?? 0) == 1) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '已編輯',
+                            style: TextStyle(
+                              color: isDark ? Colors.white30 : Colors.grey.shade400,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (p['userId'].toString() == widget.currentUser['id'].toString())
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  iconSize: 18,
+                  icon: Icon(Icons.more_horiz, color: isDark ? Colors.white38 : Colors.grey),
+                  onSelected: (val) {
+                    if (val == 'edit') _editPost(p);
+                    if (val == 'delete') _deletePost(p);
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'edit', child: Text('編輯貼文')),
+                    const PopupMenuItem(value: 'delete', child: Text('刪除貼文', style: TextStyle(color: Colors.red))),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Content text with show more/less
+          StatefulBuilder(
+            builder: (context, setStateText) {
+              final String content = p['content'] ?? '';
+              final bool isLongText = content.length > 120 || '\n'.allMatches(content).length >= 3;
+              bool isExpanded = p['_isExpanded'] as bool? ?? false;
+
+              if (isLongText && !isExpanded) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLinkifiedText(
+                      content.substring(0, content.length > 120 ? 120 : content.length) + '...',
+                    ),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () {
+                        setStateText(() {
+                          p['_isExpanded'] = true;
+                        });
+                      },
+                      child: const Text(
+                        '展開全文',
+                        style: TextStyle(
+                          color: Color(0xFF8D6E63),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              } else if (isLongText && isExpanded) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLinkifiedText(content),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () {
+                        setStateText(() {
+                          p['_isExpanded'] = false;
+                        });
+                      },
+                      child: const Text(
+                        '收起全文',
+                        style: TextStyle(
+                          color: Color(0xFF8D6E63),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              } else {
+                return _buildLinkifiedText(content);
+              }
+            },
+          ),
+          // Media attachments
           if (p['media_blob'] != null || (p['media'] != null && p['media'].toString().isNotEmpty))
-            _buildPostMedia(p),
+            _buildPostMediaPremium(p),
           if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
             _buildFileAttachment(p),
+          const SizedBox(height: 12),
+          Divider(color: borderCol, height: 1),
+          const SizedBox(height: 4),
+          // Actions
           _buildPostActions(p),
-        ]))
-      ]));
+        ],
+      ),
+    );
+  }
 
-  Widget _buildPostMedia(Map<String, dynamic> p) {
+  // ── 方案B：新聞式列表呈現 ──────────────────────────────────────────
+  Widget _buildPostItemNewsList(Map<String, dynamic> p) {
+    final bool isDark = _isDarkMode;
+    final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
+    final Color textCol = isDark ? Colors.white70 : Colors.black87;
+    final hasMedia = p['media_blob'] != null || (p['media'] != null && p['media'].toString().isNotEmpty);
+
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      height: 200,
-      width: 200,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        border: Border(
+          bottom: BorderSide(color: borderCol, width: 1),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Content Left
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Author row
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _showUserProfilePopup(p),
+                      child: buildAvatar(
+                        blob: p['authorAvatarBlob'] as Uint8List?,
+                        colorIdx: (p['authorAvatarColor'] as int?) ??
+                            getAvatarColorIdx(p['author'] ?? ''),
+                        initial: (p['author'] ?? '?').substring(0, 1),
+                        radius: 12,
+                        usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                            p['authorAvatarBlob'] == null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      p['author'],
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      p['time'],
+                      style: TextStyle(
+                        color: isDark ? Colors.white30 : Colors.grey.shade500,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                    if (kPostTypeLabel.containsKey(p['postType'])) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.brown.shade800 : const Color(0xFFF5F0EE),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          kPostTypeLabel[p['postType']]!,
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF8D6E63),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Post text (max lines 2, ellipsis)
+                Text(
+                  p['content'] ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    height: 1.45,
+                    color: textCol,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Actions row
+                _buildPostActionsMini(p),
+              ],
+            ),
+          ),
+          // Thumbnail Right
+          if (hasMedia) ...[
+            const SizedBox(width: 12),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: isDark ? Colors.black26 : Colors.grey.shade100,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: (p['media_blob'] != null)
+                    ? Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover)
+                    : (p['media'].toString().startsWith('data:image'))
+                        ? Image.memory(base64Decode(p['media'].toString().split(',').last), fit: BoxFit.cover)
+                        : (p['media'].toString().startsWith('http') || kIsWeb)
+                            ? Image.network(p['media'] as String, fit: BoxFit.cover)
+                            : Image.file(File(p['media'] as String), fit: BoxFit.cover),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── 新聞式列表小型動作列 ──────────────────────────────────────────
+  Widget _buildPostActionsMini(Map<String, dynamic> p) {
+    final bool isGuest = widget.currentUser['id'] == 'u4';
+    final bool isDark = _isDarkMode;
+    final textStyle = TextStyle(
+      fontSize: 11,
+      color: isDark ? Colors.white30 : Colors.grey.shade500,
+    );
+
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () => isGuest ? _showGuestLoginPrompt() : _toggleLike(p),
+          child: Row(
+            children: [
+              Icon(
+                p['isLiked'] ? Icons.favorite : Icons.favorite_border,
+                size: 14,
+                color: isGuest
+                    ? Colors.grey.shade300
+                    : (p['isLiked'] ? Colors.redAccent : Colors.grey),
+              ),
+              const SizedBox(width: 4),
+              Text('${p['likes']}', style: textStyle),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        GestureDetector(
+          onTap: () {
+            if (isGuest) {
+              _showGuestLoginPrompt();
+              return;
+            }
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => PostReplyPage(
+                        originalPost: p, currentUser: widget.currentUser)))
+                .then((_) => _loadData());
+          },
+          child: Row(
+            children: [
+              Icon(
+                Icons.mode_comment_outlined,
+                size: 14,
+                color: isGuest ? Colors.grey.shade300 : Colors.grey,
+              ),
+              const SizedBox(width: 4),
+              Text('${p['replies']}', style: textStyle),
+            ],
+          ),
+        ),
+        const Spacer(),
+        GestureDetector(
+          onTap: () => isGuest ? _showGuestLoginPrompt() : _toggleBookmark(p),
+          child: Icon(
+            (p['isBookmarked'] as bool? ?? false)
+                ? Icons.bookmark
+                : Icons.bookmark_border,
+            size: 14,
+            color: isGuest
+                ? Colors.grey.shade300
+                : ((p['isBookmarked'] as bool? ?? false)
+                    ? const Color(0xFF8D6E63)
+                    : Colors.grey),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPostMediaPremium(Map<String, dynamic> p) {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      width: double.infinity,
+      height: 160,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade100),
+        color: _isDarkMode ? Colors.black26 : Colors.grey.shade50,
+        border: Border.all(color: _isDarkMode ? Colors.white10 : Colors.grey.shade100),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -314,6 +799,8 @@ extension MainScreenSocialTab on _MainScreenState {
       ),
     );
   }
+
+
 
   Widget _buildFileAttachment(Map<String, dynamic> p) {
     return Container(

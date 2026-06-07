@@ -55,13 +55,13 @@ extension MainScreenActivityTab on _MainScreenState {
     final myPosts = socialPosts.where((p) => p['userId'] == widget.currentUser['id']).toList();
     
     if (myPosts.isEmpty) {
-      return _buildEmptyState(Icons.post_add, '尚未發佈任何貼文', '快去社群分享你的第一篇心得吧！');
+      return _buildActivityEmptyState(Icons.post_add, '尚未發佈任何貼文', '快去社群分享你的第一篇心得吧！');
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: myPosts.length,
-      itemBuilder: (context, index) => _buildPostItem(myPosts[index]),
+      itemBuilder: (context, index) => _buildPostCard(myPosts[index], index),
     );
   }
 
@@ -70,17 +70,17 @@ extension MainScreenActivityTab on _MainScreenState {
     final bookmarked = socialPosts.where((p) => (p['isBookmarked'] as bool? ?? false)).toList();
 
     if (bookmarked.isEmpty) {
-      return _buildEmptyState(Icons.bookmark_border, '尚無收藏貼文', '看到感興趣的內容時，點擊收藏即可在此查看。');
+      return _buildActivityEmptyState(Icons.bookmark_border, '尚無收藏貼文', '看到感興趣的內容時，點擊收藏即可在此查看。');
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: bookmarked.length,
-      itemBuilder: (context, index) => _buildPostItem(bookmarked[index]),
+      itemBuilder: (context, index) => _buildPostCard(bookmarked[index], index),
     );
   }
 
-  Widget _buildEmptyState(IconData icon, String title, String subtitle) {
+  Widget _buildActivityEmptyState(IconData icon, String title, String subtitle) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

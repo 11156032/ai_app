@@ -72,7 +72,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _themeColorIdx = 0;
   bool _isDarkMode = false;
   bool _showFloatingNavBar = false;
-  String _socialFilter = '全部'; // 社群貼文分類筛選狀態
+  String _socialFilter = '全部'; // 社群貼文分類篩選狀態
+  String _socialAuthorFilter = ''; // 社群貼文作者篩選（空字串 = 全部）
+  String _socialFeedLayout = 'card'; // 社群貼文版面：'card' 規格化 / 'list' 新聞式
   bool _isEmailVerified = false;
   String? _displayName;
 
@@ -709,8 +711,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             _isDarkMode = (userRows.first['is_dark_mode'] ?? 0) == 1;
             _calendarViewMode =
                 (userRows.first['calendar_view_mode'] as String?) ?? 'dot';
+            _socialFeedLayout =
+                (userRows.first['social_feed_layout'] as String?) ?? 'card';
             debugPrint(
-                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _calendarViewMode=$_calendarViewMode');
+                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _calendarViewMode=$_calendarViewMode, _socialFeedLayout=$_socialFeedLayout');
           }
         });
       }
@@ -8507,6 +8511,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         'theme_color_idx': _themeColorIdx,
         'is_dark_mode': _isDarkMode ? 1 : 0,
         'calendar_view_mode': _calendarViewMode,
+        'social_feed_layout': _socialFeedLayout,
       },
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],
@@ -10558,32 +10563,50 @@ class _PostReplyPageState extends State<PostReplyPage> {
         break;
     }
 
+    // ── 顏色自適應（PostReplyPage 自行讀 Theme，不依賴 _isDarkMode）──
+    final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
+    final bgColor =
+        isDark ? const Color(0xFF121212) : const Color(0xFFF5F3F0);
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final primaryColor = Theme.of(context).primaryColor;
+    final textPrimary = isDark ? Colors.white : Colors.black87;
+    final textSecondary = isDark ? Colors.white54 : Colors.grey.shade600;
+    final borderColor = isDark ? Colors.white12 : Colors.grey.shade200;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8F6),
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor:
+            (isDark ? Colors.black : Colors.white).withValues(alpha: 0.75),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 20, color: Colors.black87),
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
+              size: 20, color: textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('留言討論',
+            Text('留言討論',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87)),
+                    color: textPrimary)),
             Text('${_comments.length} 則留言',
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                style: TextStyle(fontSize: 11, color: textSecondary)),
           ],
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.grey.shade100, height: 1),
+          child: Container(color: borderColor, height: 1),
         ),
       ),
       body: SafeArea(
@@ -10592,6 +10615,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
             // ── 留言列表 ──
             Expanded(
               child: ListView(
+                physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 children: [
                   // 原始貼文 header
@@ -10603,20 +10627,21 @@ class _PostReplyPageState extends State<PostReplyPage> {
                       children: [
                         Expanded(
                             child: Divider(
-                                color: Colors.grey.shade200, height: 1)),
+                                color: borderColor, height: 1)),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
                           child: Text(
                             '${_comments.length} 則留言',
                             style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade500,
+                                color: textSecondary,
                                 fontWeight: FontWeight.w500),
                           ),
                         ),
                         Expanded(
                             child: Divider(
-                                color: Colors.grey.shade200, height: 1)),
+                                color: borderColor, height: 1)),
                       ],
                     ),
                   ),
@@ -10629,28 +10654,43 @@ class _PostReplyPageState extends State<PostReplyPage> {
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: GestureDetector(
-                              onTap: () => setState(() => _commentSort = label),
+                              onTap: () =>
+                                  setState(() => _commentSort = label),
                               child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
+                                duration:
+                                    const Duration(milliseconds: 200),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 5),
                                 decoration: BoxDecoration(
                                   color: _commentSort == label
-                                      ? const Color(0xFF8D6E63)
-                                      : Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(14),
+                                      ? primaryColor
+                                      : (isDark
+                                          ? const Color(0xFF2A2A2A)
+                                          : Colors.grey.shade100),
+                                  borderRadius:
+                                      BorderRadius.circular(14),
                                   border: Border.all(
                                     color: _commentSort == label
-                                        ? const Color(0xFF8D6E63)
-                                        : Colors.grey.shade200,
+                                        ? primaryColor
+                                        : borderColor,
                                   ),
+                                  boxShadow: _commentSort == label
+                                      ? [
+                                          BoxShadow(
+                                            color: primaryColor
+                                                .withValues(alpha: 0.3),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ]
+                                      : [],
                                 ),
                                 child: Text(label,
                                     style: TextStyle(
                                         fontSize: 11,
                                         color: _commentSort == label
                                             ? Colors.white
-                                            : Colors.grey.shade600,
+                                            : textSecondary,
                                         fontWeight: _commentSort == label
                                             ? FontWeight.bold
                                             : FontWeight.normal)),
@@ -10660,23 +10700,48 @@ class _PostReplyPageState extends State<PostReplyPage> {
                       ],
                     ),
                   ),
+                  // 空狀態
                   if (_comments.isEmpty)
                     Center(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 48),
                         child: Column(
                           children: [
-                            Icon(Icons.chat_bubble_outline_rounded,
-                                size: 40, color: Colors.grey.shade300),
-                            const SizedBox(height: 10),
-                            Text('還沒有人留言，快搶沙發！',
-                                style: TextStyle(
-                                    color: Colors.grey.shade400, fontSize: 14)),
+                            ElasticIn(
+                              key: ValueKey('empty_icon_$_commentSort'),
+                              duration:
+                                  const Duration(milliseconds: 700),
+                              child: Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  size: 56,
+                                  color: primaryColor
+                                      .withValues(alpha: 0.25)),
+                            ),
+                            const SizedBox(height: 14),
+                            FadeInUp(
+                              key: ValueKey('empty_text_$_commentSort'),
+                              duration:
+                                  const Duration(milliseconds: 400),
+                              delay:
+                                  const Duration(milliseconds: 300),
+                              child: Text('還沒有人留言，快搶沙發！',
+                                  style: TextStyle(
+                                      color: textSecondary,
+                                      fontSize: 14)),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                  ...rootList.map((c) => _buildCommentTree(c, rootComments)),
+                  // 留言列表（staggered FadeIn）
+                  ...rootList.asMap().entries.map((e) => FadeInUp(
+                        key: ValueKey('${e.value['id']}_$_commentSort'),
+                        duration: const Duration(milliseconds: 350),
+                        delay: Duration(milliseconds: 50 * (e.key % 10)),
+                        child: _buildCommentTree(
+                            e.value, rootComments),
+                      )),
                 ],
               ),
             ),
@@ -10684,14 +10749,18 @@ class _PostReplyPageState extends State<PostReplyPage> {
             // ── 正在回覆提示列 ──
             if (_replyToId != null)
               AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                duration: const Duration(milliseconds: 220),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8F0),
+                  color: isDark
+                      ? Colors.orange.withValues(alpha: 0.12)
+                      : const Color(0xFFFFF8F0),
                   border: Border(
                       top: BorderSide(
-                          color: Colors.orange.shade200, width: 1.5)),
+                          color: Colors.orange.withValues(
+                              alpha: isDark ? 0.35 : 0.6),
+                          width: 1.5)),
                 ),
                 child: Row(
                   children: [
@@ -10729,72 +10798,28 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                      top: BorderSide(color: Colors.grey.shade100, width: 1)),
+                  color: cardColor,
+                  border:
+                      Border(top: BorderSide(color: borderColor, width: 1)),
                 ),
-                child:
-                    const Text('訪客無法留言喔', style: TextStyle(color: Colors.grey)),
+                child: Text('訪客無法留言喔',
+                    style: TextStyle(color: textSecondary)),
               )
             else
-              Container(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                      top: BorderSide(color: Colors.grey.shade100, width: 1)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        constraints: const BoxConstraints(maxHeight: 120),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: TextField(
-                          controller: _commentController,
-                          maxLines: null,
-                          style: const TextStyle(fontSize: 14),
-                          decoration: InputDecoration(
-                            hintText: _replyToId != null
-                                ? '回覆 $_replyToName...'
-                                : '說說你的想法...',
-                            hintStyle: TextStyle(
-                                color: Colors.grey.shade400, fontSize: 14),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: _submitComment,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF8D6E63),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.send_rounded,
-                            color: Colors.white, size: 18),
-                      ),
-                    ),
-                  ],
-                ),
+              _ReplyInputBar(
+                controller: _commentController,
+                replyToName: _replyToId != null ? _replyToName : null,
+                primaryColor: primaryColor,
+                isDark: isDark,
+                cardColor: cardColor,
+                borderColor: borderColor,
+                onSend: _submitComment,
+                onCancelReply: _replyToId != null
+                    ? () => setState(() {
+                          _replyToId = null;
+                          _replyToName = '';
+                        })
+                    : null,
               ),
           ],
         ),
@@ -11009,6 +11034,25 @@ class _PostReplyPageState extends State<PostReplyPage> {
                     ?.contains(c['id']) ??
                 false));
 
+    final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+    final textPrimary = isDark ? Colors.white : Colors.black87;
+    final textSecondary = isDark ? Colors.white54 : Colors.grey.shade500;
+
+    // 留言氣泡顏色
+    final ownBubbleBg = isDark
+        ? Colors.orange.withValues(alpha: 0.12)
+        : const Color(0xFFFFF8F0);
+    final ownBubbleBorder = isDark
+        ? Colors.orange.withValues(alpha: 0.25)
+        : Colors.orange.shade100;
+    final otherBubbleBg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.grey.shade50;
+    final otherBubbleBorder =
+        isDark ? Colors.white12 : Colors.grey.shade200;
+
     return Container(
       margin: EdgeInsets.only(bottom: isSub ? 8 : 12, top: isSub ? 2 : 4),
       child: Row(
@@ -11016,8 +11060,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
         children: [
           buildAvatar(
               blob: c['authorAvatarBlob'] as Uint8List?,
-              colorIdx:
-                  (c['authorAvatarColor'] as int?) ?? getAvatarColorIdx(author),
+              colorIdx: (c['authorAvatarColor'] as int?) ??
+                  getAvatarColorIdx(author),
               initial: author.substring(0, 1),
               radius: isSub ? 11 : 14,
               usePreset: (c['authorAvatarSelected'] as int? ?? 0) == 1 &&
@@ -11036,29 +11080,31 @@ class _PostReplyPageState extends State<PostReplyPage> {
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: isSub ? 12 : 13,
-                              color: Colors.black87)),
+                              color: textPrimary)),
                     ),
                     const SizedBox(width: 6),
                     Text(c['time'],
-                        style: TextStyle(
-                            color: Colors.grey.shade500, fontSize: 11)),
+                        style:
+                            TextStyle(color: textSecondary, fontSize: 11)),
                     const Spacer(),
                     // 編輯/刪除（自己的留言）
                     if (canEdit) ...[
                       GestureDetector(
                         onTap: () => _editComment(c['id'], c['text']),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 4),
                           child: Icon(Icons.edit_outlined,
-                              size: 14, color: Colors.grey.shade400),
+                              size: 14, color: textSecondary),
                         ),
                       ),
                       GestureDetector(
                         onTap: () => _deleteComment(c['id']),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 4),
                           child: Icon(Icons.delete_outline,
-                              size: 14, color: Colors.grey.shade400),
+                              size: 14, color: Colors.redAccent.withValues(alpha: 0.7)),
                         ),
                       ),
                     ],
@@ -11067,20 +11113,18 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 const SizedBox(height: 4),
                 // 留言內容氣泡
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color:
-                        isOwn ? const Color(0xFFFFF8F0) : Colors.grey.shade50,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(4),
-                      topRight: const Radius.circular(14),
-                      bottomLeft: const Radius.circular(14),
-                      bottomRight: const Radius.circular(14),
+                    color: isOwn ? ownBubbleBg : otherBubbleBg,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(14),
+                      bottomLeft: Radius.circular(14),
+                      bottomRight: Radius.circular(14),
                     ),
                     border: Border.all(
-                      color:
-                          isOwn ? Colors.orange.shade100 : Colors.grey.shade200,
+                      color: isOwn ? ownBubbleBorder : otherBubbleBorder,
                       width: 1,
                     ),
                   ),
@@ -11088,7 +11132,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                     c['text'],
                     style: TextStyle(
                         fontSize: isSub ? 12 : 13,
-                        color: Colors.black87,
+                        color: textPrimary,
                         height: 1.45),
                   ),
                 ),
@@ -11103,20 +11147,152 @@ class _PostReplyPageState extends State<PostReplyPage> {
                       }),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           Icon(Icons.reply_rounded,
-                              size: 13, color: Color(0xFF8D6E63)),
-                          SizedBox(width: 3),
+                              size: 13, color: primaryColor),
+                          const SizedBox(width: 3),
                           Text('回覆',
                               style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF8D6E63),
+                                  color: primaryColor,
                                   fontWeight: FontWeight.w500)),
                         ],
                       ),
                     ),
                   ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 留言輸入列（聚焦動畫 + 暗色適配）────────────────────────────────────
+class _ReplyInputBar extends StatefulWidget {
+  final TextEditingController controller;
+  final String? replyToName;
+  final Color primaryColor;
+  final bool isDark;
+  final Color cardColor;
+  final Color borderColor;
+  final VoidCallback onSend;
+  final VoidCallback? onCancelReply;
+
+  const _ReplyInputBar({
+    required this.controller,
+    required this.replyToName,
+    required this.primaryColor,
+    required this.isDark,
+    required this.cardColor,
+    required this.borderColor,
+    required this.onSend,
+    this.onCancelReply,
+  });
+
+  @override
+  State<_ReplyInputBar> createState() => _ReplyInputBarState();
+}
+
+class _ReplyInputBarState extends State<_ReplyInputBar> {
+  final FocusNode _focus = FocusNode();
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (_focused != _focus.hasFocus) {
+        setState(() => _focused = _focus.hasFocus);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fieldBg = widget.isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.grey.shade50;
+    final Color activeBorder = _focused
+        ? widget.primaryColor
+        : widget.borderColor;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: widget.cardColor,
+        border: Border(
+            top: BorderSide(color: widget.borderColor, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: widget.isDark ? 0.3 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              constraints: const BoxConstraints(maxHeight: 120),
+              decoration: BoxDecoration(
+                color: fieldBg,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: activeBorder, width: _focused ? 1.5 : 1.0),
+              ),
+              child: TextField(
+                controller: widget.controller,
+                focusNode: _focus,
+                maxLines: null,
+                style: TextStyle(
+                    fontSize: 14,
+                    color: widget.isDark ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
+                  hintText: widget.replyToName != null
+                      ? '回覆 ${widget.replyToName}...'
+                      : '說說你的想法...',
+                  hintStyle: TextStyle(
+                      color: widget.isDark
+                          ? Colors.white38
+                          : Colors.grey.shade400,
+                      fontSize: 14),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: widget.onSend,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: widget.primaryColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.primaryColor.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.send_rounded,
+                  color: Colors.white, size: 18),
             ),
           ),
         ],

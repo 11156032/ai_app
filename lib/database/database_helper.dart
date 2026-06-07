@@ -99,6 +99,12 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Added calendar_view_mode column to users table.');
       }
 
+      if (!userCols.any((c) => c['name'] == 'social_feed_layout')) {
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN social_feed_layout TEXT DEFAULT 'card'");
+        debugPrint('Dynamic migration: Added social_feed_layout column to users table.');
+      }
+
       // 自我修復：如果原廠測試帳號被清空，自動重新導入 (以 Sharon 帳號 id = u1 為指標)
       final u1Check = await db.query('users', where: "id = 'u1'");
       if (u1Check.isEmpty) {
@@ -284,6 +290,7 @@ class DatabaseHelper {
         gemini_api_key TEXT,
         is_google INTEGER DEFAULT 0,
         calendar_view_mode TEXT DEFAULT 'dot',
+        social_feed_layout TEXT DEFAULT 'card',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
