@@ -384,6 +384,93 @@ class _QuestionListPageState extends State<QuestionListPage> {
     }
   }
 
+  void _shareQuestion(Map<String, dynamic> question) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.share, color: Color(0xFF8D6E63)),
+            SizedBox(width: 8),
+            Text('分享題目'),
+          ],
+        ),
+        content: const Text('確定要將這道題目分享至社群論壇嗎？\n這將會產生一篇包含此題目的公開分享貼文。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8D6E63),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('確定分享'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF8D6E63)),
+        ),
+      );
+
+      try {
+        final db = await DatabaseHelper.instance.database;
+        final uid = widget.currentUser['id'] ?? 'u1';
+        
+        final snippet = question['question']?.toString() ?? '';
+        final summary = snippet.length > 30 ? '${snippet.substring(0, 30)}...' : snippet;
+
+        await db.insert('posts', {
+          'user_id': uid,
+          'content': '我分享了一道《${question['subject'] ?? "學科"}》題目，快來挑戰看看！ 📄\n題目：「$summary」',
+          'type': 'doc',
+          'attached_data': jsonEncode({
+            'shared_type': 'question',
+            'text': question['question'],
+            'options': question['options'],
+            'answer': question['answerIndex']?.toString() ?? '0',
+            'explanation': question['explanation'],
+            'subject': question['subject'],
+            'difficulty': question['difficulty'],
+          }),
+          'created_at': DateTime.now().toIso8601String(),
+        });
+
+        if (mounted) {
+          Navigator.pop(context); // 關閉讀取框
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 題目已成功分享至社群論壇！'),
+              backgroundColor: Color(0xFF8D6E63),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // 關閉讀取框
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('分享失敗: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   void _openPractice(
       [List<Map<String, dynamic>>? questions, int initialIndex = 0]) {
     final target = questions ?? filteredQuestions;
@@ -543,6 +630,12 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       icon: const Icon(Icons.edit_outlined),
                       label: const Text('編輯'),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: '分享題目',
+                    onPressed: () => _shareQuestion(question),
+                    icon: const Icon(Icons.share_rounded, color: Color(0xFF8D6E63)),
                   ),
                   const SizedBox(width: 8),
                   IconButton.filledTonal(

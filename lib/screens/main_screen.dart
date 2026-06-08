@@ -386,6 +386,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           'media_blob': blobData,
           'fileName': attached['file_name'],
           'scheduled_at': attached['scheduled_at'],
+          'attached_data': attached,
         };
 
         try {

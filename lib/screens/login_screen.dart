@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
@@ -740,6 +741,217 @@ class _LeafBranchDivider extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
+// ── 磨砂玻璃容器卡片 ─────────────────────────────────────────────────────────────
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  const _GlassCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8D6E63).withValues(alpha: 0.08),
+            blurRadius: 36,
+            offset: const Offset(0, 16),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.42),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.55),
+                width: 1.5,
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 動態流光背景組件 ─────────────────────────────────────────────────────────────
+class _AmbientFlowBackground extends StatefulWidget {
+  const _AmbientFlowBackground();
+
+  @override
+  State<_AmbientFlowBackground> createState() => _AmbientFlowBackgroundState();
+}
+
+class _AmbientFlowBackgroundState extends State<_AmbientFlowBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final bool isInTest = WidgetsBinding.instance.runtimeType
+        .toString()
+        .toLowerCase()
+        .contains('test');
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 30),
+    );
+    if (!isInTest) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: _FlowBackgroundPainter(progress: _controller.value),
+        );
+      },
+    );
+  }
+}
+
+class _FlowBackgroundPainter extends CustomPainter {
+  final double progress;
+
+  _FlowBackgroundPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    // 基底純色
+    paint.color = const Color(0xFFF3ECE6); // 稍微加深基底暖色，提升與毛玻璃卡片的對比
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+
+    final double angle = progress * 2 * math.pi;
+
+    // 氣泡 1: 溫柔粉蜜桃 (右上) - 加深色彩與不透明度
+    final double b1x = size.width * 0.75 + math.sin(angle) * 70;
+    final double b1y = size.height * 0.2 + math.cos(angle) * 60;
+    _drawBlurCircle(canvas, Offset(b1x, b1y), 260, const Color(0xFFFFD4C2).withValues(alpha: 0.75), paint);
+
+    // 氣泡 2: 鼠尾草綠 (左下) - 使用整數倍頻率確保無縫循環
+    final double b2x = size.width * 0.25 - math.cos(angle) * 80;
+    final double b2y = size.height * 0.8 + math.sin(angle * 2) * 70;
+    _drawBlurCircle(canvas, Offset(b2x, b2y), 300, const Color(0xFFD4EAD7).withValues(alpha: 0.70), paint);
+
+    // 氣泡 3: 金黃沙丘 (右中) - 使用整數倍頻率確保無縫循環
+    final double b3x = size.width * 0.8 + math.cos(angle * 2) * 60;
+    final double b3y = size.height * 0.65 - math.sin(angle) * 70;
+    _drawBlurCircle(canvas, Offset(b3x, b3y), 230, const Color(0xFFFDE4C3).withValues(alpha: 0.72), paint);
+
+    // 氣泡 4: 輕柔暖灰茶 (左上) - 使用整數倍頻率確保無縫循環
+    final double b4x = size.width * 0.15 + math.sin(angle) * 50;
+    final double b4y = size.height * 0.15 + math.cos(angle * 2) * 45;
+    _drawBlurCircle(canvas, Offset(b4x, b4y), 210, const Color(0xFFE9DEC4).withValues(alpha: 0.75), paint);
+  }
+
+  void _drawBlurCircle(Canvas canvas, Offset center, double radius, Color color, Paint paint) {
+    paint.color = color;
+    paint.shader = RadialGradient(
+      colors: [
+        color,
+        color.withValues(alpha: 0.45), // 提高中間停止點的色彩濃度以增強流光效果
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.6, 1.0],
+    ).createShader(Rect.fromCircle(center: center, radius: radius));
+
+    canvas.drawCircle(center, radius, paint);
+    paint.shader = null;
+  }
+
+  @override
+  bool shouldRepaint(covariant _FlowBackgroundPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+// ── 焦點呼吸燈輸入框外框 ─────────────────────────────────────────────────────────────
+class _FocusedGlowField extends StatefulWidget {
+  final Widget child;
+  final FocusNode? focusNode;
+  const _FocusedGlowField({required this.child, this.focusNode});
+
+  @override
+  State<_FocusedGlowField> createState() => _FocusedGlowFieldState();
+}
+
+class _FocusedGlowFieldState extends State<_FocusedGlowField> {
+  late FocusNode _focusNode;
+  bool _hasFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = widget.focusNode ?? FocusNode();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (mounted) {
+      setState(() {
+        _hasFocus = _focusNode.hasFocus;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    } else {
+      _focusNode.removeListener(_onFocusChange);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: _hasFocus
+                ? const Color(0xFF8D6E63).withValues(alpha: 0.18)
+                : Colors.black.withValues(alpha: 0.01),
+            blurRadius: _hasFocus ? 14 : 4,
+            spreadRadius: _hasFocus ? 1 : 0,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: widget.child,
+    );
+  }
+}
+
 // ── 主體 ─────────────────────────────────────────────────────────────────────
 class LoginScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) onLogin;
@@ -757,6 +969,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _confirmPasswordCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _usernameFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
+  final FocusNode _confirmPasswordFocusNode = FocusNode();
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -784,6 +999,9 @@ class _LoginScreenState extends State<LoginScreen> {
     _confirmPasswordCtrl.dispose();
     _emailCtrl.dispose();
     _emailFocusNode.dispose();
+    _usernameFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    _confirmPasswordFocusNode.dispose();
     super.dispose();
   }
 
@@ -810,26 +1028,25 @@ class _LoginScreenState extends State<LoginScreen> {
   // ── 樣式常數 ──────────────────────────────────────────────────────────────
   static const _primaryColor = Color(0xFF8D6E63);
   static const _bgColor = Color(0xFFF7F3F0);
-  static const _cardColor = Colors.white;
 
   InputDecoration _inputDeco(String label, {Widget? suffix}) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+      labelStyle: const TextStyle(color: Color(0xFF8D6E63), fontSize: 13.5),
       filled: true,
-      fillColor: _cardColor,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      fillColor: Colors.white.withValues(alpha: 0.45),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFFE0D6D1), width: 1.2),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.45), width: 1.2),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: _primaryColor, width: 2),
+        borderSide: BorderSide(color: const Color(0xFF8D6E63).withValues(alpha: 0.7), width: 1.8),
       ),
       suffixIcon: suffix,
     );
@@ -1304,36 +1521,15 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: _bgColor,
       body: Stack(
         children: [
-          // 背景裝飾圓
-          Positioned(
-            top: -80,
-            right: -60,
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF8D6E63).withValues(alpha: 0.07),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -100,
-            left: -80,
-            child: Container(
-              width: 340,
-              height: 340,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFBCAAA4).withValues(alpha: 0.1),
-              ),
-            ),
+          // 動態流光背景
+          const Positioned.fill(
+            child: _AmbientFlowBackground(),
           ),
 
           // 主體內容
           Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1341,294 +1537,312 @@ class _LoginScreenState extends State<LoginScreen> {
                   _exquisiteFadeIn(
                     child: const _BrandMark(),
                     delayMs: 0,
-                    from: 30,
+                    from: 25,
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
-                  // 標題
+                  // 毛玻璃登入卡片
                   _exquisiteFadeIn(
-                    delayMs: 500 + 100,
-                    child: Column(
-                      children: [
-                        Text(
-                          isLogin ? 'YeBang 家教' : '建立新帳號',
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF4E342E),
-                            letterSpacing: 0.5,
+                    delayMs: 400,
+                    from: 35,
+                    child: _GlassCard(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 標題
+                          Text(
+                            isLogin ? 'YeBang 家教' : '建立新帳號',
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF4E342E),
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          isLogin ? '請輸入您的信箱與密碼' : '填寫資料以完成註冊',
-                          style: const TextStyle(
-                              fontSize: 14, color: Color(0xFF9E9E9E)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 36),
+                          const SizedBox(height: 6),
+                          Text(
+                            isLogin ? '請輸入您的信箱與密碼' : '填寫資料以完成註冊',
+                            style: const TextStyle(
+                                fontSize: 13.5, color: Color(0xFF8D6E63)),
+                          ),
+                          const SizedBox(height: 28),
 
-                  // 欄位組（信箱、帳號名稱、密碼、確認密碼）同步出現
-                  _exquisiteFadeIn(
-                    delayMs: 500 + 200,
-                    child: Column(
-                      children: [
-                        // Gmail 欄 (登入與註冊都需要)
-                        TextField(
-                          controller: _emailCtrl,
-                          focusNode: _emailFocusNode,
-                          keyboardType: TextInputType.emailAddress,
-                          onTap: () {
-                            if (_emailCtrl.text == '@gmail.com') {
-                              _emailCtrl.selection =
-                                  const TextSelection.collapsed(offset: 0);
-                            }
-                          },
-                          decoration: _inputDeco('信箱',
-                              suffix: const Icon(Icons.email_outlined,
-                                  color: Color(0xFFBCAAA4))),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // 帳號名稱欄（僅註冊）
-                        if (!isLogin) ...[
-                          TextField(
-                            controller: _usernameCtrl,
-                            decoration: _inputDeco('帳號名稱',
-                                suffix: const Icon(Icons.person_outline_rounded,
-                                    color: Color(0xFFBCAAA4))),
+                          // 欄位組
+                          // Gmail 欄
+                          _FocusedGlowField(
+                            focusNode: _emailFocusNode,
+                            child: TextField(
+                              controller: _emailCtrl,
+                              focusNode: _emailFocusNode,
+                              keyboardType: TextInputType.emailAddress,
+                              onTap: () {
+                                if (_emailCtrl.text == '@gmail.com') {
+                                  _emailCtrl.selection =
+                                      const TextSelection.collapsed(offset: 0);
+                                }
+                              },
+                              decoration: _inputDeco('信箱',
+                                  suffix: const Icon(Icons.email_outlined,
+                                      color: Color(0xFFBCAAA4))),
+                            ),
                           ),
                           const SizedBox(height: 14),
-                        ],
 
-                        // 密碼欄
-                        TextField(
-                          controller: _passwordCtrl,
-                          obscureText: _obscurePassword,
-                          decoration: _inputDeco('密碼',
-                              suffix: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  color: const Color(0xFFBCAAA4),
-                                ),
-                                onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword),
-                              )),
-                        ),
-                        if (isLogin) ...[
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _forgotPassword,
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(0, 30),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          // 帳號名稱欄（僅註冊）
+                          if (!isLogin) ...[
+                            _FocusedGlowField(
+                              focusNode: _usernameFocusNode,
+                              child: TextField(
+                                controller: _usernameCtrl,
+                                focusNode: _usernameFocusNode,
+                                decoration: _inputDeco('帳號名稱',
+                                    suffix: const Icon(Icons.person_outline_rounded,
+                                        color: Color(0xFFBCAAA4))),
                               ),
-                              child: const Text(
-                                '忘記密碼？',
-                                style: TextStyle(
-                                  color: Color(0xFF8D6E63),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+
+                          // 密碼欄
+                          _FocusedGlowField(
+                            focusNode: _passwordFocusNode,
+                            child: TextField(
+                              controller: _passwordCtrl,
+                              focusNode: _passwordFocusNode,
+                              obscureText: _obscurePassword,
+                              decoration: _inputDeco('密碼',
+                                  suffix: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: const Color(0xFFBCAAA4),
+                                    ),
+                                    onPressed: () => setState(
+                                        () => _obscurePassword = !_obscurePassword),
+                                  )),
+                            ),
+                          ),
+                          if (isLogin) ...[
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _forgotPassword,
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(0, 30),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 ),
+                                child: const Text(
+                                  '忘記密碼？',
+                                  style: TextStyle(
+                                    color: Color(0xFF8D6E63),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ] else ...[
+                            const SizedBox(height: 14),
+                          ],
+
+                          // 確認密碼（僅註冊）
+                          if (!isLogin) ...[
+                            _FocusedGlowField(
+                              focusNode: _confirmPasswordFocusNode,
+                              child: TextField(
+                                controller: _confirmPasswordCtrl,
+                                focusNode: _confirmPasswordFocusNode,
+                                obscureText: _obscureConfirm,
+                                decoration: _inputDeco('確認密碼',
+                                    suffix: IconButton(
+                                      icon: Icon(
+                                        _obscureConfirm
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        color: const Color(0xFFBCAAA4),
+                                      ),
+                                      onPressed: () => setState(
+                                          () => _obscureConfirm = !_obscureConfirm),
+                                    )),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+
+                          const SizedBox(height: 6),
+
+                          // 主按鈕（登入 / 註冊）
+                          Container(
+                            width: double.infinity,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF8D6E63),
+                                  Color(0xFFA1887F),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF8D6E63).withValues(alpha: 0.32),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shadowColor: Colors.transparent,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                              ),
+                              onPressed: _submit,
+                              child: Text(
+                                isLogin ? '登入' : '註冊',
+                                style: const TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ),
                           const SizedBox(height: 10),
-                        ] else ...[
-                          const SizedBox(height: 14),
-                        ],
 
-                        // 確認密碼（僅註冊）
-                        if (!isLogin) ...[
-                          TextField(
-                            controller: _confirmPasswordCtrl,
-                            obscureText: _obscureConfirm,
-                            decoration: _inputDeco('確認密碼',
-                                suffix: IconButton(
-                                  icon: Icon(
-                                    _obscureConfirm
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                    color: const Color(0xFFBCAAA4),
-                                  ),
-                                  onPressed: () => setState(
-                                      () => _obscureConfirm = !_obscureConfirm),
-                                )),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // 主按鈕（登入 / 註冊）
-                  _exquisiteFadeIn(
-                    delayMs: 500 + (isLogin ? 350 : 450),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: 4,
-                          shadowColor:
-                              const Color(0xFF8D6E63).withValues(alpha: 0.4),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                        ),
-                        onPressed: _submit,
-                        child: Text(
-                          isLogin ? '登入' : '註冊',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 切換登入 / 註冊
-                  _exquisiteFadeIn(
-                    delayMs: 500 + (isLogin ? 400 : 500),
-                    child: TextButton(
-                      onPressed: () => setState(() {
-                        isLogin = !isLogin;
-                        _passwordCtrl.clear();
-                        _confirmPasswordCtrl.clear();
-                        if (_emailCtrl.text.isEmpty) {
-                          _emailCtrl.text = '@gmail.com';
-                        }
-                      }),
-                      child: Text(
-                        isLogin ? '還沒有帳號？點此註冊' : '已有帳號？點此登入',
-                        style: const TextStyle(
-                            color: Color(0xFF8D6E63),
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ),
-
-                  // Google 登入按鈕
-                  _exquisiteFadeIn(
-                    delayMs: 500 + (isLogin ? 480 : 680),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 4, bottom: 8),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            side: const BorderSide(
-                                color: Color(0xFFDADCE0), width: 1.2),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16)),
-                            elevation: 1,
-                            shadowColor: Colors.black.withValues(alpha: 0.1),
-                          ),
-                          onPressed: _showGoogleSignInDialog,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const GoogleLogo(size: 20),
-                              const SizedBox(width: 12),
-                              Text(
-                                isLogin ? '使用 Google 帳號登入' : '使用 Google 帳號註冊',
-                                style: const TextStyle(
-                                  color: Color(0xFF3C4043),
-                                  fontSize: 15,
+                          // 切換登入 / 註冊
+                          TextButton(
+                            onPressed: () => setState(() {
+                              isLogin = !isLogin;
+                              _passwordCtrl.clear();
+                              _confirmPasswordCtrl.clear();
+                              if (_emailCtrl.text.isEmpty) {
+                                _emailCtrl.text = '@gmail.com';
+                              }
+                            }),
+                            child: Text(
+                              isLogin ? '還沒有帳號？點此註冊' : '已有帳號？點此登入',
+                              style: const TextStyle(
+                                  color: Color(0xFF8D6E63),
                                   fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                                  fontSize: 13.5),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                  ),
+                          const SizedBox(height: 6),
 
-                  // 分隔線
-                  _exquisiteFadeIn(
-                    delayMs: 500 + (isLogin ? 540 : 740),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6),
-                      child: Row(children: [
-                        Expanded(child: Divider(color: Color(0xFFE0D6D1))),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Text('或',
-                              style: TextStyle(
-                                  color: Color(0xFFBCAAA4), fontSize: 12)),
-                        ),
-                        Expanded(child: Divider(color: Color(0xFFE0D6D1))),
-                      ]),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
+                          // Google 登入按鈕
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white.withValues(alpha: 0.55),
+                                side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.6), width: 1.2),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                elevation: 0,
+                              ),
+                              onPressed: _showGoogleSignInDialog,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const GoogleLogo(size: 20),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    isLogin ? '使用 Google 帳號登入' : '使用 Google 帳號註冊',
+                                    style: const TextStyle(
+                                      color: Color(0xFF3C4043),
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
 
-                  // 訪客登入
-                  _exquisiteFadeIn(
-                    delayMs: 500 + (isLogin ? 600 : 800),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                              color: Color(0xFFBCAAA4), width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                        ),
-                        icon: const Icon(Icons.person_outline_rounded,
-                            color: _primaryColor, size: 20),
-                        label: const Text(
-                          '以訪客身份直接登入',
-                          style: TextStyle(
-                              color: _primaryColor,
-                              fontWeight: FontWeight.w500),
-                        ),
-                        onPressed: () async {
-                          try {
-                            final db = await DatabaseHelper.instance.database;
-                            final res = await db.query('users',
-                                where: 'username = ?', whereArgs: ['訪客']);
-                            if (!mounted) return;
-                            if (res.isNotEmpty) {
-                              final userMap =
-                                  Map<String, dynamic>.from(res.first);
-                              userMap['session_post_ids'] = <int>{};
-                              userMap['session_comment_ids'] = <int>{};
-                              _showSuccessOverlay(userMap);
-                            } else {
-                              _showSuccessOverlay({
-                                'id': 'u4',
-                                'username': '訪客',
-                                'display_name': '訪客',
-                                'session_post_ids': <int>{},
-                                'session_comment_ids': <int>{},
-                              });
-                            }
-                          } catch (e) {
-                            debugPrint('訪客登入失敗: $e');
-                            if (!mounted) return;
-                            _showSuccessOverlay({
-                              'id': 'u4',
-                              'username': '訪客',
-                              'display_name': '訪客',
-                              'session_post_ids': <int>{},
-                              'session_comment_ids': <int>{},
-                            });
-                          }
-                        },
+                          // 分隔線
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Row(children: [
+                              Expanded(child: Divider(color: Color(0xFFE5DCD3))),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text('或',
+                                    style: TextStyle(
+                                        color: Color(0xFFBCAAA4), fontSize: 12)),
+                              ),
+                              Expanded(child: Divider(color: Color(0xFFE5DCD3))),
+                            ]),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // 訪客登入
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white.withValues(alpha: 0.35),
+                                side: BorderSide(
+                                    color: const Color(0xFF8D6E63).withValues(alpha: 0.4), width: 1.2),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                elevation: 0,
+                              ),
+                              icon: const Icon(Icons.person_outline_rounded,
+                                  color: _primaryColor, size: 20),
+                              label: const Text(
+                                '以訪客身份直接登入',
+                                style: TextStyle(
+                                    color: _primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5),
+                              ),
+                              onPressed: () async {
+                                try {
+                                  final db = await DatabaseHelper.instance.database;
+                                  final res = await db.query('users',
+                                      where: 'username = ?', whereArgs: ['訪客']);
+                                  if (!mounted) return;
+                                  if (res.isNotEmpty) {
+                                    final userMap =
+                                        Map<String, dynamic>.from(res.first);
+                                    userMap['session_post_ids'] = <int>{};
+                                    userMap['session_comment_ids'] = <int>{};
+                                    _showSuccessOverlay(userMap);
+                                  } else {
+                                    _showSuccessOverlay({
+                                      'id': 'u4',
+                                      'username': '訪客',
+                                      'display_name': '訪客',
+                                      'session_post_ids': <int>{},
+                                      'session_comment_ids': <int>{},
+                                    });
+                                  }
+                                } catch (e) {
+                                  debugPrint('訪客登入失敗: $e');
+                                  if (!mounted) return;
+                                  _showSuccessOverlay({
+                                    'id': 'u4',
+                                    'username': '訪客',
+                                    'display_name': '訪客',
+                                    'session_post_ids': <int>{},
+                                    'session_comment_ids': <int>{},
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1642,6 +1856,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+
 
 // ── Google 專屬模擬登入視窗組件 ──────────────────────────────────────────────────
 

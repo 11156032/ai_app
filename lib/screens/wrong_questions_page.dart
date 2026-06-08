@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../database/database_helper.dart';
 import 'question_practice_page.dart';
 
@@ -148,6 +149,106 @@ class _WrongQuestionsPageState extends State<WrongQuestionsPage> {
     }
   }
 
+  void _shareQuestion(int qid) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.share, color: Color(0xFF8D6E63)),
+            SizedBox(width: 8),
+            Text('分享題目'),
+          ],
+        ),
+        content: const Text('確定要將這道題目分享至社群論壇嗎？\n這將會產生一篇包含此題目的公開分享貼文。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8D6E63),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('確定分享'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF8D6E63)),
+        ),
+      );
+
+      try {
+        final db = await DatabaseHelper.instance.database;
+        final rows = await db.query('questions', where: 'id = ?', whereArgs: [qid]);
+        if (rows.isEmpty) {
+          if (mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('找不到題目資料')));
+          }
+          return;
+        }
+        final row = rows.first;
+        final rawOptions = row['options'];
+        final decodedOptions = rawOptions is String
+            ? (rawOptions)
+            : (rawOptions ?? '[]');
+        
+        final uid = widget.currentUser['id'] ?? 'u1';
+        final snippet = row['text']?.toString() ?? '';
+        final summary = snippet.length > 30 ? '${snippet.substring(0, 30)}...' : snippet;
+
+        await db.insert('posts', {
+          'user_id': uid,
+          'content': '我分享了一道《${row['subject'] ?? "學科"}》題目，快來挑戰看看！ 📄\n題目：「$summary」',
+          'type': 'doc',
+          'attached_data': jsonEncode({
+            'shared_type': 'question',
+            'text': row['text'] ?? '',
+            'options': decodedOptions is String ? jsonDecode(decodedOptions) : decodedOptions,
+            'answer': row['answer']?.toString() ?? '0',
+            'explanation': row['explanation'] ?? '',
+            'subject': row['subject'] ?? '',
+            'difficulty': row['difficulty'] ?? '中',
+          }),
+          'created_at': DateTime.now().toIso8601String(),
+        });
+
+        if (mounted) {
+          Navigator.pop(context); // 關閉讀取框
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 題目已成功分享至社群論壇！'),
+              backgroundColor: Color(0xFF8D6E63),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // 關閉讀取框
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('分享失敗: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -214,6 +315,11 @@ class _WrongQuestionsPageState extends State<WrongQuestionsPage> {
                               title: Text('題目 ID: $qid', style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w700)),
                               subtitle: note.isEmpty ? null : Text(note, style: TextStyle(color: cs.onSurface.withValues(alpha: 0.8))),
                               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                                IconButton(
+                                  tooltip: '分享此題',
+                                  onPressed: () => _shareQuestion(qid),
+                                  icon: const Icon(Icons.share_rounded, color: Color(0xFF8D6E63)),
+                                ),
                                 IconButton(onPressed: () async {
                                   final messenger = ScaffoldMessenger.of(context);
                                   try {

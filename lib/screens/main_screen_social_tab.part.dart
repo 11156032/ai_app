@@ -523,19 +523,32 @@ extension MainScreenSocialTab on _MainScreenState {
                     _buildLinkifiedText(
                       '${content.substring(0, content.length > 120 ? 120 : content.length)}...',
                     ),
-                    const SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: () {
-                        setStateText(() {
-                          p['_isExpanded'] = true;
-                        });
-                      },
-                      child: const Text(
-                        '展開全文',
-                        style: TextStyle(
-                          color: Color(0xFF8D6E63),
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                    const SizedBox(height: 6),
+                    Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          setStateText(() {
+                            p['_isExpanded'] = true;
+                          });
+                        },
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '展開全文',
+                              style: TextStyle(
+                                color: Color(0xFF8D6E63),
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: Color(0xFF8D6E63),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -546,19 +559,32 @@ extension MainScreenSocialTab on _MainScreenState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildLinkifiedText(content),
-                    const SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: () {
-                        setStateText(() {
-                          p['_isExpanded'] = false;
-                        });
-                      },
-                      child: const Text(
-                        '收起全文',
-                        style: TextStyle(
-                          color: Color(0xFF8D6E63),
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                    const SizedBox(height: 6),
+                    Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          setStateText(() {
+                            p['_isExpanded'] = false;
+                          });
+                        },
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '收起全文',
+                              style: TextStyle(
+                                color: Color(0xFF8D6E63),
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.keyboard_arrow_up_rounded,
+                              size: 16,
+                              color: Color(0xFF8D6E63),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -574,6 +600,7 @@ extension MainScreenSocialTab on _MainScreenState {
             _buildPostMediaPremium(p),
           if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
             _buildFileAttachment(p),
+          _buildSharedResourceCard(p),
           const SizedBox(height: 12),
           Divider(color: borderCol, height: 1),
           const SizedBox(height: 4),
@@ -661,16 +688,115 @@ extension MainScreenSocialTab on _MainScreenState {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Post text (max lines 2, ellipsis)
-                Text(
-                  p['content'] ?? '',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    height: 1.45,
-                    color: textCol,
-                  ),
+                StatefulBuilder(
+                  builder: (context, setStateText) {
+                    final attached = p['attached_data'];
+                    final String content = p['content'] ?? '';
+                    final bool isExpanded = p['_isExpanded'] as bool? ?? false;
+                    final bool hasAttachment = attached != null && attached['shared_type'] != null;
+                    final bool isLongText = content.length > 80 || '\n'.allMatches(content).length >= 2 || hasAttachment;
+
+                    if (!isExpanded) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              setStateText(() {
+                                p['_isExpanded'] = true;
+                              });
+                            },
+                            child: Text(
+                              content,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                height: 1.45,
+                                color: textCol,
+                              ),
+                            ),
+                          ),
+                          _buildSharedResourceCardMini(p),
+                          if (isLongText) ...[
+                            const SizedBox(height: 6),
+                            Center(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setStateText(() {
+                                    p['_isExpanded'] = true;
+                                  });
+                                },
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '展開全文',
+                                      style: TextStyle(
+                                        color: Color(0xFF8D6E63),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    SizedBox(width: 2),
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 16,
+                                      color: Color(0xFF8D6E63),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    } else {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            content,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              height: 1.45,
+                              color: textCol,
+                            ),
+                          ),
+                          _buildSharedResourceCard(p),
+                          const SizedBox(height: 6),
+                          Center(
+                            child: GestureDetector(
+                              onTap: () {
+                                setStateText(() {
+                                  p['_isExpanded'] = false;
+                                });
+                              },
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '收起內容',
+                                    style: TextStyle(
+                                      color: Color(0xFF8D6E63),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(width: 2),
+                                  Icon(
+                                    Icons.keyboard_arrow_up_rounded,
+                                    size: 16,
+                                    color: Color(0xFF8D6E63),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                  },
                 ),
                 const SizedBox(height: 8),
                 // Actions row
@@ -1100,5 +1226,451 @@ extension MainScreenSocialTab on _MainScreenState {
         ),
       ),
     );
+  }
+
+  // ── 資源分享預覽卡片 (Premium) ──────────────────────────────────
+  Widget _buildSharedResourceCard(Map<String, dynamic> p) {
+    final attached = p['attached_data'];
+    if (attached == null || attached['shared_type'] == null) {
+      return const SizedBox.shrink();
+    }
+
+    final sharedType = attached['shared_type'];
+    final bool isDark = _isDarkMode;
+    final cardBg = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF9F7F5);
+    final borderCol = isDark ? Colors.white10 : const Color(0xFFE5DCD3);
+
+    if (sharedType == 'note') {
+      final String title = attached['title'] ?? '無標題筆記';
+      final String category = attached['category'] ?? '未分類';
+      final String content = attached['content'] ?? '';
+      final bool hasStrokes = attached['strokes'] != null && attached['strokes'].toString() != '[]' && attached['strokes'].toString().isNotEmpty;
+
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderCol, width: 1.2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.sticky_note_2_outlined, color: Color(0xFF8D6E63), size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF5D4037)
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    category,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF8D6E63), fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              content.isEmpty ? '（空白筆記）' : content.replaceAll('#', '').replaceAll('**', '').trim(),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12.5, color: isDark ? Colors.white70 : Colors.black54, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (hasStrokes)
+                  Row(
+                    children: [
+                      Icon(Icons.palette_outlined, size: 14, color: isDark ? Colors.white60 : Colors.blueGrey),
+                      const SizedBox(width: 4),
+                      Text('包含手寫塗鴉', style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.blueGrey)),
+                    ],
+                  ),
+                const Spacer(),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8D6E63),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    elevation: 1,
+                  ),
+                  icon: const Icon(Icons.download_rounded, size: 15),
+                  label: const Text('匯入筆記', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _importSharedNote(attached),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    } else if (sharedType == 'question') {
+      final String text = attached['text'] ?? '';
+      final List<dynamic> options = attached['options'] is String
+          ? jsonDecode(attached['options'] as String) as List<dynamic>
+          : (attached['options'] as List<dynamic>? ?? []);
+      final String answer = attached['answer'] ?? '0';
+      final String explanation = attached['explanation'] ?? '';
+      final String subject = attached['subject'] ?? '一般';
+      final String difficulty = attached['difficulty'] ?? '中';
+
+      final int correctIdx = int.tryParse(answer) ?? 0;
+      final int? userSelected = p['_selectedOptionIndex'] as int?;
+
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderCol, width: 1.2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.help_outline_rounded, color: Color(0xFF8D6E63), size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '題目挑戰：$subject',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF8D6E63)),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '難度: $difficulty',
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF8D6E63), fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              text,
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: isDark ? Colors.white : Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            // 選項列表
+            Column(
+              children: List.generate(options.length, (idx) {
+                final isSelected = userSelected == idx;
+                final isCorrect = idx == correctIdx;
+                
+                Color optBg = isDark ? const Color(0xFF333333) : Colors.white;
+                Color border = isDark ? Colors.white10 : Colors.grey.shade200;
+                IconData? suffixIcon;
+                
+                if (userSelected != null) {
+                  if (isCorrect) {
+                    optBg = isDark ? Colors.green.shade900.withValues(alpha: 0.5) : Colors.green.shade50;
+                    border = Colors.green.shade300;
+                    suffixIcon = Icons.check_circle_outline_rounded;
+                  } else if (isSelected) {
+                    optBg = isDark ? Colors.red.shade900.withValues(alpha: 0.5) : Colors.red.shade50;
+                    border = Colors.red.shade300;
+                    suffixIcon = Icons.highlight_off_rounded;
+                  }
+                }
+
+                return GestureDetector(
+                  onTap: userSelected != null ? null : () {
+                    _update(() {
+                      p['_selectedOptionIndex'] = idx;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: optBg,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: border),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDark ? Colors.white10 : Colors.grey.shade100,
+                          ),
+                          child: Center(
+                            child: Text(
+                              String.fromCharCode(65 + idx),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            options[idx].toString(),
+                            style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87),
+                          ),
+                        ),
+                        if (suffixIcon != null)
+                          Icon(suffixIcon, color: isCorrect ? Colors.green : Colors.red, size: 18),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+            if (userSelected != null && explanation.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white10 : Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: Colors.orange, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '解析：$explanation',
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.brown.shade800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8D6E63),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    elevation: 1,
+                  ),
+                  icon: const Icon(Icons.bookmark_add_outlined, size: 15),
+                  label: const Text('收藏至題庫', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _importSharedQuestion(attached),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  // ── 資源分享預覽卡片 (Mini) ───────────────────────────────────────
+  Widget _buildSharedResourceCardMini(Map<String, dynamic> p) {
+    final attached = p['attached_data'];
+    if (attached == null || attached['shared_type'] == null) {
+      return const SizedBox.shrink();
+    }
+    
+    final sharedType = attached['shared_type'];
+    final bool isDark = _isDarkMode;
+    final cardBg = isDark ? Colors.white10 : const Color(0xFFFAF9F6);
+
+    if (sharedType == 'note') {
+      final String title = attached['title'] ?? '無標題筆記';
+      return Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.sticky_note_2_outlined, color: Color(0xFF8D6E63), size: 16),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '分享筆記: $title',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8D6E63)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => _importSharedNote(attached),
+              child: const Text('一鍵匯入', style: TextStyle(fontSize: 11, color: Color(0xFF8D6E63), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    } else if (sharedType == 'question') {
+      final String subject = attached['subject'] ?? '一般';
+      final String text = attached['text'] ?? '';
+      final snippet = text.length > 15 ? '${text.substring(0, 15)}...' : text;
+
+      return Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.help_outline_rounded, color: Color(0xFF8D6E63), size: 16),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '分享題目: [$subject] $snippet',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8D6E63)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => _importSharedQuestion(attached),
+              child: const Text('一鍵收藏', style: TextStyle(fontSize: 11, color: Color(0xFF8D6E63), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  // ── 一鍵匯入筆記邏輯 ──────────────────────────────────────────────
+  void _importSharedNote(Map<String, dynamic> attached) {
+    try {
+      final String title = attached['title'] ?? '無標題筆記';
+      final String content = attached['content'] ?? '';
+      final String category = attached['category'] ?? '學習';
+      
+      final List<Stroke> strokes = [];
+      final String? strokesJson = attached['strokes'];
+      if (strokesJson != null && strokesJson.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(strokesJson) as List;
+          for (var s in decoded) {
+            strokes.add(Stroke.fromJson(s as Map<String, dynamic>));
+          }
+        } catch (e) {
+          debugPrint('解析筆記繪圖失敗: $e');
+        }
+      }
+
+      final newNote = Note(
+        id: 'note_${DateTime.now().millisecondsSinceEpoch}',
+        userId: widget.currentUser['id'],
+        title: '$title (社群匯入)',
+        content: content,
+        category: NotesDatabase.categories.contains(category) ? category : '未分類',
+        strokes: strokes,
+        updatedAt: DateTime.now(),
+      );
+
+      // 匯入至 NotesDatabase 運行時列表中
+      NotesDatabase.notes.insert(0, newNote);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🎉 筆記已成功匯入您的筆記本！'),
+          backgroundColor: Color(0xFF8D6E63),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('匯入失敗: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  // ── 一鍵收藏題目邏輯 ──────────────────────────────────────────────
+  void _importSharedQuestion(Map<String, dynamic> attached) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final String text = attached['text'] ?? '';
+      final List<dynamic> options = attached['options'] is String
+          ? jsonDecode(attached['options'] as String) as List<dynamic>
+          : (attached['options'] as List<dynamic>? ?? []);
+      final String answer = attached['answer'] ?? '0';
+      final String explanation = attached['explanation'] ?? '';
+      final String subject = attached['subject'] ?? '一般';
+      final String difficulty = attached['difficulty'] ?? '中';
+
+      await db.insert('questions', {
+        'user_id': widget.currentUser['id'],
+        'text': text,
+        'options': jsonEncode(options),
+        'answer': answer,
+        'explanation': explanation,
+        'subject': subject,
+        'difficulty': difficulty,
+        'is_public': 0,
+        'bookmarked': 0,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      // 重新載入全域資料
+      _loadData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 題目已成功收藏至您的題庫！'),
+            backgroundColor: Color(0xFF8D6E63),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('收藏失敗: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 }

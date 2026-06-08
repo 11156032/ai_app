@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import '../database/database_helper.dart';
 
 // ==========================================
 // 1. 繪圖軌跡資料模型 (Stroke)
@@ -33,8 +35,8 @@ class Stroke {
     final pointsList = json['points'] as List;
     return Stroke(
       points: pointsList
-          .map((p) => Offset(
-              (p['x'] as num).toDouble(), (p['y'] as num).toDouble()))
+          .map((p) =>
+              Offset((p['x'] as num).toDouble(), (p['y'] as num).toDouble()))
           .toList(),
       color: Color(json['color'] as int),
       strokeWidth: (json['strokeWidth'] as num).toDouble(),
@@ -186,7 +188,8 @@ class PaperBackgroundPainter extends CustomPainter {
       ..strokeWidth = 1.2;
 
     // 1. 繪製紅色豎線 (筆記本左側邊界線)
-    canvas.drawLine(const Offset(36, 0), const Offset(36, double.maxFinite), marginPaint);
+    canvas.drawLine(
+        const Offset(36, 0), const Offset(36, double.maxFinite), marginPaint);
 
     // 2. 繪製橫向橫格線，配合文字高度 (24.0px 行高)
     const double lineSpacing = 24.0;
@@ -204,14 +207,18 @@ class PaperBackgroundPainter extends CustomPainter {
 // ==========================================
 class MarkdownTextController extends TextEditingController {
   @override
-  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+  TextSpan buildTextSpan(
+      {required BuildContext context,
+      TextStyle? style,
+      required bool withComposing}) {
     final List<TextSpan> spans = [];
     final textVal = text;
 
     final lines = textVal.split('\n');
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
-      TextStyle lineStyle = style ?? const TextStyle(fontSize: 15, color: Colors.black87, height: 1.6);
+      TextStyle lineStyle = style ??
+          const TextStyle(fontSize: 15, color: Colors.black87, height: 1.6);
       String content = line;
 
       // A. 解析標頭: "# " 或 "## "
@@ -257,7 +264,7 @@ class MarkdownTextController extends TextEditingController {
             continue;
           }
         }
-        
+
         // 2. 顏色解析 [color=0x...]
         if (content.startsWith('[color=', index)) {
           final colorEnd = content.indexOf(']', index);
@@ -265,7 +272,8 @@ class MarkdownTextController extends TextEditingController {
             final colorHex = content.substring(index + 7, colorEnd);
             final tagEnd = content.indexOf('[/color]', colorEnd + 1);
             if (tagEnd != -1) {
-              final colorVal = int.tryParse(colorHex) ?? Colors.black.toARGB32();
+              final colorVal =
+                  int.tryParse(colorHex) ?? Colors.black.toARGB32();
               inlineSpans.add(TextSpan(
                 text: content.substring(colorEnd + 1, tagEnd),
                 style: lineStyle.copyWith(color: Color(colorVal)),
@@ -339,9 +347,7 @@ class _NotesScreenState extends State<NotesScreen> {
     if (_selectedCategory == '全部') {
       return myNotes;
     }
-    return myNotes
-        .where((note) => note.category == _selectedCategory)
-        .toList();
+    return myNotes.where((note) => note.category == _selectedCategory).toList();
   }
 
   int _getNoteCount(String category) {
@@ -376,7 +382,8 @@ class _NotesScreenState extends State<NotesScreen> {
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('筆記已刪除'), duration: Duration(seconds: 1)),
+                const SnackBar(
+                    content: Text('筆記已刪除'), duration: Duration(seconds: 1)),
               );
             },
             child: const Text('確定刪除'),
@@ -394,7 +401,8 @@ class _NotesScreenState extends State<NotesScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
                 Icon(Icons.label_important_outline, color: Color(0xFF8D6E63)),
@@ -413,7 +421,8 @@ class _NotesScreenState extends State<NotesScreen> {
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: Row(
                       children: [
                         Expanded(
@@ -431,7 +440,8 @@ class _NotesScreenState extends State<NotesScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF8D6E63),
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                           ),
                           onPressed: () {
@@ -447,7 +457,8 @@ class _NotesScreenState extends State<NotesScreen> {
                                 // 彈出明確新增成功 SnackBar 提示
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('🎉 分類標籤「$newCat」新增成功！已排在列表最前。'),
+                                    content:
+                                        Text('🎉 分類標籤「$newCat」新增成功！已排在列表最前。'),
                                     backgroundColor: const Color(0xFF8D6E63),
                                     duration: const Duration(seconds: 2),
                                   ),
@@ -473,7 +484,10 @@ class _NotesScreenState extends State<NotesScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       '現有分類標籤清單：',
-                      style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -490,7 +504,8 @@ class _NotesScreenState extends State<NotesScreen> {
                           return Container(
                             margin: const EdgeInsets.only(bottom: 6),
                             decoration: BoxDecoration(
-                              color: isSystem ? Colors.grey.shade50 : Colors.white,
+                              color:
+                                  isSystem ? Colors.grey.shade50 : Colors.white,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.grey.shade200),
                             ),
@@ -500,20 +515,26 @@ class _NotesScreenState extends State<NotesScreen> {
                                 cat,
                                 style: TextStyle(
                                   fontSize: 14,
-                                  fontWeight: isSystem ? FontWeight.normal : FontWeight.bold,
-                                  color: isSystem ? Colors.grey.shade600 : const Color(0xFF5D4037),
+                                  fontWeight: isSystem
+                                      ? FontWeight.normal
+                                      : FontWeight.bold,
+                                  color: isSystem
+                                      ? Colors.grey.shade600
+                                      : const Color(0xFF5D4037),
                                 ),
                               ),
                               dense: true,
                               trailing: isSystem
-                                  ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey)
+                                  ? const Icon(Icons.lock_outline,
+                                      size: 16, color: Colors.grey)
                                   : IconButton(
                                       icon: const Icon(Icons.delete_outline,
                                           color: Colors.redAccent, size: 18),
                                       onPressed: () {
                                         setDialogState(() {
                                           NotesDatabase.categories.remove(cat);
-                                          for (var note in NotesDatabase.notes) {
+                                          for (var note
+                                              in NotesDatabase.notes) {
                                             if (note.category == cat) {
                                               note.category = '未分類';
                                             }
@@ -523,8 +544,10 @@ class _NotesScreenState extends State<NotesScreen> {
                                           }
                                         });
                                         setState(() {});
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('已刪除分類標籤「$cat」')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text('已刪除分類標籤「$cat」')),
                                         );
                                       },
                                     ),
@@ -540,7 +563,8 @@ class _NotesScreenState extends State<NotesScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('完成', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('完成',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -587,18 +611,25 @@ class _NotesScreenState extends State<NotesScreen> {
                             selectedColor: const Color(0xFF8D6E63),
                             backgroundColor: const Color(0xFFEFEBE9),
                             labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : const Color(0xFF5D4037),
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF5D4037),
                               fontSize: 13,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                               side: BorderSide(
-                                color: isSelected ? Colors.transparent : Colors.grey.shade300,
+                                color: isSelected
+                                    ? Colors.transparent
+                                    : Colors.grey.shade300,
                               ),
                             ),
                             elevation: isSelected ? 2 : 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 4),
                             onSelected: (selected) {
                               if (selected) {
                                 setState(() {
@@ -620,7 +651,8 @@ class _NotesScreenState extends State<NotesScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.settings, color: Color(0xFF8D6E63), size: 20),
+                    icon: const Icon(Icons.settings,
+                        color: Color(0xFF8D6E63), size: 20),
                     tooltip: '管理分類',
                     onPressed: _showCategoryManagementDialog,
                   ),
@@ -636,23 +668,29 @@ class _NotesScreenState extends State<NotesScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.edit_note, size: 64, color: Colors.grey.shade400),
+                        Icon(Icons.edit_note,
+                            size: 64, color: Colors.grey.shade400),
                         const SizedBox(height: 16),
                         Text(
-                          _selectedCategory == '全部' ? '目前沒有任何筆記哦！' : '在「$_selectedCategory」中沒有筆記',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+                          _selectedCategory == '全部'
+                              ? '目前沒有任何筆記哦！'
+                              : '在「$_selectedCategory」中沒有筆記',
+                          style: TextStyle(
+                              color: Colors.grey.shade600, fontSize: 15),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           '點擊右下角按鈕開始記錄你的筆記吧 ✍️',
-                          style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                          style: TextStyle(
+                              color: Colors.grey.shade400, fontSize: 13),
                         ),
                       ],
                     ),
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
@@ -668,14 +706,16 @@ class _NotesScreenState extends State<NotesScreen> {
                         const Color(0xFFEAE5EF),
                         const Color(0xFFEFECE5),
                       ];
-                      final bgColor = cardColors[note.id.hashCode % cardColors.length];
+                      final bgColor =
+                          cardColors[note.id.hashCode % cardColors.length];
 
                       return GestureDetector(
                         onTap: () async {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => NoteEditorScreen(note: note),
+                              builder: (context) =>
+                                  NoteEditorScreen(note: note),
                             ),
                           );
                           _refresh();
@@ -703,9 +743,11 @@ class _NotesScreenState extends State<NotesScreen> {
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                                      color: const Color(0xFF8D6E63)
+                                          .withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
@@ -721,11 +763,13 @@ class _NotesScreenState extends State<NotesScreen> {
                                   if (note.strokes.isNotEmpty)
                                     const Padding(
                                       padding: EdgeInsets.only(right: 4.0),
-                                      child: Icon(Icons.palette_outlined, size: 14, color: Color(0xFF8D6E63)),
+                                      child: Icon(Icons.palette_outlined,
+                                          size: 14, color: Color(0xFF8D6E63)),
                                     ),
                                   GestureDetector(
                                     onTap: () => _deleteNote(note),
-                                    child: const Icon(Icons.delete_outline, size: 16, color: Colors.black54),
+                                    child: const Icon(Icons.delete_outline,
+                                        size: 16, color: Colors.black54),
                                   ),
                                 ],
                               ),
@@ -744,19 +788,21 @@ class _NotesScreenState extends State<NotesScreen> {
                               Expanded(
                                 child: Text(
                                   note.content
-                                      .replaceAll('#', '')
-                                      .replaceAll('**', '')
-                                      .replaceAll(RegExp(r'\[color=.*?\]'), '')
-                                      .replaceAll('[/color]', '')
-                                      .trim()
-                                      .isEmpty
-                                          ? '（空白筆記內容）'
-                                          : note.content
-                                              .replaceAll('#', '')
-                                              .replaceAll('**', '')
-                                              .replaceAll(RegExp(r'\[color=.*?\]'), '')
-                                              .replaceAll('[/color]', '')
-                                              .trim(),
+                                          .replaceAll('#', '')
+                                          .replaceAll('**', '')
+                                          .replaceAll(
+                                              RegExp(r'\[color=.*?\]'), '')
+                                          .replaceAll('[/color]', '')
+                                          .trim()
+                                          .isEmpty
+                                      ? '（空白筆記內容）'
+                                      : note.content
+                                          .replaceAll('#', '')
+                                          .replaceAll('**', '')
+                                          .replaceAll(
+                                              RegExp(r'\[color=.*?\]'), '')
+                                          .replaceAll('[/color]', '')
+                                          .trim(),
                                   maxLines: 4,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -770,8 +816,10 @@ class _NotesScreenState extends State<NotesScreen> {
                               Align(
                                 alignment: Alignment.bottomRight,
                                 child: Text(
-                                  DateFormat('MM/dd HH:mm').format(note.updatedAt),
-                                  style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                                  DateFormat('MM/dd HH:mm')
+                                      .format(note.updatedAt),
+                                  style: TextStyle(
+                                      fontSize: 9, color: Colors.grey.shade500),
                                 ),
                               ),
                             ],
@@ -825,7 +873,8 @@ class NoteEditorScreen extends StatefulWidget {
   State<NoteEditorScreen> createState() => _NoteEditorScreenState();
 }
 
-class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerProviderStateMixin {
+class _NoteEditorScreenState extends State<NoteEditorScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late TextEditingController _titleController;
   late MarkdownTextController _contentController;
@@ -885,7 +934,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
   bool get _isModified {
     final currentTitle = _titleController.text.trim();
     final currentContent = _contentController.text;
-    
+
     bool strokesChanged = false;
     if (_strokes.length != widget.note.strokes.length) {
       strokesChanged = true;
@@ -915,6 +964,92 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
     widget.note.updatedAt = DateTime.now();
   }
 
+  void _shareNote() async {
+    _autoSave();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.share, color: Color(0xFF8D6E63)),
+            SizedBox(width: 8),
+            Text('分享筆記'),
+          ],
+        ),
+        content: Text(
+            '確定要將筆記「${widget.note.title.isEmpty ? "無標題筆記" : widget.note.title}」公開分享到社群論壇嗎？\n這將會產生一篇新的分享貼文。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8D6E63),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('確定分享'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF8D6E63)),
+        ),
+      );
+
+      try {
+        final strokesJson =
+            jsonEncode(_strokes.map((s) => s.toJson()).toList());
+        final db = await DatabaseHelper.instance.database;
+        await db.insert('posts', {
+          'user_id': widget.note.userId,
+          'content':
+              '我分享了我的學習筆記《${widget.note.title.isEmpty ? "無標題筆記" : widget.note.title}》，歡迎點擊一鍵匯入！ 📝',
+          'type': 'note',
+          'attached_data': jsonEncode({
+            'shared_type': 'note',
+            'title': widget.note.title.isEmpty ? "無標題筆記" : widget.note.title,
+            'content': widget.note.content,
+            'category': widget.note.category,
+            'strokes': strokesJson,
+          }),
+          'created_at': DateTime.now().toIso8601String(),
+        });
+
+        if (mounted) {
+          Navigator.pop(context); // 關閉讀取框
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 筆記已成功分享至社群論壇！'),
+              backgroundColor: Color(0xFF8D6E63),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // 關閉讀取框
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('分享失敗: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Future<bool> _showExitConfirmationDialog() async {
     final result = await showDialog<String>(
       context: context,
@@ -941,7 +1076,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
               }
               Navigator.pop(ctx, 'discard');
             },
-            child: const Text('捨棄變更', style: TextStyle(color: Colors.redAccent)),
+            child:
+                const Text('捨棄變更', style: TextStyle(color: Colors.redAccent)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -963,12 +1099,14 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
 
     if (result == 'save') {
       messenger.showSnackBar(
-        const SnackBar(content: Text('筆記已儲存 ✨'), duration: Duration(milliseconds: 800)),
+        const SnackBar(
+            content: Text('筆記已儲存 ✨'), duration: Duration(milliseconds: 800)),
       );
       return true;
     } else if (result == 'discard') {
       messenger.showSnackBar(
-        const SnackBar(content: Text('已捨棄變更 ↩️'), duration: Duration(milliseconds: 800)),
+        const SnackBar(
+            content: Text('已捨棄變更 ↩️'), duration: Duration(milliseconds: 800)),
       );
       return true;
     }
@@ -979,7 +1117,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
     if (_isBlank) {
       NotesDatabase.notes.remove(widget.note);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已自動捨棄空白筆記 🗑️'), duration: Duration(milliseconds: 800)),
+        const SnackBar(
+            content: Text('已自動捨棄空白筆記 🗑️'),
+            duration: Duration(milliseconds: 800)),
       );
       return true;
     }
@@ -994,17 +1134,19 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
   // ==========================================
   // 富文字工具列動作 (Rich Text Formatting Actions)
   // ==========================================
-  
+
   // 1. 粗體 toggler
   void _toggleBold() {
     final textVal = _contentController.text;
     final selection = _contentController.selection;
     if (selection.isValid && !selection.isCollapsed) {
       final selectedText = textVal.substring(selection.start, selection.end);
-      final newText = textVal.replaceRange(selection.start, selection.end, '**$selectedText**');
+      final newText = textVal.replaceRange(
+          selection.start, selection.end, '**$selectedText**');
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: selection.start + 2 + selectedText.length + 2),
+        selection: TextSelection.collapsed(
+            offset: selection.start + 2 + selectedText.length + 2),
       );
     } else {
       final start = selection.isValid ? selection.start : textVal.length;
@@ -1021,10 +1163,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
     final textVal = _contentController.text;
     final selection = _contentController.selection;
     final start = selection.isValid ? selection.start : textVal.length;
-    
+
     int lineStart = textVal.lastIndexOf('\n', start - 1);
     lineStart = lineStart == -1 ? 0 : lineStart + 1;
-    
+
     final currentLine = textVal.substring(lineStart, start);
     if (currentLine.startsWith('# ')) {
       final newText = textVal.replaceRange(lineStart, lineStart + 2, '');
@@ -1046,10 +1188,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
     final textVal = _contentController.text;
     final selection = _contentController.selection;
     final start = selection.isValid ? selection.start : textVal.length;
-    
+
     int lineStart = textVal.lastIndexOf('\n', start - 1);
     lineStart = lineStart == -1 ? 0 : lineStart + 1;
-    
+
     final currentLine = textVal.substring(lineStart, start);
     if (currentLine.startsWith('## ')) {
       final newText = textVal.replaceRange(lineStart, lineStart + 3, '');
@@ -1071,10 +1213,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
     final textVal = _contentController.text;
     final selection = _contentController.selection;
     final start = selection.isValid ? selection.start : textVal.length;
-    
+
     int lineStart = textVal.lastIndexOf('\n', start - 1);
     lineStart = lineStart == -1 ? 0 : lineStart + 1;
-    
+
     final currentLine = textVal.substring(lineStart, start);
     if (currentLine.startsWith('- ')) {
       final newText = textVal.replaceRange(lineStart, lineStart + 2, '');
@@ -1096,10 +1238,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
     final textVal = _contentController.text;
     final selection = _contentController.selection;
     final start = selection.isValid ? selection.start : textVal.length;
-    
+
     int lineStart = textVal.lastIndexOf('\n', start - 1);
     lineStart = lineStart == -1 ? 0 : lineStart + 1;
-    
+
     final newText = textVal.replaceRange(lineStart, lineStart, '    ');
     _contentController.value = TextEditingValue(
       text: newText,
@@ -1112,17 +1254,20 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
     final textVal = _contentController.text;
     final selection = _contentController.selection;
     final colorHex = '0x${color.toARGB32().toRadixString(16).toUpperCase()}';
-    
+
     if (selection.isValid && !selection.isCollapsed) {
       final selectedText = textVal.substring(selection.start, selection.end);
-      final newText = textVal.replaceRange(selection.start, selection.end, '[color=$colorHex]$selectedText[/color]');
+      final newText = textVal.replaceRange(selection.start, selection.end,
+          '[color=$colorHex]$selectedText[/color]');
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: selection.start + 15 + selectedText.length + 8),
+        selection: TextSelection.collapsed(
+            offset: selection.start + 15 + selectedText.length + 8),
       );
     } else {
       final start = selection.isValid ? selection.start : textVal.length;
-      final newText = textVal.replaceRange(start, start, '[color=$colorHex][/color]');
+      final newText =
+          textVal.replaceRange(start, start, '[color=$colorHex][/color]');
       _contentController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: start + 15),
@@ -1136,10 +1281,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
   void _onStrokeStart(Offset localPos) {
     _saveToUndoStack();
     _redoStack.clear();
-    
-    Color strokeColor = _isEraser 
-        ? const Color(0xFFFAFAFA) 
-        : (_isHighlighter ? _selectedColor.withValues(alpha: 0.35) : _selectedColor);
+
+    Color strokeColor = _isEraser
+        ? const Color(0xFFFAFAFA)
+        : (_isHighlighter
+            ? _selectedColor.withValues(alpha: 0.35)
+            : _selectedColor);
 
     setState(() {
       _strokes.add(
@@ -1240,7 +1387,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
+            icon: const Icon(Icons.arrow_back_ios,
+                color: Colors.black87, size: 20),
             onPressed: () async {
               final navigator = Navigator.of(context);
               final shouldPop = await _onWillPop();
@@ -1294,12 +1442,18 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
           ),
           actions: [
             IconButton(
+              icon: const Icon(Icons.share, color: Color(0xFF8D6E63)),
+              tooltip: '分享至社群',
+              onPressed: _shareNote,
+            ),
+            IconButton(
               icon: const Icon(Icons.save, color: Color(0xFF8D6E63)),
               tooltip: '儲存筆記',
               onPressed: () {
                 _autoSave();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('筆記已儲存 ✨'), duration: Duration(seconds: 1)),
+                  const SnackBar(
+                      content: Text('筆記已儲存'), duration: Duration(seconds: 1)),
                 );
               },
             ),
@@ -1310,7 +1464,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
             unselectedLabelColor: Colors.grey,
             indicatorColor: const Color(0xFF8D6E63),
             indicatorSize: TabBarIndicatorSize.label,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            labelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             tabs: const [
               Tab(
                 child: Row(
@@ -1372,7 +1527,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE5DCD3), width: 1),
+                        border: Border.all(
+                            color: const Color(0xFFE5DCD3), width: 1),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.02),
@@ -1386,7 +1542,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                           // 筆記打字本體 (帶有橫線底圖)
                           Expanded(
                             child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(16)),
                               child: Stack(
                                 children: [
                                   Positioned.fill(
@@ -1396,7 +1553,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                                   ),
                                   Positioned.fill(
                                     child: SingleChildScrollView(
-                                      padding: const EdgeInsets.fromLTRB(48, 16, 20, 16),
+                                      padding: const EdgeInsets.fromLTRB(
+                                          48, 16, 20, 16),
                                       child: TextField(
                                         controller: _contentController,
                                         focusNode: _contentFocusNode,
@@ -1409,7 +1567,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                                         ),
                                         decoration: const InputDecoration(
                                           hintText: '在此輸入文字內容...\n可以使用下方格式工具列。',
-                                          hintStyle: TextStyle(color: Colors.black26),
+                                          hintStyle:
+                                              TextStyle(color: Colors.black26),
                                           border: InputBorder.none,
                                           isDense: true,
                                           contentPadding: EdgeInsets.zero,
@@ -1433,7 +1592,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE5DCD3), width: 1),
+                        border: Border.all(
+                            color: const Color(0xFFE5DCD3), width: 1),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.02),
@@ -1447,7 +1607,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                           // 手寫畫布本體 (以微格子作為底圖)
                           Expanded(
                             child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(16)),
                               child: Stack(
                                 children: [
                                   Positioned.fill(
@@ -1500,31 +1661,36 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
             children: [
               IconButton(
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.format_bold, color: Color(0xFF5D4037), size: 20),
+                icon: const Icon(Icons.format_bold,
+                    color: Color(0xFF5D4037), size: 20),
                 tooltip: '粗體',
                 onPressed: _toggleBold,
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.title, color: Color(0xFF5D4037), size: 20),
+                icon:
+                    const Icon(Icons.title, color: Color(0xFF5D4037), size: 20),
                 tooltip: '大標頭 H1',
                 onPressed: _toggleH1,
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.text_fields, color: Color(0xFF5D4037), size: 20),
+                icon: const Icon(Icons.text_fields,
+                    color: Color(0xFF5D4037), size: 20),
                 tooltip: '次標頭 H2',
                 onPressed: _toggleH2,
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.format_list_bulleted, color: Color(0xFF5D4037), size: 20),
+                icon: const Icon(Icons.format_list_bulleted,
+                    color: Color(0xFF5D4037), size: 20),
                 tooltip: '列點',
                 onPressed: _toggleBullet,
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.format_indent_increase, color: Color(0xFF5D4037), size: 20),
+                icon: const Icon(Icons.format_indent_increase,
+                    color: Color(0xFF5D4037), size: 20),
                 tooltip: '縮排',
                 onPressed: _toggleIndent,
               ),
@@ -1536,7 +1702,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                const Text('字色: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                const Text('字色: ',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
                 ..._morandiPalette.map((color) {
                   return GestureDetector(
                     onTap: () => _applyTextColor(color),
@@ -1578,18 +1745,23 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
             children: [
               IconButton(
                 icon: const Icon(Icons.undo, size: 20),
-                color: _undoStack.isNotEmpty ? Colors.black87 : Colors.grey.shade300,
+                color: _undoStack.isNotEmpty
+                    ? Colors.black87
+                    : Colors.grey.shade300,
                 onPressed: _undoStack.isNotEmpty ? _undo : null,
                 tooltip: '復原',
               ),
               IconButton(
                 icon: const Icon(Icons.redo, size: 20),
-                color: _redoStack.isNotEmpty ? Colors.black87 : Colors.grey.shade300,
+                color: _redoStack.isNotEmpty
+                    ? Colors.black87
+                    : Colors.grey.shade300,
                 onPressed: _redoStack.isNotEmpty ? _redo : null,
                 tooltip: '重做',
               ),
               IconButton(
-                icon: const Icon(Icons.delete_sweep_outlined, size: 20, color: Colors.redAccent),
+                icon: const Icon(Icons.delete_sweep_outlined,
+                    size: 20, color: Colors.redAccent),
                 onPressed: _strokes.isNotEmpty ? _clearCanvas : null,
                 tooltip: '清空手寫筆跡',
               ),
@@ -1603,14 +1775,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: _isHighlighter
                         ? Colors.yellow.shade100
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: _isHighlighter ? Colors.orange.shade300 : Colors.grey.shade300,
+                      color: _isHighlighter
+                          ? Colors.orange.shade300
+                          : Colors.grey.shade300,
                     ),
                   ),
                   child: Row(
@@ -1618,15 +1793,21 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                       Icon(
                         Icons.border_color,
                         size: 14,
-                        color: _isHighlighter ? Colors.orange.shade800 : Colors.black87,
+                        color: _isHighlighter
+                            ? Colors.orange.shade800
+                            : Colors.black87,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '螢光筆重點',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: _isHighlighter ? FontWeight.bold : FontWeight.normal,
-                          color: _isHighlighter ? Colors.orange.shade800 : Colors.black87,
+                          fontWeight: _isHighlighter
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: _isHighlighter
+                              ? Colors.orange.shade800
+                              : Colors.black87,
                         ),
                       )
                     ],
@@ -1643,12 +1824,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _isEraser ? const Color(0xFF8D6E63).withValues(alpha: 0.15) : Colors.transparent,
+                    color: _isEraser
+                        ? const Color(0xFF8D6E63).withValues(alpha: 0.15)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: _isEraser ? const Color(0xFF8D6E63) : Colors.grey.shade300,
+                      color: _isEraser
+                          ? const Color(0xFF8D6E63)
+                          : Colors.grey.shade300,
                     ),
                   ),
                   child: Row(
@@ -1656,15 +1842,20 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                       Icon(
                         Icons.cleaning_services_outlined,
                         size: 14,
-                        color: _isEraser ? const Color(0xFF8D6E63) : Colors.black87,
+                        color: _isEraser
+                            ? const Color(0xFF8D6E63)
+                            : Colors.black87,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '橡皮擦',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: _isEraser ? FontWeight.bold : FontWeight.normal,
-                          color: _isEraser ? const Color(0xFF8D6E63) : Colors.black87,
+                          fontWeight:
+                              _isEraser ? FontWeight.bold : FontWeight.normal,
+                          color: _isEraser
+                              ? const Color(0xFF8D6E63)
+                              : Colors.black87,
                         ),
                       )
                     ],
@@ -1682,7 +1873,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
               if (!_isHighlighter && !_isEraser)
                 Row(
                   children: [
-                    const Text('筆觸: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    const Text('筆觸: ',
+                        style: TextStyle(fontSize: 11, color: Colors.grey)),
                     Expanded(
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
@@ -1698,20 +1890,24 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                         ),
                       ),
                     ),
-                    Text('${_strokeWidth.toInt()}px', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text('${_strokeWidth.toInt()}px',
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
               const SizedBox(height: 4),
               // 調色盤
               Row(
                 children: [
-                  const Text('色彩: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  const Text('色彩: ',
+                      style: TextStyle(fontSize: 11, color: Colors.grey)),
                   Expanded(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: _morandiPalette.map((color) {
-                          final isSelected = _selectedColor == color && !_isEraser;
+                          final isSelected =
+                              _selectedColor == color && !_isEraser;
                           return GestureDetector(
                             onTap: () {
                               setState(() {
@@ -1727,7 +1923,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> with SingleTickerPr
                                 color: color,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: isSelected ? Colors.orange : Colors.grey.shade300,
+                                  color: isSelected
+                                      ? Colors.orange
+                                      : Colors.grey.shade300,
                                   width: isSelected ? 3 : 1,
                                 ),
                               ),
@@ -1862,9 +2060,11 @@ class StrokePainter extends CustomPainter {
       }
 
       if (stroke.points.length == 1) {
-        canvas.drawCircle(stroke.points.first, stroke.strokeWidth / 2, paint..style = PaintingStyle.fill);
+        canvas.drawCircle(stroke.points.first, stroke.strokeWidth / 2,
+            paint..style = PaintingStyle.fill);
       } else {
-        final path = Path()..moveTo(stroke.points.first.dx, stroke.points.first.dy);
+        final path = Path()
+          ..moveTo(stroke.points.first.dx, stroke.points.first.dy);
         for (int i = 1; i < stroke.points.length; i++) {
           path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
         }
