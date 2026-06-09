@@ -111,6 +111,12 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Restoring original seed users and data (Sharon, etc.)...');
         await _seedDatabase(db);
       }
+
+      // 檢查是否已寫入新測試題庫 (歷史、理化)
+      final extraCheck = await db.query('tags', where: "name = '中國史'");
+      if (extraCheck.isEmpty) {
+        await _seedExtraQuestions(db);
+      }
     } catch (e) {
       debugPrint('Error checking/adding dynamic columns or cleaning up: $e');
     }
@@ -1337,6 +1343,48 @@ class DatabaseHelper {
       'duration_seconds': 1200,
       'timestamp': '2026-05-27 09:30:00'
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<void> _seedExtraQuestions(Database db) async {
+    // 插入歷史和理化的 Tag
+    await db.insert('tags', {'name': '中國史'}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('tags', {'name': '理化'}, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    final historyTag = await db.query('tags', where: "name = '中國史'");
+    final physicsTag = await db.query('tags', where: "name = '理化'");
+    
+    int historyTagId = historyTag.isNotEmpty ? historyTag.first['id'] as int : 0;
+    int physicsTagId = physicsTag.isNotEmpty ? physicsTag.first['id'] as int : 0;
+
+    // 插入測試題目
+    int q1Id = await db.insert('questions', {
+      'user_id': 'u2',
+      'text': '中國歷史上第一個大一統的帝國是？',
+      'options': jsonEncode(['漢朝', '秦朝', '唐朝', '宋朝']),
+      'answer': '1',
+      'explanation': '秦始皇統一六國，建立秦朝，為第一個大一統帝國。',
+      'subject': '歷史',
+      'difficulty': '易',
+      'bookmarked': 0
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    int q2Id = await db.insert('questions', {
+      'user_id': 'u2',
+      'text': '下列何者為牛頓第二運動定律公式？',
+      'options': jsonEncode(['F = ma', 'E = mc²', 'V = IR', 'P = IV']),
+      'answer': '0',
+      'explanation': '牛頓第二運動定律公式為 F = ma。',
+      'subject': '理化',
+      'difficulty': '中',
+      'bookmarked': 0
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    if (historyTagId > 0 && q1Id > 0) {
+      await db.insert('question_tag_map', {'question_id': q1Id, 'tag_id': historyTagId}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    if (physicsTagId > 0 && q2Id > 0) {
+      await db.insert('question_tag_map', {'question_id': q2Id, 'tag_id': physicsTagId}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
   }
 
   Future<void> clearVisitorData() async {

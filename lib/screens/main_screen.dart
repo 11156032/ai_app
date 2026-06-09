@@ -103,11 +103,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _leaderboardSortType = 'accuracy'; // 'accuracy' | 'total'
   late DateTime _sessionStartTime;
 
-  List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分'];
+  List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分', '歷史', '理化'];
   Map<String, List<String>> subjectChapters = {
     '資訊管理': ['第一章 資訊系統簡介', '第二章 資料庫管理'],
     '國文': ['師說', '出師表'],
     '數學': ['面積', '機率'],
+    '歷史': ['台灣史', '中國史', '世界史'],
+    '理化': ['力學', '電磁學', '光學'],
   };
 
   // --- 狀態控制區 ---
