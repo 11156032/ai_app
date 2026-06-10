@@ -42,12 +42,12 @@ class SubjectChaptersPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: () => _openChapter(context, chapterName),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.blue.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
@@ -55,14 +55,14 @@ class SubjectChaptersPage extends StatelessWidget {
                 child: const Icon(
                   Icons.description_rounded, // 檔案圖示
                   color: Colors.blue,
-                  size: 36,
+                  size: 32,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
                 chapterName,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: cs.onSurface,
                 ),
@@ -103,7 +103,7 @@ class SubjectChaptersPage extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 1.0, // 讓卡片更接近正方形
+                childAspectRatio: 0.85, // 調整比例以容納兩行標題，防止底部溢出
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),

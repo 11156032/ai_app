@@ -207,6 +207,126 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     }
   }
 
+  Future<void> _addQuestionToPaper(Map<String, dynamic> question) async {
+    try {
+      final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+      final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
+      final questionId = question['id'] as int;
+      
+      if (!mounted) return;
+
+      final selectedPaper = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('選擇要加入的自訂題本'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: papers.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return ListTile(
+                    leading: const Icon(Icons.add, color: Colors.blue),
+                    title: const Text('建立新題本並加入', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                    onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
+                  );
+                }
+                final p = papers[index - 1];
+                return ListTile(
+                  leading: const Icon(Icons.assignment_rounded, color: Colors.orange),
+                  title: Text(p['name'] ?? '未命名題本'),
+                  subtitle: Text('建立於 ${p['created_at']?.toString().split(' ')[0] ?? ""}'),
+                  onTap: () => Navigator.pop(ctx, p),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+          ],
+        ),
+      );
+
+      if (selectedPaper == null) return;
+
+      if (selectedPaper['action'] == 'create_new') {
+        if (!mounted) return;
+        final newNameController = TextEditingController();
+        final defaultName = '題本 ${papers.length + 1}';
+        
+        final newPaperName = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('建立新題本'),
+            content: TextField(
+              controller: newNameController,
+              decoration: InputDecoration(
+                labelText: '題本名稱',
+                hintText: defaultName,
+              ),
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('取消'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final text = newNameController.text.trim();
+                  Navigator.pop(ctx, text.isEmpty ? defaultName : text);
+                },
+                child: const Text('確定'),
+              ),
+            ],
+          ),
+        );
+
+        if (newPaperName == null) return;
+
+        await DatabaseHelper.instance.createPaper(
+          uid.toString(),
+          newPaperName,
+          [questionId],
+        );
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已建立並成功加入「$newPaperName」')),
+        );
+        return;
+      }
+
+      final paperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
+      final paperName = selectedPaper['name'] ?? '未命名題本';
+
+      final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
+      if (ids.contains(questionId)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('此題目已存在於該自訂題本中')),
+        );
+      } else {
+        ids.add(questionId);
+        await DatabaseHelper.instance.updatePaper(paperId, paperName, ids);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已將題目成功加入「$paperName」')),
+        );
+      }
+    } catch (e) {
+      debugPrint('加到題本失敗: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('加入失敗，請稍後再試')),
+      );
+    }
+  }
+
   Widget _buildQuestionItem(BuildContext context, Map<String, dynamic> question, int index, ColorScheme cs) {
     final options = question['options'] is List
         ? (question['options'] as List).map((item) => item.toString()).toList()
@@ -263,15 +383,21 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant),
                   onSelected: (value) {
-                    if (value == 'edit') _openEditPage(question);
                     if (value == 'practice') _openPractice(index);
+                    if (value == 'edit') _openEditPage(question);
                     if (value == 'delete') _deleteQuestion(question);
+                    if (value == 'add_to_paper') _addQuestionToPaper(question);
                   },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'practice', child: Text('單題練習')),
-                    const PopupMenuItem(value: 'edit', child: Text('編輯題目')),
-                    const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))),
-                  ],
+                  itemBuilder: (context) => widget.paperId != null
+                      ? [
+                          const PopupMenuItem(value: 'practice', child: Text('單題練習')),
+                          const PopupMenuItem(value: 'edit', child: Text('編輯題目')),
+                          const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))),
+                        ]
+                      : [
+                          const PopupMenuItem(value: 'practice', child: Text('單題練習')),
+                          const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')),
+                        ],
                 ),
               ],
             ),
