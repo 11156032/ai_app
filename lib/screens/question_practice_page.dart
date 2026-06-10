@@ -28,6 +28,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
   final Set<int> _revealed = {};
   final Set<int> _marked = {};
   final Set<int> _wrongSaved = {};
+  bool _isGridExpanded = false;
 
   @override
   void initState() {
@@ -87,6 +88,115 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
           ? 0
           : widget.initialIndex.clamp(0, widget.questions.length - 1);
     });
+  }
+
+  Widget _buildCollapsibleNavigationGrid(ColorScheme cs) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: cs.outline.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            dense: true,
+            leading: Icon(Icons.grid_view_rounded, color: cs.primary),
+            title: Text(
+              '題號快速跳轉 (${widget.questions.length} 題)',
+              style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
+            ),
+            trailing: Icon(_isGridExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded),
+            onTap: () {
+              setState(() {
+                _isGridExpanded = !_isGridExpanded;
+              });
+            },
+          ),
+          if (_isGridExpanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 6,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: widget.questions.length,
+                itemBuilder: (context, index) {
+                  final isCurrent = index == _currentIndex;
+                  final hasAnswered = _selectedAnswers.containsKey(index);
+                  final isRevealed = _revealed.contains(index);
+                  
+                  Color bgColor;
+                  Color textColor;
+                  Border? border;
+
+                  if (isCurrent) {
+                    bgColor = cs.primary;
+                    textColor = cs.onPrimary;
+                    border = Border.all(color: cs.primary, width: 2);
+                  } else if (hasAnswered) {
+                    if (isRevealed) {
+                      final question = widget.questions[index];
+                      final correct = _isCorrect(index, question);
+                      if (correct) {
+                        bgColor = Colors.green.withValues(alpha: 0.15);
+                        textColor = Colors.green.shade800;
+                        border = Border.all(color: Colors.green.withValues(alpha: 0.5));
+                      } else {
+                        bgColor = Colors.red.withValues(alpha: 0.15);
+                        textColor = Colors.red.shade800;
+                        border = Border.all(color: Colors.red.withValues(alpha: 0.5));
+                      }
+                    } else {
+                      bgColor = cs.primaryContainer.withValues(alpha: 0.7);
+                      textColor = cs.onPrimaryContainer;
+                      border = Border.all(color: cs.primary.withValues(alpha: 0.2));
+                    }
+                  } else {
+                    bgColor = cs.surfaceContainerHighest.withValues(alpha: 0.4);
+                    textColor = cs.onSurfaceVariant;
+                    border = Border.all(color: cs.outline.withValues(alpha: 0.12));
+                  }
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: border,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   bool _isCorrect(int index, Map<String, dynamic> question) {
@@ -232,6 +342,8 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          _buildCollapsibleNavigationGrid(cs),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),

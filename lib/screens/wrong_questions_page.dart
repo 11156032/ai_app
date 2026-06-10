@@ -353,11 +353,29 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          Expanded(child: OutlinedButton.icon(onPressed: _deleteSelected, icon: const Icon(Icons.delete_outline_rounded), label: const Text('移除選取'))),
-                          const SizedBox(width: 8),
-                          Expanded(child: OutlinedButton.icon(onPressed: _batchAddNotes, icon: const Icon(Icons.note_add_rounded), label: const Text('批次加入筆記'))),
-                          const SizedBox(width: 8),
-                          Expanded(child: ElevatedButton.icon(onPressed: _startPracticeSelected, icon: const Icon(Icons.play_arrow_rounded), label: const Text('複習選取'))),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _deleteSelected,
+                              child: const Text('移除選取', style: TextStyle(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _batchAddNotes,
+                              child: const Text('批次筆記', style: TextStyle(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _startPracticeSelected,
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: const Text('複習選取', style: TextStyle(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
                         ],
                       ),
                     ),

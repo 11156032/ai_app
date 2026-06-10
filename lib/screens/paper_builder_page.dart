@@ -18,6 +18,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
   final Set<int> _selectedIds = {};
   bool _loading = true;
   final TextEditingController _nameCtrl = TextEditingController();
+  String _selectedSubjectFilter = '全部';
 
   @override
   void initState() {
@@ -70,13 +71,24 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     }
   }
 
-  void _toggleSelectAll() {
+  List<String> get _availableSubjects {
+    final set = <String>{};
+    for (final q in _questions) {
+      final s = q['subject']?.toString() ?? '';
+      if (s.isNotEmpty) set.add(s);
+    }
+    return ['全部', ...set];
+  }
+
+  void _toggleSelectAll(List<Map<String, dynamic>> filtered) {
+    final allSelected = filtered.isNotEmpty && filtered.every((q) => _selectedIds.contains(q['id'] as int));
     setState(() {
-      if (_selectedIds.length == _questions.length) {
-        _selectedIds.clear();
+      if (allSelected) {
+        for (final q in filtered) {
+          _selectedIds.remove(q['id'] as int);
+        }
       } else {
-        _selectedIds.clear();
-        for (final q in _questions) {
+        for (final q in filtered) {
           _selectedIds.add(q['id'] as int);
         }
       }
@@ -119,6 +131,16 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    
+    // Filter questions based on selected subject
+    final filteredQuestions = _questions.where((q) {
+      if (_selectedSubjectFilter == '全部') return true;
+      return q['subject'] == _selectedSubjectFilter;
+    }).toList();
+
+    final allSelected = filteredQuestions.isNotEmpty && 
+        filteredQuestions.every((q) => _selectedIds.contains(q['id'] as int));
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -145,47 +167,82 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                     ),
                   ),
                 ),
+                // 科目篩選下拉選單
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _selectedSubjectFilter,
+                    decoration: InputDecoration(
+                      labelText: '篩選科目',
+                      filled: true,
+                      fillColor: cs.surface,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: _availableSubjects
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedSubjectFilter = val ?? '全部';
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
                     children: [
                       ElevatedButton.icon(
-                        onPressed: _toggleSelectAll,
+                        onPressed: () => _toggleSelectAll(filteredQuestions),
                         icon: const Icon(Icons.select_all_rounded),
-                        label: Text(_selectedIds.length == _questions.length ? '取消全選' : '全選'),
+                        label: Text(allSelected ? '取消全選' : '全選'),
                         style: ElevatedButton.styleFrom(backgroundColor: cs.primary, foregroundColor: cs.onPrimary),
                       ),
                       const SizedBox(width: 8),
-                      Text('${_selectedIds.length} / ${_questions.length} 已選', style: TextStyle(color: cs.onSurface)),
+                      Text('${_selectedIds.length} 題已選', style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w500)),
+                      if (_selectedSubjectFilter != '全部') ...[
+                        const SizedBox(width: 4),
+                        Text('(此科目中已選 ${filteredQuestions.where((q) => _selectedIds.contains(q['id'] as int)).length} 題)', 
+                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                      ],
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _questions.length,
-                    itemBuilder: (context, idx) {
-                      final q = _questions[idx];
-                      final id = q['id'] as int;
-                      final snippet = (q['question'] ?? '').toString();
-                      final display = snippet.length > 120 ? '${snippet.substring(0, 120)}...' : snippet;
-                      return CheckboxListTile(
-                        value: _selectedIds.contains(id),
-                        title: Text(display, style: TextStyle(color: cs.onSurface)),
-                        subtitle: Text(q['subject'] ?? '', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65))),
-                        onChanged: (v) {
-                          setState(() {
-                            if (v == true) {
-                              _selectedIds.add(id);
-                            } else {
-                              _selectedIds.remove(id);
-                            }
-                          });
-                        },
-                      );
-                    },
-                  ),
+                  child: filteredQuestions.isEmpty
+                      ? Center(
+                          child: Text(
+                            '此科目目前沒有題目可供選擇',
+                            style: TextStyle(color: cs.onSurfaceVariant),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: filteredQuestions.length,
+                          itemBuilder: (context, idx) {
+                            final q = filteredQuestions[idx];
+                            final id = q['id'] as int;
+                            final snippet = (q['question'] ?? '').toString();
+                            final display = snippet.length > 120 ? '${snippet.substring(0, 120)}...' : snippet;
+                            return CheckboxListTile(
+                              value: _selectedIds.contains(id),
+                              title: Text(display, style: TextStyle(color: cs.onSurface)),
+                              subtitle: Text(q['subject'] ?? '', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65))),
+                              onChanged: (v) {
+                                setState(() {
+                                  if (v == true) {
+                                    _selectedIds.add(id);
+                                  } else {
+                                    _selectedIds.remove(id);
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        ),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(12),

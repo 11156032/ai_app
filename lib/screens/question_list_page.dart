@@ -154,14 +154,14 @@ class _QuestionListPageState extends State<QuestionListPage> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: cs.outline.withValues(alpha: 0.1)),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -169,12 +169,12 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(icon, color: color, size: 32),
+                    child: Icon(icon, color: color, size: 24),
                   ),
                   if (onEdit != null || onDelete != null)
                     PopupMenuButton<String>(
@@ -196,7 +196,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: cs.onSurface,
                 ),
@@ -207,7 +207,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               Text(
                 subtitle,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: cs.onSurfaceVariant,
                 ),
               ),
@@ -252,7 +252,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 1.1,
+              childAspectRatio: 0.92, // 調整寬高比以容納多行文字，防止底部溢出
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
@@ -379,7 +379,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 1.1,
+            childAspectRatio: 0.92, // 調整寬高比以容納多行文字，防止底部溢出
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
