@@ -186,11 +186,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _selectedDate = _simulatedToday;
     _calendarMonth = DateTime(now.year, now.month, 1);
 
-    // 以 2026年3月 為基準 (page 12)，計算今天所在月份的頁碼
-    const baseYear = 2026;
-    const baseMonth = 3;
+    // 以 2020年1月 為基準 (page 0)，計算今天所在月份的頁碼
+    const baseYear = 2020;
+    const baseMonth = 1;
     final monthOffset = (now.year - baseYear) * 12 + (now.month - baseMonth);
-    _calendarPageController = PageController(initialPage: 12 + monthOffset);
+    _calendarPageController = PageController(initialPage: monthOffset);
     _timelinePageController = PageController(initialPage: 1000);
     _displayName = widget.currentUser['display_name'];
     _initApp();
@@ -390,6 +390,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           'scheduled_at': attached['scheduled_at'],
           'attached_data': attached,
         };
+
+        // 尋找舊貼文中相同 ID 的展開狀態，避免自動收起
+        final oldPost = socialPosts.firstWhere(
+          (oldP) => oldP['id'] == p['id'],
+          orElse: () => <String, dynamic>{},
+        );
+        if (oldPost.isNotEmpty) {
+          postData['_isExpanded'] = oldPost['_isExpanded'];
+        }
 
         try {
           if (attached.containsKey('scheduled_at') &&
@@ -1226,10 +1235,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           foregroundColor: Colors.white),
                       onPressed: () {
                         Navigator.pop(ctx);
-                        // 同樣以 2026年3月 = page 12 為基準計算目標頁
+                        // 以 2020年1月 = page 0 為基準計算目標頁
                         int deltaMonths =
-                            (selectedYear - 2026) * 12 + (selectedMonth - 3);
-                        int targetPage = 12 + deltaMonths;
+                            (selectedYear - 2020) * 12 + (selectedMonth - 1);
+                        int targetPage = deltaMonths;
                         _calendarPageController.animateToPage(targetPage,
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut);
@@ -1244,8 +1253,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _calendarMonth = DateTime(_simulatedToday.year, _simulatedToday.month, 1);
     });
     int deltaMonths =
-        (_simulatedToday.year - 2026) * 12 + (_simulatedToday.month - 3);
-    int targetPage = 12 + deltaMonths;
+        (_simulatedToday.year - 2020) * 12 + (_simulatedToday.month - 1);
+    int targetPage = deltaMonths;
     _calendarPageController.animateToPage(targetPage,
         duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
   }
@@ -5147,8 +5156,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             _syncDate(eventDate, fromCalendar: true);
             // 計算年份與月份差距，跳轉日曆月視圖 PageController
             final deltaMonths =
-                (eventDate.year - 2026) * 12 + (eventDate.month - 3);
-            final targetPage = 12 + deltaMonths;
+                (eventDate.year - 2020) * 12 + (eventDate.month - 1);
+            final targetPage = deltaMonths;
             if (_calendarPageController.hasClients) {
               _calendarPageController.jumpToPage(targetPage);
             }
@@ -6526,11 +6535,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             height: _calendarViewMode == 'bar' ? 380 : 330,
             child: PageView.builder(
                 controller: _calendarPageController,
-                // page 12 固定 = 2026年3月（全域基準），initialPage 動態偏移以跳到今月
+                // page 0 固定 = 2020年1月（全域基準），initialPage 動態偏移以跳到今月
                 onPageChanged: (i) => setState(
-                    () => _calendarMonth = DateTime(2026, 3 + (i - 12), 1)),
+                    () => _calendarMonth = DateTime(2020, 1 + i, 1)),
                 itemBuilder: (ctx, i) =>
-                    _buildMonthGrid(DateTime(2026, 3 + (i - 12), 1)))),
+                    _buildMonthGrid(DateTime(2020, 1 + i, 1)))),
         Padding(
             padding: const EdgeInsets.fromLTRB(25, 0, 15, 0),
             child: Row(
