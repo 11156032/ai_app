@@ -785,10 +785,8 @@ extension MainScreenProfileTab on _MainScreenState {
         children: [
           // Weekday header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: ['一', '二', '三', '四', '五', '六', '日'].map((w) {
-              return SizedBox(
-                width: 32,
+              return Expanded(
                 child: Center(
                   child: Text(
                     w,
@@ -812,11 +810,9 @@ extension MainScreenProfileTab on _MainScreenState {
                 children: [
                   // Base grid numbers
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: List.generate(7, (dIndex) {
                       int dayNum = wIndex * 7 + dIndex + 1;
-                      return SizedBox(
-                        width: 32,
+                      return Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
@@ -837,7 +833,6 @@ extension MainScreenProfileTab on _MainScreenState {
                   // Foreground dots or bars
                   if (mode == 'dot')
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: List.generate(7, (dIndex) {
                         int dayNum = wIndex * 7 + dIndex + 1;
                         List<Color> dots = [];
@@ -857,8 +852,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           ];
                         }
 
-                        return SizedBox(
-                          width: 32,
+                        return Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
