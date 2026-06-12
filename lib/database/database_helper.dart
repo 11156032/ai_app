@@ -67,6 +67,30 @@ class DatabaseHelper {
 
     // 確保 is_edited 欄位存在，防止 onCreate 沒有建立此欄位
     try {
+      // 確保 user_papers 與 wrong_questions 資料表存在 (防禦性建立，防止 migration 未執行)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS user_papers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id VARCHAR NOT NULL,
+          name VARCHAR NOT NULL,
+          question_ids TEXT NOT NULL DEFAULT '[]',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS wrong_questions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id VARCHAR NOT NULL,
+          question_id INTEGER NOT NULL,
+          note TEXT DEFAULT '',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+          FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE
+        )
+      ''');
+
       var postCols = await db.rawQuery('PRAGMA table_info(posts)');
       if (!postCols.any((c) => c['name'] == 'is_edited')) {
         await db.execute(

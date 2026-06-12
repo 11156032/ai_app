@@ -9,12 +9,15 @@ class ReviewPage extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
   final Map<int, int> selectedAnswers;
   final Map<String, dynamic>? currentUser;
+  final bool saveResult;
 
-  const ReviewPage(
-      {super.key,
-      required this.questions,
-      required this.selectedAnswers,
-      this.currentUser});
+  const ReviewPage({
+    super.key,
+    required this.questions,
+    required this.selectedAnswers,
+    this.currentUser,
+    this.saveResult = false,
+  });
 
   @override
   State<ReviewPage> createState() => _ReviewPageState();
@@ -298,37 +301,39 @@ class _ReviewPageState extends State<ReviewPage>
           return _buildQuestionCard(cs, qIdx, q, options, correct, chosen, isWrong);
         },
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 10,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: ElevatedButton.icon(
-          onPressed: _saving ? null : _saveSelectedWrongAndNotes,
-          icon: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Icon(Icons.save_rounded),
-          label: Text(_saving ? '儲存中...' : '儲存錯題與筆記',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            backgroundColor: const Color(0xFF8D6E63),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 0,
-          ),
-        ),
-      ),
+      bottomNavigationBar: widget.saveResult
+          ? Container(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _saving ? null : _saveSelectedWrongAndNotes,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.save_rounded),
+                label: Text(_saving ? '儲存中...' : '儲存錯題與筆記',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: const Color(0xFF8D6E63),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -759,54 +764,57 @@ class _ReviewPageState extends State<ReviewPage>
                 ],
 
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _noteCtrls[qIdx],
-                  minLines: 2,
-                  maxLines: 4,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    labelText: '新增筆記（選填）',
-                    hintText: '記錄這題的思路或心得...',
-                    labelStyle: const TextStyle(fontSize: 13),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB))),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    prefixIcon: const Icon(Icons.edit_note_rounded, size: 18),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Transform.scale(
-                      scale: 0.9,
-                      child: Checkbox(
-                        value: _toSaveWrong.contains(qIdx),
-                        activeColor: const Color(0xFF5C6BC0),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4)),
-                        onChanged: (v) => setState(() {
-                          if (v == true) {
-                            _toSaveWrong.add(qIdx);
-                          } else {
-                            _toSaveWrong.remove(qIdx);
-                          }
-                        }),
-                      ),
+                if (widget.saveResult) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _noteCtrls[qIdx],
+                    minLines: 2,
+                    maxLines: 4,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: '新增筆記（選填）',
+                      hintText: '記錄這題的思路或心得...',
+                      labelStyle: const TextStyle(fontSize: 13),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFD1D5DB))),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      prefixIcon: const Icon(Icons.edit_note_rounded, size: 18),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.bookmark_add_outlined,
-                        size: 16, color: Color(0xFF5C6BC0)),
-                    const SizedBox(width: 6),
-                    const Text('加入錯題本',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF5C6BC0))),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Transform.scale(
+                        scale: 0.9,
+                        child: Checkbox(
+                          value: _toSaveWrong.contains(qIdx),
+                          activeColor: const Color(0xFF5C6BC0),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4)),
+                          onChanged: (v) => setState(() {
+                            if (v == true) {
+                              _toSaveWrong.add(qIdx);
+                            } else {
+                              _toSaveWrong.remove(qIdx);
+                            }
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.bookmark_add_outlined,
+                          size: 16, color: Color(0xFF5C6BC0)),
+                      const SizedBox(width: 6),
+                      const Text('加入錯題本',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF5C6BC0))),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

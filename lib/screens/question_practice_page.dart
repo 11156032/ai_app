@@ -9,6 +9,8 @@ class QuestionPracticePage extends StatefulWidget {
   final int initialIndex;
   final String title;
   final Map<String, dynamic>? currentUser;
+  final bool isPaper;
+  final bool saveResult;
 
   const QuestionPracticePage({
     super.key,
@@ -16,6 +18,8 @@ class QuestionPracticePage extends StatefulWidget {
     this.initialIndex = 0,
     this.title = '題目練習',
     this.currentUser,
+    this.isPaper = false,
+    this.saveResult = false,
   });
 
   @override
@@ -29,6 +33,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
   final Set<int> _marked = {};
   final Set<int> _wrongSaved = {};
   bool _isGridExpanded = false;
+  final ScrollController _horizontalScrollController = ScrollController();
 
   @override
   void initState() {
@@ -40,6 +45,39 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
       final id = q['id'] as int? ?? int.tryParse(q['id'].toString()) ?? 0;
       if (q['isFavorite'] == true) _marked.add(id);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrentIndex();
+    });
+  }
+
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToCurrentIndex() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isGridExpanded && _horizontalScrollController.hasClients) {
+        const double itemWidth = 48.0; // 40px item + 8px margins
+        final double viewportWidth = MediaQuery.of(context).size.width;
+        // Center the active element in the viewport
+        final double targetOffset = (itemWidth * _currentIndex) - (viewportWidth / 2) + (itemWidth / 2) + 16.0;
+        _horizontalScrollController.animateTo(
+          targetOffset.clamp(0.0, _horizontalScrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  void _updateCurrentIndex(int index) {
+    if (index < 0 || index >= widget.questions.length) return;
+    setState(() {
+      _currentIndex = index;
+    });
+    _scrollToCurrentIndex();
   }
 
   List<String> _parseOptions(dynamic rawOptions) {
@@ -88,6 +126,67 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
           ? 0
           : widget.initialIndex.clamp(0, widget.questions.length - 1);
     });
+    _scrollToCurrentIndex();
+  }
+
+  Widget _buildNavigationItem(ColorScheme cs, int index) {
+    final isCurrent = index == _currentIndex;
+    final hasAnswered = _selectedAnswers.containsKey(index);
+    final isRevealed = _revealed.contains(index);
+    
+    Color bgColor;
+    Color textColor;
+    Border? border;
+
+    if (isCurrent) {
+      bgColor = cs.primary;
+      textColor = cs.onPrimary;
+      border = Border.all(color: cs.primary, width: 2);
+    } else if (hasAnswered) {
+      if (isRevealed) {
+        final question = widget.questions[index];
+        final correct = _isCorrect(index, question);
+        if (correct) {
+          bgColor = Colors.green.withValues(alpha: 0.15);
+          textColor = Colors.green.shade800;
+          border = Border.all(color: Colors.green.withValues(alpha: 0.5));
+        } else {
+          bgColor = Colors.red.withValues(alpha: 0.15);
+          textColor = Colors.red.shade800;
+          border = Border.all(color: Colors.red.withValues(alpha: 0.5));
+        }
+      } else {
+        bgColor = cs.primaryContainer.withValues(alpha: 0.7);
+        textColor = cs.onPrimaryContainer;
+        border = Border.all(color: cs.primary.withValues(alpha: 0.2));
+      }
+    } else {
+      bgColor = cs.surfaceContainerHighest.withValues(alpha: 0.4);
+      textColor = cs.onSurfaceVariant;
+      border = Border.all(color: cs.outline.withValues(alpha: 0.12));
+    }
+
+    return InkWell(
+      onTap: () => _updateCurrentIndex(index),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: border,
+        ),
+        child: Center(
+          child: Text(
+            '${index + 1}',
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildCollapsibleNavigationGrid(ColorScheme cs) {
@@ -107,93 +206,60 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               '題號快速跳轉 (${widget.questions.length} 題)',
               style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
             ),
-            trailing: Icon(_isGridExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded),
-            onTap: () {
-              setState(() {
-                _isGridExpanded = !_isGridExpanded;
-              });
-            },
-          ),
-          if (_isGridExpanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1.0,
+            trailing: TextButton(
+              onPressed: () {
+                setState(() {
+                  _isGridExpanded = !_isGridExpanded;
+                });
+                if (!_isGridExpanded) {
+                  _scrollToCurrentIndex();
+                }
+              },
+              child: Text(
+                _isGridExpanded ? '收起' : '展開',
+                style: TextStyle(
+                  color: cs.primary,
+                  fontWeight: FontWeight.bold,
                 ),
-                itemCount: widget.questions.length,
-                itemBuilder: (context, index) {
-                  final isCurrent = index == _currentIndex;
-                  final hasAnswered = _selectedAnswers.containsKey(index);
-                  final isRevealed = _revealed.contains(index);
-                  
-                  Color bgColor;
-                  Color textColor;
-                  Border? border;
-
-                  if (isCurrent) {
-                    bgColor = cs.primary;
-                    textColor = cs.onPrimary;
-                    border = Border.all(color: cs.primary, width: 2);
-                  } else if (hasAnswered) {
-                    if (isRevealed) {
-                      final question = widget.questions[index];
-                      final correct = _isCorrect(index, question);
-                      if (correct) {
-                        bgColor = Colors.green.withValues(alpha: 0.15);
-                        textColor = Colors.green.shade800;
-                        border = Border.all(color: Colors.green.withValues(alpha: 0.5));
-                      } else {
-                        bgColor = Colors.red.withValues(alpha: 0.15);
-                        textColor = Colors.red.shade800;
-                        border = Border.all(color: Colors.red.withValues(alpha: 0.5));
-                      }
-                    } else {
-                      bgColor = cs.primaryContainer.withValues(alpha: 0.7);
-                      textColor = cs.onPrimaryContainer;
-                      border = Border.all(color: cs.primary.withValues(alpha: 0.2));
-                    }
-                  } else {
-                    bgColor = cs.surfaceContainerHighest.withValues(alpha: 0.4);
-                    textColor = cs.onSurfaceVariant;
-                    border = Border.all(color: cs.outline.withValues(alpha: 0.12));
-                  }
-
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _currentIndex = index;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: border,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: TextStyle(
-                            color: textColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
               ),
             ),
-          ],
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: _isGridExpanded
+                ? GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 6,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 1.0,
+                    ),
+                    itemCount: widget.questions.length,
+                    itemBuilder: (context, index) {
+                      return _buildNavigationItem(cs, index);
+                    },
+                  )
+                : SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      controller: _horizontalScrollController,
+                      scrollDirection: Axis.horizontal,
+                      itemCount: widget.questions.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: SizedBox(
+                            width: 40,
+                            child: _buildNavigationItem(cs, index),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
         ],
       ),
     );
@@ -482,35 +548,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               );
             }),
           const SizedBox(height: 8),
-          if (selectedIndex != null && !revealed)
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  setState(() => _revealed.add(_currentIndex));
-                  // if answered wrong, save to wrong_questions
-                  final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'];
-                  if (uid != null && selectedIndex != answerIndex) {
-                    final qid = currentQid;
-                    if (qid > 0 && !_wrongSaved.contains(qid)) {
-                      DatabaseHelper.instance.addWrongQuestion(uid.toString(), qid);
-                      _wrongSaved.add(qid);
-                    }
-                  }
-                },
-                icon: const Icon(Icons.visibility_rounded),
-                label: const Text('顯示答案'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            )
-          else if (revealed)
+          if (revealed)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -574,7 +612,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                 child: OutlinedButton.icon(
                   onPressed: _currentIndex == 0
                       ? null
-                      : () => setState(() => _currentIndex -= 1),
+                      : () => _updateCurrentIndex(_currentIndex - 1),
                   icon: const Icon(Icons.chevron_left_rounded),
                   label: const Text('上一題'),
                   style: OutlinedButton.styleFrom(
@@ -590,7 +628,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                 child: ElevatedButton.icon(
                   onPressed: _currentIndex >= widget.questions.length - 1
                       ? null
-                      : () => setState(() => _currentIndex += 1),
+                      : () => _updateCurrentIndex(_currentIndex + 1),
                   icon: const Icon(Icons.chevron_right_rounded),
                   label: Text(
                     _currentIndex >= widget.questions.length - 1 ? '已到底' : '下一題',
@@ -708,6 +746,25 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
       }
     }
 
+    if (widget.saveResult && widget.currentUser != null) {
+      final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u1';
+      try {
+        final db = await DatabaseHelper.instance.database;
+        await db.insert('quiz_results', {
+          'user_id': uid.toString(),
+          'total': total,
+          'correct': correct,
+          'wrong_question_ids': jsonEncode(wrongIds),
+          'duration_seconds': 0,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+        debugPrint('Saved paper quiz result to history.');
+      } catch (e) {
+        debugPrint('Failed to save paper quiz result: $e');
+      }
+    }
+
+    if (!mounted) return;
     final action = await showDialog<String?>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -722,9 +779,20 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     );
 
     if (action == 'reveal') {
+      final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'];
       setState(() {
         for (int i = 0; i < widget.questions.length; i++) {
           _revealed.add(i);
+          if (uid != null && widget.saveResult) {
+            final q = widget.questions[i];
+            final qid = q['id'] as int? ?? int.tryParse(q['id'].toString()) ?? 0;
+            final ans = _selectedAnswers[i];
+            final correctIdx = _correctIndex(q);
+            if (ans != null && ans != correctIdx && qid > 0 && !_wrongSaved.contains(qid)) {
+              DatabaseHelper.instance.addWrongQuestion(uid.toString(), qid);
+              _wrongSaved.add(qid);
+            }
+          }
         }
       });
       return;
@@ -737,7 +805,17 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
         if (_selectedAnswers.containsKey(i)) sel[i] = _selectedAnswers[i]!;
       }
       if (!mounted) return;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewPage(questions: widget.questions, selectedAnswers: sel, currentUser: widget.currentUser)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReviewPage(
+            questions: widget.questions,
+            selectedAnswers: sel,
+            currentUser: widget.currentUser,
+            saveResult: widget.saveResult,
+          ),
+        ),
+      );
     }
   }
 }

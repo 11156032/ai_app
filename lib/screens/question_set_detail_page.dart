@@ -32,8 +32,9 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _questions = [];
   bool _showAnswers = false;
-  bool _isGridExpanded = true;
+  bool _isGridExpanded = false;
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
   List<GlobalKey> _itemKeys = [];
   final Set<int> _expandedIndices = {};
 
@@ -46,6 +47,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _horizontalScrollController.dispose();
     super.dispose();
   }
 
@@ -128,7 +130,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         _questions = mapped;
         _isLoading = false;
         _showAnswers = widget.paperId == null;
-        _isGridExpanded = mapped.isNotEmpty;
+        _isGridExpanded = false;
         _itemKeys = List.generate(mapped.length, (_) => GlobalKey());
       });
     } catch (e) {
@@ -138,7 +140,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     }
   }
 
-  void _openPractice(int initialIndex) {
+  void _openPractice(int initialIndex, {bool saveResult = false, bool isPaperMode = false}) {
     if (_questions.isEmpty) return;
     Navigator.push(
       context,
@@ -148,7 +150,160 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           initialIndex: initialIndex,
           title: widget.title,
           currentUser: widget.currentUser,
+          isPaper: isPaperMode,
+          saveResult: saveResult,
         ),
+      ),
+    );
+  }
+
+  Future<void> _showPracticeModeSelectionDialog() async {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Icon(Icons.psychology_rounded, color: cs.primary, size: 28),
+            const SizedBox(width: 12),
+            const Text(
+              '請選擇作答模式',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '此設定會影響測驗結束後，系統是否為您儲存分數與錯題紀錄。',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            // Card 1: 一般練習 (不記錄成績)
+            InkWell(
+              onTap: () {
+                Navigator.pop(ctx);
+                _openPractice(0, saveResult: false, isPaperMode: widget.paperId != null);
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+                  color: cs.surfaceContainerLowest,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.menu_book_rounded, color: Colors.blue),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '一般練習 (不記錄成績)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '直接作答，作答結果不存入個人學習歷程。',
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Card 2: 模擬測驗 (記錄成績)
+            InkWell(
+              onTap: () async {
+                Navigator.pop(ctx);
+                if (widget.paperId != null) {
+                  _openPractice(0, saveResult: true, isPaperMode: true);
+                } else {
+                  // Public Question Bank: import questions to custom paper first, then practice
+                  final paperInfo = await _importAllQuestionsToPaper();
+                  if (paperInfo != null) {
+                    final String newPaperName = paperInfo['name'] as String;
+                    if (!mounted) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => QuestionPracticePage(
+                          questions: _questions,
+                          initialIndex: 0,
+                          title: newPaperName,
+                          currentUser: widget.currentUser,
+                          isPaper: true,
+                          saveResult: true,
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+                  color: cs.surfaceContainerLowest,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.assignment_turned_in_rounded, color: Colors.orange),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '模擬測驗 (儲存測驗紀錄)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.paperId != null
+                                ? '交卷後自動儲存測驗分數與歷史。'
+                                : '會自動建立/選擇自訂題本，並記錄測驗分數。',
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+        ],
       ),
     );
   }
@@ -225,7 +380,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     try {
       final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
       final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
-      final questionId = question['id'] as int;
+      final questionId = int.tryParse(question['id'].toString()) ?? 0;
       
       if (!mounted) return;
 
@@ -341,14 +496,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     }
   }
 
-  Future<void> _importAllQuestionsToPaper() async {
-    if (_questions.isEmpty) return;
+  Future<Map<String, dynamic>?> _importAllQuestionsToPaper() async {
+    if (_questions.isEmpty) return null;
     try {
       final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
       final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
-      final allIds = _questions.map((q) => q['id'] as int).toList();
+      final allIds = _questions.map((q) => int.tryParse(q['id'].toString()) ?? 0).where((id) => id > 0).toList();
 
-      if (!mounted) return;
+      if (!mounted) return null;
 
       final selectedPaper = await showDialog<Map<String, dynamic>>(
         context: context,
@@ -386,10 +541,13 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         ),
       );
 
-      if (selectedPaper == null) return;
+      if (selectedPaper == null) return null;
+
+      int finalPaperId = 0;
+      String finalPaperName = '';
 
       if (selectedPaper['action'] == 'create_new') {
-        if (!mounted) return;
+        if (!mounted) return null;
         final newNameController = TextEditingController();
         final defaultName = '${widget.title} (複製)';
 
@@ -421,47 +579,49 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           ),
         );
 
-        if (newPaperName == null) return;
+        if (newPaperName == null) return null;
 
-        await DatabaseHelper.instance.createPaper(
+        finalPaperId = await DatabaseHelper.instance.createPaper(
           uid.toString(),
           newPaperName,
           allIds,
         );
+        finalPaperName = newPaperName;
 
-        if (!mounted) return;
+        if (!mounted) return null;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('已建立並成功匯入 ${allIds.length} 題至「$newPaperName」')),
         );
-        return;
-      }
-
-      final paperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
-      final paperName = selectedPaper['name'] ?? '未命名題本';
-
-      final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
-      final int originalCount = ids.length;
-      final Set<int> mergedSet = {...ids, ...allIds};
-      final int addedCount = mergedSet.length - originalCount;
-
-      await DatabaseHelper.instance.updatePaper(paperId, paperName, mergedSet.toList());
-      
-      if (!mounted) return;
-      if (addedCount == 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('所有題目均已存在於「$paperName」中')),
-        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已成功匯入 $addedCount 題至「$paperName」！')),
-        );
+        finalPaperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
+        finalPaperName = selectedPaper['name'] ?? '未命名題本';
+
+        final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(finalPaperId);
+        final int originalCount = ids.length;
+        final Set<int> mergedSet = {...ids, ...allIds};
+        final int addedCount = mergedSet.length - originalCount;
+
+        await DatabaseHelper.instance.updatePaper(finalPaperId, finalPaperName, mergedSet.toList());
+        
+        if (!mounted) return null;
+        if (addedCount == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('所有題目均已存在於「$finalPaperName」中')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已成功匯入 $addedCount 題至「$finalPaperName」！')),
+          );
+        }
       }
+      return {'id': finalPaperId, 'name': finalPaperName};
     } catch (e) {
       debugPrint('整套匯入失敗: $e');
-      if (!mounted) return;
+      if (!mounted) return null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('匯入失敗，請稍後再試')),
       );
+      return null;
     }
   }
 
@@ -526,7 +686,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                         const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))),
                       ]
                     : [
-                        const PopupMenuItem(value: 'practice', child: Text('單題練習')),
                         const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')),
                       ],
               ),
@@ -639,7 +798,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
   Widget _buildHeroHeader(ColorScheme cs) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -659,111 +818,143 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cs.onPrimary.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  widget.paperId != null ? Icons.assignment_rounded : Icons.folder_open_rounded,
-                  color: cs.onPrimary,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: TextStyle(
-                        color: cs.onPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.paperId != null ? '自訂題本' : '${widget.subject ?? "公共題庫"} • ${widget.chapter ?? "全部章節"}',
-                      style: TextStyle(
-                        color: cs.onPrimary.withValues(alpha: 0.8),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '題目總數',
-                    style: TextStyle(
-                      color: cs.onPrimary.withValues(alpha: 0.7),
-                      fontSize: 12,
-                    ),
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cs.onPrimary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${_questions.length} 題',
-                    style: TextStyle(
-                      color: cs.onPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Icon(
+                    widget.paperId != null ? Icons.assignment_rounded : Icons.folder_open_rounded,
+                    color: cs.onPrimary,
+                    size: 32,
                   ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.paperId == null) ...[
-                    IconButton(
-                      icon: const Icon(Icons.copy_all_rounded),
-                      tooltip: '整套匯入自訂題本',
-                      style: IconButton.styleFrom(
-                        backgroundColor: cs.onPrimary.withValues(alpha: 0.15),
-                        foregroundColor: cs.onPrimary,
-                        padding: const EdgeInsets.all(12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: TextStyle(
+                          color: cs.onPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      onPressed: _importAllQuestionsToPaper,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  ElevatedButton.icon(
-                    onPressed: () => _openPractice(0),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 24),
-                    label: const Text('開始測驗', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: cs.onPrimary,
-                      foregroundColor: cs.primary,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.paperId != null ? '自訂題本' : '${widget.subject ?? "公共題庫"} • ${widget.chapter ?? "全部章節"}',
+                        style: TextStyle(
+                          color: cs.onPrimary.withValues(alpha: 0.8),
+                          fontSize: 13,
+                        ),
                       ),
-                      elevation: 2,
-                    ),
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '題目總數',
+                style: TextStyle(
+                  color: cs.onPrimary.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${_questions.length} 題',
+                style: TextStyle(
+                  color: cs.onPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionBar(ColorScheme cs) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: ElevatedButton.icon(
+              onPressed: _showPracticeModeSelectionDialog,
+              icon: const Icon(Icons.play_arrow_rounded, size: 22),
+              label: const Text('開始作答', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _showAnswers = !_showAnswers;
+                });
+              },
+              icon: Icon(
+                _showAnswers ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                size: 20,
+              ),
+              label: Text(_showAnswers ? '隱藏解析' : '顯示解析', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: cs.primary,
+                side: BorderSide(color: cs.primary.withValues(alpha: 0.5)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+          if (widget.paperId == null) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: OutlinedButton.icon(
+                onPressed: _importAllQuestionsToPaper,
+                icon: const Icon(Icons.copy_all_rounded, size: 20),
+                label: const Text('收錄題本', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: cs.secondary,
+                  side: BorderSide(color: cs.secondary.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -853,7 +1044,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                         const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))),
                       ]
                     : [
-                        const PopupMenuItem(value: 'practice', child: Text('單題練習')),
                         const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')),
                       ],
               ),
@@ -883,10 +1073,50 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     );
   }
 
+  Widget _buildNavigationItem(ColorScheme cs, int index) {
+    return InkWell(
+      onTap: () {
+        if (!_showAnswers) {
+          setState(() {
+            _expandedIndices.add(index);
+          });
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final targetCtx = _itemKeys[index].currentContext;
+          if (targetCtx != null) {
+            Scrollable.ensureVisible(
+              targetCtx,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOut,
+            );
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.secondaryContainer.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+        ),
+        child: Center(
+          child: Text(
+            '${index + 1}',
+            style: TextStyle(
+              color: cs.onSecondaryContainer,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCollapsibleNavigationGrid(ColorScheme cs) {
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: cs.outline.withValues(alpha: 0.1)),
@@ -900,69 +1130,57 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
               '題號快速跳轉 (${_questions.length} 題)',
               style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
             ),
-            trailing: Icon(_isGridExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded),
-            onTap: () {
-              setState(() {
-                _isGridExpanded = !_isGridExpanded;
-              });
-            },
-          ),
-          if (_isGridExpanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1.0,
+            trailing: TextButton(
+              onPressed: () {
+                setState(() {
+                  _isGridExpanded = !_isGridExpanded;
+                });
+              },
+              child: Text(
+                _isGridExpanded ? '收起' : '展開',
+                style: TextStyle(
+                  color: cs.primary,
+                  fontWeight: FontWeight.bold,
                 ),
-                itemCount: _questions.length,
-                itemBuilder: (context, index) {
-                  return InkWell(
-                    onTap: () {
-                      if (!_showAnswers) {
-                        setState(() {
-                          _expandedIndices.add(index);
-                        });
-                      }
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        final targetCtx = _itemKeys[index].currentContext;
-                        if (targetCtx != null) {
-                          Scrollable.ensureVisible(
-                            targetCtx,
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: cs.secondaryContainer.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: TextStyle(
-                            color: cs.onSecondaryContainer,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
               ),
             ),
-          ],
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: _isGridExpanded
+                ? GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 6,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 1.0,
+                    ),
+                    itemCount: _questions.length,
+                    itemBuilder: (context, index) {
+                      return _buildNavigationItem(cs, index);
+                    },
+                  )
+                : SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      controller: _horizontalScrollController,
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _questions.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: SizedBox(
+                            width: 40,
+                            child: _buildNavigationItem(cs, index),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
         ],
       ),
     );
@@ -977,19 +1195,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         title: Text(widget.title),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
-        actions: [
-          if (_questions.isNotEmpty) ...[
-            IconButton(
-              icon: Icon(_showAnswers ? Icons.visibility_rounded : Icons.visibility_off_rounded),
-              tooltip: _showAnswers ? '隱藏答案與解析' : '顯示答案與解析',
-              onPressed: () {
-                setState(() {
-                  _showAnswers = !_showAnswers;
-                });
-              },
-            ),
-          ],
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -1006,7 +1211,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 )
               : Column(
                   children: [
-                    _buildCollapsibleNavigationGrid(cs),
                     Expanded(
                       child: SingleChildScrollView(
                         controller: _scrollController,
@@ -1014,6 +1218,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                         child: Column(
                           children: [
                             _buildHeroHeader(cs),
+                            _buildActionBar(cs),
+                            _buildCollapsibleNavigationGrid(cs),
                             ...List.generate(_questions.length, (qIdx) {
                               final question = _questions[qIdx];
                               final isExpanded = _showAnswers || _expandedIndices.contains(qIdx);
