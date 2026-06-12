@@ -7496,26 +7496,29 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 10),
+                                      horizontal: 6, vertical: 10),
                                   decoration: BoxDecoration(
                                     border:
                                         Border.all(color: Colors.grey.shade300),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Row(children: [
-                                    const Icon(Icons.calendar_today,
-                                        size: 16, color: Color(0xFF8D6E63)),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ]),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(children: [
+                                      const Icon(Icons.calendar_today,
+                                          size: 16, color: Color(0xFF8D6E63)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ]),
+                                  ),
                                 ),
                               ),
                             ),
                             const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              padding: EdgeInsets.symmetric(horizontal: 4),
                               child: Text('至'),
                             ),
                             Expanded(
@@ -7536,21 +7539,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 10),
+                                      horizontal: 6, vertical: 10),
                                   decoration: BoxDecoration(
                                     border:
                                         Border.all(color: Colors.grey.shade300),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Row(children: [
-                                    const Icon(Icons.calendar_today,
-                                        size: 16, color: Color(0xFF8D6E63)),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ]),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(children: [
+                                      const Icon(Icons.calendar_today,
+                                          size: 16, color: Color(0xFF8D6E63)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ]),
+                                  ),
                                 ),
                               ),
                             ),
@@ -7822,26 +7828,29 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 10),
+                                        horizontal: 6, vertical: 10),
                                     decoration: BoxDecoration(
                                       border: Border.all(
                                           color: Colors.grey.shade300),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Row(children: [
-                                      const Icon(Icons.calendar_today,
-                                          size: 16, color: Color(0xFF8D6E63)),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ]),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(children: [
+                                        const Icon(Icons.calendar_today,
+                                            size: 16, color: Color(0xFF8D6E63)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ]),
+                                    ),
                                   ),
                                 ),
                               ),
                               const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                padding: EdgeInsets.symmetric(horizontal: 4),
                                 child: Text('至'),
                               ),
                               Expanded(
@@ -7853,7 +7862,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       firstDate: pickedStartDate,
                                       lastDate: DateTime(2030),
                                       locale: const Locale('zh', 'TW'),
-                                    );
+                                      );
                                     if (picked != null) {
                                       setDialogState(() {
                                         pickedEndDate = picked;
@@ -7862,21 +7871,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 10),
+                                        horizontal: 6, vertical: 10),
                                     decoration: BoxDecoration(
                                       border: Border.all(
                                           color: Colors.grey.shade300),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Row(children: [
-                                      const Icon(Icons.calendar_today,
-                                          size: 16, color: Color(0xFF8D6E63)),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ]),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(children: [
+                                        const Icon(Icons.calendar_today,
+                                            size: 16, color: Color(0xFF8D6E63)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ]),
+                                    ),
                                   ),
                                 ),
                               ),
