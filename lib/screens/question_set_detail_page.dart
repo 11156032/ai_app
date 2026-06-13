@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
-import 'question_edit_page.dart';
+import '../services/notebook_helper.dart';
+// import 'question_edit_page.dart';
 import 'question_practice_page.dart';
 
 class QuestionSetDetailPage extends StatefulWidget {
@@ -10,6 +11,7 @@ class QuestionSetDetailPage extends StatefulWidget {
   final String? subject;
   final String? chapter; // 新增章節參數
   final int? paperId;
+  final bool isFavoriteOnly; // 新增收藏篩選參數
   final List<String> allSubjects;
   final Map<String, List<String>> subjectChapters;
 
@@ -20,6 +22,7 @@ class QuestionSetDetailPage extends StatefulWidget {
     this.subject,
     this.chapter,
     this.paperId,
+    this.isFavoriteOnly = false,
     required this.allSubjects,
     required this.subjectChapters,
   });
@@ -32,7 +35,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _questions = [];
   bool _showAnswers = false;
-  bool _isGridExpanded = false;
+  bool _isFloatingNavExpanded = false;
   final ScrollController _scrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
   List<GlobalKey> _itemKeys = [];
@@ -57,7 +60,11 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       final db = await DatabaseHelper.instance.database;
       List<Map<String, Object?>> rows = [];
       
-      if (widget.paperId != null) {
+      if (widget.isFavoriteOnly) {
+        rows = await db.query('questions',
+            where: 'bookmarked = 1',
+            orderBy: 'created_at DESC');
+      } else if (widget.paperId != null) {
         final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(widget.paperId!);
         if (ids.isNotEmpty) {
           rows = await db.query('questions',
@@ -130,7 +137,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         _questions = mapped;
         _isLoading = false;
         _showAnswers = widget.paperId == null;
-        _isGridExpanded = false;
+        _isFloatingNavExpanded = false;
         _itemKeys = List.generate(mapped.length, (_) => GlobalKey());
       });
     } catch (e) {
@@ -229,30 +236,13 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             const SizedBox(height: 12),
             // Card 2: 模擬測驗 (記錄成績)
             InkWell(
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(ctx);
                 if (widget.paperId != null) {
                   _openPractice(0, saveResult: true, isPaperMode: true);
                 } else {
-                  // Public Question Bank: import questions to custom paper first, then practice
-                  final paperInfo = await _importAllQuestionsToPaper();
-                  if (paperInfo != null) {
-                    final String newPaperName = paperInfo['name'] as String;
-                    if (!mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => QuestionPracticePage(
-                          questions: _questions,
-                          initialIndex: 0,
-                          title: newPaperName,
-                          currentUser: widget.currentUser,
-                          isPaper: true,
-                          saveResult: true,
-                        ),
-                      ),
-                    );
-                  }
+                  // 不需要強制匯入自訂題本，直接開始作答並記錄成績
+                  _openPractice(0, saveResult: true, isPaperMode: false);
                 }
               },
               borderRadius: BorderRadius.circular(16),
@@ -309,6 +299,27 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   }
 
   Future<void> _openEditPage(Map<String, dynamic> question) async {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Color(0xFF8D6E63)),
+            SizedBox(width: 8),
+            Text('系統提示'),
+          ],
+        ),
+        content: const Text('功能開發中'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('確定'),
+          ),
+        ],
+      ),
+    );
+    /*
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -323,6 +334,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     if (result == true) {
       await _loadQuestions();
     }
+    */
   }
 
   Future<void> _deleteQuestion(Map<String, dynamic> question) async {
@@ -405,7 +417,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 return ListTile(
                   leading: const Icon(Icons.assignment_rounded, color: Colors.orange),
                   title: Text(p['name'] ?? '未命名題本'),
-                  subtitle: Text('建立於 ${p['created_at']?.toString().split(' ')[0] ?? ""}'),
                   onTap: () => Navigator.pop(ctx, p),
                 );
               },
@@ -526,7 +537,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 return ListTile(
                   leading: const Icon(Icons.assignment_rounded, color: Colors.orange),
                   title: Text(p['name'] ?? '未命名題本'),
-                  subtitle: Text('建立於 ${p['created_at']?.toString().split(' ')[0] ?? ""}'),
                   onTap: () => Navigator.pop(ctx, p),
                 );
               },
@@ -671,22 +681,49 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   ),
                 ),
               ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  question['isFavorite'] == true ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color: question['isFavorite'] == true ? Colors.amber : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    final db = await DatabaseHelper.instance.database;
+                    final nextVal = question['isFavorite'] == true ? 0 : 1;
+                    await db.update('questions', {'bookmarked': nextVal}, where: 'id = ?', whereArgs: [question['id']]);
+                    setState(() {
+                      question['isFavorite'] = nextVal == 1;
+                    });
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(nextVal == 1 ? '已加入收藏' : '已取消收藏')),
+                    );
+                  } catch (e) {
+                    debugPrint('切換收藏失敗: $e');
+                  }
+                },
+              ),
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant),
                 onSelected: (value) {
-                  if (value == 'practice') _openPractice(index);
                   if (value == 'edit') _openEditPage(question);
                   if (value == 'delete') _deleteQuestion(question);
                   if (value == 'add_to_paper') _addQuestionToPaper(question);
+                  if (value == 'add_to_notebook') {
+                    NotebookHelper.showAddToNotebookDialog(context, widget.currentUser, question);
+                  }
                 },
                 itemBuilder: (context) => widget.paperId != null
                     ? [
-                        const PopupMenuItem(value: 'practice', child: Text('單題練習')),
                         const PopupMenuItem(value: 'edit', child: Text('編輯題目')),
+                        const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')),
                         const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))),
                       ]
                     : [
                         const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')),
+                        const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')),
                       ],
               ),
             ],
@@ -1026,25 +1063,52 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   ],
                 ),
               ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  question['isFavorite'] == true ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color: question['isFavorite'] == true ? Colors.amber : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    final db = await DatabaseHelper.instance.database;
+                    final nextVal = question['isFavorite'] == true ? 0 : 1;
+                    await db.update('questions', {'bookmarked': nextVal}, where: 'id = ?', whereArgs: [question['id']]);
+                    setState(() {
+                      question['isFavorite'] = nextVal == 1;
+                    });
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(nextVal == 1 ? '已加入收藏' : '已取消收藏')),
+                    );
+                  } catch (e) {
+                    debugPrint('切換收藏失敗: $e');
+                  }
+                },
+              ),
               const SizedBox(width: 8),
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 onSelected: (value) {
-                  if (value == 'practice') _openPractice(index);
                   if (value == 'edit') _openEditPage(question);
                   if (value == 'delete') _deleteQuestion(question);
                   if (value == 'add_to_paper') _addQuestionToPaper(question);
+                  if (value == 'add_to_notebook') {
+                    NotebookHelper.showAddToNotebookDialog(context, widget.currentUser, question);
+                  }
                 },
                 itemBuilder: (context) => widget.paperId != null
                     ? [
-                        const PopupMenuItem(value: 'practice', child: Text('單題練習')),
                         const PopupMenuItem(value: 'edit', child: Text('編輯題目')),
+                        const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')),
                         const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))),
                       ]
                     : [
                         const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')),
+                        const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')),
                       ],
               ),
             ],
@@ -1081,6 +1145,9 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             _expandedIndices.add(index);
           });
         }
+        setState(() {
+          _isFloatingNavExpanded = false;
+        });
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final targetCtx = _itemKeys[index].currentContext;
           if (targetCtx != null) {
@@ -1113,75 +1180,104 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     );
   }
 
-  Widget _buildCollapsibleNavigationGrid(ColorScheme cs) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.outline.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            dense: true,
-            leading: Icon(Icons.grid_view_rounded, color: cs.primary),
-            title: Text(
-              '題號快速跳轉 (${_questions.length} 題)',
-              style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
+  Widget _buildFloatingNavigator(ColorScheme cs) {
+    final double maxExpandedHeight = (_questions.length * 48.0 + 56.0).clamp(100.0, 320.0);
+    final double targetHeight = _isFloatingNavExpanded ? maxExpandedHeight : 56.0;
+    final double bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Positioned(
+      bottom: 16 + bottomPadding,
+      right: 16,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        width: 56.0,
+        height: targetHeight,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            trailing: TextButton(
-              onPressed: () {
-                setState(() {
-                  _isGridExpanded = !_isGridExpanded;
-                });
-              },
-              child: Text(
-                _isGridExpanded ? '收起' : '展開',
-                style: TextStyle(
-                  color: cs.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+          ],
+          border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _isFloatingNavExpanded
+                  ? null
+                  : () {
+                      setState(() {
+                        _isFloatingNavExpanded = true;
+                      });
+                    },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 收合狀態：題單圖示
+                  AnimatedOpacity(
+                    opacity: _isFloatingNavExpanded ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: _isFloatingNavExpanded
+                        ? const SizedBox.shrink()
+                        : Icon(
+                            Icons.format_list_numbered_rounded,
+                            color: cs.primary,
+                            size: 24,
+                          ),
+                  ),
+                  // 展開狀態：滑動題號面板 (直式)
+                  AnimatedOpacity(
+                    opacity: _isFloatingNavExpanded ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: !_isFloatingNavExpanded
+                        ? const SizedBox.shrink()
+                        : Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: ListView.builder(
+                                  controller: _horizontalScrollController,
+                                  scrollDirection: Axis.vertical,
+                                  itemCount: _questions.length,
+                                  itemBuilder: (context, index) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      child: SizedBox(
+                                        width: 40,
+                                        height: 40,
+                                        child: _buildNavigationItem(cs, index),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const Divider(height: 1, indent: 8, endIndent: 8),
+                              IconButton(
+                                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                onPressed: () {
+                                  setState(() {
+                                    _isFloatingNavExpanded = false;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+                          ),
+                  ),
+                ],
               ),
             ),
           ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: _isGridExpanded
-                ? GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 6,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 1.0,
-                    ),
-                    itemCount: _questions.length,
-                    itemBuilder: (context, index) {
-                      return _buildNavigationItem(cs, index);
-                    },
-                  )
-                : SizedBox(
-                    height: 40,
-                    child: ListView.builder(
-                      controller: _horizontalScrollController,
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _questions.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: SizedBox(
-                            width: 40,
-                            child: _buildNavigationItem(cs, index),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1196,46 +1292,59 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _questions.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+      body: GestureDetector(
+        onTap: () {
+          if (_isFloatingNavExpanded) {
+            setState(() {
+              _isFloatingNavExpanded = false;
+            });
+          }
+        },
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _questions.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.folder_open, size: 64, color: cs.primary.withValues(alpha: 0.5)),
+                        const SizedBox(height: 16),
+                        Text('這個資料夾目前沒有題目', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 16)),
+                      ],
+                    ),
+                  )
+                : Stack(
                     children: [
-                      Icon(Icons.folder_open, size: 64, color: cs.primary.withValues(alpha: 0.5)),
-                      const SizedBox(height: 16),
-                      Text('這個資料夾目前沒有題目', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 16)),
+                      Column(
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              controller: _scrollController,
+                              padding: EdgeInsets.fromLTRB(16, 16, 16, 100 + MediaQuery.of(context).padding.bottom),
+                              child: Column(
+                                children: [
+                                  _buildHeroHeader(cs),
+                                  _buildActionBar(cs),
+                                  ...List.generate(_questions.length, (qIdx) {
+                                    final question = _questions[qIdx];
+                                    final isExpanded = _showAnswers || _expandedIndices.contains(qIdx);
+                                    return Container(
+                                      key: _itemKeys[qIdx],
+                                      child: isExpanded
+                                          ? _buildQuestionItem(context, question, qIdx, cs)
+                                          : _buildCompactQuestionItem(context, question, qIdx, cs),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      _buildFloatingNavigator(cs),
                     ],
                   ),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            _buildHeroHeader(cs),
-                            _buildActionBar(cs),
-                            _buildCollapsibleNavigationGrid(cs),
-                            ...List.generate(_questions.length, (qIdx) {
-                              final question = _questions[qIdx];
-                              final isExpanded = _showAnswers || _expandedIndices.contains(qIdx);
-                              return Container(
-                                key: _itemKeys[qIdx],
-                                child: isExpanded
-                                    ? _buildQuestionItem(context, question, qIdx, cs)
-                                    : _buildCompactQuestionItem(context, question, qIdx, cs),
-                              );
-                            }),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      ),
     );
   }
 }

@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart';
 import '../database/database_helper.dart';
-import '../services/ai_diagnosis_service.dart';
 
 class ReviewPage extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
@@ -28,25 +26,47 @@ class _ReviewPageState extends State<ReviewPage>
   final Set<int> _toSaveWrong = {};
   final Map<int, TextEditingController> _noteCtrls = {};
   bool _saving = false;
-  bool _isAnalyzing = false;
-  DiagnosisResult? _diagnosisResult;
-  late AnimationController _animController;
-  late Animation<double> _fadeAnim;
+  // bool _isAnalyzing = false;
+  // DiagnosisResult? _diagnosisResult;
+  // late AnimationController _animController;
+  // late Animation<double> _fadeAnim;
+  late final List<GlobalKey> _itemKeys;
+  final Set<int> _bookmarkedQids = {};
+  bool _showOnlyWrong = false;
 
   @override
   void initState() {
     super.initState();
+    _itemKeys = List.generate(widget.questions.length, (_) => GlobalKey());
     for (int i = 0; i < widget.questions.length; i++) {
       _noteCtrls[i] = TextEditingController();
+      final q = widget.questions[i];
+
+      // 答錯或未答題目預設加入錯題本勾選集合
+      final correct = _correctIndex(q);
+      final chosen = widget.selectedAnswers[i];
+      if (chosen == null || chosen != correct) {
+        _toSaveWrong.add(i);
+      }
+
+      final isFav = q['isFavorite'] == true ||
+          q['bookmarked'] == 1 ||
+          (q['bookmarked'] is bool && q['bookmarked'] == true);
+      if (isFav) {
+        final qid = q['id'] as int? ?? int.tryParse(q['id'].toString()) ?? 0;
+        if (qid > 0) {
+          _bookmarkedQids.add(qid);
+        }
+      }
     }
-    _animController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
-    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    // _animController = AnimationController(
+    //     vsync: this, duration: const Duration(milliseconds: 600));
+    // _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
   }
 
   @override
   void dispose() {
-    _animController.dispose();
+    // _animController.dispose();
     for (final c in _noteCtrls.values) {
       c.dispose();
     }
@@ -85,13 +105,27 @@ class _ReviewPageState extends State<ReviewPage>
     if (uid != null) {
       for (int i = 0; i < widget.questions.length; i++) {
         final q = widget.questions[i];
-        final qid =
-            q['id'] is int ? q['id'] as int : int.tryParse(q['id'].toString()) ?? 0;
-        if (_toSaveWrong.contains(i) && qid > 0) {
-          try {
-            await DatabaseHelper.instance
-                .addWrongQuestion(uid.toString(), qid, note: _noteCtrls[i]?.text ?? '');
-          } catch (_) {}
+        final qid = q['id'] is int
+            ? q['id'] as int
+            : int.tryParse(q['id'].toString()) ?? 0;
+        if (qid > 0) {
+          if (_toSaveWrong.contains(i)) {
+            try {
+              await DatabaseHelper.instance.addWrongQuestion(
+                  uid.toString(), qid,
+                  note: _noteCtrls[i]?.text ?? '');
+            } catch (_) {}
+          } else {
+            // 如果使用者手動取消勾選，則將其自資料庫的錯題本移除
+            try {
+              final db = await DatabaseHelper.instance.database;
+              await db.delete(
+                'wrong_questions',
+                where: 'user_id = ? AND question_id = ?',
+                whereArgs: [uid.toString(), qid],
+              );
+            } catch (_) {}
+          }
         }
         final noteText = _noteCtrls[i]?.text.trim();
         if (noteText != null && noteText.isNotEmpty) {
@@ -120,6 +154,7 @@ class _ReviewPageState extends State<ReviewPage>
     );
   }
 
+  /*
   Future<void> _generateDiagnosis() async {
     setState(() => _isAnalyzing = true);
     final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u4';
@@ -168,142 +203,160 @@ class _ReviewPageState extends State<ReviewPage>
       }
     }
   }
+  */
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final correctCount =
-        widget.selectedAnswers.entries.where((e) => _correctIndex(widget.questions[e.key]) == e.value).length;
+    final correctCount = widget.selectedAnswers.entries
+        .where((e) => _correctIndex(widget.questions[e.key]) == e.value)
+        .length;
     final total = widget.questions.length;
     final score = total == 0 ? 0 : (correctCount / total * 100).round();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('交卷檢討', style: TextStyle(fontWeight: FontWeight.bold)),
+        title:
+            const Text('交卷檢討', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         elevation: 0,
       ),
-      body: ListView.builder(
+      body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-        itemCount: widget.questions.length + 1,
-        itemBuilder: (context, idx) {
-          if (idx == 0) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Score Banner ──
+          Container(
+            margin: const EdgeInsets.only(bottom: 16, top: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [cs.primary, cs.primary.withValues(alpha: 0.75)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: cs.primary.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
               children: [
-                // ── Score Banner ──
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16, top: 16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [cs.primary, cs.primary.withValues(alpha: 0.75)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: cs.primary.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Row(
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('本次測驗成績',
-                                style: TextStyle(
-                                    color: cs.onPrimary.withValues(alpha: 0.8),
-                                    fontSize: 13)),
-                            const SizedBox(height: 4),
-                            Text('$score 分',
-                                style: TextStyle(
-                                    color: cs.onPrimary,
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.w900)),
-                            const SizedBox(height: 6),
-                            Text('答對 $correctCount / $total 題',
-                                style: TextStyle(
-                                    color: cs.onPrimary.withValues(alpha: 0.85),
-                                    fontSize: 14)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Circular progress
-                      SizedBox(
-                        width: 72,
-                        height: 72,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              value: total == 0 ? 0 : correctCount / total,
-                              strokeWidth: 7,
-                              backgroundColor: cs.onPrimary.withValues(alpha: 0.2),
-                              valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary),
-                            ),
-                            Text('${total == 0 ? 0 : (correctCount / total * 100).round()}%',
-                                style: TextStyle(
-                                    color: cs.onPrimary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
+                      Text('本次測驗成績',
+                          style: TextStyle(
+                              color: cs.onPrimary.withValues(alpha: 0.8),
+                              fontSize: 13)),
+                      const SizedBox(height: 4),
+                      Text('$score 分',
+                          style: TextStyle(
+                              color: cs.onPrimary,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 6),
+                      Text('答對 $correctCount / $total 題',
+                          style: TextStyle(
+                              color: cs.onPrimary.withValues(alpha: 0.85),
+                              fontSize: 14)),
                     ],
                   ),
                 ),
-
-                // ── AI Diagnosis Section ──
-                if (_diagnosisResult == null && !_isAnalyzing)
-                  _buildCallToAction(cs),
-                if (_isAnalyzing) _buildAnalyzingCard(cs),
-                if (_diagnosisResult != null)
-                  FadeTransition(
-                      opacity: _fadeAnim,
-                      child: _buildDiagnosisCard(cs)),
-                const SizedBox(height: 20),
-
-                // ── Questions Header ──
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
+                const SizedBox(width: 12),
+                // Circular progress
+                SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      const Icon(Icons.list_alt_rounded, size: 18, color: Color(0xFF8D6E63)),
-                      const SizedBox(width: 8),
-                      Text('題目詳解 (${widget.questions.length} 題)',
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF8D6E63))),
+                      CircularProgressIndicator(
+                        value: total == 0 ? 0 : correctCount / total,
+                        strokeWidth: 7,
+                        backgroundColor: cs.onPrimary.withValues(alpha: 0.2),
+                        valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary),
+                      ),
+                      Text(
+                          '${total == 0 ? 0 : (correctCount / total * 100).round()}%',
+                          style: TextStyle(
+                              color: cs.onPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
               ],
-            );
-          }
+            ),
+          ),
 
-          final qIdx = idx - 1;
-          final q = widget.questions[qIdx];
-          final options = _parseOptions(q['options']);
-          final correct = _correctIndex(q);
-          final chosen = widget.selectedAnswers[qIdx];
-          final isWrong = chosen != null && chosen != correct;
+          // ── Switch & Title Row ──
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('題目詳解 (${widget.questions.length} 題)',
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8D6E63))),
+                Row(
+                  children: [
+                    Text(
+                      '只看錯題',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Switch(
+                      value: _showOnlyWrong,
+                      activeThumbColor: const Color(0xFF8D6E63),
+                      onChanged: (val) {
+                        setState(() {
+                          _showOnlyWrong = val;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
 
-          return _buildQuestionCard(cs, qIdx, q, options, correct, chosen, isWrong);
-        },
+          // ── Question Cards ──
+          for (int i = 0; i < widget.questions.length; i++) ...[
+            Builder(
+              builder: (context) {
+                final q = widget.questions[i];
+                final options = _parseOptions(q['options']);
+                final correct = _correctIndex(q);
+                final chosen = widget.selectedAnswers[i];
+                final isWrong = chosen != null && chosen != correct;
+                final isIncorrect = chosen == null || chosen != correct;
+
+                if (_showOnlyWrong && !isIncorrect) {
+                  return const SizedBox.shrink();
+                }
+
+                return _buildQuestionCard(
+                    cs, i, q, options, correct, chosen, isWrong);
+              },
+            ),
+          ],
+        ],
       ),
       bottomNavigationBar: widget.saveResult
           ? Container(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -314,22 +367,30 @@ class _ReviewPageState extends State<ReviewPage>
                   ),
                 ],
               ),
-              child: ElevatedButton.icon(
-                onPressed: _saving ? null : _saveSelectedWrongAndNotes,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.save_rounded),
-                label: Text(_saving ? '儲存中...' : '儲存錯題與筆記',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: const Color(0xFF8D6E63),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                  child: ElevatedButton.icon(
+                    onPressed: _saving ? null : _saveSelectedWrongAndNotes,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.save_rounded),
+                    label: Text(_saving ? '儲存中...' : '儲存錯題與筆記',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: const Color(0xFF8D6E63),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                  ),
                 ),
               ),
             )
@@ -337,6 +398,7 @@ class _ReviewPageState extends State<ReviewPage>
     );
   }
 
+  /*
   Widget _buildCallToAction(ColorScheme cs) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -590,18 +652,54 @@ class _ReviewPageState extends State<ReviewPage>
       ),
     );
   }
+  */
 
   Widget _buildQuestionCard(ColorScheme cs, int qIdx, Map<String, dynamic> q,
       List<String> options, int correct, int? chosen, bool isWrong) {
+    final qid = q['id'] as int? ?? int.tryParse(q['id'].toString()) ?? 0;
+    final bool isFav = qid > 0 && _bookmarkedQids.contains(qid);
+    final bool isUnanswered = chosen == null;
+    final bool isCorrect = chosen != null && chosen == correct;
+
+    // Define colors/icons based on state
+    final Color borderClr;
+    final Color headerBgClr;
+    final Color badgeBgClr;
+    final IconData statusIcon;
+    final String statusText;
+    final Color statusTextColor;
+
+    if (isUnanswered) {
+      borderClr = cs.outline.withValues(alpha: 0.15);
+      headerBgClr = cs.surfaceContainerHighest.withValues(alpha: 0.3);
+      badgeBgClr = cs.outline.withValues(alpha: 0.5);
+      statusIcon = Icons.remove_rounded;
+      statusText = '未作答';
+      statusTextColor = cs.onSurfaceVariant;
+    } else if (isCorrect) {
+      borderClr = Colors.green.withValues(alpha: 0.25);
+      headerBgClr = Colors.green.withValues(alpha: 0.06);
+      badgeBgClr = Colors.green;
+      statusIcon = Icons.check_rounded;
+      statusText = '答對';
+      statusTextColor = Colors.green.shade700;
+    } else {
+      borderClr = Colors.red.withValues(alpha: 0.25);
+      headerBgClr = Colors.red.withValues(alpha: 0.06);
+      badgeBgClr = Colors.red;
+      statusIcon = Icons.close_rounded;
+      statusText = '答錯';
+      statusTextColor = Colors.red.shade700;
+    }
+
     return Container(
+      key: _itemKeys[qIdx],
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isWrong
-              ? Colors.red.withValues(alpha: 0.25)
-              : Colors.green.withValues(alpha: 0.25),
+          color: borderClr,
           width: 1.4,
         ),
         boxShadow: [
@@ -619,9 +717,7 @@ class _ReviewPageState extends State<ReviewPage>
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             decoration: BoxDecoration(
-              color: isWrong
-                  ? Colors.red.withValues(alpha: 0.06)
-                  : Colors.green.withValues(alpha: 0.06),
+              color: headerBgClr,
               borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16), topRight: Radius.circular(16)),
             ),
@@ -631,11 +727,11 @@ class _ReviewPageState extends State<ReviewPage>
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: isWrong ? Colors.red : Colors.green,
+                    color: badgeBgClr,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    isWrong ? Icons.close_rounded : Icons.check_rounded,
+                    statusIcon,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -645,13 +741,44 @@ class _ReviewPageState extends State<ReviewPage>
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: isWrong ? Colors.red.shade700 : Colors.green.shade700)),
+                        color: statusTextColor)),
                 const Spacer(),
-                Text(isWrong ? '答錯' : '答對',
+                Text(statusText,
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isWrong ? Colors.red.shade700 : Colors.green.shade700)),
+                        color: statusTextColor)),
+                if (qid > 0) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                    tooltip: isFav ? '取消收藏' : '收藏題目',
+                    onPressed: () async {
+                      try {
+                        final db = await DatabaseHelper.instance.database;
+                        final nextVal = isFav ? 0 : 1;
+                        await db.update('questions', {'bookmarked': nextVal},
+                            where: 'id = ?', whereArgs: [qid]);
+                        setState(() {
+                          if (isFav) {
+                            _bookmarkedQids.remove(qid);
+                          } else {
+                            _bookmarkedQids.add(qid);
+                          }
+                        });
+                      } catch (e) {
+                        debugPrint('切換收藏失敗: $e');
+                      }
+                    },
+                    icon: Icon(
+                      isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                    ),
+                    color: isFav
+                        ? Colors.amber.shade700
+                        : statusTextColor.withValues(alpha: 0.6),
+                  ),
+                ],
               ],
             ),
           ),
@@ -663,7 +790,9 @@ class _ReviewPageState extends State<ReviewPage>
               children: [
                 Text((q['question'] ?? q['text'] ?? '').toString(),
                     style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 15, height: 1.55)),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        height: 1.55)),
                 const SizedBox(height: 12),
                 if (options.isNotEmpty)
                   ...options.asMap().entries.map((e) {
@@ -690,8 +819,8 @@ class _ReviewPageState extends State<ReviewPage>
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: bgColor,
                         borderRadius: BorderRadius.circular(10),
@@ -706,7 +835,9 @@ class _ReviewPageState extends State<ReviewPage>
                               shape: BoxShape.circle,
                               color: isCorrect
                                   ? Colors.green
-                                  : (isChosen ? Colors.red : const Color(0xFFE5E7EB)),
+                                  : (isChosen
+                                      ? Colors.red
+                                      : const Color(0xFFE5E7EB)),
                             ),
                             child: Center(
                               child: Text(
@@ -725,16 +856,19 @@ class _ReviewPageState extends State<ReviewPage>
                               child: Text(optText,
                                   style: TextStyle(
                                       fontSize: 13.5,
-                                      fontWeight: isCorrect ? FontWeight.w600 : FontWeight.normal,
+                                      fontWeight: isCorrect
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
                                       color: isCorrect
                                           ? Colors.green.shade800
-                                          : (isChosen ? Colors.red.shade800 : const Color(0xFF374151))))),
+                                          : (isChosen
+                                              ? Colors.red.shade800
+                                              : const Color(0xFF374151))))),
                           if (trailingIcon != null) trailingIcon,
                         ],
                       ),
                     );
                   }),
-
                 if ((q['explanation'] ?? '').toString().trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
@@ -743,7 +877,8 @@ class _ReviewPageState extends State<ReviewPage>
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFF8E7),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFFD966), width: 1),
+                      border:
+                          Border.all(color: const Color(0xFFFFD966), width: 1),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -762,7 +897,6 @@ class _ReviewPageState extends State<ReviewPage>
                     ),
                   ),
                 ],
-
                 const SizedBox(height: 12),
                 if (widget.saveResult) ...[
                   const SizedBox(height: 12),
@@ -777,13 +911,13 @@ class _ReviewPageState extends State<ReviewPage>
                       labelStyle: const TextStyle(fontSize: 13),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFD1D5DB))),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFD1D5DB))),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       prefixIcon: const Icon(Icons.edit_note_rounded, size: 18),
                     ),
                   ),
-
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -824,6 +958,8 @@ class _ReviewPageState extends State<ReviewPage>
   }
 }
 
+/// Reusable diagnosis section card.
+/*
 /// Reusable diagnosis section card.
 class _DiagnosisSection extends StatelessWidget {
   final IconData icon;
@@ -1029,3 +1165,4 @@ class _ReviewDiagnosisLoadingProgressState
     );
   }
 }
+*/

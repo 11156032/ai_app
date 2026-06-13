@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import 'review_page.dart';
 
@@ -31,13 +32,13 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
   final Map<int, int> _selectedAnswers = {};
   final Set<int> _revealed = {};
   final Set<int> _marked = {};
-  final Set<int> _wrongSaved = {};
-  bool _isGridExpanded = false;
+  final Set<int> _flagged = {};
   final ScrollController _horizontalScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _currentIndex = widget.questions.isEmpty
         ? 0
         : widget.initialIndex.clamp(0, widget.questions.length - 1);
@@ -52,17 +53,18 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
 
   @override
   void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _horizontalScrollController.dispose();
     super.dispose();
   }
 
   void _scrollToCurrentIndex() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isGridExpanded && _horizontalScrollController.hasClients) {
-        const double itemWidth = 48.0; // 40px item + 8px margins
+      if (_horizontalScrollController.hasClients) {
+        const double itemWidth = 46.0; // 38px item + 8px margins (4px left + 4px right)
         final double viewportWidth = MediaQuery.of(context).size.width;
         // Center the active element in the viewport
-        final double targetOffset = (itemWidth * _currentIndex) - (viewportWidth / 2) + (itemWidth / 2) + 16.0;
+        final double targetOffset = (itemWidth * _currentIndex) - (viewportWidth / 2) + (itemWidth / 2) + 12.0;
         _horizontalScrollController.animateTo(
           targetOffset.clamp(0.0, _horizontalScrollController.position.maxScrollExtent),
           duration: const Duration(milliseconds: 300),
@@ -113,21 +115,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     return (question['question'] ?? question['text'] ?? '').toString();
   }
 
-  String _questionChapter(Map<String, dynamic> question) {
-    final chapter = question['chapter']?.toString() ?? '';
-    return chapter.isEmpty ? '未分類' : chapter;
-  }
 
-  void _resetSession() {
-    setState(() {
-      _selectedAnswers.clear();
-      _revealed.clear();
-      _currentIndex = widget.questions.isEmpty
-          ? 0
-          : widget.initialIndex.clamp(0, widget.questions.length - 1);
-    });
-    _scrollToCurrentIndex();
-  }
 
   Widget _buildNavigationItem(ColorScheme cs, int index) {
     final isCurrent = index == _currentIndex;
@@ -166,101 +154,72 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
       border = Border.all(color: cs.outline.withValues(alpha: 0.12));
     }
 
-    return InkWell(
-      onTap: () => _updateCurrentIndex(index),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-          border: border,
-        ),
-        child: Center(
-          child: Text(
-            '${index + 1}',
-            style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    final isFlagged = _flagged.contains(index);
 
-  Widget _buildCollapsibleNavigationGrid(ColorScheme cs) {
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.outline.withValues(alpha: 0.1)),
-      ),
-      child: Column(
+    return InkWell(
+      onTap: () {
+        _updateCurrentIndex(index);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          ListTile(
-            dense: true,
-            leading: Icon(Icons.grid_view_rounded, color: cs.primary),
-            title: Text(
-              '題號快速跳轉 (${widget.questions.length} 題)',
-              style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
+          Container(
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: border,
             ),
-            trailing: TextButton(
-              onPressed: () {
-                setState(() {
-                  _isGridExpanded = !_isGridExpanded;
-                });
-                if (!_isGridExpanded) {
-                  _scrollToCurrentIndex();
-                }
-              },
+            child: Center(
               child: Text(
-                _isGridExpanded ? '收起' : '展開',
+                '${index + 1}',
                 style: TextStyle(
-                  color: cs.primary,
+                  color: textColor,
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
               ),
             ),
           ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: _isGridExpanded
-                ? GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 6,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 1.0,
-                    ),
-                    itemCount: widget.questions.length,
-                    itemBuilder: (context, index) {
-                      return _buildNavigationItem(cs, index);
-                    },
-                  )
-                : SizedBox(
-                    height: 40,
-                    child: ListView.builder(
-                      controller: _horizontalScrollController,
-                      scrollDirection: Axis.horizontal,
-                      itemCount: widget.questions.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: SizedBox(
-                            width: 40,
-                            child: _buildNavigationItem(cs, index),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-          ),
+          if (isFlagged)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Colors.orange,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFixedTopNavigationRow(ColorScheme cs) {
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+        border: Border(bottom: BorderSide(color: cs.outline.withValues(alpha: 0.12))),
+      ),
+      child: ListView.builder(
+        controller: _horizontalScrollController,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        itemCount: widget.questions.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: SizedBox(
+              width: 38,
+              child: _buildNavigationItem(cs, index),
+            ),
+          );
+        },
       ),
     );
   }
@@ -291,17 +250,11 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     }
 
     final currentQuestion = widget.questions[_currentIndex];
-    final currentQid = currentQuestion['id'] as int? ?? int.tryParse(currentQuestion['id'].toString()) ?? 0;
     final options = _parseOptions(currentQuestion['options']);
     final answerIndex = _correctIndex(currentQuestion);
     final selectedIndex = _selectedAnswers[_currentIndex];
     final revealed = _revealed.contains(_currentIndex);
     final answeredCount = _selectedAnswers.length;
-    final correctCount = widget.questions
-        .asMap()
-        .entries
-        .where((entry) => _revealed.contains(entry.key) && _isCorrect(entry.key, entry.value))
-        .length;
 
     return Scaffold(
       appBar: AppBar(
@@ -309,108 +262,70 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         actions: [
-          IconButton(
-            tooltip: _marked.contains(currentQid) ? '取消標記' : '標記題目',
-            onPressed: () async {
-              // toggle bookmarked in DB and local state
-              try {
-                final db = await DatabaseHelper.instance.database;
-                final nextVal = _marked.contains(currentQid) ? 0 : 1;
-                await db.update('questions', {'bookmarked': nextVal}, where: 'id = ?', whereArgs: [currentQid]);
-                setState(() {
-                  if (nextVal == 1) {
-                    _marked.add(currentQid);
-                  } else {
-                    _marked.remove(currentQid);
-                  }
-                });
-              } catch (e) {
-                debugPrint('切換收藏失敗: $e');
-              }
-            },
-            icon: Icon(_marked.contains(currentQid) ? Icons.bookmark : Icons.bookmark_outline),
-          ),
-          IconButton(
-            tooltip: '加入筆記',
-            onPressed: () => _addNoteDialog(currentQuestion),
-            icon: const Icon(Icons.note_add_rounded),
-          ),
-          IconButton(
-            tooltip: '重新開始',
-            onPressed: _resetSession,
-            icon: const Icon(Icons.refresh_rounded),
+          TextButton(
+            onPressed: _selectedAnswers.isEmpty ? null : _submitPaper,
+            child: Text(
+              '交卷',
+              style: TextStyle(
+                color: _selectedAnswers.isEmpty
+                    ? cs.onPrimary.withValues(alpha: 0.5)
+                    : cs.onPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  cs.primary,
-                  cs.primary.withValues(alpha: 0.82),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Row(
+          _buildFixedTopNavigationRow(cs),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '練習進度',
-                        style: TextStyle(
-                          color: cs.onPrimary.withValues(alpha: 0.8),
-                          fontSize: 13,
+                if (widget.questions.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '答題進度',
+                              style: TextStyle(
+                                color: cs.onSurfaceVariant,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '$answeredCount / ${widget.questions.length}',
+                              style: TextStyle(
+                                color: cs.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${_currentIndex + 1} / ${widget.questions.length}',
-                        style: TextStyle(
-                          color: cs.onPrimary,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            minHeight: 6,
+                            value: widget.questions.isEmpty
+                                ? 0
+                                : answeredCount / widget.questions.length,
+                            backgroundColor: cs.outline.withValues(alpha: 0.12),
+                            valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(
-                          minHeight: 8,
-                          value: (widget.questions.isEmpty)
-                              ? 0
-                              : (_currentIndex + 1) / widget.questions.length,
-                          backgroundColor: cs.onPrimary.withValues(alpha: 0.16),
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(cs.onPrimary),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _SummaryChip(label: '已作答', value: '$answeredCount', foreground: cs.onPrimary),
-                    const SizedBox(height: 8),
-                    _SummaryChip(label: '正確', value: '$correctCount', foreground: cs.onPrimary),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildCollapsibleNavigationGrid(cs),
-          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -422,21 +337,38 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _TagChip(label: currentQuestion['subject']?.toString() ?? '未分類', color: cs.primary),
-                    const SizedBox(width: 8),
-                    _TagChip(label: _questionChapter(currentQuestion), color: cs.secondary),
-                    const SizedBox(width: 8),
-                    _TagChip(label: currentQuestion['difficulty']?.toString() ?? '中', color: cs.tertiary),
+                    Text(
+                      '第 ${_currentIndex + 1} 題  •  ${currentQuestion['type']?.toString() ?? '單選題'}',
+                      style: TextStyle(
+                        color: cs.onSurface.withValues(alpha: 0.6),
+                        fontSize: 12,
+                      ),
+                    ),
+                    IconButton(
+                      iconSize: 20,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: _flagged.contains(_currentIndex) ? '取消標記' : '標記此題',
+                      onPressed: () {
+                        setState(() {
+                          if (_flagged.contains(_currentIndex)) {
+                            _flagged.remove(_currentIndex);
+                          } else {
+                            _flagged.add(_currentIndex);
+                          }
+                        });
+                      },
+                      icon: Icon(
+                        _flagged.contains(_currentIndex)
+                            ? Icons.flag_rounded
+                            : Icons.flag_outlined,
+                      ),
+                      color: _flagged.contains(_currentIndex)
+                          ? Colors.orange.shade700
+                          : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  currentQuestion['type']?.toString() ?? '單選題',
-                  style: TextStyle(
-                    color: cs.onSurface.withValues(alpha: 0.6),
-                    fontSize: 12,
-                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -627,11 +559,15 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _currentIndex >= widget.questions.length - 1
-                      ? null
+                      ? (_selectedAnswers.isEmpty ? null : _submitPaper)
                       : () => _updateCurrentIndex(_currentIndex + 1),
-                  icon: const Icon(Icons.chevron_right_rounded),
+                  icon: Icon(
+                    _currentIndex >= widget.questions.length - 1
+                        ? Icons.send_rounded
+                        : Icons.chevron_right_rounded,
+                  ),
                   label: Text(
-                    _currentIndex >= widget.questions.length - 1 ? '已到底' : '下一題',
+                    _currentIndex >= widget.questions.length - 1 ? '確認交卷' : '下一題',
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: cs.primary,
@@ -645,91 +581,42 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // 交卷按鈕
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: _selectedAnswers.isEmpty ? null : _submitPaper,
-              icon: const Icon(Icons.send_rounded),
-              label: const Text('交卷並檢討'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
-          if (_currentIndex == widget.questions.length - 1 && revealed)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '本次練習完成',
-                    style: TextStyle(
-                      color: cs.onSurface,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '答對 $correctCount 題，共 ${widget.questions.length} 題。',
-                    style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75)),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
+    ),
+  ],
+),
     );
   }
 
-  Future<void> _addNoteDialog(Map<String, dynamic> question) async {
-    final titleCtrl = TextEditingController(text: '筆記：題 ${question['id'] ?? ''}');
-    final contentCtrl = TextEditingController();
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('加入筆記'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: '標題')),
-            const SizedBox(height: 8),
-            TextField(controller: contentCtrl, decoration: const InputDecoration(labelText: '內容'), minLines: 3, maxLines: 6),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('儲存')),
-        ],
-      ),
-    );
-
-    if (result != true) return;
-    final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u1';
-    try {
-      await DatabaseHelper.instance.createNote(uid.toString(), titleCtrl.text.trim(), contentCtrl.text.trim());
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('筆記已儲存')));
-    } catch (e) {
-      debugPrint('儲存筆記失敗: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('儲存失敗')));
-    }
-  }
 
   Future<void> _submitPaper() async {
+    final unanswered = widget.questions.length - _selectedAnswers.length;
+    final String contentText = unanswered > 0
+        ? '您還有 $unanswered 題尚未作答，確定要結束作答並直接交卷嗎？'
+        : '確定要交卷並查看檢討報告嗎？';
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('確認交卷'),
+        content: Text(contentText),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('繼續作答'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('確認交卷'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     final total = widget.questions.length;
     int correct = 0;
     final wrongIds = <int>[];
@@ -759,120 +646,39 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
           'timestamp': DateTime.now().toIso8601String(),
         });
         debugPrint('Saved paper quiz result to history.');
+
+        // 自動將所有錯題存入錯題本中
+        for (final qid in wrongIds) {
+          if (qid > 0) {
+            await DatabaseHelper.instance.addWrongQuestion(uid.toString(), qid);
+          }
+        }
+        debugPrint('Auto-saved wrong questions to wrong questions book.');
       } catch (e) {
         debugPrint('Failed to save paper quiz result: $e');
       }
     }
 
     if (!mounted) return;
-    final action = await showDialog<String?>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('成績：$correct / $total'),
-        content: const Text('你可以檢視答案與解析，或進入檢討頁加入錯題與筆記。'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, 'close'), child: const Text('關閉')),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'reveal'), child: const Text('直接顯示答案')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, 'review'), child: const Text('檢視並檢討')),
-        ],
-      ),
-    );
-
-    if (action == 'reveal') {
-      final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'];
-      setState(() {
-        for (int i = 0; i < widget.questions.length; i++) {
-          _revealed.add(i);
-          if (uid != null && widget.saveResult) {
-            final q = widget.questions[i];
-            final qid = q['id'] as int? ?? int.tryParse(q['id'].toString()) ?? 0;
-            final ans = _selectedAnswers[i];
-            final correctIdx = _correctIndex(q);
-            if (ans != null && ans != correctIdx && qid > 0 && !_wrongSaved.contains(qid)) {
-              DatabaseHelper.instance.addWrongQuestion(uid.toString(), qid);
-              _wrongSaved.add(qid);
-            }
-          }
-        }
-      });
-      return;
+    final Map<int, int> sel = {};
+    for (int i = 0; i < widget.questions.length; i++) {
+      if (_selectedAnswers.containsKey(i)) sel[i] = _selectedAnswers[i]!;
     }
 
-    if (action == 'review') {
-      // build selected answers map keyed by index
-      final Map<int,int> sel = {};
-      for (int i = 0; i < widget.questions.length; i++) {
-        if (_selectedAnswers.containsKey(i)) sel[i] = _selectedAnswers[i]!;
-      }
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ReviewPage(
-            questions: widget.questions,
-            selectedAnswers: sel,
-            currentUser: widget.currentUser,
-            saveResult: widget.saveResult,
-          ),
-        ),
-      );
-    }
-  }
-}
-
-class _SummaryChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color foreground;
-
-  const _SummaryChip({
-    required this.label,
-    required this.value,
-    required this.foreground,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(
-          color: foreground,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewPage(
+          questions: widget.questions,
+          selectedAnswers: sel,
+          currentUser: widget.currentUser,
+          saveResult: widget.saveResult,
         ),
       ),
     );
   }
 }
 
-class _TagChip extends StatelessWidget {
-  final String label;
-  final Color color;
 
-  const _TagChip({required this.label, required this.color});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
+

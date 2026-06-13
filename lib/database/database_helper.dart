@@ -558,6 +558,22 @@ class DatabaseHelper {
   // --- Wrong question helpers ---
   Future<int> addWrongQuestion(String userId, int questionId, {String note = ''}) async {
     final db = await database;
+    final existing = await db.query(
+      'wrong_questions',
+      where: 'user_id = ? AND question_id = ?',
+      whereArgs: [userId, questionId],
+    );
+    if (existing.isNotEmpty) {
+      if (note.isNotEmpty) {
+        await db.update(
+          'wrong_questions',
+          {'note': note},
+          where: 'user_id = ? AND question_id = ?',
+          whereArgs: [userId, questionId],
+        );
+      }
+      return int.tryParse(existing.first['id'].toString()) ?? 0;
+    }
     return await db.insert('wrong_questions', {
       'user_id': userId,
       'question_id': questionId,
@@ -567,7 +583,13 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getWrongQuestions(String userId) async {
     final db = await database;
-    return await db.query('wrong_questions', where: 'user_id = ?', whereArgs: [userId], orderBy: 'created_at DESC');
+    return await db.rawQuery('''
+      SELECT wq.*, q.text, q.options, q.answer, q.explanation, q.subject, q.difficulty, q.type, q.bookmarked
+      FROM wrong_questions wq
+      JOIN questions q ON wq.question_id = q.id
+      WHERE wq.user_id = ?
+      ORDER BY wq.created_at DESC
+    ''', [userId]);
   }
 
   Future<int> deleteWrongQuestionByRecordId(int recordId) async {

@@ -26,8 +26,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
   bool _isLoadingPapers = true;
   List<Map<String, dynamic>> _userPapers = [];
   Map<String, int> _subjectCounts = {};
-  int _selectedTab = 0; // 0: 挑題庫, 1: 自訂題本, 2: 錯題本
+  int _selectedTab = 0; // 0: 挑題庫, 1: 自訂題本, 2: 錯題本, 3: 我的收藏
   final GlobalKey<WrongQuestionsPageState> _wrongQuestionsKey = GlobalKey<WrongQuestionsPageState>();
+  final GlobalKey<WrongQuestionsPageState> _favoritesKey = GlobalKey<WrongQuestionsPageState>();
 
   @override
   void initState() {
@@ -135,8 +136,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
         ),
       ),
     ).then((_) {
-      // 重新載入以防有題目被刪除
+      // 重新載入以防有題目被刪除或收藏狀態變更
       _loadData();
+      _wrongQuestionsKey.currentState?.loadWrongQuestions();
+      _favoritesKey.currentState?.loadWrongQuestions();
     });
   }
 
@@ -224,21 +227,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
       padding: const EdgeInsets.all(16),
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        Row(
-          children: [
-            Icon(Icons.tips_and_updates_outlined, size: 20, color: cs.primary),
-            const SizedBox(width: 8),
-            Text(
-              '請選擇科目，再依章節挑選題目',
-              style: TextStyle(
-                fontSize: 14,
-                color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+
         if (subjects.isEmpty)
           const Center(
             child: Padding(
@@ -276,7 +265,11 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         subjectChapters: widget.subjectChapters,
                       ),
                     ),
-                  ).then((_) => _loadData());
+                  ).then((_) {
+                    _loadData();
+                    _wrongQuestionsKey.currentState?.loadWrongQuestions();
+                    _favoritesKey.currentState?.loadWrongQuestions();
+                  });
                 },
               );
             },
@@ -424,6 +417,16 @@ class _QuestionListPageState extends State<QuestionListPage> {
             setState(() {
               _selectedTab = index;
             });
+            // 每次切換分頁時，如果切換到錯題本或我的收藏，自動重新載入最新資料，避免畫面快取沒有更新
+            if (index == 2) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _wrongQuestionsKey.currentState?.loadWrongQuestions();
+              });
+            } else if (index == 3) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _favoritesKey.currentState?.loadWrongQuestions();
+              });
+            }
           }
         },
         child: AnimatedContainer(
@@ -449,13 +452,13 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 Icon(
                   icon,
                   color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
-                  size: 18,
+                  size: 14,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
                   ),
@@ -490,6 +493,17 @@ class _QuestionListPageState extends State<QuestionListPage> {
               onPressed: () => _wrongQuestionsKey.currentState?.clearAll(),
               icon: const Icon(Icons.delete_sweep_rounded),
             ),
+          ] else if (_selectedTab == 3) ...[
+            IconButton(
+              tooltip: '重新整理',
+              onPressed: () => _favoritesKey.currentState?.loadWrongQuestions(),
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+            IconButton(
+              tooltip: '清空收藏',
+              onPressed: () => _favoritesKey.currentState?.clearAll(),
+              icon: const Icon(Icons.delete_sweep_rounded),
+            ),
           ],
         ],
       ),
@@ -502,7 +516,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                     color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -510,6 +524,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       _buildTabItem(0, '挑題庫', Icons.folder_open_rounded, cs),
                       _buildTabItem(1, '自訂題本', Icons.assignment_outlined, cs),
                       _buildTabItem(2, '錯題本', Icons.error_outline_rounded, cs),
+                      _buildTabItem(3, '我的收藏', Icons.star_rounded, cs),
                     ],
                   ),
                 ),
@@ -519,6 +534,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     onRefresh: () async {
                       if (_selectedTab == 2) {
                         await _wrongQuestionsKey.currentState?.loadWrongQuestions();
+                      } else if (_selectedTab == 3) {
+                        await _favoritesKey.currentState?.loadWrongQuestions();
                       } else {
                         await _loadData();
                       }
@@ -527,11 +544,19 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         ? _buildSubjectBankContent(context, subjects, cs)
                         : _selectedTab == 1
                             ? _buildCustomPaperContent(context, cs)
-                            : WrongQuestionsPage(
-                                key: _wrongQuestionsKey,
-                                currentUser: widget.currentUser,
-                                embed: true,
-                              ),
+                            : _selectedTab == 2
+                                ? WrongQuestionsPage(
+                                    key: _wrongQuestionsKey,
+                                    currentUser: widget.currentUser,
+                                    embed: true,
+                                    mode: 0,
+                                  )
+                                : WrongQuestionsPage(
+                                    key: _favoritesKey,
+                                    currentUser: widget.currentUser,
+                                    embed: true,
+                                    mode: 1,
+                                  ),
                   ),
                 ),
               ],
