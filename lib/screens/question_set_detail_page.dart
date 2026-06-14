@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import '../services/notebook_helper.dart';
 // import 'question_edit_page.dart';
@@ -44,6 +45,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _loadQuestions();
   }
 
@@ -276,7 +278,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                           Text(
                             widget.paperId != null
                                 ? '交卷後自動儲存測驗分數與歷史。'
-                                : '會自動建立/選擇自訂題本，並記錄測驗分數。',
+                                : '交卷後將自動儲存測驗分數，並將錯題加入錯題本。',
                             style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                           ),
                         ],

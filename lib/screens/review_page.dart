@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 
 class ReviewPage extends StatefulWidget {
@@ -37,6 +38,7 @@ class _ReviewPageState extends State<ReviewPage>
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _itemKeys = List.generate(widget.questions.length, (_) => GlobalKey());
     for (int i = 0; i < widget.questions.length; i++) {
       _noteCtrls[i] = TextEditingController();

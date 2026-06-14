@@ -769,6 +769,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     WidgetsBinding.instance.removeObserver(this);
     _recordAppUsageTime();
     _isDisposed = true;
@@ -803,6 +804,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _resetQuiz();
       _selectedFolder = null;
     });
+
+    // 題庫功能（index == 1）隱藏手機控制列，其餘還原
+    if (index == 1) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
 
     // 當切換到個人檔案分頁時，重置捲動位置到頂部
     if (index == 4 && _profileScrollController.hasClients) {

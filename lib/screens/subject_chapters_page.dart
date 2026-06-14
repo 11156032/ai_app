@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'question_set_detail_page.dart';
 
-class SubjectChaptersPage extends StatelessWidget {
+class SubjectChaptersPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
   final String subject;
   final List<String> allSubjects;
@@ -15,17 +16,28 @@ class SubjectChaptersPage extends StatelessWidget {
     required this.subjectChapters,
   });
 
+  @override
+  State<SubjectChaptersPage> createState() => _SubjectChaptersPageState();
+}
+
+class _SubjectChaptersPageState extends State<SubjectChaptersPage> {
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
   void _openChapter(BuildContext context, String chapter) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => QuestionSetDetailPage(
-          currentUser: currentUser,
+          currentUser: widget.currentUser,
           title: chapter, // 章節名稱作為標題
-          subject: subject,
+          subject: widget.subject,
           chapter: chapter, // 新增的參數
-          allSubjects: allSubjects,
-          subjectChapters: subjectChapters,
+          allSubjects: widget.allSubjects,
+          subjectChapters: widget.subjectChapters,
         ),
       ),
     );
@@ -80,11 +92,11 @@ class SubjectChaptersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final chapters = subjectChapters[subject] ?? [];
+    final chapters = widget.subjectChapters[widget.subject] ?? [];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('$subject (章節列表)'),
+        title: Text('${widget.subject} (章節列表)'),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 // import 'dart:convert';
 import '../database/database_helper.dart';
 import '../services/notebook_helper.dart';
@@ -36,6 +37,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _currentMode = widget.mode;
     loadWrongQuestions();
   }

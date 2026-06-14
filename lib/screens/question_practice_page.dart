@@ -53,7 +53,6 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
 
   @override
   void dispose() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _horizontalScrollController.dispose();
     super.dispose();
   }

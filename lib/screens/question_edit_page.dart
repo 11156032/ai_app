@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../database/database_helper.dart';
 
@@ -41,6 +42,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     subject = widget.initialData?['subject'] ?? widget.allSubjects.first;
     type = widget.initialData?['type'] ?? '單選題';
     difficulty = widget.initialData?['difficulty'] ?? '易';

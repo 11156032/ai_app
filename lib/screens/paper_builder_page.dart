@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 
 class PaperBuilderPage extends StatefulWidget {
@@ -23,6 +24,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _loadAllQuestions();
     if (widget.paperId != null) _loadPaper(widget.paperId!);
   }
