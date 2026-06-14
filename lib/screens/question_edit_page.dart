@@ -33,7 +33,6 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
   late String chapter;
   late String type;
   late String difficulty;
-  late bool isPublic;
   late bool isBookmarked;
   final List<TextEditingController> _optionCtrls = [];
   int answerIndex = 0;
@@ -45,9 +44,9 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     subject = widget.initialData?['subject'] ?? widget.allSubjects.first;
     type = widget.initialData?['type'] ?? '單選題';
-    difficulty = widget.initialData?['difficulty'] ?? '易';
+    final rawDiff = widget.initialData?['difficulty'];
+    difficulty = (rawDiff == 'easy' || rawDiff == null) ? '無' : rawDiff.toString();
     chapter = widget.initialData?['chapter'] ?? '未分類';
-    isPublic = (widget.initialData?['is_public'] as int? ?? 0) == 1;
     isBookmarked = (widget.initialData?['bookmarked'] as int? ?? 0) == 1;
 
     _questionCtrl.text = widget.initialData?['question'] ?? '';
@@ -153,7 +152,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
         'subject': subject,
         'type': type,
         'difficulty': difficulty,
-        'is_public': isPublic ? 1 : 0,
+        'is_public': 0,
         'bookmarked': isBookmarked ? 1 : 0,
       };
 
@@ -239,150 +238,166 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFAF8F6), // soft warm coffee background
       appBar: AppBar(
-        title: Text(widget.initialData == null ? '新增題目' : '編輯題目'),
+        title: Text(
+          widget.initialData == null ? '新增題目' : '編輯題目',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
+        elevation: 0,
         actions: [
-          TextButton.icon(
-            onPressed: _saving ? null : _saveQuestion,
-            icon: Icon(Icons.save_rounded, color: cs.onPrimary),
-            label: Text(
-              '儲存',
-              style: TextStyle(color: cs.onPrimary),
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: TextButton.icon(
+              onPressed: _saving ? null : _saveQuestion,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(Icons.check_circle_outline_rounded, color: cs.onPrimary, size: 20),
+              label: Text(
+                _saving ? '儲存中' : '儲存',
+                style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.bold),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
             ),
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           children: [
+            // ── Card 1: 題目基本設定 ──
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.initialData == null ? '建立新題目' : '編輯既有題目',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '題目、章節、答案與解析會同步保存到資料庫。',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: cs.onSurface.withValues(alpha: 0.65),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.initialData == null ? '建立新題目' : '編輯既有題目',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: subject,
-                    decoration: _fieldDecoration(context, '科目'),
-                    items: widget.allSubjects
-                        .map((item) => DropdownMenuItem(
-                              value: item,
-                              child: Text(item),
-                            ))
-                        .toList(),
-                    selectedItemBuilder: (BuildContext context) {
-                      return widget.allSubjects
-                          .map((item) => Text(
-                                item,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ))
-                          .toList();
-                    },
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        subject = value;
-                        final options = _chaptersForSubject(subject);
-                        if (!options.contains(chapter)) {
-                          chapter = options.first;
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: chapter,
-                    decoration: _fieldDecoration(context, '章節'),
-                    items: chapterItems
-                        .map((item) => DropdownMenuItem(
-                              value: item,
-                              child: Text(item),
-                            ))
-                        .toList(),
-                    selectedItemBuilder: (BuildContext context) {
-                      return chapterItems
-                          .map((item) => Text(
-                                item,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ))
-                          .toList();
-                    },
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => chapter = value);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: type,
-                    decoration: _fieldDecoration(context, '題型'),
-                    items: const [
-                      DropdownMenuItem(value: '單選題', child: Text('單選題')),
-                      DropdownMenuItem(value: '多選題', child: Text('多選題')),
-                      DropdownMenuItem(value: '是非題', child: Text('是非題')),
-                      DropdownMenuItem(value: '申論題', child: Text('申論題')),
+                  
+                  // 科目與章節 (並排在一行)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: subject,
+                          decoration: _fieldDecoration(context, '科目'),
+                          items: widget.allSubjects
+                              .map((item) => DropdownMenuItem(
+                                    value: item,
+                                    child: Text(item),
+                                  ))
+                              .toList(),
+                          selectedItemBuilder: (BuildContext context) {
+                            return widget.allSubjects
+                                .map((item) => Text(
+                                      item,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ))
+                                .toList();
+                          },
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() {
+                              subject = value;
+                              final options = _chaptersForSubject(subject);
+                              if (!options.contains(chapter)) {
+                                chapter = options.first;
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: chapter,
+                          decoration: _fieldDecoration(context, '章節'),
+                          items: chapterItems
+                              .map((item) => DropdownMenuItem(
+                                    value: item,
+                                    child: Text(item),
+                                  ))
+                              .toList(),
+                          selectedItemBuilder: (BuildContext context) {
+                            return chapterItems
+                                .map((item) => Text(
+                                      item,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ))
+                                .toList();
+                          },
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() => chapter = value);
+                          },
+                        ),
+                      ),
                     ],
-                    selectedItemBuilder: (BuildContext context) {
-                      return const [
-                        Text('單選題',
-                            overflow: TextOverflow.ellipsis, maxLines: 1),
-                        Text('多選題',
-                            overflow: TextOverflow.ellipsis, maxLines: 1),
-                        Text('是非題',
-                            overflow: TextOverflow.ellipsis, maxLines: 1),
-                        Text('申論題',
-                            overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ];
-                    },
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => type = value);
-                    },
                   ),
                   const SizedBox(height: 12),
+                  
+                  // 難度
                   DropdownButtonFormField<String>(
                     isExpanded: true,
                     initialValue: difficulty,
                     decoration: _fieldDecoration(context, '難度'),
-                    items: const ['易', '中', '難']
+                    items: const ['無', '易', '中', '難']
                         .map((item) => DropdownMenuItem(
                               value: item,
                               child: Text(item),
                             ))
                         .toList(),
                     selectedItemBuilder: (BuildContext context) {
-                      return const ['易', '中', '難']
+                      return const ['無', '易', '中', '難']
                           .map((item) => Text(
                                 item,
                                 overflow: TextOverflow.ellipsis,
@@ -396,170 +411,210 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     },
                   ),
                   const SizedBox(height: 12),
+                  
+                  // 題目內容
                   TextFormField(
                     controller: _questionCtrl,
-                    decoration:
-                        _fieldDecoration(context, '題目內容', hint: '輸入題目敘述'),
+                    decoration: _fieldDecoration(context, '題目內容', hint: '請輸入題目敘述...'),
                     minLines: 3,
                     maxLines: 6,
                     validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                            ? '請輸入題目'
-                            : null,
+                        (value == null || value.trim().isEmpty) ? '請輸入題目' : null,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
+            
+            // ── Card 2: 選項與正確答案 ──
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
+                      Container(
+                        width: 4,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        '選項與答案',
+                        '選項與正確答案',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                           color: cs.onSurface,
                         ),
                       ),
                       const Spacer(),
                       TextButton.icon(
                         onPressed: _addOption,
-                        icon: const Icon(Icons.add),
-                        label: const Text('新增選項'),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('新增選項', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: cs.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
+                  Text(
+                    '勾選左側的綠圈，代表該選項為正確答案。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
                   ..._optionCtrls.asMap().entries.map((entry) {
                     final index = entry.key;
                     final controller = entry.value;
+                    final isCorrect = answerIndex == index;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Row(
                         children: [
+                          // Custom premium Radio button (Green Check Circle)
+                          GestureDetector(
+                            onTap: () {
+                              setState(() => answerIndex = index);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isCorrect ? Colors.green.shade50 : Colors.grey.shade50,
+                                border: Border.all(
+                                  color: isCorrect ? Colors.green.shade600 : Colors.grey.shade300,
+                                  width: 2.0,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.check_circle_rounded,
+                                size: 20,
+                                color: isCorrect ? Colors.green.shade600 : Colors.transparent,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          
+                          // TextFormField for option
                           Expanded(
                             child: TextFormField(
                               controller: controller,
                               decoration: _fieldDecoration(
                                 context,
-                                '選項 ${index + 1}',
+                                '選項 ${String.fromCharCode(65 + index)}',
                               ),
                               validator: (value) =>
                                   (value == null || value.trim().isEmpty)
-                                      ? '請輸入選項內容，或點擊右側按鈕刪除該選項'
+                                      ? '請輸入選項內容'
                                       : null,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Column(
-                            children: [
-                              Radio<int>(
-                                value: index,
-                                groupValue: answerIndex,
-                                onChanged: (value) {
-                                  setState(() => answerIndex = value ?? 0);
-                                },
+                          
+                          // Delete option button
+                          if (_optionCtrls.length > 2) ...[
+                            const SizedBox(width: 4),
+                            IconButton(
+                              tooltip: '刪除此選項',
+                              onPressed: () => _removeOption(index),
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: cs.error.withValues(alpha: 0.8),
+                                size: 22,
                               ),
-                              IconButton(
-                                tooltip: '刪除選項',
-                                onPressed: () => _removeOption(index),
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  color: cs.error,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ],
                       ),
                     );
                   }),
-                  const SizedBox(height: 4),
-                  Text(
-                    '請至少保留兩個選項，並勾選正確答案。',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
+            
+            // ── Card 3: 附加資訊與發佈設定 ──
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '附加資訊',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurface,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '附加與發佈設定',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+                  
+                  // 解析說明
                   TextFormField(
                     controller: _explanationCtrl,
-                    decoration:
-                        _fieldDecoration(context, '解析（選填）', hint: '寫下解題說明或提示'),
-                    minLines: 3,
-                    maxLines: 6,
+                    decoration: _fieldDecoration(context, '解析說明（選填）', hint: '寫下這題的詳細解說或提示...'),
+                    minLines: 2,
+                    maxLines: 4,
                   ),
                   const SizedBox(height: 12),
+                  
+                  // 僅剩加入我的收藏 Switch
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('公開題目'),
-                    subtitle: const Text('未來可擴充成分享/匯入題庫'),
-                    value: isPublic,
-                    onChanged: (value) => setState(() => isPublic = value),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('加入收藏'),
-                    subtitle: const Text('方便之後快速篩選'),
+                    title: const Text('加入我的收藏', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('將這題加入我的收藏，方便之後快速複習', style: TextStyle(fontSize: 11.5)),
+                    activeColor: Colors.amber.shade700,
                     value: isBookmarked,
                     onChanged: (value) => setState(() => isBookmarked = value),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: _saving ? null : _saveQuestion,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_rounded),
-                label: Text(_saving ? '儲存中...' : '儲存題目'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
               ),
             ),
           ],

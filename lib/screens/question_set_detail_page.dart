@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import '../services/notebook_helper.dart';
-// import 'question_edit_page.dart';
+import 'question_edit_page.dart';
 import 'question_practice_page.dart';
 
 class QuestionSetDetailPage extends StatefulWidget {
@@ -13,6 +13,7 @@ class QuestionSetDetailPage extends StatefulWidget {
   final String? chapter; // 新增章節參數
   final int? paperId;
   final bool isFavoriteOnly; // 新增收藏篩選參數
+  final bool isCustomOnly; // 新增自訂題目篩選參數
   final List<String> allSubjects;
   final Map<String, List<String>> subjectChapters;
 
@@ -24,6 +25,7 @@ class QuestionSetDetailPage extends StatefulWidget {
     this.chapter,
     this.paperId,
     this.isFavoriteOnly = false,
+    this.isCustomOnly = false,
     required this.allSubjects,
     required this.subjectChapters,
   });
@@ -66,6 +68,15 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         rows = await db.query('questions',
             where: 'bookmarked = 1',
             orderBy: 'created_at DESC');
+      } else if (widget.isCustomOnly) {
+        final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+        rows = await db.rawQuery('''
+          SELECT q.*, u.display_name as author
+          FROM questions q
+          LEFT JOIN users u ON q.user_id = u.id
+          WHERE q.user_id = ? AND q.is_public = 0
+          ORDER BY q.created_at DESC
+        ''', [uid.toString()]);
       } else if (widget.paperId != null) {
         final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(widget.paperId!);
         if (ids.isNotEmpty) {
@@ -82,7 +93,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             LEFT JOIN users u ON q.user_id = u.id
             JOIN question_tag_map qm ON q.id = qm.question_id
             JOIN tags t ON t.id = qm.tag_id
-            WHERE q.subject = ? AND t.name = ?
+            WHERE q.subject = ? AND t.name = ? AND q.is_public = 1
             ORDER BY q.created_at DESC
           ''', [widget.subject, widget.chapter]);
         } else {
@@ -90,7 +101,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             SELECT q.*, u.display_name as author
             FROM questions q
             LEFT JOIN users u ON q.user_id = u.id
-            WHERE q.subject = ?
+            WHERE q.subject = ? AND q.is_public = 1
             ORDER BY q.created_at DESC
           ''', [widget.subject]);
         }
@@ -301,27 +312,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   }
 
   Future<void> _openEditPage(Map<String, dynamic> question) async {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.info_outline, color: Color(0xFF8D6E63)),
-            SizedBox(width: 8),
-            Text('系統提示'),
-          ],
-        ),
-        content: const Text('功能開發中'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('確定'),
-          ),
-        ],
-      ),
-    );
-    /*
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -336,7 +326,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     if (result == true) {
       await _loadQuestions();
     }
-    */
   }
 
   Future<void> _deleteQuestion(Map<String, dynamic> question) async {
@@ -717,16 +706,26 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     NotebookHelper.showAddToNotebookDialog(context, widget.currentUser, question);
                   }
                 },
-                itemBuilder: (context) => widget.paperId != null
-                    ? [
-                        const PopupMenuItem(value: 'edit', child: Text('編輯題目')),
-                        const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')),
-                        const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))),
-                      ]
-                    : [
-                        const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')),
-                        const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')),
-                      ],
+                itemBuilder: (context) {
+                  final currentUserId = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+                  final isOwner = question['user_id']?.toString() == currentUserId;
+                  
+                  final items = <PopupMenuEntry<String>>[];
+                  if (isOwner) {
+                    items.add(const PopupMenuItem(value: 'edit', child: Text('編輯題目')));
+                  }
+                  if (widget.paperId != null) {
+                    items.add(const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')));
+                    items.add(const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))));
+                  } else {
+                    items.add(const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')));
+                    items.add(const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')));
+                    if (isOwner) {
+                      items.add(const PopupMenuItem(value: 'delete', child: Text('刪除題目', style: TextStyle(color: Colors.red))));
+                    }
+                  }
+                  return items;
+                },
               ),
             ],
           ),
@@ -890,7 +889,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        widget.paperId != null ? '自訂題本' : '${widget.subject ?? "公共題庫"} • ${widget.chapter ?? "全部章節"}',
+                        widget.isCustomOnly ? '個人自訂' : (widget.paperId != null ? '自訂題本' : '${widget.subject ?? "公共題庫"} • ${widget.chapter ?? "全部章節"}'),
                         style: TextStyle(
                           color: cs.onPrimary.withValues(alpha: 0.8),
                           fontSize: 13,
@@ -1058,8 +1057,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       children: [
                         if ((question['difficulty'] ?? '').toString().isNotEmpty)
                           _buildMiniTag(question['difficulty'].toString(), cs.tertiary, cs),
-                        if ((question['type'] ?? '').toString().isNotEmpty)
-                          _buildMiniTag(question['type'].toString(), cs.primary, cs),
                       ],
                     ),
                   ],
@@ -1102,16 +1099,26 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     NotebookHelper.showAddToNotebookDialog(context, widget.currentUser, question);
                   }
                 },
-                itemBuilder: (context) => widget.paperId != null
-                    ? [
-                        const PopupMenuItem(value: 'edit', child: Text('編輯題目')),
-                        const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')),
-                        const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))),
-                      ]
-                    : [
-                        const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')),
-                        const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')),
-                      ],
+                itemBuilder: (context) {
+                  final currentUserId = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+                  final isOwner = question['user_id']?.toString() == currentUserId;
+                  
+                  final items = <PopupMenuEntry<String>>[];
+                  if (isOwner) {
+                    items.add(const PopupMenuItem(value: 'edit', child: Text('編輯題目')));
+                  }
+                  if (widget.paperId != null) {
+                    items.add(const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')));
+                    items.add(const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))));
+                  } else {
+                    items.add(const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')));
+                    items.add(const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')));
+                    if (isOwner) {
+                      items.add(const PopupMenuItem(value: 'delete', child: Text('刪除題目', style: TextStyle(color: Colors.red))));
+                    }
+                  }
+                  return items;
+                },
               ),
             ],
           ),
@@ -1347,6 +1354,30 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     ],
                   ),
       ),
+      floatingActionButton: widget.paperId == null
+          ? FloatingActionButton(
+              heroTag: 'add_question_fab',
+              onPressed: () async {
+                final result = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuestionEditPage(
+                      initialData: widget.subject != null ? {'subject': widget.subject} : null,
+                      currentUser: widget.currentUser,
+                      allSubjects: widget.allSubjects,
+                      subjectChapters: widget.subjectChapters,
+                    ),
+                  ),
+                );
+                if (result == true) {
+                  _loadQuestions();
+                }
+              },
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }

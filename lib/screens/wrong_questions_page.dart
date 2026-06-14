@@ -32,7 +32,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
 
   // Filtering & Sorting State
   String _selectedSubject = '全部';
-  bool _sortAscending = false; // default false = newest first
+  final bool _sortAscending = false; // default false = newest first
 
   @override
   void initState() {
@@ -243,62 +243,170 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   }
 
   Future<void> _batchAddNotes() async {
-    if (_selected.isEmpty) return;
-    final titleCtrl =
-        TextEditingController(text: _currentMode == 0 ? '錯題筆記' : '收藏筆記');
-    final contentCtrl = TextEditingController();
-    final res = await showDialog<bool>(
+    showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('為選取題目新增筆記（批次）'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
           children: [
-            TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(labelText: '標題')),
-            const SizedBox(height: 8),
-            TextField(
-                controller: contentCtrl,
-                decoration: const InputDecoration(labelText: '內容'),
-                minLines: 3,
-                maxLines: 8),
+            Icon(Icons.edit_note_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 12),
+            Text('批次新增筆記', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
+        ),
+        content: const Text(
+          '批次筆記功能開發中！\n未來版本將支援一鍵備份同步您的學習筆記，並能批次為精選錯題加入解題心得！',
+          style: TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('儲存')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('期待！', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
-    if (res != true) return;
+  }
 
-    try {
-      final uid =
-          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+  Future<void> _batchAddToPaper() async {
+    if (_selected.isEmpty) return;
+
+    // 1. Get actual question IDs
+    final qids = <int>[];
+    if (_currentMode == 0) {
       for (final r in _rows) {
         final rid = int.tryParse(r['id'].toString()) ?? 0;
-        final qid = int.tryParse(r['question_id'].toString()) ?? 0;
-        final key = _currentMode == 0 ? rid : qid;
-        if (_selected.contains(key)) {
-          final noteTitle = '${titleCtrl.text.trim()}：題 $qid';
-          await DatabaseHelper.instance
-              .createNote(uid.toString(), noteTitle, contentCtrl.text.trim());
+        if (_selected.contains(rid)) {
+          final qid = int.tryParse(r['question_id'].toString()) ?? 0;
+          if (qid > 0) qids.add(qid);
         }
       }
+    } else {
+      qids.addAll(_selected);
+    }
+
+    if (qids.isEmpty) return;
+
+    try {
+      final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+      final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('筆記已新增')));
+
+      // Show selection dialog
+      final selectedPaper = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('選擇要加入的自訂題本'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: papers.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return ListTile(
+                    leading: const Icon(Icons.add, color: Colors.blue),
+                    title: const Text('建立新題本並加入', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                    onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
+                  );
+                }
+                final p = papers[index - 1];
+                return ListTile(
+                  leading: const Icon(Icons.assignment_rounded, color: Colors.orange),
+                  title: Text(p['name'] ?? '未命名題本'),
+                  onTap: () => Navigator.pop(ctx, p),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+          ],
+        ),
+      );
+
+      if (selectedPaper == null) return;
+
+      if (selectedPaper['action'] == 'create_new') {
+        if (!mounted) return;
+        final newNameController = TextEditingController();
+        final defaultName = '新題本 ${papers.length + 1}';
+
+        final newPaperName = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('建立新題本'),
+            content: TextField(
+              controller: newNameController,
+              decoration: InputDecoration(
+                labelText: '題本名稱',
+                hintText: defaultName,
+              ),
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('取消'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final text = newNameController.text.trim();
+                  Navigator.pop(ctx, text.isEmpty ? defaultName : text);
+                },
+                child: const Text('確定'),
+              ),
+            ],
+          ),
+        );
+
+        if (newPaperName == null) return;
+
+        await DatabaseHelper.instance.createPaper(
+          uid.toString(),
+          newPaperName,
+          qids,
+        );
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已建立並成功加入「$newPaperName」')),
+        );
+        _exitSelectionMode();
+        return;
+      }
+
+      final paperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
+      final paperName = selectedPaper['name'] ?? '未命名題本';
+
+      final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
+      final int originalCount = ids.length;
+      final Set<int> mergedSet = {...ids, ...qids};
+      final int addedCount = mergedSet.length - originalCount;
+
+      await DatabaseHelper.instance.updatePaper(paperId, paperName, mergedSet.toList());
+
+      if (!mounted) return;
+      if (addedCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('選取的題目已存在於「$paperName」中')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已成功加入 $addedCount 題至「$paperName」！')),
+        );
+      }
       _exitSelectionMode();
     } catch (e) {
-      debugPrint('批次新增筆記失敗: $e');
+      debugPrint('批次加到題本失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('新增失敗')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('加入失敗，請稍後再試')),
+      );
     }
   }
 
@@ -415,11 +523,13 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
         content: Text(content),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('確定')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('確定'),
+          ),
         ],
       ),
     );
@@ -443,6 +553,58 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       debugPrint('清空失敗: $e');
       messenger.showSnackBar(const SnackBar(content: Text('清空失敗')));
     }
+  }
+
+  Widget _buildEmptyState(ColorScheme cs) {
+    final isWrongMode = _currentMode == 0;
+    return Center(
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(), // Ensures refresh works even when empty
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isWrongMode
+                    ? Colors.green.shade50.withValues(alpha: 0.5)
+                    : Colors.amber.shade50.withValues(alpha: 0.5),
+              ),
+              child: Icon(
+                isWrongMode ? Icons.verified_rounded : Icons.star_rounded,
+                size: 72,
+                color: isWrongMode ? Colors.green.shade600 : Colors.amber.shade600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              isWrongMode ? '太棒了！' : '收藏庫空空如也',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _selectedSubject == '全部'
+                  ? (isWrongMode
+                      ? '目前沒有任何錯題記錄，請繼續保持優良表現！'
+                      : '目前還沒有收藏題目，快去題庫挑選你感興趣的題目吧！')
+                  : '目前在「$_selectedSubject」下沒有${isWrongMode ? '錯題' : '收藏記錄'}。',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: cs.onSurface.withValues(alpha: 0.6),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -529,12 +691,12 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                               child: ChoiceChip(
                                 label: Text(subject),
                                 selected: isSelected,
-                                selectedColor: const Color(0xFF8D6E63),
-                                backgroundColor: const Color(0xFFF5F0EE),
+                                selectedColor: cs.primary,
+                                backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
                                 labelStyle: TextStyle(
                                   color: isSelected
-                                      ? Colors.white
-                                      : Colors.black87,
+                                      ? cs.onPrimary
+                                      : cs.onSurfaceVariant,
                                   fontWeight: isSelected
                                       ? FontWeight.bold
                                       : FontWeight.normal,
@@ -545,7 +707,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                   side: BorderSide(
                                       color: isSelected
                                           ? Colors.transparent
-                                          : Colors.grey.shade300),
+                                          : cs.outline.withValues(alpha: 0.15)),
                                 ),
                                 onSelected: (selected) {
                                   if (selected) {
@@ -560,39 +722,14 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // Sort button
-                    IconButton(
-                      icon: Icon(
-                        _sortAscending
-                            ? Icons.arrow_upward_rounded
-                            : Icons.arrow_downward_rounded,
-                        color: const Color(0xFF8D6E63),
-                        size: 20,
-                      ),
-                      tooltip: _sortAscending ? '最早加入' : '最新加入',
-                      onPressed: () {
-                        setState(() {
-                          _sortAscending = !_sortAscending;
-                        });
-                      },
-                    ),
                   ],
                 ),
               ),
               Expanded(
                 child: displayList.isEmpty
-                    ? Center(
-                        child: Text(
-                          _selectedSubject == '全部'
-                              ? (_currentMode == 0 ? '目前沒有錯題記錄' : '目前沒有收藏題目')
-                              : '目前在「$_selectedSubject」下沒有${_currentMode == 0 ? '錯題' : '收藏'}',
-                          style: TextStyle(
-                              color: cs.onSurface.withValues(alpha: 0.7)),
-                        ),
-                      )
+                    ? _buildEmptyState(cs)
                     : ListView.builder(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
                         itemCount: displayList.length,
                         itemBuilder: (context, idx) {
                           final r = displayList[idx];
@@ -613,17 +750,29 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
 
                           // Checkbox key: for wrong questions it's rid; for favorites it's qid
                           final selectionKey = _currentMode == 0 ? rid : qid;
+                          final isSelected = _selected.contains(selectionKey);
 
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 6),
-                            elevation: 0.5,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: BorderSide(
-                                  color: Colors.grey.shade200, width: 1.2),
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: isSelected
+                                    ? cs.primary.withValues(alpha: 0.5)
+                                    : cs.outline.withValues(alpha: 0.08),
+                                width: isSelected ? 1.8 : 1.0,
+                              ),
                             ),
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(24),
                               onLongPress: () {
                                 if (!_isSelectionMode) {
                                   setState(() {
@@ -647,7 +796,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                     }
                                   : null,
                               child: Padding(
-                                padding: const EdgeInsets.all(14),
+                                padding: const EdgeInsets.all(16),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -658,10 +807,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                           Transform.scale(
                                             scale: 0.9,
                                             child: Checkbox(
-                                              value: _selected
-                                                  .contains(selectionKey),
-                                              activeColor:
-                                                  const Color(0xFF8D6E63),
+                                              value: isSelected,
+                                              activeColor: cs.primary,
                                               onChanged: (v) {
                                                 setState(() {
                                                   if (v == true) {
@@ -677,41 +824,41 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                               },
                                             ),
                                           ),
+                                          const SizedBox(width: 4),
                                         ],
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 3),
+                                              horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: Colors.blue
-                                                .withValues(alpha: 0.1),
+                                            color: cs.primary.withValues(alpha: 0.08),
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                           ),
                                           child: Text(
                                             subject,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.bold,
-                                                color: Colors.blue),
+                                                color: cs.primary),
                                           ),
                                         ),
-                                        const SizedBox(width: 6),
+                                        const Spacer(),
                                         IconButton(
                                           visualDensity: VisualDensity.compact,
                                           padding: EdgeInsets.zero,
                                           constraints: const BoxConstraints(),
                                           icon: Icon(
                                             (r['bookmarked'] as int? ?? 0) ==
-                                                        1 ||
-                                                    r['bookmarked'] == true
-                                                ? Icons.star_rounded
-                                                : Icons.star_outline_rounded,
+                                                         1 ||
+                                                     r['bookmarked'] == true
+                                                 ? Icons.star_rounded
+                                                 : Icons.star_outline_rounded,
                                             color: (r['bookmarked'] as int? ??
                                                             0) ==
-                                                        1 ||
-                                                    r['bookmarked'] == true
-                                                ? Colors.amber
-                                                : Colors.grey.shade400,
+                                                         1 ||
+                                                     r['bookmarked'] == true
+                                                 ? Colors.amber
+                                                 : Colors.grey.shade400,
                                             size: 20,
                                           ),
                                           onPressed: () async {
@@ -781,7 +928,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 12),
 
                                     // Question Text
                                     Text(
@@ -793,7 +940,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                           fontSize: 14.5,
                                           height: 1.45),
                                     ),
-                                    const SizedBox(height: 10),
+                                    const SizedBox(height: 14),
 
                                     // Compact options view (highlighting the correct option)
                                     if (options.isNotEmpty)
@@ -804,39 +951,50 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                               optIdx == correctIndex;
                                           return Container(
                                             margin: const EdgeInsets.only(
-                                                bottom: 4),
+                                                bottom: 6),
                                             padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 4),
+                                                horizontal: 12, vertical: 8),
                                             decoration: BoxDecoration(
                                               color: isCorrect
-                                                  ? Colors.green
-                                                      .withValues(alpha: 0.08)
-                                                  : Colors.transparent,
+                                                  ? Colors.green.shade50.withValues(alpha: 0.5)
+                                                  : const Color(0xFFFAF8F6),
                                               borderRadius:
-                                                  BorderRadius.circular(6),
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: isCorrect
+                                                    ? Colors.green.withValues(alpha: 0.25)
+                                                    : Colors.grey.shade100,
+                                                width: 1,
+                                              ),
                                             ),
                                             child: Row(
                                               children: [
-                                                Text(
-                                                  '${String.fromCharCode(65 + optIdx)}.',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isCorrect
-                                                        ? Colors.green.shade700
-                                                        : Colors.black54,
-                                                    fontSize: 12,
+                                                Container(
+                                                  width: 20,
+                                                  height: 20,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: isCorrect ? Colors.green.shade600 : Colors.grey.shade300,
+                                                  ),
+                                                  alignment: Alignment.center,
+                                                  child: Text(
+                                                    String.fromCharCode(65 + optIdx),
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.white,
+                                                      fontSize: 11,
+                                                    ),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 6),
+                                                const SizedBox(width: 10),
                                                 Expanded(
                                                   child: Text(
                                                     options[optIdx],
                                                     style: TextStyle(
                                                       color: isCorrect
-                                                          ? Colors
-                                                              .green.shade800
+                                                          ? Colors.green.shade900
                                                           : Colors.black87,
-                                                      fontSize: 12,
+                                                      fontSize: 12.5,
                                                       fontWeight: isCorrect
                                                           ? FontWeight.w600
                                                           : FontWeight.normal,
@@ -844,11 +1002,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                   ),
                                                 ),
                                                 if (isCorrect)
-                                                  const Icon(
-                                                      Icons
-                                                          .check_circle_rounded,
-                                                      color: Colors.green,
-                                                      size: 14),
+                                                  Icon(
+                                                    Icons.check_circle_rounded,
+                                                    color: Colors.green.shade600,
+                                                    size: 16,
+                                                  ),
                                               ],
                                             ),
                                           );
@@ -863,21 +1021,31 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                       const SizedBox(height: 8),
                                       Container(
                                         width: double.infinity,
-                                        padding: const EdgeInsets.all(8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFFFF8E7),
+                                          color: Colors.amber.shade50.withValues(alpha: 0.3),
                                           borderRadius:
-                                              BorderRadius.circular(8),
+                                              BorderRadius.circular(12),
                                           border: Border.all(
-                                              color: const Color(0xFFFFD966),
-                                              width: 0.6),
+                                              color: Colors.amber.withValues(alpha: 0.2),
+                                              width: 0.8),
                                         ),
-                                        child: Text(
-                                          '解析: ${r['explanation']}',
-                                          style: const TextStyle(
-                                              fontSize: 11.5,
-                                              color: Color(0xFF92400E),
-                                              height: 1.4),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(Icons.lightbulb_outline_rounded,
+                                                color: Colors.amber.shade800, size: 16),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                '解析：${r['explanation']}',
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.amber.shade900,
+                                                    height: 1.45),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -886,24 +1054,31 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                     if (_currentMode == 0 &&
                                         note.isNotEmpty) ...[
                                       const SizedBox(height: 8),
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(left: 4.0),
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: cs.primary.withValues(alpha: 0.04),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: cs.primary.withValues(alpha: 0.1),
+                                              width: 0.8),
+                                        ),
                                         child: Row(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            const Icon(Icons.edit_note_rounded,
-                                                size: 16,
-                                                color: Color(0xFF8D6E63)),
-                                            const SizedBox(width: 4),
+                                            Icon(Icons.edit_note_rounded,
+                                                size: 18,
+                                                color: cs.primary),
+                                            const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                note,
-                                                style: const TextStyle(
+                                                '筆記：$note',
+                                                style: TextStyle(
                                                     fontSize: 12,
-                                                    fontStyle: FontStyle.italic,
-                                                    color: Color(0xFF5D4037)),
+                                                    color: cs.primary,
+                                                    height: 1.45),
                                               ),
                                             ),
                                           ],
@@ -911,7 +1086,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                       ),
                                     ],
 
-                                    const SizedBox(height: 10),
+                                    const SizedBox(height: 12),
                                     const Divider(height: 1, thickness: 0.5),
                                     const SizedBox(height: 8),
 
@@ -922,9 +1097,9 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                         // Add to notebook
                                         IconButton(
                                           tooltip: '加入筆記本',
-                                          icon: const Icon(
+                                          icon: Icon(
                                               Icons.note_add_outlined,
-                                              color: Colors.blueGrey,
+                                              color: cs.primary.withValues(alpha: 0.8),
                                               size: 18),
                                           onPressed: () {
                                             final questionMap = {
@@ -1022,42 +1197,58 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
               ),
               if (_isSelectionMode && displayList.isNotEmpty)
                 SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+                    ),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _deleteSelected,
-                            child: Text(_currentMode == 0 ? '移除選取' : '取消收藏選取',
-                                style: const TextStyle(fontSize: 11),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                          ),
+                        IconButton(
+                          tooltip: _currentMode == 0 ? '從錯題本移除選取' : '取消收藏選取',
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                          onPressed: _deleteSelected,
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _batchAddNotes,
-                            child: const Text('批次筆記',
-                                style: TextStyle(fontSize: 11),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                          ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: '批次新增筆記',
+                          icon: Icon(Icons.note_alt_outlined, color: cs.primary),
+                          onPressed: _batchAddNotes,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: '批次加到自訂題本',
+                          icon: const Icon(Icons.create_new_folder_outlined, color: Colors.orange),
+                          onPressed: _batchAddToPaper,
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: ElevatedButton(
+                          child: ElevatedButton.icon(
                             onPressed: _startPracticeSelected,
-                            style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              backgroundColor: const Color(0xFF8D6E63),
-                              foregroundColor: Colors.white,
+                            icon: const Icon(Icons.play_arrow_rounded),
+                            label: Text(
+                              _currentMode == 0 ? '複習選取' : '練習選取',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            child: Text(_currentMode == 0 ? '複習選取' : '練習選取',
-                                style: const TextStyle(fontSize: 11),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: cs.primary,
+                              foregroundColor: cs.onPrimary,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1067,62 +1258,83 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
             ],
           );
 
-    if (widget.embed) {
-      return content;
-    }
-
     return Scaffold(
-      appBar: _isSelectionMode
-          ? AppBar(
-              title: Text('已選取 ${_selected.length} 項'),
-              backgroundColor: cs.secondaryContainer,
-              foregroundColor: cs.onSecondaryContainer,
-              leading: IconButton(
-                icon: const Icon(Icons.close_rounded),
-                onPressed: _exitSelectionMode,
-              ),
-              actions: [
-                TextButton(
+      backgroundColor: widget.embed ? Colors.transparent : const Color(0xFFFAF8F6),
+      appBar: widget.embed
+          ? null
+          : (_isSelectionMode
+              ? AppBar(
+                  title: Text('已選取 ${_selected.length} 項'),
+                  backgroundColor: cs.secondaryContainer,
+                  foregroundColor: cs.onSecondaryContainer,
+                  leading: IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: _exitSelectionMode,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          final allKeys = displayList
+                              .map((r) {
+                                final rid = int.tryParse(r['id'].toString()) ?? 0;
+                                final qid =
+                                    int.tryParse(r['question_id'].toString()) ?? 0;
+                                return _currentMode == 0 ? rid : qid;
+                              })
+                              .where((k) => k > 0)
+                              .toList();
+                          _selected.addAll(allKeys);
+                        });
+                      },
+                      child: Text(
+                        '全選',
+                        style: TextStyle(
+                          color: cs.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : AppBar(
+                  title: Text(_currentMode == 0 ? '錯題本' : '我的收藏'),
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                )),
+      body: content,
+      floatingActionButton: _isSelectionMode
+          ? null
+          : (displayList.isNotEmpty
+              ? FloatingActionButton.extended(
+                  heroTag: _currentMode == 0 ? 'wrong_quiz_fab' : 'fav_quiz_fab',
                   onPressed: () {
-                    setState(() {
-                      final allKeys = displayList
-                          .map((r) {
-                            final rid = int.tryParse(r['id'].toString()) ?? 0;
-                            final qid =
-                                int.tryParse(r['question_id'].toString()) ?? 0;
-                            return _currentMode == 0 ? rid : qid;
-                          })
-                          .where((k) => k > 0)
-                          .toList();
-                      _selected.addAll(allKeys);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => QuestionPracticePage(
+                          questions: displayList,
+                          title: _currentMode == 0
+                              ? (_selectedSubject == '全部' ? '全錯題複習' : '錯題複習 ($_selectedSubject)')
+                              : (_selectedSubject == '全部' ? '全收藏練習' : '收藏練習 ($_selectedSubject)'),
+                          currentUser: widget.currentUser,
+                        ),
+                      ),
+                    ).then((_) {
+                      loadWrongQuestions();
                     });
                   },
-                  child: Text(
-                    '全選',
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                  label: Text(
+                    _selectedSubject == '全部'
+                        ? '開始練習全部 (${displayList.length} 題)'
+                        : '練習「$_selectedSubject」(${displayList.length} 題)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                ),
-              ],
-            )
-          : AppBar(
-              title: Text(_currentMode == 0 ? '錯題本' : '我的收藏'),
-              backgroundColor: cs.primary,
-              foregroundColor: cs.onPrimary,
-              actions: [
-                IconButton(
-                    onPressed: loadWrongQuestions,
-                    icon: const Icon(Icons.refresh_rounded)),
-                IconButton(
-                  onPressed: clearAll,
-                  icon: const Icon(Icons.delete_sweep_rounded),
-                  tooltip: _currentMode == 0 ? '清空錯題本' : '清空收藏',
-                ),
-              ],
-            ),
-      body: content,
+                )
+              : null),
     );
   }
 }
