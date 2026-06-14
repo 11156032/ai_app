@@ -80,6 +80,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Map<String, List<Map<String, dynamic>>> allSchedules = {};
   List<Map<String, dynamic>> allTodos = [];
+  int _calendarSubTab = 0; // 0 for 行程, 1 for 待辦清單
+  final TextEditingController _todoInputController = TextEditingController();
   List<Map<String, dynamic>> socialPosts = [];
   List<Map<String, dynamic>> scheduledPosts = [];
   List<Map<String, dynamic>> questionBank = [];
@@ -782,6 +784,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _chatScrollController.dispose();
     _calendarPageController.dispose();
     _timelinePageController.dispose();
+    _todoInputController.dispose();
     super.dispose();
   }
 
@@ -1198,6 +1201,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('新增待辦失敗，請稍後再試')),
       );
+    }
+  }
+
+  void _deleteTodo(String id) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.delete('todos', where: 'id = ?', whereArgs: [int.parse(id)]);
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('待辦事項已刪除'), backgroundColor: Colors.redAccent),
+      );
+    } catch (e) {
+      debugPrint('刪除待辦失敗: $e');
+    }
+  }
+
+  void _editTodo(String id, String newText) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.update('todos', {'text': newText}, where: 'id = ?', whereArgs: [int.parse(id)]);
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已更新待辦事項為「$newText」')),
+      );
+    } catch (e) {
+      debugPrint('更新待辦失敗: $e');
     }
   }
 
@@ -6537,38 +6568,103 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     style: TextStyle(color: Colors.grey, fontSize: 14))
               ]))));
 
-  // --- 1. 日曆行程 (含待辦) ---
-  Widget _buildCalendarTab() => Column(children: [
-        SizedBox(
-            height: _calendarViewMode == 'bar' ? 380 : 330,
-            child: PageView.builder(
-                controller: _calendarPageController,
-                // page 0 固定 = 2020年1月（全域基準），initialPage 動態偏移以跳到今月
-                onPageChanged: (i) => setState(
-                    () => _calendarMonth = DateTime(2020, 1 + i, 1)),
-                itemBuilder: (ctx, i) =>
-                    _buildMonthGrid(DateTime(2020, 1 + i, 1)))),
-        Padding(
-            padding: const EdgeInsets.fromLTRB(25, 0, 15, 0),
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("${_selectedDate.month}/${_selectedDate.day} 行程",
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF8D6E63))),
-                  IconButton(
-                      icon: const Icon(Icons.add_circle,
-                          color: Color(0xFFD7CCC8), size: 30),
-                      onPressed: _showManualAddDialog)
-                ])),
-        Expanded(
-            child: PageView.builder(
+  Widget _buildCalendarTab() {
+    final primaryColor = Theme.of(context).primaryColor;
+    return Column(children: [
+      SizedBox(
+          height: _calendarViewMode == 'bar' ? 380 : 330,
+          child: PageView.builder(
+              controller: _calendarPageController,
+              // page 0 固定 = 2020年1月（全域基準），initialPage 動態偏移以跳到今月
+              onPageChanged: (i) => setState(
+                  () => _calendarMonth = DateTime(2020, 1 + i, 1)),
+              itemBuilder: (ctx, i) =>
+                  _buildMonthGrid(DateTime(2020, 1 + i, 1)))),
+      // Segmented Tab Selector
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 8),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () => setState(() => _calendarSubTab = 0),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _calendarSubTab == 0
+                      ? primaryColor.withValues(alpha: 0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  "今日行程",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: _calendarSubTab == 0 ? primaryColor : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => setState(() => _calendarSubTab = 1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _calendarSubTab == 1
+                      ? primaryColor.withValues(alpha: 0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      "待辦清單",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: _calendarSubTab == 1 ? primaryColor : Colors.grey,
+                      ),
+                    ),
+                    if (allTodos.any((todo) => !todo['isDone'])) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _calendarSubTab == 1 ? primaryColor : Colors.grey.shade400,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          "${allTodos.where((todo) => !todo['isDone']).length}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+                icon: const Icon(Icons.add_circle,
+                    color: Color(0xFFD7CCC8), size: 30),
+                onPressed: _showManualAddDialog)
+          ],
+        ),
+      ),
+      Expanded(
+        child: _calendarSubTab == 0
+            ? PageView.builder(
                 controller: _timelinePageController,
                 onPageChanged: (i) {
                   DateTime newDate =
                       _simulatedToday.add(Duration(days: i - 1000));
-                  // 用完整日期（年月日）比較，避免跨月時月份顯示錯誤
                   if (newDate.year != _selectedDate.year ||
                       newDate.month != _selectedDate.month ||
                       newDate.day != _selectedDate.day) {
@@ -6576,8 +6672,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   }
                 },
                 itemBuilder: (ctx, i) => _buildUnifiedDayEvents(
-                    _simulatedToday.add(Duration(days: i - 1000))))),
-      ]);
+                    _simulatedToday.add(Duration(days: i - 1000))))
+            : _buildGeneralTodoList(),
+      ),
+    ]);
+  }
 
   Widget _buildMonthGrid(DateTime date) {
     int empty = DateTime(date.year, date.month, 1).weekday - 1;
@@ -6585,6 +6684,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     int rows = ((empty + days) / 7).ceil();
 
     return LayoutBuilder(builder: (context, constraints) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final todayBgColor = isDark ? const Color(0xFF3F2B28) : const Color(0xFFFDF0ED);
+      final todayBorderColor = isDark ? const Color(0xFFDE8275).withValues(alpha: 0.6) : const Color(0xFFECA395);
+      final todayTextColor = isDark ? const Color(0xFFF4A295) : const Color(0xFFD35E4E);
       double itemWidth = (constraints.maxWidth - 40 - 48) / 7;
 
       // 動態計算需要的高度比例，避免跨越 6 列的月份溢出 (例如 2026年3月)
@@ -6765,18 +6868,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 color: isSel
                                     ? const Color(0xFF8D6E63)
                                     : (isToday
-                                        ? (Theme.of(context).brightness ==
-                                                Brightness.dark
-                                            ? Colors.redAccent
-                                                .withValues(alpha: 0.15)
-                                            : const Color(0xFFF5E6E6))
+                                        ? todayBgColor
                                         : Colors.transparent),
                                 border: Border.all(
                                   color: isSel
                                       ? const Color(0xFF8D6E63)
                                       : (isToday
-                                          ? Colors.redAccent
-                                              .withValues(alpha: 0.5)
+                                          ? todayBorderColor
                                           : Colors.transparent),
                                 ),
                               ),
@@ -6791,7 +6889,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     color: isSel
                                         ? Colors.white
                                         : (isToday
-                                            ? Colors.redAccent
+                                            ? todayTextColor
                                             : (Theme.of(context).brightness ==
                                                     Brightness.dark
                                                 ? Colors.white70
@@ -7025,20 +7123,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               color: isSel
                                   ? const Color(0xFF8D6E63)
                                   : (isToday
-                                      ? (Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? Colors.redAccent
-                                              .withValues(alpha: 0.15)
-                                          : const Color(0xFFF5E6E6))
+                                      ? todayBgColor
                                       : Colors.transparent),
                               border: Border.all(
                                   color: isSel
                                       ? const Color(0xFF8D6E63)
                                       : (isToday
-                                          ? Colors.redAccent
-                                              .withValues(alpha: 0.5)
-                                          : Colors
-                                              .transparent))), // 去除無行程非今日日期的白色圓邊框，美化日曆
+                                          ? todayBorderColor
+                                          : Colors.transparent))), // 去除無行程非今日日期的白色圓邊框，美化日曆
                           child: Center(
                               child: Text('$d',
                                   style: TextStyle(
@@ -7049,53 +7141,40 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       color: isSel
                                           ? Colors.white
                                           : (isToday
-                                              ? Colors.redAccent
+                                              ? todayTextColor
                                               : (Theme.of(context).brightness ==
                                                       Brightness.dark
                                                   ? Colors.white70
                                                   : Colors.black87)))))),
-                      // 行程標記：Pills + 行內 +N Badge
+                      // 行程標記：Pills 或 點點點(Row)
                       if (dayEvents.isNotEmpty)
                         Padding(
                           padding:
                               const EdgeInsets.only(top: 3, left: 2, right: 2),
-                          child: Wrap(
-                            spacing: 3,
-                            runSpacing: 2,
-                            alignment: WrapAlignment.center,
-                            children: [
-                              ...dayEvents.take(2).map((e) => Container(
-                                    width: 10,
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(2),
-                                      color: Color(
-                                          e['color'] as int? ?? 0xFF8D6E63),
-                                    ),
-                                  )),
-                              if (dayEvents.length > 2)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 3, vertical: 0),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.white.withValues(alpha: 0.14)
-                                        : Colors.black.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: Text('+${dayEvents.length - 2}',
-                                      style: TextStyle(
-                                          fontSize: 6,
-                                          fontWeight: FontWeight.w800,
-                                          height: 1.6,
-                                          color: Theme.of(context).brightness ==
-                                                  Brightness.dark
-                                              ? Colors.white60
-                                              : Colors.black45,
-                                          letterSpacing: 0.1)),
-                                ),
-                            ],
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: dayEvents.length > 2
+                                ? List.generate(3, (idx) {
+                                    final e = dayEvents[idx < 2 ? idx : 2];
+                                    return Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 1),
+                                      width: 4,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Color(e['color'] as int? ?? 0xFF8D6E63),
+                                      ),
+                                    );
+                                  })
+                                : dayEvents.map((e) => Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                                      width: 8,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(2),
+                                        color: Color(e['color'] as int? ?? 0xFF8D6E63),
+                                      ),
+                                    )).toList(),
                           ),
                         ),
                     ],
@@ -7107,30 +7186,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Widget _buildUnifiedDayEvents(DateTime targetDate) {
     String dateKey = targetDate.toString().split(' ')[0];
-    bool isPast = targetDate.isBefore(_simulatedToday);
 
     // Itinerary Logic: Sort by time
     List<Map<String, dynamic>> schedules =
         List.from(allSchedules[dateKey] ?? []);
     schedules.sort((a, b) => (a['time'] as String).compareTo(b['time']));
 
-    // Todo Logic: Separation and Restoration
-    // Show uncompleted todos if today or future, and completed todos if they were done on this date
-    List<Map<String, dynamic>> uncompletedTodos = allTodos.where((todo) {
-      return !todo['isDone'] && !isPast;
-    }).toList();
-
-    List<Map<String, dynamic>> completedTodos = allTodos.where((todo) {
-      return todo['isDone'] && todo['doneDate'] == dateKey;
-    }).toList();
-
-    if (schedules.isEmpty &&
-        uncompletedTodos.isEmpty &&
-        completedTodos.isEmpty) {
+    if (schedules.isEmpty) {
       return const Padding(
           padding: EdgeInsets.only(top: 20),
           child: Center(
-              child: Text('本日尚無行程與待辦', style: TextStyle(color: Colors.grey))));
+              child: Text('本日尚無行程', style: TextStyle(color: Colors.grey))));
     }
 
     int delay = 0;
@@ -7144,61 +7210,198 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     return ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 25),
+        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
         children: [
-          // --- Itinerary Section ---
-          if (schedules.isNotEmpty) ...[
-            staggered(Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(children: [
-                const Icon(Icons.event_note,
-                    size: 20, color: Color(0xFF8D6E63)),
-                const SizedBox(width: 8),
-                const Text('今日行程',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF8D6E63),
-                        letterSpacing: 1,
-                        fontSize: 16)),
-              ]),
-            )),
-            ...schedules.map((event) => staggered(_buildScheduleItem(event))),
-            const SizedBox(height: 10),
-          ],
-
-          // --- Todo Section ---
-          if (uncompletedTodos.isNotEmpty || completedTodos.isNotEmpty) ...[
-            staggered(Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(children: [
-                const Icon(Icons.check_box_outlined,
-                    size: 20, color: Color(0xFF8D6E63)),
-                const SizedBox(width: 8),
-                const Text('待辦事項',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF8D6E63),
-                        letterSpacing: 1,
-                        fontSize: 16)),
-              ]),
-            )),
-            ...uncompletedTodos
-                .map((item) => staggered(_buildTodoItem(item, isPast))),
-            if (completedTodos.isNotEmpty) ...[
-              staggered(const Padding(
-                padding: EdgeInsets.only(top: 15, bottom: 8),
-                child: Text('已完成',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.bold)),
-              )),
-              ...completedTodos
-                  .map((item) => staggered(_buildTodoItem(item, isPast))),
-            ],
-          ],
+          ...schedules.map((event) => staggered(_buildScheduleItem(event))),
           const SizedBox(height: 100), // bottom padding for floating nav bar
         ]);
+  }
+
+  Widget _buildGeneralTodoList() {
+    // Show all uncompleted todos
+    List<Map<String, dynamic>> uncompleted = allTodos.where((todo) => !todo['isDone']).toList();
+    // Show all completed todos completed on the selected calendar date
+    String dateKey = _selectedDate.toString().split(' ')[0];
+    List<Map<String, dynamic>> completed = allTodos.where((todo) {
+      return todo['isDone'] && todo['doneDate'] == dateKey;
+    }).toList();
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 25),
+      children: [
+        if (uncompleted.isEmpty && completed.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: Center(
+              child: Text('目前沒有待辦事項', style: TextStyle(color: Colors.grey)),
+            ),
+          ),
+        if (uncompleted.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.only(top: 8, bottom: 8),
+            child: Text('待辦中', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF8D6E63))),
+          ),
+          ...uncompleted.map((item) => _buildTodoListItem(item)),
+        ],
+        if (completed.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            child: Text('${_selectedDate.month}/${_selectedDate.day} 已完成', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey)),
+          ),
+          ...completed.map((item) => _buildTodoListItem(item)),
+        ],
+        const SizedBox(height: 100), // bottom padding for navigation bar
+      ],
+    );
+  }
+
+  Widget _buildTodoListItem(Map<String, dynamic> item) {
+    bool done = item['isDone'];
+    final primaryColor = Theme.of(context).primaryColor;
+    return GestureDetector(
+      onTap: () async {
+        try {
+          final db = await DatabaseHelper.instance.database;
+          bool newDone = !done;
+          DateTime doneDateTime = DateTime.now();
+          if (_selectedDate.isBefore(DateTime(doneDateTime.year, doneDateTime.month, doneDateTime.day))) {
+            // If selected date is in the past, complete it on that date
+            doneDateTime = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, doneDateTime.hour, doneDateTime.minute, doneDateTime.second);
+          }
+          String? doneAt = newDone ? doneDateTime.toIso8601String() : null;
+          await db.update(
+            'todos',
+            {'done': newDone ? 1 : 0, 'done_at': doneAt},
+            where: 'id = ?',
+            whereArgs: [int.parse(item['id'])],
+          );
+          await _loadData();
+        } catch (e) {
+          debugPrint('更新待辦狀態失敗: $e');
+        }
+      },
+      onLongPress: () {
+        _showEditDeleteTodoDialog(item);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: done
+              ? Colors.white.withValues(alpha: 0.4)
+              : Colors.white.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: done ? Colors.transparent : Colors.white.withValues(alpha: 0.8),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: done ? 0.02 : 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: done ? primaryColor : Colors.transparent,
+                border: Border.all(
+                  color: done ? primaryColor : Colors.grey.shade400,
+                  width: 1.5,
+                ),
+              ),
+              child: done
+                  ? const Icon(Icons.check, size: 12, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                item['title'],
+                style: TextStyle(
+                  fontSize: 14,
+                  decoration: done ? TextDecoration.lineThrough : null,
+                  color: done ? Colors.grey.shade500 : Colors.black87,
+                  fontWeight: done ? FontWeight.normal : FontWeight.w500,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () => _showEditDeleteTodoDialog(item),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade500),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
+    TextEditingController editCtrl = TextEditingController(text: item['title']);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('管理待辦事項'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: editCtrl,
+              decoration: const InputDecoration(labelText: '內容'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              showDialog(
+                context: context,
+                builder: (confirmCtx) => AlertDialog(
+                  title: const Text('刪除待辦事項'),
+                  content: Text('確定要刪除「${item['title']}」嗎？'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(confirmCtx), child: const Text('取消')),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                      onPressed: () {
+                        Navigator.pop(confirmCtx);
+                        _deleteTodo(item['id']);
+                      },
+                      child: const Text('確定刪除'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: const Text('刪除', style: TextStyle(color: Colors.redAccent)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (editCtrl.text.trim().isNotEmpty) {
+                _editTodo(item['id'], editCtrl.text.trim());
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('儲存'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildScheduleItem(Map<String, dynamic> event) {
@@ -7259,82 +7462,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ])));
   }
 
-  Widget _buildTodoItem(Map<String, dynamic> item, bool isPast) {
-    bool done = item['isDone'];
-    return GestureDetector(
-        onTap: () async {
-          try {
-            // If it's done, we can always un-done (undo).
-            // If it's not done and it's past, we lock it.
-            if (isPast && !done) return;
 
-            final db = await DatabaseHelper.instance.database;
-            bool newDone = !done;
-            // Use current time for done_at to ensure it matches current date key
-            String? doneAt = newDone ? DateTime.now().toIso8601String() : null;
-
-            int count = await db.update(
-                'todos', {'done': newDone ? 1 : 0, 'done_at': doneAt},
-                where: 'id = ?', whereArgs: [int.parse(item['id'])]);
-
-            debugPrint(
-                'Todo Toggle: ID ${item['id']}, New Status: $newDone, Updated: $count');
-            await _loadData();
-          } catch (e) {
-            debugPrint('勾選待辦時出錯: $e');
-            if (mounted) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text('操作失敗: $e')));
-            }
-          }
-        },
-        child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-                color: done
-                    ? Colors.white.withValues(alpha: 0.4)
-                    : Colors.white.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                    color: done ? Colors.transparent : Colors.white,
-                    width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: done ? 0.02 : 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
-                ]),
-            child: Row(children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: done ? const Color(0xFF8D6E63) : Colors.transparent,
-                  border: Border.all(
-                    color: done ? const Color(0xFF8D6E63) : Colors.grey,
-                    width: 1.5,
-                  ),
-                ),
-                child: done
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
-                    : null,
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                  child: Text(item['title'],
-                      style: TextStyle(
-                          fontSize: 14,
-                          decoration: done ? TextDecoration.lineThrough : null,
-                          color: done ? Colors.grey.shade500 : Colors.black87,
-                          fontWeight:
-                              done ? FontWeight.normal : FontWeight.w500))),
-              if (isPast && !done)
-                const Icon(Icons.lock, size: 14, color: Colors.grey)
-            ])));
-  }
 
   // 新增：編輯行程對話框 (修改自 _showManualAddDialog)
   void _showEditScheduleDialog(Map<String, dynamic> event) {
@@ -7614,6 +7742,29 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   );
                 }),
                 actions: [
+                  TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        showDialog(
+                          context: context,
+                          builder: (confirmCtx) => AlertDialog(
+                            title: const Text('刪除行程'),
+                            content: Text('確定要刪除「${event['title']}」嗎？'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(confirmCtx), child: const Text('取消')),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                                onPressed: () {
+                                  Navigator.pop(confirmCtx);
+                                  _deleteSchedule(event['id']);
+                                },
+                                child: const Text('確定刪除'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: const Text('刪除', style: TextStyle(color: Colors.redAccent))),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
                       child: const Text('取消')),
