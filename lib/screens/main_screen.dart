@@ -6651,10 +6651,40 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ),
             ),
             const Spacer(),
-            IconButton(
-                icon: const Icon(Icons.add_circle,
-                    color: Color(0xFFD7CCC8), size: 30),
-                onPressed: _showManualAddDialog)
+            PopupMenuButton<int>(
+              icon: const Icon(Icons.add_circle,
+                  color: Color(0xFFD7CCC8), size: 30),
+              offset: const Offset(0, 40),
+              onSelected: (val) {
+                if (val == 0) {
+                  _showAddScheduleDialog();
+                } else if (val == 1) {
+                  _showAddTodoDialog();
+                }
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(
+                  value: 0,
+                  child: Row(
+                    children: [
+                      Icon(Icons.event_note_rounded, color: Color(0xFF8D6E63), size: 20),
+                      SizedBox(width: 8),
+                      Text('新增行程'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 1,
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_box_outlined, color: Color(0xFF8D6E63), size: 20),
+                      SizedBox(width: 8),
+                      Text('新增待辦'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -7187,16 +7217,65 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget _buildUnifiedDayEvents(DateTime targetDate) {
     String dateKey = targetDate.toString().split(' ')[0];
 
+    // Helper functions
+    int parseTimeToMinutes(String timeStr) {
+      try {
+        List<String> parts = timeStr.trim().split(':');
+        int hour = int.parse(parts[0]);
+        int minute = int.parse(parts[1]);
+        return hour * 60 + minute;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    String formatMinutesToTime(int totalMinutes) {
+      int hour = totalMinutes ~/ 60;
+      int minute = totalMinutes % 60;
+      return "${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}";
+    }
+
     // Itinerary Logic: Sort by time
     List<Map<String, dynamic>> schedules =
         List.from(allSchedules[dateKey] ?? []);
     schedules.sort((a, b) => (a['time'] as String).compareTo(b['time']));
 
-    if (schedules.isEmpty) {
-      return const Padding(
-          padding: EdgeInsets.only(top: 20),
-          child: Center(
-              child: Text('本日尚無行程', style: TextStyle(color: Colors.grey))));
+    // Calculate free time intervals and mix with schedules
+    List<Map<String, dynamic>> items = [];
+    int currentMin = 0;
+    for (var event in schedules) {
+      String timeRange = event['time'] ?? '';
+      List<String> parts = timeRange.split('~');
+      if (parts.length == 2) {
+        int startMin = parseTimeToMinutes(parts[0]);
+        int endMin = parseTimeToMinutes(parts[1]);
+
+        if (startMin > currentMin) {
+          items.add({
+            'isFree': true,
+            'time': "${formatMinutesToTime(currentMin)}~${formatMinutesToTime(startMin)}",
+            'duration': startMin - currentMin,
+          });
+        }
+        items.add({
+          'isFree': false,
+          'event': event,
+        });
+        currentMin = currentMin > endMin ? currentMin : endMin;
+      } else {
+        items.add({
+          'isFree': false,
+          'event': event,
+        });
+      }
+    }
+
+    if (currentMin < 1440) {
+      items.add({
+        'isFree': true,
+        'time': "${formatMinutesToTime(currentMin)}~24:00",
+        'duration': 1440 - currentMin,
+      });
     }
 
     int delay = 0;
@@ -7211,10 +7290,60 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     return ListView(
         padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+        children: items.map((item) {
+          if (item['isFree'] == true) {
+            return staggered(_buildFreeTimeItem(item['time'], item['duration']));
+          } else {
+            return staggered(_buildScheduleItem(item['event']));
+          }
+        }).toList());
+  }
+
+  Widget _buildFreeTimeItem(String timeRange, int minutes) {
+    final hr = minutes ~/ 60;
+    final min = minutes % 60;
+    String durationStr = hr > 0 ? '$hr小時' : '';
+    if (min > 0 || hr == 0) durationStr += '$min分鐘';
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
         children: [
-          ...schedules.map((event) => staggered(_buildScheduleItem(event))),
-          const SizedBox(height: 100), // bottom padding for floating nav bar
-        ]);
+          SizedBox(
+            width: 95,
+            child: Text(
+              timeRange,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: isDark ? Colors.white54 : Colors.grey.shade600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '空閒時間 ($durationStr)',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white38 : Colors.grey.shade500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildGeneralTodoList() {
@@ -7799,10 +7928,43 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  // --- 手動新增行程 (含 Padding 修正) ---
-  void _showManualAddDialog() {
+
+
+  void _showAddTodoDialog() {
     TextEditingController titleController = TextEditingController();
-    int selectedType = 0;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('手動新增待辦事項'),
+        content: TextField(
+          controller: titleController,
+          decoration: const InputDecoration(
+            labelText: '待辦內容',
+            hintText: '輸入待辦內容...',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (titleController.text.trim().isNotEmpty) {
+                _addTodo(titleController.text.trim());
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('確認加入'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddScheduleDialog() {
+    TextEditingController titleController = TextEditingController();
     TimeOfDay pickedStartTime = const TimeOfDay(hour: 10, minute: 0);
     TimeOfDay pickedEndTime = const TimeOfDay(hour: 11, minute: 0);
     DateTime pickedStartDate = _selectedDate;
@@ -7843,255 +8005,233 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-                title: const Text('手動新增項目'),
+                title: const Text('手動新增行程'),
                 content: StatefulBuilder(builder: (context, setDialogState) {
                   dialogSetState = setDialogState;
                   return SingleChildScrollView(
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       TextField(
                           controller: titleController,
-                          decoration: const InputDecoration(labelText: '標題名稱')),
+                          decoration: const InputDecoration(labelText: '行程標題')),
                       const SizedBox(height: 20),
+                      const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('選擇顏色標籤',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey))),
+                      const SizedBox(height: 8),
                       Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ChoiceChip(
-                                label: const Text('時間行程'),
-                                selected: selectedType == 0,
-                                selectedColor: const Color(0xFFD7CCC8),
-                                onSelected: (v) =>
-                                    setDialogState(() => selectedType = 0)),
-                            const SizedBox(width: 10),
-                            ChoiceChip(
-                                label: const Text('待辦事項'),
-                                selected: selectedType == 1,
-                                selectedColor: const Color(0xFFD7CCC8),
-                                onSelected: (v) =>
-                                    setDialogState(() => selectedType = 1))
-                          ]),
-                      if (selectedType == 0) ...[
-                        const SizedBox(height: 15),
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: vibrantColors
+                              .map((c) => GestureDetector(
+                                  onTap: () =>
+                                      setDialogState(() => selectedColor = c),
+                                  child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                          color: Color(c),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: selectedColor == c
+                                                  ? Colors.black87
+                                                  : Colors.transparent,
+                                              width: 2)))))
+                              .toList()),
+                      const SizedBox(height: 15),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('跨日行程',
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.black87)),
+                        value: isMultiDay,
+                        activeThumbColor: const Color(0xFF8D6E63),
+                        onChanged: (val) {
+                          setDialogState(() {
+                            isMultiDay = val;
+                            if (!isMultiDay) {
+                              pickedEndDate = pickedStartDate;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      if (!isMultiDay) ...[
                         const Align(
                             alignment: Alignment.centerLeft,
-                            child: Text('選擇顏色標籤',
+                            child: Text('行程日期',
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 8),
-                        Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: vibrantColors
-                                .map((c) => GestureDetector(
-                                    onTap: () =>
-                                        setDialogState(() => selectedColor = c),
-                                    child: Container(
-                                        width: 20, // Reduced from 24
-                                        height: 20, // Reduced from 24
-                                        decoration: BoxDecoration(
-                                            color: Color(c),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                                color: selectedColor == c
-                                                    ? Colors.black87
-                                                    : Colors.transparent,
-                                                width: 2)))))
-                                .toList()),
-                        const SizedBox(height: 15),
-                        // ── 跨日行程切換 ──
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('跨日行程',
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.black87)),
-                          value: isMultiDay,
-                          activeThumbColor: const Color(0xFF8D6E63),
-                          onChanged: (val) {
-                            setDialogState(() {
-                              isMultiDay = val;
-                              if (!isMultiDay) {
-                                pickedEndDate = pickedStartDate;
-                              }
-                            });
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: pickedStartDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2030),
+                              locale: const Locale('zh', 'TW'),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                pickedStartDate = picked;
+                                pickedEndDate = picked;
+                              });
+                            }
                           },
-                        ),
-                        const SizedBox(height: 10),
-                        if (!isMultiDay) ...[
-                          const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text('行程日期',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.grey))),
-                          const SizedBox(height: 6),
-                          InkWell(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: ctx,
-                                initialDate: pickedStartDate,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2030),
-                                locale: const Locale('zh', 'TW'),
-                              );
-                              if (picked != null) {
-                                setDialogState(() {
-                                  pickedStartDate = picked;
-                                  pickedEndDate = picked;
-                                });
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(children: [
-                                const Icon(Icons.calendar_today,
-                                    size: 16, color: Color(0xFF8D6E63)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ]),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(8),
                             ),
+                            child: Row(children: [
+                              const Icon(Icons.calendar_today,
+                                  size: 16, color: Color(0xFF8D6E63)),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ]),
                           ),
-                        ] else ...[
-                          // ── 日期區間選擇 ──
-                          const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text('行程日期區間',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.grey))),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: ctx,
-                                      initialDate: pickedStartDate,
-                                      firstDate: DateTime(2020),
-                                      lastDate: DateTime(2030),
-                                      locale: const Locale('zh', 'TW'),
-                                    );
-                                    if (picked != null) {
-                                      setDialogState(() {
-                                        pickedStartDate = picked;
-                                        if (pickedEndDate
-                                            .isBefore(pickedStartDate)) {
-                                          pickedEndDate = pickedStartDate;
-                                        }
-                                      });
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                          color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Row(children: [
-                                        const Icon(Icons.calendar_today,
-                                            size: 16, color: Color(0xFF8D6E63)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ]),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4),
-                                child: Text('至'),
-                              ),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: ctx,
-                                      initialDate: pickedEndDate,
-                                      firstDate: pickedStartDate,
-                                      lastDate: DateTime(2030),
-                                      locale: const Locale('zh', 'TW'),
-                                      );
-                                    if (picked != null) {
-                                      setDialogState(() {
-                                        pickedEndDate = picked;
-                                      });
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                          color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Row(children: [
-                                        const Icon(Icons.calendar_today,
-                                            size: 16, color: Color(0xFF8D6E63)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ]),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 15),
+                        ),
+                      ] else ...[
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('行程日期區間',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey))),
+                        const SizedBox(height: 6),
                         Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              TextButton.icon(
-                                  icon: const Icon(Icons.access_time, size: 16),
-                                  label: Text(formatTime(pickedStartTime)),
-                                  onPressed: () => selectTime(true)),
-                              const Text('~'),
-                              TextButton.icon(
-                                  icon: const Icon(Icons.access_time, size: 16),
-                                  label: Text(formatTime(pickedEndTime)),
-                                  onPressed: () => selectTime(false))
-                            ])
-                      ]
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: pickedStartDate,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2030),
+                                    locale: const Locale('zh', 'TW'),
+                                  );
+                                  if (picked != null) {
+                                    setDialogState(() {
+                                      pickedStartDate = picked;
+                                      if (pickedEndDate
+                                          .isBefore(pickedStartDate)) {
+                                        pickedEndDate = pickedStartDate;
+                                      }
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(children: [
+                                      const Icon(Icons.calendar_today,
+                                          size: 16, color: Color(0xFF8D6E63)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ]),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4),
+                              child: Text('至'),
+                            ),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: pickedEndDate,
+                                    firstDate: pickedStartDate,
+                                    lastDate: DateTime(2030),
+                                    locale: const Locale('zh', 'TW'),
+                                  );
+                                  if (picked != null) {
+                                    setDialogState(() {
+                                      pickedEndDate = picked;
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(children: [
+                                      const Icon(Icons.calendar_today,
+                                          size: 16, color: Color(0xFF8D6E63)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ]),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 15),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton.icon(
+                                icon: const Icon(Icons.access_time, size: 16),
+                                label: Text(formatTime(pickedStartTime)),
+                                onPressed: () => selectTime(true)),
+                            const Text('~'),
+                            TextButton.icon(
+                                icon: const Icon(Icons.access_time, size: 16),
+                                label: Text(formatTime(pickedEndTime)),
+                                onPressed: () => selectTime(false))
+                          ])
                     ]),
                   );
                 }),
                 actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('取消')),
                   ElevatedButton(
                       onPressed: () {
                         if (titleController.text.isEmpty) return;
-                        if (selectedType == 0) {
-                          String range =
-                              "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
-                          _addSchedule(
-                              range, titleController.text, selectedColor,
-                              startDate: pickedStartDate,
-                              endDate:
-                                  isMultiDay ? pickedEndDate : pickedStartDate);
-                        } else {
-                          _addTodo(titleController.text);
-                        }
+                        String range =
+                            "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
+                        _addSchedule(
+                            range, titleController.text, selectedColor,
+                            startDate: pickedStartDate,
+                            endDate:
+                                isMultiDay ? pickedEndDate : pickedStartDate);
                         Navigator.pop(ctx);
                       },
                       child: const Text('確認加入'))
                 ]));
   }
+
 
   // ── 貼文編輯（僅貼文作者可操作）───────────────────────────────
   void _editPost(Map<String, dynamic> p) async {
