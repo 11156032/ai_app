@@ -135,6 +135,20 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Added duration_seconds column to quiz_results table.');
       }
 
+      var eventCols = await db.rawQuery('PRAGMA table_info(calendar_events)');
+      if (!eventCols.any((c) => c['name'] == 'recurrence_type')) {
+        await db.execute("ALTER TABLE calendar_events ADD COLUMN recurrence_type TEXT DEFAULT 'none'");
+        debugPrint('Dynamic migration: Added recurrence_type column to calendar_events table.');
+      }
+      if (!eventCols.any((c) => c['name'] == 'recurrence_days')) {
+        await db.execute("ALTER TABLE calendar_events ADD COLUMN recurrence_days TEXT DEFAULT ''");
+        debugPrint('Dynamic migration: Added recurrence_days column to calendar_events table.');
+      }
+      if (!eventCols.any((c) => c['name'] == 'recurrence_end')) {
+        await db.execute("ALTER TABLE calendar_events ADD COLUMN recurrence_end TEXT DEFAULT ''");
+        debugPrint('Dynamic migration: Added recurrence_end column to calendar_events table.');
+      }
+
       // 自我修復：如果原廠測試帳號被清空，自動重新導入 (以 Sharon 帳號 id = u1 為指標)
       final u1Check = await db.query('users', where: "id = 'u1'");
       if (u1Check.isEmpty) {
@@ -349,6 +363,9 @@ class DatabaseHelper {
         end_time DATETIME NOT NULL,
         location VARCHAR DEFAULT '',
         color VARCHAR DEFAULT 'bg-blue-400',
+        recurrence_type TEXT DEFAULT 'none',
+        recurrence_days TEXT DEFAULT '',
+        recurrence_end TEXT DEFAULT '',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE

@@ -281,28 +281,121 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           debugPrint('顏色解析失敗: $e');
         }
 
-        // Parse date range for multi-day support
+        // Parse date range for multi-day support and recurrence
         try {
           DateTime startDate = DateTime.parse(startTimeStr.split(' ')[0]);
           DateTime endDate = DateTime.parse(endTimeStr.split(' ')[0]);
           if (endDate.isBefore(startDate)) {
             endDate = startDate;
           }
-          int diffDays = endDate.difference(startDate).inDays;
-          for (int idx = 0; idx <= diffDays; idx++) {
-            DateTime currentDay = startDate.add(Duration(days: idx));
-            String dateKey =
-                "${currentDay.year}-${currentDay.month.toString().padLeft(2, '0')}-${currentDay.day.toString().padLeft(2, '0')}";
-            schedulesMap.putIfAbsent(dateKey, () => []).add({
-              'id': s['id'],
-              'time': '$startHr~$endHr',
-              'title': s['title'],
-              'color': colorVal,
-              'date': startTimeStr.split(' ')[
-                  0], // Keep start date for single-day list match if needed
-              'start_date': startTimeStr.split(' ')[0],
-              'end_date': endTimeStr.split(' ')[0],
-            });
+          String rType = s['recurrence_type'] as String? ?? 'none';
+          String rDaysStr = s['recurrence_days'] as String? ?? '';
+          String rEndStr = s['recurrence_end'] as String? ?? '';
+          DateTime? recurrenceEnd;
+          if (rEndStr.isNotEmpty) {
+            recurrenceEnd = DateTime.tryParse(rEndStr);
+          }
+
+          if (rType == 'none') {
+            int diffDays = endDate.difference(startDate).inDays;
+            for (int idx = 0; idx <= diffDays; idx++) {
+              DateTime currentDay = startDate.add(Duration(days: idx));
+              String dateKey =
+                  "${currentDay.year}-${currentDay.month.toString().padLeft(2, '0')}-${currentDay.day.toString().padLeft(2, '0')}";
+              schedulesMap.putIfAbsent(dateKey, () => []).add({
+                'id': s['id'],
+                'time': '$startHr~$endHr',
+                'title': s['title'],
+                'color': colorVal,
+                'recurrence_type': rType,
+                'recurrence_days': rDaysStr,
+                'recurrence_end': rEndStr,
+                'date': startTimeStr.split(' ')[0],
+                'start_date': startTimeStr.split(' ')[0],
+                'end_date': endTimeStr.split(' ')[0],
+              });
+            }
+          } else if (rType == 'daily') {
+            for (int idx = 0; idx < 1000; idx++) {
+              DateTime currentDay = startDate.add(Duration(days: idx));
+              if (recurrenceEnd != null && currentDay.isAfter(recurrenceEnd)) {
+                break;
+              }
+              String dateKey =
+                  "${currentDay.year}-${currentDay.month.toString().padLeft(2, '0')}-${currentDay.day.toString().padLeft(2, '0')}";
+              schedulesMap.putIfAbsent(dateKey, () => []).add({
+                'id': s['id'],
+                'time': '$startHr~$endHr',
+                'title': s['title'],
+                'color': colorVal,
+                'recurrence_type': rType,
+                'recurrence_days': rDaysStr,
+                'recurrence_end': rEndStr,
+                'date': dateKey,
+                'start_date': dateKey,
+                'end_date': dateKey,
+              });
+            }
+          } else if (rType == 'weekly') {
+            int maxDays = 150 * 7;
+            Set<int> targetWeekdays = {};
+            if (rDaysStr.isNotEmpty) {
+              targetWeekdays = rDaysStr
+                  .split(',')
+                  .map((e) => int.tryParse(e) ?? 0)
+                  .where((e) => e >= 1 && e <= 7)
+                  .toSet();
+            }
+            for (int idx = 0; idx < maxDays; idx++) {
+              DateTime currentDay = startDate.add(Duration(days: idx));
+              if (recurrenceEnd != null && currentDay.isAfter(recurrenceEnd)) {
+                break;
+              }
+              bool isMatch = false;
+              if (targetWeekdays.isEmpty) {
+                isMatch = (currentDay.weekday == startDate.weekday);
+              } else {
+                isMatch = targetWeekdays.contains(currentDay.weekday);
+              }
+              if (isMatch) {
+                String dateKey =
+                    "${currentDay.year}-${currentDay.month.toString().padLeft(2, '0')}-${currentDay.day.toString().padLeft(2, '0')}";
+                schedulesMap.putIfAbsent(dateKey, () => []).add({
+                  'id': s['id'],
+                  'time': '$startHr~$endHr',
+                  'title': s['title'],
+                  'color': colorVal,
+                  'recurrence_type': rType,
+                  'recurrence_days': rDaysStr,
+                  'recurrence_end': rEndStr,
+                  'date': dateKey,
+                  'start_date': dateKey,
+                  'end_date': dateKey,
+                });
+              }
+            }
+          } else if (rType == 'yearly') {
+            for (int idx = 0; idx < 10; idx++) {
+              DateTime currentDay =
+                  DateTime(startDate.year + idx, startDate.month, startDate.day);
+              if (recurrenceEnd != null && currentDay.isAfter(recurrenceEnd)) {
+                break;
+              }
+              String dateKey =
+                  "${currentDay.year}-${currentDay.month.toString().padLeft(2, '0')}-${currentDay.day.toString().padLeft(2, '0')}";
+              schedulesMap.putIfAbsent(dateKey, () => []).add({
+                'id': s['id'],
+                'time': '$startHr~$endHr',
+                'title': s['title'],
+                'color': colorVal,
+                'recurrence_type': rType,
+                'recurrence_days': rDaysStr,
+                'recurrence_end': rEndStr,
+                'date': dateKey,
+                'start_date': dateKey,
+                'end_date': dateKey,
+              });
+            }
           }
         } catch (e) {
           debugPrint('時間範圍解析失敗: $e');
@@ -313,6 +406,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             'time': '$startHr~$endHr',
             'title': s['title'],
             'color': colorVal,
+            'recurrence_type': s['recurrence_type'] as String? ?? 'none',
+            'recurrence_days': s['recurrence_days'] as String? ?? '',
+            'recurrence_end': s['recurrence_end'] as String? ?? '',
             'date': date,
             'start_date': date,
             'end_date': date,
@@ -1098,7 +1194,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   // 補回：手動新增行程
   void _addSchedule(String timeRange, String title, int color,
-      {DateTime? startDate, DateTime? endDate}) async {
+      {DateTime? startDate,
+      DateTime? endDate,
+      String recurrenceType = 'none',
+      String recurrenceDays = '',
+      String recurrenceEnd = ''}) async {
     try {
       final db = await DatabaseHelper.instance.database;
       DateTime sDate = startDate ?? _selectedDate;
@@ -1113,6 +1213,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         'start_time': startStr,
         'end_time': endStr,
         'color': '0x${color.toRadixString(16)}',
+        'recurrence_type': recurrenceType,
+        'recurrence_days': recurrenceDays,
+        'recurrence_end': recurrenceEnd,
       });
       await _loadData();
       if (!mounted) return;
@@ -1133,7 +1236,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   // 新增：編輯現有行程
   void _editSchedule(int id, String timeRange, String title, int color,
-      {DateTime? startDate, DateTime? endDate}) async {
+      {DateTime? startDate,
+      DateTime? endDate,
+      String recurrenceType = 'none',
+      String recurrenceDays = '',
+      String recurrenceEnd = ''}) async {
     try {
       final db = await DatabaseHelper.instance.database;
       DateTime sDate = startDate ?? _selectedDate;
@@ -1149,6 +1256,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             'start_time': startStr,
             'end_time': endStr,
             'color': '0x${color.toRadixString(16)}',
+            'recurrence_type': recurrenceType,
+            'recurrence_days': recurrenceDays,
+            'recurrence_end': recurrenceEnd,
           },
           where: 'id = ?',
           whereArgs: [id]);
@@ -7636,6 +7746,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         pickedStartDate.month != pickedEndDate.month ||
         pickedStartDate.day != pickedEndDate.day);
 
+    String selectedRecurrenceType = event['recurrence_type'] as String? ?? 'none';
+    Set<int> selectedWeekdays = {};
+    String rDays = event['recurrence_days'] as String? ?? '';
+    if (rDays.isNotEmpty) {
+      selectedWeekdays = rDays.split(',').map((e) => int.tryParse(e) ?? 0).where((e) => e >= 1 && e <= 7).toSet();
+    }
+    DateTime? pickedRecurrenceEnd;
+    String endType = 'never';
+    String rEndStr = event['recurrence_end'] as String? ?? '';
+    if (rEndStr.isNotEmpty) {
+      pickedRecurrenceEnd = DateTime.tryParse(rEndStr);
+      if (pickedRecurrenceEnd != null) {
+        endType = 'date';
+      }
+    }
+
     StateSetter? dialogSetState;
     Future<void> selectTime(bool isStart) async {
       final TimeOfDay? picked = await showTimePicker(
@@ -7831,6 +7957,165 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       const SizedBox(height: 16),
                       const Align(
                           alignment: Alignment.centerLeft,
+                          child: Text('重複設定',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey))),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedRecurrenceType,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'none', child: Text('不重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(value: 'daily', child: Text('每天重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(value: 'weekly', child: Text('每週重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(value: 'yearly', child: Text('每年重複', style: TextStyle(fontSize: 13))),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() {
+                              selectedRecurrenceType = val;
+                              if (selectedRecurrenceType != 'none' && pickedRecurrenceEnd == null) {
+                                pickedRecurrenceEnd = pickedStartDate.add(const Duration(days: 30));
+                              }
+                            });
+                          }
+                        },
+                      ),
+                      if (selectedRecurrenceType == 'weekly') ...[
+                        const SizedBox(height: 12),
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('重複星期 (可多選)',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey))),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(7, (index) {
+                            int weekday = index + 1; // 1 = Mon, 7 = Sun
+                            String weekdayLabel = ['一', '二', '三', '四', '五', '六', '日'][index];
+                            bool isSelected = selectedWeekdays.contains(weekday);
+                            return GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  if (isSelected) {
+                                    selectedWeekdays.remove(weekday);
+                                  } else {
+                                    selectedWeekdays.add(weekday);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade200,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  weekdayLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isSelected ? Colors.white : Colors.black87,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
+                      if (selectedRecurrenceType != 'none') ...[
+                        const SizedBox(height: 15),
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('結束重複',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey))),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          initialValue: endType,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'never', child: Text('一直重複下去', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'date', child: Text('重複到指定日期', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(() {
+                                endType = val;
+                                if (endType == 'never') {
+                                  pickedRecurrenceEnd = null;
+                                } else {
+                                  pickedRecurrenceEnd ??= pickedStartDate.add(const Duration(days: 30));
+                                }
+                              });
+                            }
+                          },
+                        ),
+                        if (endType == 'date' && pickedRecurrenceEnd != null) ...[
+                          const SizedBox(height: 10),
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: pickedRecurrenceEnd!,
+                                firstDate: pickedStartDate,
+                                lastDate: DateTime(2040),
+                                locale: const Locale('zh', 'TW'),
+                              );
+                              if (picked != null) {
+                                setDialogState(() {
+                                  pickedRecurrenceEnd = picked;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(children: [
+                                const Icon(Icons.calendar_today,
+                                    size: 16, color: Color(0xFF8D6E63)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ],
+                      ],
+                      const SizedBox(height: 16),
+                      const Align(
+                          alignment: Alignment.centerLeft,
                           child: Text('選擇顏色標籤',
                               style:
                                   TextStyle(fontSize: 12, color: Colors.grey))),
@@ -7905,6 +8190,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         if (titleController.text.isEmpty) return;
                         String range =
                             "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
+                        String recurrenceDays = '';
+                        if (selectedRecurrenceType == 'weekly' && selectedWeekdays.isNotEmpty) {
+                          List<int> sortedDays = selectedWeekdays.toList()..sort();
+                          recurrenceDays = sortedDays.join(',');
+                        }
+                        String recurrenceEndStr = '';
+                        if (selectedRecurrenceType != 'none' && endType == 'date' && pickedRecurrenceEnd != null) {
+                          recurrenceEndStr = pickedRecurrenceEnd!.toString().split(' ')[0];
+                        }
                         _editSchedule(
                           event['id'],
                           range,
@@ -7912,6 +8206,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           selectedColor,
                           startDate: pickedStartDate,
                           endDate: pickedEndDate,
+                          recurrenceType: selectedRecurrenceType,
+                          recurrenceDays: recurrenceDays,
+                          recurrenceEnd: recurrenceEndStr,
                         );
                         Navigator.pop(ctx);
                       },
@@ -7970,6 +8267,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     DateTime pickedStartDate = _selectedDate;
     DateTime pickedEndDate = _selectedDate;
     bool isMultiDay = false;
+    String selectedRecurrenceType = 'none';
+    Set<int> selectedWeekdays = {};
+    String endType = 'never';
+    DateTime? pickedRecurrenceEnd;
     StateSetter? dialogSetState;
     Future<void> selectTime(bool isStart) async {
       final TimeOfDay? picked = await showTimePicker(
@@ -8196,6 +8497,165 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         ),
                       ],
                       const SizedBox(height: 15),
+                      const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('重複設定',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey))),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedRecurrenceType,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'none', child: Text('不重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(value: 'daily', child: Text('每天重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(value: 'weekly', child: Text('每週重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(value: 'yearly', child: Text('每年重複', style: TextStyle(fontSize: 13))),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() {
+                              selectedRecurrenceType = val;
+                              if (selectedRecurrenceType != 'none' && pickedRecurrenceEnd == null) {
+                                pickedRecurrenceEnd = pickedStartDate.add(const Duration(days: 30));
+                              }
+                            });
+                          }
+                        },
+                      ),
+                      if (selectedRecurrenceType == 'weekly') ...[
+                        const SizedBox(height: 12),
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('重複星期 (可多選)',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey))),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(7, (index) {
+                            int weekday = index + 1; // 1 = Mon, 7 = Sun
+                            String weekdayLabel = ['一', '二', '三', '四', '五', '六', '日'][index];
+                            bool isSelected = selectedWeekdays.contains(weekday);
+                            return GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  if (isSelected) {
+                                    selectedWeekdays.remove(weekday);
+                                  } else {
+                                    selectedWeekdays.add(weekday);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade200,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  weekdayLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isSelected ? Colors.white : Colors.black87,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
+                      if (selectedRecurrenceType != 'none') ...[
+                        const SizedBox(height: 15),
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('結束重複',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey))),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          initialValue: endType,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'never', child: Text('一直重複下去', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'date', child: Text('重複到指定日期', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(() {
+                                endType = val;
+                                if (endType == 'never') {
+                                  pickedRecurrenceEnd = null;
+                                } else {
+                                  pickedRecurrenceEnd ??= pickedStartDate.add(const Duration(days: 30));
+                                }
+                              });
+                            }
+                          },
+                        ),
+                        if (endType == 'date' && pickedRecurrenceEnd != null) ...[
+                          const SizedBox(height: 10),
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: pickedRecurrenceEnd!,
+                                firstDate: pickedStartDate,
+                                lastDate: DateTime(2040),
+                                locale: const Locale('zh', 'TW'),
+                              );
+                              if (picked != null) {
+                                setDialogState(() {
+                                  pickedRecurrenceEnd = picked;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(children: [
+                                const Icon(Icons.calendar_today,
+                                    size: 16, color: Color(0xFF8D6E63)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ],
+                      ],
+                      const SizedBox(height: 15),
                       Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -8221,11 +8681,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         if (titleController.text.isEmpty) return;
                         String range =
                             "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
+                        String recurrenceDays = '';
+                        if (selectedRecurrenceType == 'weekly' && selectedWeekdays.isNotEmpty) {
+                          List<int> sortedDays = selectedWeekdays.toList()..sort();
+                          recurrenceDays = sortedDays.join(',');
+                        }
+                        String recurrenceEndStr = '';
+                        if (selectedRecurrenceType != 'none' && endType == 'date' && pickedRecurrenceEnd != null) {
+                          recurrenceEndStr = pickedRecurrenceEnd!.toString().split(' ')[0];
+                        }
                         _addSchedule(
                             range, titleController.text, selectedColor,
                             startDate: pickedStartDate,
                             endDate:
-                                isMultiDay ? pickedEndDate : pickedStartDate);
+                                isMultiDay ? pickedEndDate : pickedStartDate,
+                            recurrenceType: selectedRecurrenceType,
+                            recurrenceDays: recurrenceDays,
+                            recurrenceEnd: recurrenceEndStr);
                         Navigator.pop(ctx);
                       },
                       child: const Text('確認加入'))
