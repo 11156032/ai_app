@@ -80,8 +80,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Map<String, List<Map<String, dynamic>>> allSchedules = {};
   List<Map<String, dynamic>> allTodos = [];
-  int _calendarSubTab = 0; // 0 for 行程, 1 for 待辦清單
+  List<Map<String, dynamic>> allDiaries = [];
+  bool _isCalendarExpanded = true;
+  int _calendarSubTab = 0; // 0 for 行程, 1 for 待辦清單, 2 for 日記
   final TextEditingController _todoInputController = TextEditingController();
+  final TextEditingController _diaryInputController = TextEditingController();
+  final FocusNode _diaryFocusNode = FocusNode();
+  String _originalDiaryContent = '';
   List<Map<String, dynamic>> socialPosts = [];
   List<Map<String, dynamic>> scheduledPosts = [];
   List<Map<String, dynamic>> questionBank = [];
@@ -195,6 +200,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _calendarPageController = PageController(initialPage: monthOffset);
     _timelinePageController = PageController(initialPage: 1000);
     _displayName = widget.currentUser['display_name'];
+    _diaryFocusNode.addListener(() {
+      if (_diaryFocusNode.hasFocus) {
+        setState(() {
+          _isCalendarExpanded = false;
+        });
+      }
+    });
+    _diaryInputController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
     _initApp();
   }
 
@@ -427,8 +444,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 'doneDate': t['done_at'] != null
                     ? (t['done_at'] as String).substring(0, 10)
                     : null,
+                'created_at': t['created_at'],
               })
           .toList();
+
+      // Fetch diaries
+      List<Map<String, dynamic>> diariesList = [];
+      try {
+        final diariesdb = await db.query('diaries', where: 'user_id = ?', whereArgs: [currentUserId]);
+        diariesList = diariesdb.map((d) => {
+          'id': d['id'].toString(),
+          'user_id': d['user_id'],
+          'date': d['date'] as String,
+          'content': d['content'] as String,
+          'created_at': d['created_at'] as String,
+          'updated_at': d['updated_at'] as String,
+        }).toList();
+      } catch (e) {
+        debugPrint('Diaries table query failed: $e');
+      }
 
       // ── 載入貼文（含作者頭像資料與貼文分類）──────────────────────
       final postsdb = await db.query('posts', orderBy: 'created_at DESC');
@@ -793,6 +827,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         setState(() {
           allSchedules = schedulesMap;
           allTodos = todosList;
+          allDiaries = diariesList;
           socialPosts = pList;
           scheduledPosts = sList;
           questionBank = qList;
@@ -801,6 +836,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _userAvatarSelected = userAvatarSelected == 1;
           _isEmailVerified = isEmailVerified;
           _displayName = displayName;
+          _updateDiaryController(_selectedDate);
 
           // 更新學習統計狀態
           _todayStudyHours = todayStudyHours;
@@ -881,6 +917,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _calendarPageController.dispose();
     _timelinePageController.dispose();
     _todoInputController.dispose();
+    _diaryInputController.dispose();
+    _diaryFocusNode.dispose();
     super.dispose();
   }
 
@@ -927,12 +965,116 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
   }
 
+  void _updateDiaryController(DateTime date) {
+    String dateKey = date.toString().split(' ')[0];
+    final existing = allDiaries.firstWhere(
+      (d) => d['date'] == dateKey,
+      orElse: () => {},
+    );
+    if (existing.isNotEmpty) {
+      _diaryInputController.text = existing['content'] as String;
+    } else {
+      _diaryInputController.text = '';
+    }
+    _originalDiaryContent = _diaryInputController.text;
+  }
+
+  Future<bool> _checkUnsavedDiaryChanges() async {
+    if (_calendarSubTab != 2) return true;
+    final currentText = _diaryInputController.text;
+    if (currentText != _originalDiaryContent) {
+      bool? proceed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('有未儲存的日記變動'),
+          content: const Text('您的日記內容已被修改，是否要儲存變動？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null), // Cancel/Stay
+              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx, false); // Discard
+              },
+              child: const Text('捨棄', style: TextStyle(color: Colors.redAccent)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx, true); // Save
+              },
+              child: const Text('儲存'),
+            ),
+          ],
+        ),
+      );
+
+      if (proceed == null) {
+        return false; // Stay on page
+      } else if (proceed == true) {
+        await _saveDiarySilent(currentText);
+        return true;
+      } else {
+        // Discard: reset text
+        _diaryInputController.text = _originalDiaryContent;
+        return true;
+      }
+    }
+    return true;
+  }
+
+  Future<void> _saveDiarySilent(String content) async {
+    if (content.trim().isEmpty) return;
+    final db = await DatabaseHelper.instance.database;
+    final currentUserId = widget.currentUser['id'];
+    String dateKey = _selectedDate.toString().split(' ')[0];
+
+    try {
+      final existing = allDiaries.firstWhere(
+        (d) => d['date'] == dateKey,
+        orElse: () => {},
+      );
+
+      if (existing.isNotEmpty) {
+        await db.update(
+          'diaries',
+          {
+            'content': content,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [int.parse(existing['id'].toString())],
+        );
+      } else {
+        await db.insert('diaries', {
+          'user_id': currentUserId,
+          'date': dateKey,
+          'content': content,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+      _originalDiaryContent = content;
+      await _loadData();
+    } catch (e) {
+      debugPrint('自動儲存日記失敗: $e');
+    }
+  }
+
   // 補回：日曆點擊日期時的同步跳轉
-  void _syncDate(DateTime date, {bool fromCalendar = false}) {
-    setState(() => _selectedDate = date);
-    if (fromCalendar) {
-      _timelinePageController
-          .jumpToPage(1000 + date.difference(_simulatedToday).inDays);
+  Future<void> _syncDate(DateTime date, {bool fromCalendar = false}) async {
+    if (await _checkUnsavedDiaryChanges()) {
+      setState(() => _selectedDate = date);
+      _updateDiaryController(date);
+      if (fromCalendar) {
+        _timelinePageController
+            .jumpToPage(1000 + date.difference(_simulatedToday).inDays);
+      }
     }
   }
 
@@ -1291,11 +1433,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void _addTodo(String title) async {
     try {
       final db = await DatabaseHelper.instance.database;
+      final now = DateTime.now();
+      final creationDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        now.hour,
+        now.minute,
+        now.second,
+      );
       await db.insert('todos', {
         'user_id': widget.currentUser['id'],
         'text': title,
         'done': 0,
-        'created_at': DateTime.now().toIso8601String(),
+        'created_at': creationDateTime.toIso8601String(),
       });
       await _loadData();
       if (!mounted) return;
@@ -1339,6 +1490,365 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       );
     } catch (e) {
       debugPrint('更新待辦失敗: $e');
+    }
+  }
+
+  void _saveDiary(String content) async {
+    if (content.trim().isEmpty) return;
+    final db = await DatabaseHelper.instance.database;
+    final currentUserId = widget.currentUser['id'];
+    String dateKey = _selectedDate.toString().split(' ')[0];
+
+    try {
+      final existing = allDiaries.firstWhere(
+        (d) => d['date'] == dateKey,
+        orElse: () => {},
+      );
+
+      if (existing.isNotEmpty) {
+        await db.update(
+          'diaries',
+          {
+            'content': content,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [int.parse(existing['id'].toString())],
+        );
+      } else {
+        await db.insert('diaries', {
+          'user_id': currentUserId,
+          'date': dateKey,
+          'content': content,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('日記已儲存'),
+          backgroundColor: Theme.of(context).primaryColor,
+        ),
+      );
+    } catch (e) {
+      debugPrint('儲存日記失敗: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('儲存日記失敗，請稍後再試')),
+      );
+    }
+  }
+
+  void _deleteDiaryForToday() async {
+    final db = await DatabaseHelper.instance.database;
+    String dateKey = _selectedDate.toString().split(' ')[0];
+
+    try {
+      final existing = allDiaries.firstWhere(
+        (d) => d['date'] == dateKey,
+        orElse: () => {},
+      );
+
+      if (existing.isNotEmpty) {
+        await db.delete(
+          'diaries',
+          where: 'id = ?',
+          whereArgs: [int.parse(existing['id'].toString())],
+        );
+        await _loadData();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('日記已刪除'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('刪除日記失敗: $e');
+    }
+  }
+
+  void _showConvertFreeTimeToScheduleDialog(String timeRange, int maxMinutes) {
+    List<Map<String, dynamic>> uncompletedTodos = allTodos.where((todo) => !todo['isDone']).toList();
+    
+    String? selectedTodoId;
+    if (uncompletedTodos.isNotEmpty) {
+      selectedTodoId = uncompletedTodos.first['id'];
+    }
+    
+    final TextEditingController customTitleCtrl = TextEditingController();
+    if (selectedTodoId != null) {
+      customTitleCtrl.text = uncompletedTodos.first['title'] ?? '';
+    } else {
+      customTitleCtrl.text = '';
+    }
+    
+    int selectedHours = 1;
+    int selectedMinutes = 0;
+    
+    if (maxMinutes < 60) {
+      selectedHours = 0;
+      selectedMinutes = maxMinutes;
+    }
+    
+    bool alsoMarkTodoAsCompleted = true;
+    final primaryColor = Theme.of(context).primaryColor;
+    
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            int totalSelectedMinutes = selectedHours * 60 + selectedMinutes;
+            bool isDurationValid = totalSelectedMinutes > 0 && totalSelectedMinutes <= maxMinutes;
+            
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: primaryColor),
+                  const SizedBox(width: 8),
+                  const Text('規劃空閒時間'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '空閒時段：$timeRange\n(上限 ${maxMinutes ~/ 60} 小時 ${maxMinutes % 60} 分鐘)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('選擇要做的事：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: selectedTodoId,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: [
+                        ...uncompletedTodos.map((todo) => DropdownMenuItem<String>(
+                          value: todo['id'],
+                          child: Text(todo['title'] ?? '', overflow: TextOverflow.ellipsis),
+                        )),
+                        const DropdownMenuItem<String>(
+                          value: 'custom',
+                          child: Text('自訂行程名稱...'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          selectedTodoId = val;
+                          if (val != null && val != 'custom') {
+                            final selected = uncompletedTodos.firstWhere((t) => t['id'] == val);
+                            customTitleCtrl.text = selected['title'] ?? '';
+                          } else {
+                            customTitleCtrl.text = '';
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('行程名稱：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: customTitleCtrl,
+                      decoration: const InputDecoration(
+                        hintText: '請輸入行程名稱',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      onChanged: (text) {
+                        setDialogState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('規劃執行時間：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: selectedHours,
+                            decoration: const InputDecoration(
+                              labelText: '小時',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            ),
+                            items: List.generate(
+                              (maxMinutes / 60).floor() + 1,
+                              (index) => DropdownMenuItem<int>(
+                                value: index,
+                                child: Text('$index 小時'),
+                              ),
+                            ).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() {
+                                  selectedHours = val;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: selectedMinutes,
+                            decoration: const InputDecoration(
+                              labelText: '分鐘',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            ),
+                            items: List.generate(
+                              60,
+                              (index) => DropdownMenuItem<int>(
+                                value: index,
+                                child: Text('$index 分鐘'),
+                              ),
+                            ).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() {
+                                  selectedMinutes = val;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!isDurationValid) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        totalSelectedMinutes == 0
+                            ? '❌ 執行時間必須大於 0 分鐘'
+                            : '❌ 已超出此空閒時段上限 ($maxMinutes 分鐘)',
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                      ),
+                    ],
+                    if (selectedTodoId != 'custom' && selectedTodoId != null) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: alsoMarkTodoAsCompleted,
+                            activeColor: primaryColor,
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() {
+                                  alsoMarkTodoAsCompleted = val;
+                                });
+                              }
+                            },
+                          ),
+                          const Expanded(
+                            child: Text('同時將此待辦事項標記為已完成'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDurationValid && customTitleCtrl.text.trim().isNotEmpty
+                        ? primaryColor
+                        : Colors.grey,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: isDurationValid && customTitleCtrl.text.trim().isNotEmpty
+                      ? () {
+                          Navigator.pop(ctx);
+                          _convertFreeTimeToSchedule(
+                            timeRange: timeRange,
+                            title: customTitleCtrl.text.trim(),
+                            durationMinutes: totalSelectedMinutes,
+                            todoIdToComplete: (selectedTodoId != 'custom' && alsoMarkTodoAsCompleted)
+                                ? selectedTodoId
+                                : null,
+                          );
+                        }
+                      : null,
+                  child: const Text('確認規劃'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _convertFreeTimeToSchedule({
+    required String timeRange,
+    required String title,
+    required int durationMinutes,
+    required String? todoIdToComplete,
+  }) async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final currentUserId = widget.currentUser['id'];
+
+      // Parse start time hour and minute from format HH:mm~HH:mm
+      String startPart = timeRange.split('~')[0].trim();
+      List<String> startSplit = startPart.split(':');
+      int startHour = int.parse(startSplit[0]);
+      int startMin = int.parse(startSplit[1]);
+
+      int totalStartMin = startHour * 60 + startMin;
+      int totalEndMin = totalStartMin + durationMinutes;
+      int endHour = totalEndMin ~/ 60;
+      int endMin = totalEndMin % 60;
+
+      String dateStr = _selectedDate.toString().split(' ')[0];
+      String startTimeDb = "$dateStr ${startHour.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')}:00";
+      String endTimeDb = "$dateStr ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')}:00";
+
+      // Insert new schedule event
+      await db.insert('calendar_events', {
+        'user_id': currentUserId,
+        'title': title,
+        'start_time': startTimeDb,
+        'end_time': endTimeDb,
+        'color': 0xffd9f1b1, // Default conversion color
+      });
+
+      // Complete to-do if requested
+      if (todoIdToComplete != null) {
+        await db.update('todos', {
+          'done': 1,
+          'done_at': DateTime.now().toIso8601String(),
+        }, where: 'id = ?', whereArgs: [int.parse(todoIdToComplete)]);
+      }
+
+      await _loadData();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已將「$title」規劃至行程中 ($startPart ~ ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')})'),
+          backgroundColor: Theme.of(context).primaryColor,
+        ),
+      );
+    } catch (e) {
+      debugPrint('規劃行程失敗: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('規劃行程失敗，請稍後再試')),
+      );
     }
   }
 
@@ -6680,26 +7190,108 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Widget _buildCalendarTab() {
     final primaryColor = Theme.of(context).primaryColor;
+    final bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final bool isCalendarExpandedForHeight = _isCalendarExpanded && !isKeyboardVisible;
+
     return Column(children: [
-      SizedBox(
-          height: _calendarViewMode == 'bar' ? 380 : 330,
-          child: PageView.builder(
-              controller: _calendarPageController,
-              // page 0 固定 = 2020年1月（全域基準），initialPage 動態偏移以跳到今月
-              onPageChanged: (i) => setState(
-                  () => _calendarMonth = DateTime(2020, 1 + i, 1)),
-              itemBuilder: (ctx, i) =>
-                  _buildMonthGrid(DateTime(2020, 1 + i, 1)))),
+      // Collapsible Calendar Grid Container (with compact row when collapsed)
+      GestureDetector(
+        onVerticalDragUpdate: (details) {
+          if (details.delta.dy < -5) {
+            if (_isCalendarExpanded) {
+              setState(() {
+                _isCalendarExpanded = false;
+              });
+            }
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.fastOutSlowIn,
+          height: isCalendarExpandedForHeight
+              ? (_calendarViewMode == 'bar' ? 400.0 : 350.0)
+              : 45.0,
+          child: ClipRect(
+            child: OverflowBox(
+              minHeight: 0.0,
+              maxHeight: _calendarViewMode == 'bar' ? 400.0 : 350.0,
+              alignment: Alignment.topCenter,
+              child: isCalendarExpandedForHeight
+                  ? SizedBox(
+                      height: _calendarViewMode == 'bar' ? 400.0 : 350.0,
+                      child: PageView.builder(
+                        controller: _calendarPageController,
+                        onPageChanged: (i) => setState(
+                            () => _calendarMonth = DateTime(2020, 1 + i, 1)),
+                        itemBuilder: (ctx, i) =>
+                            _buildMonthGrid(DateTime(2020, 1 + i, 1)),
+                      ),
+                    )
+                  : GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isCalendarExpanded = true;
+                        });
+                      },
+                      child: Container(
+                        height: 45.0,
+                        color: Colors.transparent, // expand tap area
+                        padding: const EdgeInsets.symmetric(horizontal: 25),
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: [
+                            Text(
+                              "${_selectedDate.year}年${_selectedDate.month}月${_selectedDate.day}日",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _getWeekdayName(_selectedDate.weekday),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isCalendarExpanded = true;
+                                });
+                              },
+                              icon: Icon(Icons.expand_more_rounded, size: 16, color: primaryColor),
+                              label: Text(
+                                "展開月曆",
+                                style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
+
       // Segmented Tab Selector
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
             GestureDetector(
-              onTap: () => setState(() => _calendarSubTab = 0),
+              onTap: () async {
+                if (await _checkUnsavedDiaryChanges()) {
+                  setState(() => _calendarSubTab = 0);
+                }
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: _calendarSubTab == 0
                       ? primaryColor.withValues(alpha: 0.15)
@@ -6716,12 +7308,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             GestureDetector(
-              onTap: () => setState(() => _calendarSubTab = 1),
+              onTap: () async {
+                if (await _checkUnsavedDiaryChanges()) {
+                  setState(() => _calendarSubTab = 1);
+                }
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: _calendarSubTab == 1
                       ? primaryColor.withValues(alpha: 0.15)
@@ -6739,7 +7335,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     if (allTodos.any((todo) => !todo['isDone'])) ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -6760,16 +7356,49 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () async {
+                if (await _checkUnsavedDiaryChanges()) {
+                  setState(() => _calendarSubTab = 2);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _calendarSubTab == 2
+                      ? primaryColor.withValues(alpha: 0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  "日記",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: _calendarSubTab == 2 ? primaryColor : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
             const Spacer(),
             PopupMenuButton<int>(
               icon: const Icon(Icons.add_circle,
                   color: Color(0xFFD7CCC8), size: 30),
               offset: const Offset(0, 40),
-              onSelected: (val) {
-                if (val == 0) {
-                  _showAddScheduleDialog();
-                } else if (val == 1) {
-                  _showAddTodoDialog();
+              onSelected: (val) async {
+                if (await _checkUnsavedDiaryChanges()) {
+                  if (val == 0) {
+                    _showAddScheduleDialog();
+                  } else if (val == 1) {
+                    _showAddTodoDialog();
+                  } else if (val == 2) {
+                    setState(() => _calendarSubTab = 2);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _diaryFocusNode.requestFocus();
+                    });
+                  }
                 }
               },
               itemBuilder: (ctx) => [
@@ -6793,27 +7422,61 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
+                const PopupMenuItem(
+                  value: 2,
+                  child: Row(
+                    children: [
+                      Icon(Icons.book_outlined, color: Color(0xFF8D6E63), size: 20),
+                      SizedBox(width: 8),
+                      Text('寫今日日記'),
+                    ],
+                  ),
+                ),
               ],
             ),
           ],
         ),
       ),
       Expanded(
-        child: _calendarSubTab == 0
-            ? PageView.builder(
-                controller: _timelinePageController,
-                onPageChanged: (i) {
-                  DateTime newDate =
-                      _simulatedToday.add(Duration(days: i - 1000));
-                  if (newDate.year != _selectedDate.year ||
-                      newDate.month != _selectedDate.month ||
-                      newDate.day != _selectedDate.day) {
-                    _syncDate(newDate);
-                  }
-                },
-                itemBuilder: (ctx, i) => _buildUnifiedDayEvents(
-                    _simulatedToday.add(Duration(days: i - 1000))))
-            : _buildGeneralTodoList(),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (ScrollNotification notification) {
+            if (notification.metrics.axis == Axis.vertical && notification is ScrollUpdateNotification) {
+              if (notification.scrollDelta != null && notification.scrollDelta! > 5) {
+                if (_isCalendarExpanded) {
+                  setState(() {
+                    _isCalendarExpanded = false;
+                  });
+                }
+              }
+            }
+            return false; // let the notification bubble up
+          },
+          child: PageView.builder(
+            key: ValueKey(_calendarSubTab),
+            controller: PageController(
+              initialPage: 1000 + _selectedDate.difference(_simulatedToday).inDays,
+            ),
+            onPageChanged: (i) {
+              DateTime newDate =
+                  _simulatedToday.add(Duration(days: i - 1000));
+              if (newDate.year != _selectedDate.year ||
+                  newDate.month != _selectedDate.month ||
+                  newDate.day != _selectedDate.day) {
+                _syncDate(newDate);
+              }
+            },
+            itemBuilder: (ctx, i) {
+              DateTime targetDate = _simulatedToday.add(Duration(days: i - 1000));
+              if (_calendarSubTab == 0) {
+                return _buildUnifiedDayEvents(targetDate);
+              } else if (_calendarSubTab == 1) {
+                return _buildGeneralTodoListForDate(targetDate);
+              } else {
+                return _buildDiaryListForDate(targetDate);
+              }
+            },
+          ),
+        ),
       ),
     ]);
   }
@@ -7399,6 +8062,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
         children: items.map((item) {
           if (item['isFree'] == true) {
@@ -7417,55 +8081,320 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200,
-          width: 1.5,
+    return GestureDetector(
+      onLongPress: () => _showConvertFreeTimeToScheduleDialog(timeRange, minutes),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200,
+            width: 1.5,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 95,
-            child: Text(
-              timeRange,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: isDark ? Colors.white54 : Colors.grey.shade600,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 95,
+              child: Text(
+                timeRange,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: isDark ? Colors.white54 : Colors.grey.shade600,
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: Text(
-              '空閒時間 ($durationStr)',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white38 : Colors.grey.shade500,
+            Expanded(
+              child: Text(
+                '空閒時間 ($durationStr)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white38 : Colors.grey.shade500,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildGeneralTodoList() {
-    // Show all uncompleted todos
-    List<Map<String, dynamic>> uncompleted = allTodos.where((todo) => !todo['isDone']).toList();
-    // Show all completed todos completed on the selected calendar date
-    String dateKey = _selectedDate.toString().split(' ')[0];
-    List<Map<String, dynamic>> completed = allTodos.where((todo) {
+  Widget _buildDiaryListForDate(DateTime targetDate) {
+    final primaryColor = Theme.of(context).primaryColor;
+    String dateKey = targetDate.toString().split(' ')[0];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final existing = allDiaries.firstWhere(
+      (d) => d['date'] == dateKey,
+      orElse: () => {},
+    );
+    final bool hasDiary = existing.isNotEmpty;
+    final String content = existing['content'] ?? '';
+
+    bool isActive = targetDate.year == _selectedDate.year &&
+        targetDate.month == _selectedDate.month &&
+        targetDate.day == _selectedDate.day;
+
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        if (details.delta.dy < -5) {
+          if (_isCalendarExpanded) {
+            setState(() {
+              _isCalendarExpanded = false;
+            });
+          }
+        } else if (details.delta.dy > 5) {
+          if (!_isCalendarExpanded) {
+            setState(() {
+              _isCalendarExpanded = true;
+            });
+          }
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(15, 8, 15, 95),
+        child: Column(
+          children: [
+            Expanded(
+              child: FadeInUp(
+                duration: const Duration(milliseconds: 400),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? Colors.white10 : Colors.grey.shade200,
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(15),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.edit_note_rounded, color: primaryColor, size: 22),
+                          const SizedBox(width: 8),
+                          Text(
+                            '今日日記',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (hasDiary)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '已儲存',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: isActive
+                            ? TextField(
+                                controller: _diaryInputController,
+                                focusNode: _diaryFocusNode,
+                                maxLines: null,
+                                keyboardType: TextInputType.multiline,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  height: 1.6,
+                                  color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: '今天過得怎麼樣？記錄下你的心情、學習心得或生活點滴吧...',
+                                  hintStyle: TextStyle(
+                                    fontSize: 14,
+                                    color: isDark ? Colors.white30 : Colors.grey.shade400,
+                                  ),
+                                  filled: true,
+                                  fillColor: isDark ? Colors.black12 : Colors.grey.shade50,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.all(22),
+                                ),
+                              )
+                            : TextField(
+                                controller: TextEditingController(text: content),
+                                readOnly: true,
+                                maxLines: null,
+                                keyboardType: TextInputType.multiline,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  height: 1.6,
+                                  color: isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black54,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: '今天尚未寫日記...',
+                                  hintStyle: TextStyle(
+                                    fontSize: 14,
+                                    color: isDark ? Colors.white30 : Colors.grey.shade400,
+                                  ),
+                                  filled: true,
+                                  fillColor: isDark ? Colors.black12 : Colors.grey.shade50,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.all(22),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (hasDiary) ...[
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                              label: const Text('刪除日記'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.redAccent,
+                                side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (confirmCtx) => AlertDialog(
+                                    title: const Text('刪除日記'),
+                                    content: const Text('確定要刪除今天的日記紀錄嗎？'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(confirmCtx),
+                                        child: const Text('取消'),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.redAccent,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        onPressed: () {
+                                          Navigator.pop(confirmCtx);
+                                          _deleteDiaryForToday();
+                                        },
+                                        child: const Text('確定刪除'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.check_rounded, size: 16),
+                            label: const Text('儲存日記'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            ),
+                            onPressed: _diaryInputController.text.trim().isNotEmpty
+                                ? () => _saveDiary(_diaryInputController.text)
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getWeekdayName(int weekday) {
+    switch (weekday) {
+      case 1:
+        return '星期一';
+      case 2:
+        return '星期二';
+      case 3:
+        return '星期三';
+      case 4:
+        return '星期四';
+      case 5:
+        return '星期五';
+      case 6:
+        return '星期六';
+      case 7:
+        return '星期日';
+      default:
+        return '';
+    }
+  }
+
+  Widget _buildGeneralTodoListForDate(DateTime targetDate) {
+    String dateKey = targetDate.toString().split(' ')[0];
+
+    List<Map<String, dynamic>> visibleTodos = allTodos.where((todo) {
+      if (todo['isDone']) {
+        final String? dDate = todo['doneDate'];
+        if (dDate == null) {
+          String createdDateStr = (todo['created_at']?.toString() ?? dateKey).split(' ')[0];
+          return dateKey == createdDateStr;
+        }
+        if (dDate == dateKey) {
+          return true;
+        }
+        if (dateKey.compareTo(dDate) < 0) {
+          return true;
+        }
+        return false;
+      } else {
+        return true;
+      }
+    }).toList();
+
+    List<Map<String, dynamic>> uncompleted = visibleTodos.where((todo) {
+      if (!todo['isDone']) return true;
+      return todo['doneDate'] != dateKey;
+    }).toList();
+
+    List<Map<String, dynamic>> completed = visibleTodos.where((todo) {
       return todo['isDone'] && todo['doneDate'] == dateKey;
     }).toList();
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 25),
       children: [
         if (uncompleted.isEmpty && completed.isEmpty)
@@ -7480,22 +8409,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             padding: EdgeInsets.only(top: 8, bottom: 8),
             child: Text('待辦中', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF8D6E63))),
           ),
-          ...uncompleted.map((item) => _buildTodoListItem(item)),
+          ...uncompleted.map((item) => _buildTodoListItem(item, targetDate)),
         ],
         if (completed.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text('${_selectedDate.month}/${_selectedDate.day} 已完成', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey)),
+            child: Text('${targetDate.month}/${targetDate.day} 已完成', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey)),
           ),
-          ...completed.map((item) => _buildTodoListItem(item)),
+          ...completed.map((item) => _buildTodoListItem(item, targetDate)),
         ],
-        const SizedBox(height: 100), // bottom padding for navigation bar
+        const SizedBox(height: 100),
       ],
     );
   }
 
-  Widget _buildTodoListItem(Map<String, dynamic> item) {
-    bool done = item['isDone'];
+  Widget _buildTodoListItem(Map<String, dynamic> item, DateTime targetDate) {
+    String dateKey = targetDate.toString().split(' ')[0];
+    bool done = item['isDone'] && item['doneDate'] == dateKey;
     final primaryColor = Theme.of(context).primaryColor;
     return GestureDetector(
       onTap: () async {
@@ -7503,9 +8433,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           final db = await DatabaseHelper.instance.database;
           bool newDone = !done;
           DateTime doneDateTime = DateTime.now();
-          if (_selectedDate.isBefore(DateTime(doneDateTime.year, doneDateTime.month, doneDateTime.day))) {
-            // If selected date is in the past, complete it on that date
-            doneDateTime = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, doneDateTime.hour, doneDateTime.minute, doneDateTime.second);
+          if (targetDate.isBefore(DateTime(doneDateTime.year, doneDateTime.month, doneDateTime.day))) {
+            doneDateTime = DateTime(targetDate.year, targetDate.month, targetDate.day, doneDateTime.hour, doneDateTime.minute, doneDateTime.second);
           }
           String? doneAt = newDone ? doneDateTime.toIso8601String() : null;
           await db.update(

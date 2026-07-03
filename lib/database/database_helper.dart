@@ -91,6 +91,18 @@ class DatabaseHelper {
         )
       ''');
 
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS diaries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id VARCHAR NOT NULL,
+          date TEXT NOT NULL,
+          content TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      ''');
+
       var postCols = await db.rawQuery('PRAGMA table_info(posts)');
       if (!postCols.any((c) => c['name'] == 'is_edited')) {
         await db.execute(
@@ -423,6 +435,19 @@ class DatabaseHelper {
       )
     ''');
 
+    // 6.5 diaries
+    await db.execute('''
+      CREATE TABLE diaries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id VARCHAR NOT NULL,
+        date TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    ''');
+
     // 7. todos
     await db.execute('''
       CREATE TABLE todos (
@@ -520,6 +545,7 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_posts_user_id ON posts (user_id)');
     await db.execute('CREATE INDEX idx_posts_type ON posts (type)');
     await db.execute('CREATE INDEX idx_comments_post_id ON comments (post_id)');
+    await db.execute('CREATE INDEX idx_diaries_user_id ON diaries (user_id)');
 
     await _seedDatabase(db);
   }
