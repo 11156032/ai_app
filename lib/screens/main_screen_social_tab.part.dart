@@ -10,7 +10,8 @@ extension MainScreenSocialTab on _MainScreenState {
         : socialPosts.where((p) => p['postType'] == typeFilter).toList();
 
     if (_socialAuthorFilter.isNotEmpty) {
-      filtered = filtered.where((p) => p['userId'] == _socialAuthorFilter).toList();
+      filtered =
+          filtered.where((p) => p['userId'] == _socialAuthorFilter).toList();
     }
 
     return Stack(children: [
@@ -36,7 +37,10 @@ extension MainScreenSocialTab on _MainScreenState {
                               const TextStyle(color: Colors.grey, fontSize: 14),
                         )))
               else
-                ...filtered.asMap().entries.map((e) => _buildPostCard(e.value, e.key))
+                ...filtered
+                    .asMap()
+                    .entries
+                    .map((e) => _buildPostCard(e.value, e.key))
             ])),
       ]),
       if (widget.currentUser['id'] != 'u4')
@@ -123,7 +127,8 @@ extension MainScreenSocialTab on _MainScreenState {
                       colorIdx: story['avatarColor'] as int,
                       initial: authorName.substring(0, 1),
                       radius: 20,
-                      usePreset: story['avatarSelected'] == 1 && story['avatarBlob'] == null,
+                      usePreset: story['avatarSelected'] == 1 &&
+                          story['avatarBlob'] == null,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -131,7 +136,8 @@ extension MainScreenSocialTab on _MainScreenState {
                     authorName,
                     style: TextStyle(
                       fontSize: 10.5,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                       color: isSelected
                           ? const Color(0xFFFF9800)
                           : (_isDarkMode ? Colors.white70 : Colors.black87),
@@ -182,7 +188,9 @@ extension MainScreenSocialTab on _MainScreenState {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFF8D6E63)
-                          : (_isDarkMode ? Colors.white10 : Colors.grey.shade100),
+                          : (_isDarkMode
+                              ? Colors.white10
+                              : Colors.grey.shade100),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(label,
@@ -190,7 +198,9 @@ extension MainScreenSocialTab on _MainScreenState {
                             fontSize: 12.5,
                             color: isSelected
                                 ? Colors.white
-                                : (_isDarkMode ? Colors.white70 : Colors.grey.shade700),
+                                : (_isDarkMode
+                                    ? Colors.white70
+                                    : Colors.grey.shade700),
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal)),
@@ -208,14 +218,19 @@ extension MainScreenSocialTab on _MainScreenState {
                 InputChip(
                   label: Text(
                     '🔍 $authorName 的貼文',
-                    style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500),
                   ),
                   backgroundColor: const Color(0xFFFF9800),
                   deleteIconColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   elevation: 1.5,
                   shadowColor: Colors.black26,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   onDeleted: () {
                     _update(() {
                       _socialAuthorFilter = '';
@@ -237,91 +252,76 @@ extension MainScreenSocialTab on _MainScreenState {
             color: Colors.orange.shade50,
             borderRadius: BorderRadius.circular(15),
             border: Border.all(color: Colors.orange.shade200)),
-        child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(children: [
-                Icon(Icons.schedule, color: Colors.orange, size: 20),
-                SizedBox(width: 8),
-                Text('待發佈排程',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange))
-              ]),
-              const SizedBox(height: 10),
-              ...scheduledPosts
-                  .map((sp) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: Colors.orange.shade100)),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(sp['content'],
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 14)),
-                          const SizedBox(height: 4),
-                          Text('排定時間: ${sp['scheduled_at']}',
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey)),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton.icon(
-                                style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                            horizontal: 8),
-                                    minimumSize: const Size(40, 30)),
-                                icon: const Icon(Icons.edit,
-                                    size: 16, color: Color(0xFF8D6E63)),
-                                label: const Text('編輯',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF8D6E63))),
-                                onPressed: () =>
-                                    _showEditScheduledPostDialog(sp),
-                              ),
-                              const SizedBox(width: 4),
-                              TextButton.icon(
-                                style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                            horizontal: 8),
-                                    minimumSize: const Size(40, 30)),
-                                icon: const Icon(Icons.delete_outline,
-                                    size: 16, color: Colors.redAccent),
-                                label: const Text('刪除',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.redAccent)),
-                                onPressed: () => _deleteScheduledPost(sp),
-                              ),
-                              const SizedBox(width: 4),
-                              TextButton.icon(
-                                style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                            horizontal: 8),
-                                    minimumSize: const Size(40, 30)),
-                                icon: const Icon(Icons.send,
-                                    size: 16, color: Colors.orange),
-                                label: const Text('立即發佈',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.orange)),
-                                onPressed: () => _publishNow(sp),
-                              ),
-                            ],
-                          )
-                        ],
-                      )))
-                  
-            ]));
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Row(children: [
+            Icon(Icons.schedule, color: Colors.orange, size: 20),
+            SizedBox(width: 8),
+            Text('待發佈排程',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.orange))
+          ]),
+          const SizedBox(height: 10),
+          ...scheduledPosts.map((sp) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange.shade100)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(sp['content'],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text('排定時間: ${sp['scheduled_at']}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(40, 30)),
+                        icon: const Icon(Icons.edit,
+                            size: 16, color: Color(0xFF8D6E63)),
+                        label: const Text('編輯',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF8D6E63))),
+                        onPressed: () => _showEditScheduledPostDialog(sp),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(40, 30)),
+                        icon: const Icon(Icons.delete_outline,
+                            size: 16, color: Colors.redAccent),
+                        label: const Text('刪除',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.redAccent)),
+                        onPressed: () => _deleteScheduledPost(sp),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(40, 30)),
+                        icon: const Icon(Icons.send,
+                            size: 16, color: Colors.orange),
+                        label: const Text('立即發佈',
+                            style:
+                                TextStyle(fontSize: 12, color: Colors.orange)),
+                        onPressed: () => _publishNow(sp),
+                      ),
+                    ],
+                  )
+                ],
+              )))
+        ]));
   }
 
   Future<void> _deleteScheduledPost(Map<String, dynamic> sp) async {
@@ -331,8 +331,12 @@ extension MainScreenSocialTab on _MainScreenState {
         title: const Text('確認刪除'),
         content: const Text('確定要刪除這篇排程貼文嗎？此操作無法復原。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('刪除', style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('刪除', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -342,7 +346,8 @@ extension MainScreenSocialTab on _MainScreenState {
       await db.delete('posts', where: 'id = ?', whereArgs: [spId]);
       await _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已刪除排程貼文')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已刪除排程貼文')));
       }
     }
   }
@@ -350,19 +355,20 @@ extension MainScreenSocialTab on _MainScreenState {
   Future<void> _publishNow(Map<String, dynamic> sp) async {
     final db = await DatabaseHelper.instance.database;
     final spId = int.tryParse(sp['id'].toString()) ?? sp['id'];
-    await db.update('posts', {
-      'attached_data': '{}',
-      'created_at': DateTime.now().toIso8601String()
-    }, where: 'id = ?', whereArgs: [spId]);
+    await db.update('posts',
+        {'attached_data': '{}', 'created_at': DateTime.now().toIso8601String()},
+        where: 'id = ?', whereArgs: [spId]);
     await _loadData();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('貼文已發佈！')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('貼文已發佈！')));
     }
   }
 
   void _showCreatePostScreen() {
     if (widget.currentUser['id'] == 'u4') {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('訪客無法發佈貼文，請登入完整帳號')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('訪客無法發佈貼文，請登入完整帳號')));
       return;
     }
     Navigator.push(
@@ -385,7 +391,8 @@ extension MainScreenSocialTab on _MainScreenState {
   Widget _buildPostCard(Map<String, dynamic> p, [int? index]) {
     final idx = index ?? 0;
     return FadeInUp(
-      key: ValueKey('${p['id']}_${_socialFilter}_${_socialAuthorFilter}_$_socialFeedLayout'),
+      key: ValueKey(
+          '${p['id']}_${_socialFilter}_${_socialAuthorFilter}_$_socialFeedLayout'),
       duration: const Duration(milliseconds: 350),
       delay: Duration(milliseconds: 50 * (idx % 10)),
       child: _buildPostItem(p),
@@ -397,216 +404,250 @@ extension MainScreenSocialTab on _MainScreenState {
     final bool isDark = _isDarkMode;
     final Color cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
-    final Color shadowCol = isDark ? Colors.black54 : Colors.black.withValues(alpha: 0.03);
+    final Color shadowCol =
+        isDark ? Colors.black54 : Colors.black.withValues(alpha: 0.03);
+    final bool isGuest = widget.currentUser['id'] == 'u4';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderCol, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: shadowCol,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: Avatar, Name, Time, Actions
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => _showUserProfilePopup(p),
-                child: buildAvatar(
-                  blob: p['authorAvatarBlob'] as Uint8List?,
-                  colorIdx: (p['authorAvatarColor'] as int?) ??
-                      getAvatarColorIdx(p['author'] ?? ''),
-                  initial: (p['author'] ?? '?').substring(0, 1),
-                  radius: 20,
-                  usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
-                      p['authorAvatarBlob'] == null,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        if (isGuest) {
+          _showGuestLoginPrompt();
+          return;
+        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                PostReplyPage(originalPost: p, currentUser: widget.currentUser),
+          ),
+        ).then((_) => _loadData());
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderCol, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: shadowCol,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: Avatar, Name, Time, Actions
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _showUserProfilePopup(p),
+                  child: buildAvatar(
+                    blob: p['authorAvatarBlob'] as Uint8List?,
+                    colorIdx: (p['authorAvatarColor'] as int?) ??
+                        getAvatarColorIdx(p['author'] ?? ''),
+                    initial: (p['author'] ?? '?').substring(0, 1),
+                    radius: 20,
+                    usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                        p['authorAvatarBlob'] == null,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          p['author'],
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14.5,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        if (kPostTypeLabel.containsKey(p['postType'])) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.brown.shade800 : const Color(0xFFF5F0EE),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              kPostTypeLabel[p['postType']]!,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF8D6E63),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text(
-                          p['time'],
-                          style: TextStyle(
-                            color: isDark ? Colors.white38 : Colors.grey.shade500,
-                            fontSize: 11,
-                          ),
-                        ),
-                        if ((p['isEdited'] as int? ?? 0) == 1) ...[
-                          const SizedBox(width: 6),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
                           Text(
-                            '已編輯',
+                            p['author'],
                             style: TextStyle(
-                              color: isDark ? Colors.white30 : Colors.grey.shade400,
-                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
+                          if (kPostTypeLabel.containsKey(p['postType'])) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.brown.shade800
+                                    : const Color(0xFFF5F0EE),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                kPostTypeLabel[p['postType']]!,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  color: isDark
+                                      ? const Color(0xFFFFCC80)
+                                      : const Color(0xFF8D6E63),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            p['time'],
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white38
+                                  : Colors.grey.shade500,
+                              fontSize: 11,
+                            ),
+                          ),
+                          if ((p['isEdited'] as int? ?? 0) == 1) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '已編輯',
+                              style: TextStyle(
+                                color: isDark
+                                    ? Colors.white30
+                                    : Colors.grey.shade400,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (p['userId'].toString() == widget.currentUser['id'].toString())
-                PopupMenuButton<String>(
-                  padding: EdgeInsets.zero,
-                  iconSize: 18,
-                  icon: Icon(Icons.more_horiz, color: isDark ? Colors.white38 : Colors.grey),
-                  onSelected: (val) {
-                    if (val == 'edit') _editPost(p);
-                    if (val == 'delete') _deletePost(p);
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('編輯貼文')),
-                    const PopupMenuItem(value: 'delete', child: Text('刪除貼文', style: TextStyle(color: Colors.red))),
-                  ],
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Content text with show more/less
-          StatefulBuilder(
-            builder: (context, setStateText) {
-              final String content = p['content'] ?? '';
-              final bool isLongText = content.length > 120 || '\n'.allMatches(content).length >= 3;
-              bool isExpanded = p['_isExpanded'] as bool? ?? false;
+                if (p['userId'].toString() ==
+                    widget.currentUser['id'].toString())
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    icon: Icon(Icons.more_horiz,
+                        color: isDark ? Colors.white38 : Colors.grey),
+                    onSelected: (val) {
+                      if (val == 'edit') _editPost(p);
+                      if (val == 'delete') _deletePost(p);
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(value: 'edit', child: Text('編輯貼文')),
+                      const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('刪除貼文',
+                              style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Content text with show more/less
+            StatefulBuilder(
+              builder: (context, setStateText) {
+                final String content = p['content'] ?? '';
+                final bool isLongText = content.length > 120 ||
+                    '\n'.allMatches(content).length >= 3;
+                bool isExpanded = p['_isExpanded'] as bool? ?? false;
 
-              if (isLongText && !isExpanded) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLinkifiedText(
-                      '${content.substring(0, content.length > 120 ? 120 : content.length)}...',
-                    ),
-                    const SizedBox(height: 6),
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          setStateText(() {
-                            p['_isExpanded'] = true;
-                          });
-                        },
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '展開全文',
-                              style: TextStyle(
-                                color: Color(0xFF8D6E63),
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
+                if (isLongText && !isExpanded) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLinkifiedText(
+                        '${content.substring(0, content.length > 120 ? 120 : content.length)}...',
+                      ),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: GestureDetector(
+                          onTap: () {
+                            setStateText(() {
+                              p['_isExpanded'] = true;
+                            });
+                          },
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '展開全文',
+                                style: TextStyle(
+                                  color: Color(0xFF8D6E63),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            SizedBox(width: 2),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 16,
-                              color: Color(0xFF8D6E63),
-                            ),
-                          ],
+                              SizedBox(width: 2),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 16,
+                                color: Color(0xFF8D6E63),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              } else if (isLongText && isExpanded) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLinkifiedText(content),
-                    const SizedBox(height: 6),
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          setStateText(() {
-                            p['_isExpanded'] = false;
-                          });
-                        },
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '收起全文',
-                              style: TextStyle(
-                                color: Color(0xFF8D6E63),
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
+                    ],
+                  );
+                } else if (isLongText && isExpanded) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLinkifiedText(content),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: GestureDetector(
+                          onTap: () {
+                            setStateText(() {
+                              p['_isExpanded'] = false;
+                            });
+                          },
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '收起全文',
+                                style: TextStyle(
+                                  color: Color(0xFF8D6E63),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            SizedBox(width: 2),
-                            Icon(
-                              Icons.keyboard_arrow_up_rounded,
-                              size: 16,
-                              color: Color(0xFF8D6E63),
-                            ),
-                          ],
+                              SizedBox(width: 2),
+                              Icon(
+                                Icons.keyboard_arrow_up_rounded,
+                                size: 16,
+                                color: Color(0xFF8D6E63),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              } else {
-                return _buildLinkifiedText(content);
-              }
-            },
-          ),
-          // Media attachments
-          if (p['media_blob'] != null || (p['media'] != null && p['media'].toString().isNotEmpty))
-            _buildPostMediaPremium(p),
-          if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
-            _buildFileAttachment(p),
-          _buildSharedResourceCard(p),
-          const SizedBox(height: 12),
-          Divider(color: borderCol, height: 1),
-          const SizedBox(height: 4),
-          // Actions
-          _buildPostActions(p),
-        ],
+                    ],
+                  );
+                } else {
+                  return _buildLinkifiedText(content);
+                }
+              },
+            ),
+            // Media attachments
+            if (p['media_blob'] != null ||
+                (p['media'] != null && p['media'].toString().isNotEmpty))
+              _buildPostMediaPremium(p),
+            if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
+              _buildFileAttachment(p),
+            _buildSharedResourceCard(p),
+            const SizedBox(height: 12),
+            Divider(color: borderCol, height: 1),
+            const SizedBox(height: 4),
+            // Actions
+            _buildPostActions(p),
+          ],
+        ),
       ),
     );
   }
@@ -616,7 +657,8 @@ extension MainScreenSocialTab on _MainScreenState {
     final bool isDark = _isDarkMode;
     final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
     final Color textCol = isDark ? Colors.white70 : Colors.black87;
-    final hasMedia = p['media_blob'] != null || (p['media'] != null && p['media'].toString().isNotEmpty);
+    final hasMedia = p['media_blob'] != null ||
+        (p['media'] != null && p['media'].toString().isNotEmpty);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -646,8 +688,9 @@ extension MainScreenSocialTab on _MainScreenState {
                             getAvatarColorIdx(p['author'] ?? ''),
                         initial: (p['author'] ?? '?').substring(0, 1),
                         radius: 12,
-                        usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
-                            p['authorAvatarBlob'] == null,
+                        usePreset:
+                            (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                                p['authorAvatarBlob'] == null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -670,16 +713,21 @@ extension MainScreenSocialTab on _MainScreenState {
                     if (kPostTypeLabel.containsKey(p['postType'])) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.brown.shade800 : const Color(0xFFF5F0EE),
+                          color: isDark
+                              ? Colors.brown.shade800
+                              : const Color(0xFFF5F0EE),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           kPostTypeLabel[p['postType']]!,
                           style: TextStyle(
                             fontSize: 8.5,
-                            color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF8D6E63),
+                            color: isDark
+                                ? const Color(0xFFFFCC80)
+                                : const Color(0xFF8D6E63),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -693,8 +741,11 @@ extension MainScreenSocialTab on _MainScreenState {
                     final attached = p['attached_data'];
                     final String content = p['content'] ?? '';
                     final bool isExpanded = p['_isExpanded'] as bool? ?? false;
-                    final bool hasAttachment = attached != null && attached['shared_type'] != null;
-                    final bool isLongText = content.length > 80 || '\n'.allMatches(content).length >= 2 || hasAttachment;
+                    final bool hasAttachment =
+                        attached != null && attached['shared_type'] != null;
+                    final bool isLongText = content.length > 80 ||
+                        '\n'.allMatches(content).length >= 2 ||
+                        hasAttachment;
 
                     if (!isExpanded) {
                       return Column(
@@ -717,7 +768,15 @@ extension MainScreenSocialTab on _MainScreenState {
                               ),
                             ),
                           ),
-                          _buildSharedResourceCardMini(p),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              setStateText(() {
+                                p['_isExpanded'] = true;
+                              });
+                            },
+                            child: _buildSharedResourceCardMini(p),
+                          ),
                           if (isLongText) ...[
                             const SizedBox(height: 6),
                             Center(
@@ -817,12 +876,17 @@ extension MainScreenSocialTab on _MainScreenState {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: (p['media_blob'] != null)
-                    ? Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover)
+                    ? Image.memory(p['media_blob'] as Uint8List,
+                        fit: BoxFit.cover)
                     : (p['media'].toString().startsWith('data:image'))
-                        ? Image.memory(base64Decode(p['media'].toString().split(',').last), fit: BoxFit.cover)
+                        ? Image.memory(
+                            base64Decode(p['media'].toString().split(',').last),
+                            fit: BoxFit.cover)
                         : (p['media'].toString().startsWith('http') || kIsWeb)
-                            ? Image.network(p['media'] as String, fit: BoxFit.cover)
-                            : Image.file(File(p['media'] as String), fit: BoxFit.cover),
+                            ? Image.network(p['media'] as String,
+                                fit: BoxFit.cover)
+                            : Image.file(File(p['media'] as String),
+                                fit: BoxFit.cover),
               ),
             ),
           ],
@@ -866,10 +930,10 @@ extension MainScreenSocialTab on _MainScreenState {
               return;
             }
             Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => PostReplyPage(
-                        originalPost: p, currentUser: widget.currentUser)))
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => PostReplyPage(
+                            originalPost: p, currentUser: widget.currentUser)))
                 .then((_) => _loadData());
           },
           child: Row(
@@ -911,22 +975,23 @@ extension MainScreenSocialTab on _MainScreenState {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: _isDarkMode ? Colors.black26 : Colors.grey.shade50,
-        border: Border.all(color: _isDarkMode ? Colors.white10 : Colors.grey.shade100),
+        border: Border.all(
+            color: _isDarkMode ? Colors.white10 : Colors.grey.shade100),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: (p['media_blob'] != null)
             ? Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover)
             : (p['media'].toString().startsWith('data:image'))
-                ? Image.memory(base64Decode(p['media'].toString().split(',').last), fit: BoxFit.cover)
+                ? Image.memory(
+                    base64Decode(p['media'].toString().split(',').last),
+                    fit: BoxFit.cover)
                 : (p['media'].toString().startsWith('http') || kIsWeb)
                     ? Image.network(p['media'] as String, fit: BoxFit.cover)
                     : Image.file(File(p['media'] as String), fit: BoxFit.cover),
       ),
     );
   }
-
-
 
   Widget _buildFileAttachment(Map<String, dynamic> p) {
     return Container(
@@ -937,7 +1002,9 @@ extension MainScreenSocialTab on _MainScreenState {
       child: Row(children: [
         const Icon(Icons.attach_file, size: 16, color: Colors.blue),
         const SizedBox(width: 8),
-        Expanded(child: Text(p['fileName'] as String, style: const TextStyle(fontSize: 12))),
+        Expanded(
+            child: Text(p['fileName'] as String,
+                style: const TextStyle(fontSize: 12))),
       ]),
     );
   }
@@ -956,18 +1023,17 @@ extension MainScreenSocialTab on _MainScreenState {
       const SizedBox(width: 20),
       IconButton(
           icon: Icon(Icons.mode_comment_outlined,
-              size: 20,
-              color: isGuest ? Colors.grey.shade300 : Colors.grey),
+              size: 20, color: isGuest ? Colors.grey.shade300 : Colors.grey),
           onPressed: () {
             if (isGuest) {
               _showGuestLoginPrompt();
               return;
             }
             Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => PostReplyPage(
-                        originalPost: p, currentUser: widget.currentUser)))
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => PostReplyPage(
+                            originalPost: p, currentUser: widget.currentUser)))
                 .then((_) => _loadData());
           }),
       Text('${p['replies']}', style: const TextStyle(fontSize: 12)),
@@ -1114,7 +1180,8 @@ extension MainScreenSocialTab on _MainScreenState {
     }
     return RichText(
       text: TextSpan(
-        style: const TextStyle(fontSize: 14.5, height: 1.4, color: Colors.black87),
+        style:
+            const TextStyle(fontSize: 14.5, height: 1.4, color: Colors.black87),
         children: spans,
       ),
     );
@@ -1156,7 +1223,8 @@ extension MainScreenSocialTab on _MainScreenState {
               if (isOwnPost) ...[
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF5F0EE),
                     borderRadius: BorderRadius.circular(12),
@@ -1194,12 +1262,10 @@ extension MainScreenSocialTab on _MainScreenState {
                       bio.isEmpty ? '這個人很懶，什麼都沒寫 😄' : bio,
                       style: TextStyle(
                         fontSize: 14,
-                        color: bio.isEmpty
-                            ? Colors.grey.shade400
-                            : Colors.black87,
-                        fontStyle: bio.isEmpty
-                            ? FontStyle.italic
-                            : FontStyle.normal,
+                        color:
+                            bio.isEmpty ? Colors.grey.shade400 : Colors.black87,
+                        fontStyle:
+                            bio.isEmpty ? FontStyle.italic : FontStyle.normal,
                       ),
                     ),
                   ],
@@ -1244,7 +1310,9 @@ extension MainScreenSocialTab on _MainScreenState {
       final String title = attached['title'] ?? '無標題筆記';
       final String category = attached['category'] ?? '未分類';
       final String content = attached['content'] ?? '';
-      final bool hasStrokes = attached['strokes'] != null && attached['strokes'].toString() != '[]' && attached['strokes'].toString().isNotEmpty;
+      final bool hasStrokes = attached['strokes'] != null &&
+          attached['strokes'].toString() != '[]' &&
+          attached['strokes'].toString().isNotEmpty;
 
       return Container(
         margin: const EdgeInsets.only(top: 12),
@@ -1259,37 +1327,48 @@ extension MainScreenSocialTab on _MainScreenState {
           children: [
             Row(
               children: [
-                const Icon(Icons.sticky_note_2_outlined, color: Color(0xFF8D6E63), size: 18),
+                const Icon(Icons.sticky_note_2_outlined,
+                    color: Color(0xFF8D6E63), size: 18),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF5D4037)
-                    ),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark
+                            ? const Color(0xFFFFCC80)
+                            : const Color(0xFF5D4037)),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     category,
-                    style: const TextStyle(fontSize: 10, color: Color(0xFF8D6E63), fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF8D6E63),
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              content.isEmpty ? '（空白筆記）' : content.replaceAll('#', '').replaceAll('**', '').trim(),
+              content.isEmpty
+                  ? '（空白筆記）'
+                  : content.replaceAll('#', '').replaceAll('**', '').trim(),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12.5, color: isDark ? Colors.white70 : Colors.black54, height: 1.4),
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  height: 1.4),
             ),
             const SizedBox(height: 12),
             Row(
@@ -1297,9 +1376,15 @@ extension MainScreenSocialTab on _MainScreenState {
                 if (hasStrokes)
                   Row(
                     children: [
-                      Icon(Icons.palette_outlined, size: 14, color: isDark ? Colors.white60 : Colors.blueGrey),
+                      Icon(Icons.palette_outlined,
+                          size: 14,
+                          color: isDark ? Colors.white60 : Colors.blueGrey),
                       const SizedBox(width: 4),
-                      Text('包含手寫塗鴉', style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.blueGrey)),
+                      Text('包含手寫塗鴉',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color:
+                                  isDark ? Colors.white60 : Colors.blueGrey)),
                     ],
                   ),
                 const Spacer(),
@@ -1307,13 +1392,34 @@ extension MainScreenSocialTab on _MainScreenState {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8D6E63),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     elevation: 1,
                   ),
                   icon: const Icon(Icons.download_rounded, size: 15),
-                  label: const Text('匯入筆記', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () => _importSharedNote(attached),
+                  label: const Text('匯入筆記',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _importSharedNote(p),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5D4037),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    elevation: 1,
+                  ),
+                  icon: const Icon(Icons.auto_awesome, size: 15),
+                  label: const Text('召喚分身',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _summonAuthorClone(p),
                 ),
               ],
             ),
@@ -1346,23 +1452,31 @@ extension MainScreenSocialTab on _MainScreenState {
           children: [
             Row(
               children: [
-                const Icon(Icons.help_outline_rounded, color: Color(0xFF8D6E63), size: 18),
+                const Icon(Icons.help_outline_rounded,
+                    color: Color(0xFF8D6E63), size: 18),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '題目挑戰：$subject',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF8D6E63)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF8D6E63)),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     '難度: $difficulty',
-                    style: const TextStyle(fontSize: 10, color: Color(0xFF8D6E63), fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF8D6E63),
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -1370,7 +1484,10 @@ extension MainScreenSocialTab on _MainScreenState {
             const SizedBox(height: 10),
             Text(
               text,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: isDark ? Colors.white : Colors.black87),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.5,
+                  color: isDark ? Colors.white : Colors.black87),
             ),
             const SizedBox(height: 12),
             // 選項列表
@@ -1378,32 +1495,39 @@ extension MainScreenSocialTab on _MainScreenState {
               children: List.generate(options.length, (idx) {
                 final isSelected = userSelected == idx;
                 final isCorrect = idx == correctIdx;
-                
+
                 Color optBg = isDark ? const Color(0xFF333333) : Colors.white;
                 Color border = isDark ? Colors.white10 : Colors.grey.shade200;
                 IconData? suffixIcon;
-                
+
                 if (userSelected != null) {
                   if (isCorrect) {
-                    optBg = isDark ? Colors.green.shade900.withValues(alpha: 0.5) : Colors.green.shade50;
+                    optBg = isDark
+                        ? Colors.green.shade900.withValues(alpha: 0.5)
+                        : Colors.green.shade50;
                     border = Colors.green.shade300;
                     suffixIcon = Icons.check_circle_outline_rounded;
                   } else if (isSelected) {
-                    optBg = isDark ? Colors.red.shade900.withValues(alpha: 0.5) : Colors.red.shade50;
+                    optBg = isDark
+                        ? Colors.red.shade900.withValues(alpha: 0.5)
+                        : Colors.red.shade50;
                     border = Colors.red.shade300;
                     suffixIcon = Icons.highlight_off_rounded;
                   }
                 }
 
                 return GestureDetector(
-                  onTap: userSelected != null ? null : () {
-                    _update(() {
-                      p['_selectedOptionIndex'] = idx;
-                    });
-                  },
+                  onTap: userSelected != null
+                      ? null
+                      : () {
+                          _update(() {
+                            p['_selectedOptionIndex'] = idx;
+                          });
+                        },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: optBg,
                       borderRadius: BorderRadius.circular(10),
@@ -1416,12 +1540,17 @@ extension MainScreenSocialTab on _MainScreenState {
                           height: 20,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isDark ? Colors.white10 : Colors.grey.shade100,
+                            color:
+                                isDark ? Colors.white10 : Colors.grey.shade100,
                           ),
                           child: Center(
                             child: Text(
                               String.fromCharCode(65 + idx),
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87),
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark ? Colors.white70 : Colors.black87),
                             ),
                           ),
                         ),
@@ -1429,11 +1558,16 @@ extension MainScreenSocialTab on _MainScreenState {
                         Expanded(
                           child: Text(
                             options[idx].toString(),
-                            style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87),
+                            style: TextStyle(
+                                fontSize: 13,
+                                color:
+                                    isDark ? Colors.white70 : Colors.black87),
                           ),
                         ),
                         if (suffixIcon != null)
-                          Icon(suffixIcon, color: isCorrect ? Colors.green : Colors.red, size: 18),
+                          Icon(suffixIcon,
+                              color: isCorrect ? Colors.green : Colors.red,
+                              size: 18),
                       ],
                     ),
                   ),
@@ -1451,12 +1585,17 @@ extension MainScreenSocialTab on _MainScreenState {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline_rounded, color: Colors.orange, size: 16),
+                    const Icon(Icons.info_outline_rounded,
+                        color: Colors.orange, size: 16),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         '解析：$explanation',
-                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.brown.shade800),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? Colors.white70
+                                : Colors.brown.shade800),
                       ),
                     ),
                   ],
@@ -1471,12 +1610,16 @@ extension MainScreenSocialTab on _MainScreenState {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8D6E63),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     elevation: 1,
                   ),
                   icon: const Icon(Icons.bookmark_add_outlined, size: 15),
-                  label: const Text('收藏至題庫', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text('收藏至題庫',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: () => _importSharedQuestion(attached),
                 ),
               ],
@@ -1495,7 +1638,7 @@ extension MainScreenSocialTab on _MainScreenState {
     if (attached == null || attached['shared_type'] == null) {
       return const SizedBox.shrink();
     }
-    
+
     final sharedType = attached['shared_type'];
     final bool isDark = _isDarkMode;
     final cardBg = isDark ? Colors.white10 : const Color(0xFFFAF9F6);
@@ -1508,28 +1651,53 @@ extension MainScreenSocialTab on _MainScreenState {
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+          border:
+              Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
         ),
         child: Row(
           children: [
-            const Icon(Icons.sticky_note_2_outlined, color: Color(0xFF8D6E63), size: 16),
+            const Icon(Icons.sticky_note_2_outlined,
+                color: Color(0xFF8D6E63), size: 16),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 '分享筆記: $title',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8D6E63)),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8D6E63)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             TextButton(
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              onPressed: () => _importSharedNote(attached),
-              child: const Text('一鍵匯入', style: TextStyle(fontSize: 11, color: Color(0xFF8D6E63), fontWeight: FontWeight.bold)),
+              onPressed: () => _importSharedNote(p),
+              child: const Text('一鍵匯入',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF8D6E63),
+                      fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: const Icon(Icons.auto_awesome,
+                  size: 12, color: Color(0xFF8D6E63)),
+              label: const Text('召喚分身',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF8D6E63),
+                      fontWeight: FontWeight.bold)),
+              onPressed: () => _summonAuthorClone(p),
             ),
           ],
         ),
@@ -1545,16 +1713,21 @@ extension MainScreenSocialTab on _MainScreenState {
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+          border:
+              Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
         ),
         child: Row(
           children: [
-            const Icon(Icons.help_outline_rounded, color: Color(0xFF8D6E63), size: 16),
+            const Icon(Icons.help_outline_rounded,
+                color: Color(0xFF8D6E63), size: 16),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 '分享題目: [$subject] $snippet',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8D6E63)),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8D6E63)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1566,7 +1739,11 @@ extension MainScreenSocialTab on _MainScreenState {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               onPressed: () => _importSharedQuestion(attached),
-              child: const Text('一鍵收藏', style: TextStyle(fontSize: 11, color: Color(0xFF8D6E63), fontWeight: FontWeight.bold)),
+              child: const Text('一鍵收藏',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF8D6E63),
+                      fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -1577,12 +1754,17 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   // ── 一鍵匯入筆記邏輯 ──────────────────────────────────────────────
-  void _importSharedNote(Map<String, dynamic> attached) {
+  void _importSharedNote(Map<String, dynamic> p) {
+    final attached = p['attached_data'];
+    if (attached == null) return;
     try {
       final String title = attached['title'] ?? '無標題筆記';
       final String content = attached['content'] ?? '';
       final String category = attached['category'] ?? '學習';
-      
+      final String authorName = p['author'] ?? '未知用戶';
+      final String authorUserId = p['userId']?.toString() ?? '';
+      final int authorAvatarColor = p['authorAvatarColor'] as int? ?? 0;
+
       final List<Stroke> strokes = [];
       final String? strokesJson = attached['strokes'];
       if (strokesJson != null && strokesJson.isNotEmpty) {
@@ -1601,9 +1783,13 @@ extension MainScreenSocialTab on _MainScreenState {
         userId: widget.currentUser['id'],
         title: '$title (社群匯入)',
         content: content,
-        category: NotesDatabase.categories.contains(category) ? category : '未分類',
+        category:
+            NotesDatabase.categories.contains(category) ? category : '未分類',
         strokes: strokes,
         updatedAt: DateTime.now(),
+        authorName: authorName,
+        authorUserId: authorUserId,
+        authorAvatarColor: authorAvatarColor,
       );
 
       // 匯入至 NotesDatabase 運行時列表中
@@ -1623,6 +1809,63 @@ extension MainScreenSocialTab on _MainScreenState {
         ),
       );
     }
+  }
+
+  // ── 召喚作者 AI 分身 ──────────────────────────────────────────────
+  void _summonAuthorClone(Map<String, dynamic> p) {
+    final attached = p['attached_data'];
+    if (attached == null) return;
+
+    final String authorName = p['author'] ?? '未知用戶';
+    final String authorUserId = p['userId']?.toString() ?? '';
+    final int authorAvatarColor = p['authorAvatarColor'] as int? ?? 0;
+    final String title = attached['title'] ?? '無標題筆記';
+    final String content = attached['content'] ?? '';
+    final String strokesJson = attached['strokes']?.toString() ?? '';
+
+    // 計算手寫軌跡數量
+    int strokeCount = 0;
+    if (strokesJson.isNotEmpty && strokesJson != '[]') {
+      try {
+        final decoded = jsonDecode(strokesJson);
+        if (decoded is List) {
+          strokeCount = decoded.length;
+        }
+      } catch (_) {}
+    }
+
+    // 設置分身聊天上下文
+    _cloneContext = {
+      'author': authorName,
+      'userId': authorUserId,
+      'avatarColor': authorAvatarColor,
+      'title': title,
+      'content': content,
+      'strokeCount': strokeCount,
+    };
+
+    _aiFlowState = 'clone_chat';
+
+    // 初始化對話紀錄，加入歡迎詞與快捷提問標記
+    chatLogs = [
+      {
+        'isAI': true,
+        'text':
+            '💡 成功召喚 $authorName 的 AI 鏡像分身！\n我現在是這份筆記「$title」的作者。你可以問我關於這篇筆記的任何邏輯、細節或推導過程喔！',
+        'isCard': false,
+        'author': authorName,
+        'avatarColor': authorAvatarColor,
+      },
+      {
+        'isAI': true,
+        'text': '',
+        'isCard': false,
+        'widgetType': 'clone_chat_welcome_chips',
+      }
+    ];
+
+    // 開啟全域助理面板
+    _openChatModal();
   }
 
   // ── 一鍵收藏題目邏輯 ──────────────────────────────────────────────

@@ -141,6 +141,12 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Added social_feed_layout column to users table.');
       }
 
+      if (!userCols.any((c) => c['name'] == 'is_currently_logged_in')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN is_currently_logged_in INTEGER DEFAULT 0');
+        debugPrint('Dynamic migration: Added is_currently_logged_in column to users table.');
+      }
+
       var quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
       if (!quizCols.any((c) => c['name'] == 'duration_seconds')) {
         await db.execute('ALTER TABLE quiz_results ADD COLUMN duration_seconds INTEGER DEFAULT 0');
@@ -359,6 +365,7 @@ class DatabaseHelper {
         is_google INTEGER DEFAULT 0,
         calendar_view_mode TEXT DEFAULT 'dot',
         social_feed_layout TEXT DEFAULT 'card',
+        is_currently_logged_in INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -548,6 +555,66 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_diaries_user_id ON diaries (user_id)');
 
     await _seedDatabase(db);
+  }
+
+  // --- Auto-login helpers ---
+
+  /// 設定當前登入使用者（先清除所有人的登入標記，再標記指定使用者）
+  Future<void> setLoggedInUser(String userId) async {
+    try {
+      final db = await database;
+      await db.execute('UPDATE users SET is_currently_logged_in = 0');
+      await db.update(
+        'users',
+        {'is_currently_logged_in': 1},
+        where: 'id = ?',
+        whereArgs: [userId],
+      );
+      debugPrint('Auto-login: Set logged-in user to $userId');
+    } catch (e) {
+      debugPrint('Auto-login: Failed to set logged-in user: $e');
+    }
+  }
+
+  /// 清除指定使用者的登入標記（登出時呼叫）
+  Future<void> clearLoggedInUser(String userId) async {
+    try {
+      final db = await database;
+      await db.update(
+        'users',
+        {'is_currently_logged_in': 0},
+        where: 'id = ?',
+        whereArgs: [userId],
+      );
+      debugPrint('Auto-login: Cleared logged-in user $userId');
+    } catch (e) {
+      debugPrint('Auto-login: Failed to clear logged-in user: $e');
+    }
+  }
+
+  /// 讀取當前登入的使用者（APP 啟動時呼叫，用於自動登入）
+  /// 若返回 null，表示無已登入的使用者，需要顯示登入頁面。
+  Future<Map<String, dynamic>?> getLoggedInUser() async {
+    try {
+      final db = await database;
+      final res = await db.query(
+        'users',
+        where: 'is_currently_logged_in = 1 AND (deleted_at IS NULL OR deleted_at = "")',
+        limit: 1,
+      );
+      if (res.isNotEmpty) {
+        final userMap = Map<String, dynamic>.from(res.first);
+        // 訪客帳號不自動登入
+        if (userMap['id'] == 'u4') return null;
+        userMap['session_post_ids'] = <int>{};
+        userMap['session_comment_ids'] = <int>{};
+        debugPrint('Auto-login: Found logged-in user: ${userMap['display_name'] ?? userMap['username']}');
+        return userMap;
+      }
+    } catch (e) {
+      debugPrint('Auto-login: Failed to get logged-in user: $e');
+    }
+    return null;
   }
 
   // --- Paper helpers ---

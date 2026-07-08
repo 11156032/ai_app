@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'dart:ui';
 import '../database/database_helper.dart';
+import '../widgets/common_widgets.dart';
+import '../services/ai_diagnosis_service.dart';
 
 // ==========================================
 // 1. 繪圖軌跡資料模型 (Stroke)
@@ -57,6 +60,9 @@ class Note {
   String category;
   List<Stroke> strokes;
   DateTime updatedAt;
+  String? authorName;       // 原作者顯示名稱
+  String? authorUserId;     // 原作者的 userId
+  int? authorAvatarColor;   // 原作者頭像顏色索引
 
   Note({
     required this.id,
@@ -66,6 +72,9 @@ class Note {
     required this.category,
     required this.strokes,
     required this.updatedAt,
+    this.authorName,
+    this.authorUserId,
+    this.authorAvatarColor,
   });
 }
 
@@ -904,6 +913,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     const Color(0xFF4DB6AC), // 灰湖綠
   ];
 
+  // 鏡像分身側滑面板狀態
+  bool _showCloneDrawer = false;
+  List<Map<String, dynamic>> _cloneChatLogs = [];
+  bool _isCloneThinking = false;
+  final TextEditingController _cloneInputController = TextEditingController();
+  final ScrollController _cloneScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -914,6 +930,18 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         ? widget.note.category
         : '未分類';
     _strokes = List.from(widget.note.strokes);
+
+    if (widget.note.authorName != null) {
+      _cloneChatLogs = [
+        {
+          'isAI': true,
+          'text': '💡 哈囉！我是原作者 ${widget.note.authorName} 的 AI 鏡像分身。我會完全依據這篇筆記「${widget.note.title}」的知識脈絡來為你解說，不論是推導公式或是重點，你都可以隨時在右邊打字問我喔！ 🔮',
+          'isCard': false,
+          'author': widget.note.authorName,
+          'avatarColor': widget.note.authorAvatarColor,
+        }
+      ];
+    }
   }
 
   @override
@@ -1100,7 +1128,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     if (result == 'save') {
       messenger.showSnackBar(
         const SnackBar(
-            content: Text('筆記已儲存 ✨'), duration: Duration(milliseconds: 800)),
+            content: Text('筆記已儲存 💾'), duration: Duration(milliseconds: 800)),
       );
       return true;
     } else if (result == 'discard') {
@@ -1441,6 +1469,19 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             ),
           ),
           actions: [
+            if (widget.note.authorName != null)
+              IconButton(
+                icon: Icon(
+                  Icons.auto_awesome,
+                  color: _showCloneDrawer ? const Color(0xFF6A1B9A) : const Color(0xFF8D6E63),
+                ),
+                tooltip: '召喚作者 AI 分身 🔮',
+                onPressed: () {
+                  setState(() {
+                    _showCloneDrawer = !_showCloneDrawer;
+                  });
+                },
+              ),
             IconButton(
               icon: const Icon(Icons.share, color: Color(0xFF8D6E63)),
               tooltip: '分享至社群',
@@ -1491,8 +1532,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           ),
         ),
         body: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
+              Column(
+                children: [
               // 1. 無邊框標題輸入框 (常駐頂部)
               Container(
                 color: Colors.white,
@@ -1637,10 +1680,21 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               ),
             ],
           ),
-        ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            right: _showCloneDrawer ? 0 : -_getCloneDrawerWidth(context),
+            top: 0,
+            bottom: 0,
+            width: _getCloneDrawerWidth(context),
+            child: _buildCloneDrawer(context),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   // ==========================================
   // 🛠 A. 打字格式工具列 Widget
@@ -1989,6 +2043,482 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         ],
       ),
     );
+  }
+
+  // ── 鏡像分身側邊欄輔助方法 ──────────────────────────────────────────────
+  double _getCloneDrawerWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return screenWidth > 600 ? screenWidth * 0.45 : screenWidth * 0.85;
+  }
+
+  Widget _buildCloneDrawer(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // 獲取作者頭像預設配色
+    final int colorIdx = widget.note.authorAvatarColor ?? 0;
+    final Map<String, dynamic> preset = kPresetAvatars[colorIdx % kPresetAvatars.length];
+    final Color authorColor = preset['color'] as Color? ?? const Color(0xFF6A1B9A);
+    
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? Colors.black87.withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.9),
+            border: const Border(left: BorderSide(color: Colors.white24, width: 1.5)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 15,
+                offset: const Offset(-4, 0),
+              )
+            ],
+          ),
+          child: Column(
+            children: [
+              // 頂部 Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12)),
+                ),
+                child: Row(
+                  children: [
+                    buildAvatar(
+                      blob: null,
+                      colorIdx: colorIdx,
+                      initial: (widget.note.authorName ?? '作').substring(0, 1),
+                      radius: 14,
+                      usePreset: true,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '💡 ${widget.note.authorName} 的 AI 分身',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: authorColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () {
+                        setState(() {
+                          _showCloneDrawer = false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              
+              // 聊天記錄區域
+              Expanded(
+                child: ListView.builder(
+                  controller: _cloneScrollController,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _cloneChatLogs.length,
+                  itemBuilder: (context, idx) {
+                    final msg = _cloneChatLogs[idx];
+                    
+                    if (msg['widgetType'] == 'rag_processing_log') {
+                      return _buildLocalRagLog(msg);
+                    }
+                    
+                    if (msg['text'] == null || msg['text'].isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    
+                    final isAI = msg['isAI'] == true;
+                    final isSelf = !isAI;
+                    
+                    Widget bubble = Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isAI ? (isDark ? Colors.grey.shade900 : Colors.white) : authorColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: isAI ? Border.all(color: isDark ? Colors.white10 : Colors.black12) : null,
+                        boxShadow: isAI
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 4,
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Text(
+                        msg['text'],
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isAI ? (isDark ? Colors.white70 : Colors.black87) : Colors.white,
+                          height: 1.4,
+                        ),
+                      ),
+                    );
+                    
+                    if (isAI && (msg['noteTitle'] != null || msg['modelUsed'] == 'gemini')) {
+                      bubble = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          bubble,
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (msg['noteTitle'] != null) ...[
+                                Icon(Icons.psychology, size: 10, color: authorColor),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '🧠 依據 RAG 筆記：《${msg['noteTitle']}》',
+                                  style: TextStyle(fontSize: 9, color: authorColor, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                              if (msg['noteTitle'] != null && msg['modelUsed'] == 'gemini')
+                                const SizedBox(width: 8),
+                              if (msg['modelUsed'] == 'gemini') ...[
+                                const Icon(Icons.bolt, size: 10, color: Colors.redAccent),
+                                const SizedBox(width: 2),
+                                const Text(
+                                  'Gemini 救援模式',
+                                  style: TextStyle(fontSize: 9, color: Colors.redAccent, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      alignment: isSelf ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isAI) ...[
+                            buildAvatar(
+                              blob: null,
+                              colorIdx: colorIdx,
+                              initial: (widget.note.authorName ?? '作').substring(0, 1),
+                              radius: 12,
+                              usePreset: true,
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Flexible(child: bubble),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              
+              // 快速提問導航晶片
+              if (_cloneChatLogs.length <= 2) _buildLocalQuickChips(authorColor),
+              
+              // 輸入框區域
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 16),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
+                  border: Border(top: BorderSide(color: isDark ? Colors.white10 : Colors.black12)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _cloneInputController,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: const InputDecoration(
+                          hintText: '向作者分身提問...',
+                          hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        onSubmitted: (val) {
+                          if (!_isCloneThinking) {
+                            _handleCloneDrawerAISubmit(val);
+                          }
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.send_rounded, color: authorColor, size: 18),
+                      onPressed: _isCloneThinking
+                          ? null
+                          : () {
+                              _handleCloneDrawerAISubmit(_cloneInputController.text);
+                            },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocalRagLog(Map<String, dynamic> msg) {
+    final List<dynamic> steps = msg['logSteps'] ?? [];
+    final bool isDone = msg['isDone'] ?? false;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12, left: 30),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDone ? Colors.green.withValues(alpha: 0.4) : Colors.blue.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isDone ? Icons.check_circle_outline_rounded : Icons.sync_rounded,
+                color: isDone ? Colors.green : Colors.blue,
+                size: 12,
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                '基於社群微數據之個人化 RAG 檢索中...',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...steps.map((step) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                step.toString(),
+                style: const TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 9.5,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocalQuickChips(Color accentColor) {
+    final chips = [
+      '用你的語氣解說這篇筆記的精髓 📖',
+      '手寫塗鴉畫了什麼重點？🎨',
+      '我該怎麼複習這篇筆記考高分？🎯',
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      alignment: Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('💡 快捷提問：', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: chips.map((text) {
+              return ActionChip(
+                elevation: 0,
+                padding: const EdgeInsets.all(2),
+                backgroundColor: Colors.white.withValues(alpha: 0.8),
+                side: BorderSide(color: accentColor.withValues(alpha: 0.15)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                label: Text(text, style: TextStyle(fontSize: 11, color: accentColor)),
+                onPressed: () {
+                  _handleCloneDrawerAISubmit(text);
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleCloneDrawerAISubmit(String text) async {
+    if (text.trim().isEmpty) return;
+    
+    final historyContext = _cloneChatLogs
+        .where((m) => m['widgetType'] == null && m['text'] != null && m['text'].isNotEmpty)
+        .toList();
+
+    setState(() {
+      _cloneChatLogs.add({'isAI': false, 'text': text});
+      _cloneChatLogs.add({
+        'isAI': true,
+        'text': '',
+        'isCard': false,
+        'widgetType': 'rag_processing_log',
+        'logSteps': [
+          '🔍 正在檢索「${widget.note.title}」筆記內容...',
+          '⏳ 載入作者「${widget.note.authorName}」個性風格標籤...',
+        ],
+        'isDone': false,
+      });
+      _cloneChatLogs.add({
+        'isAI': true,
+        'text': '⏳ 正在思考中...',
+        'isCard': false,
+      });
+      _isCloneThinking = true;
+    });
+    
+    _cloneInputController.clear();
+    _scrollToCloneBottom();
+    
+    final int logIndex = _cloneChatLogs.length - 2;
+    final int responseIndex = _cloneChatLogs.length - 1;
+    
+    // 1. 查詢原作者的 bio 與 tags
+    String authorBio = '';
+    List<String> authorTags = [];
+    if (widget.note.authorUserId != null && widget.note.authorUserId!.isNotEmpty) {
+      try {
+        final db = await DatabaseHelper.instance.database;
+        final users = await db.query('users', where: 'id = ?', whereArgs: [widget.note.authorUserId!]);
+        if (users.isNotEmpty) {
+          authorBio = (users.first['bio'] as String? ?? '').trim();
+          final tagsRaw = users.first['tags'] as String? ?? '[]';
+          final decodedTags = jsonDecode(tagsRaw);
+          if (decodedTags is List) {
+            authorTags = decodedTags.map((e) => e.toString()).toList();
+          }
+        }
+      } catch (e) {
+        debugPrint('Local clone query author failed: $e');
+      }
+    }
+    
+    final authorName = widget.note.authorName ?? '作者';
+    final noteTitle = widget.note.title;
+    final noteContent = _contentController.text;
+    final int strokeCount = _strokes.length;
+    
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    setState(() {
+      _cloneChatLogs[logIndex] = {
+        'isAI': true,
+        'text': '',
+        'isCard': false,
+        'widgetType': 'rag_processing_log',
+        'logSteps': [
+          '✅ 已成功檢索「$noteTitle」筆記文本！',
+          if (strokeCount > 0) '🎨 偵測到 $strokeCount 條手寫筆跡軌跡，已加載至 RAG Context。' else '📝 此筆記無手寫軌跡，僅檢索文字內容。',
+          if (authorTags.isNotEmpty) '👤 已讀取作者個性風格標籤：${authorTags.join('、')}' else '👤 使用預設作者個性風格。',
+          '🔮 成功重組個人化 RAG 提示詞，送出請求...',
+        ],
+        'isDone': true,
+      };
+      _scrollToCloneBottom();
+    });
+    
+    // 2. 構建 System Prompt
+    String stylePrompt = '';
+    if (authorBio.isNotEmpty) {
+      stylePrompt += '\n原作者簡介：$authorBio';
+    }
+    if (authorTags.isNotEmpty) {
+      stylePrompt += '\n原作者個性與學習風格標籤：${authorTags.join('、')}';
+    }
+    
+    String strokePrompt = '';
+    if (strokeCount > 0) {
+      strokePrompt = '\n這篇筆記在「手寫塗鴉」分頁中存有 $strokeCount 條手寫/繪圖軌跡。當同學問到圖形、重點標記或對照時，請用第一人稱引導同學，例如說：「我在這篇筆記的手寫塗鴉（🎨 頁籤）中畫了一些圖示與重點標記，你可以切換過去對照觀看喔！」以利對照。';
+    }
+
+    final customSystemPrompt = '''
+你現在是這份學習筆記的作者 $authorName。請完全依據以下筆記的邏輯、知識點與思路，用 $authorName 的口吻與角色來回答使用者的問題。
+請用第一人稱（例如：「我寫這篇筆記時...」、「我的理解是...」）、親切、溫馨且有耐心的學霸/專家語氣進行解說。
+如果同學詢問了與筆記內容無關的話題，請溫柔地提醒他你目前是該筆記的作者分身，請儘量圍繞筆記的主題進行交流。
+
+【筆記標題】: $noteTitle
+【筆記內容】:
+$noteContent
+$stylePrompt
+$strokePrompt
+
+重要規則：
+- 永遠使用繁體中文 (Traditional Chinese) 回覆，絕不使用簡體字。
+- 回答請保持親切、簡明，控制在 3-5 句以內，避免長篇大論。
+- 不要提及你是 AI、Gemini 或 GPT，你此時此刻就是這份筆記的作者本身。
+- 絕不在任何地方使用 ✨、🌟、⭐ 等星星閃爍圖示或符號。
+''';
+
+    // 3. 發送請求並串流回覆（使用 Gemini SDK，穩定且無需 OpenRouter）
+    String buffer = '';
+    try {
+      final stream = AiDiagnosisService.generateCloneStream(
+        systemPrompt: customSystemPrompt,
+        userInput: text,
+        history: historyContext,
+      );
+
+      await for (final chunk in stream) {
+        buffer += chunk;
+        setState(() {
+          _cloneChatLogs[responseIndex] = {
+            'isAI': true,
+            'text': buffer,
+            'isCard': false,
+            'author': authorName,
+            'avatarColor': widget.note.authorAvatarColor,
+            'noteTitle': noteTitle,
+            'modelUsed': 'gemini',
+          };
+        });
+        _scrollToCloneBottom();
+      }
+    } catch (e) {
+      debugPrint('Local clone stream error: $e');
+      setState(() {
+        _cloneChatLogs[responseIndex] = {
+          'isAI': true,
+          'text': '抱歉，我的思緒稍微中斷了，請再問我一次好嗎？ 😅',
+          'isCard': false,
+          'author': authorName,
+          'avatarColor': widget.note.authorAvatarColor,
+        };
+      });
+      _scrollToCloneBottom();
+    } finally {
+      setState(() {
+        _isCloneThinking = false;
+      });
+    }
+  }
+
+
+  void _scrollToCloneBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_cloneScrollController.hasClients) {
+        _cloneScrollController.animateTo(
+          _cloneScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 }
 

@@ -852,25 +852,30 @@ class _FlowBackgroundPainter extends CustomPainter {
     // 氣泡 1: 溫柔粉蜜桃 (右上) - 加深色彩與不透明度
     final double b1x = size.width * 0.75 + math.sin(angle) * 70;
     final double b1y = size.height * 0.2 + math.cos(angle) * 60;
-    _drawBlurCircle(canvas, Offset(b1x, b1y), 260, const Color(0xFFFFD4C2).withValues(alpha: 0.75), paint);
+    _drawBlurCircle(canvas, Offset(b1x, b1y), 260,
+        const Color(0xFFFFD4C2).withValues(alpha: 0.75), paint);
 
     // 氣泡 2: 鼠尾草綠 (左下) - 使用整數倍頻率確保無縫循環
     final double b2x = size.width * 0.25 - math.cos(angle) * 80;
     final double b2y = size.height * 0.8 + math.sin(angle * 2) * 70;
-    _drawBlurCircle(canvas, Offset(b2x, b2y), 300, const Color(0xFFD4EAD7).withValues(alpha: 0.70), paint);
+    _drawBlurCircle(canvas, Offset(b2x, b2y), 300,
+        const Color(0xFFD4EAD7).withValues(alpha: 0.70), paint);
 
     // 氣泡 3: 金黃沙丘 (右中) - 使用整數倍頻率確保無縫循環
     final double b3x = size.width * 0.8 + math.cos(angle * 2) * 60;
     final double b3y = size.height * 0.65 - math.sin(angle) * 70;
-    _drawBlurCircle(canvas, Offset(b3x, b3y), 230, const Color(0xFFFDE4C3).withValues(alpha: 0.72), paint);
+    _drawBlurCircle(canvas, Offset(b3x, b3y), 230,
+        const Color(0xFFFDE4C3).withValues(alpha: 0.72), paint);
 
     // 氣泡 4: 輕柔暖灰茶 (左上) - 使用整數倍頻率確保無縫循環
     final double b4x = size.width * 0.15 + math.sin(angle) * 50;
     final double b4y = size.height * 0.15 + math.cos(angle * 2) * 45;
-    _drawBlurCircle(canvas, Offset(b4x, b4y), 210, const Color(0xFFE9DEC4).withValues(alpha: 0.75), paint);
+    _drawBlurCircle(canvas, Offset(b4x, b4y), 210,
+        const Color(0xFFE9DEC4).withValues(alpha: 0.75), paint);
   }
 
-  void _drawBlurCircle(Canvas canvas, Offset center, double radius, Color color, Paint paint) {
+  void _drawBlurCircle(
+      Canvas canvas, Offset center, double radius, Color color, Paint paint) {
     paint.color = color;
     paint.shader = RadialGradient(
       colors: [
@@ -1042,11 +1047,13 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.45), width: 1.2),
+        borderSide:
+            BorderSide(color: Colors.white.withValues(alpha: 0.45), width: 1.2),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: const Color(0xFF8D6E63).withValues(alpha: 0.7), width: 1.8),
+        borderSide: BorderSide(
+            color: const Color(0xFF8D6E63).withValues(alpha: 0.7), width: 1.8),
       ),
       suffixIcon: suffix,
     );
@@ -1596,7 +1603,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 controller: _usernameCtrl,
                                 focusNode: _usernameFocusNode,
                                 decoration: _inputDeco('帳號名稱',
-                                    suffix: const Icon(Icons.person_outline_rounded,
+                                    suffix: const Icon(
+                                        Icons.person_outline_rounded,
                                         color: Color(0xFFBCAAA4))),
                               ),
                             ),
@@ -1618,8 +1626,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                           : Icons.visibility_outlined,
                                       color: const Color(0xFFBCAAA4),
                                     ),
-                                    onPressed: () => setState(
-                                        () => _obscurePassword = !_obscurePassword),
+                                    onPressed: () => setState(() =>
+                                        _obscurePassword = !_obscurePassword),
                                   )),
                             ),
                           ),
@@ -1631,7 +1639,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
                                   minimumSize: const Size(0, 30),
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: const Text(
                                   '忘記密碼？',
@@ -1664,8 +1673,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                             : Icons.visibility_outlined,
                                         color: const Color(0xFFBCAAA4),
                                       ),
-                                      onPressed: () => setState(
-                                          () => _obscureConfirm = !_obscureConfirm),
+                                      onPressed: () => setState(() =>
+                                          _obscureConfirm = !_obscureConfirm),
                                     )),
                               ),
                             ),
@@ -1690,7 +1699,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF8D6E63).withValues(alpha: 0.32),
+                                  color: const Color(0xFF8D6E63)
+                                      .withValues(alpha: 0.32),
                                   blurRadius: 18,
                                   offset: const Offset(0, 8),
                                 ),
@@ -1741,9 +1751,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 54,
                             child: OutlinedButton(
                               style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(alpha: 0.55),
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.55),
                                 side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.6), width: 1.2),
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    width: 1.2),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
                                 elevation: 0,
@@ -1755,7 +1767,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   const GoogleLogo(size: 20),
                                   const SizedBox(width: 12),
                                   Text(
-                                    isLogin ? '使用 Google 帳號登入' : '使用 Google 帳號註冊',
+                                    isLogin
+                                        ? '使用 Google 帳號登入'
+                                        : '使用 Google 帳號註冊',
                                     style: const TextStyle(
                                       color: Color(0xFF3C4043),
                                       fontSize: 14.5,
@@ -1773,14 +1787,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 4),
                             child: Row(children: [
-                              Expanded(child: Divider(color: Color(0xFFE5DCD3))),
+                              Expanded(
+                                  child: Divider(color: Color(0xFFE5DCD3))),
                               Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 12),
                                 child: Text('或',
                                     style: TextStyle(
-                                        color: Color(0xFFBCAAA4), fontSize: 12)),
+                                        color: Color(0xFFBCAAA4),
+                                        fontSize: 12)),
                               ),
-                              Expanded(child: Divider(color: Color(0xFFE5DCD3))),
+                              Expanded(
+                                  child: Divider(color: Color(0xFFE5DCD3))),
                             ]),
                           ),
                           const SizedBox(height: 12),
@@ -1791,9 +1808,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 54,
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(alpha: 0.35),
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.35),
                                 side: BorderSide(
-                                    color: const Color(0xFF8D6E63).withValues(alpha: 0.4), width: 1.2),
+                                    color: const Color(0xFF8D6E63)
+                                        .withValues(alpha: 0.4),
+                                    width: 1.2),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
                                 elevation: 0,
@@ -1809,7 +1829,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               onPressed: () async {
                                 try {
-                                  final db = await DatabaseHelper.instance.database;
+                                  final db =
+                                      await DatabaseHelper.instance.database;
                                   final res = await db.query('users',
                                       where: 'username = ?', whereArgs: ['訪客']);
                                   if (!mounted) return;
@@ -1856,7 +1877,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
 
 // ── Google 專屬模擬登入視窗組件 ──────────────────────────────────────────────────
 

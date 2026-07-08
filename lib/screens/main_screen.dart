@@ -168,6 +168,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   String _aiFlowState = 'none';
   Map<String, dynamic> _aiFlowData = {};
+  Map<String, dynamic>? _cloneContext;
 
   int _aiReplyPostIndex = 0;
   List<Map<String, dynamic>> _aiPendingReplyPosts = [];
@@ -2266,6 +2267,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   // --- AI 助理全螢幕面板 ---
   void _openChatModal() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     TextEditingController modalController = TextEditingController();
     showModalBottomSheet(
         context: context,
@@ -2291,42 +2293,99 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         decoration: BoxDecoration(
                             color: Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(10))),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const SizedBox(width: 40),
-                          const Text('代理人助理',
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: _cloneContext != null
+                            ? LinearGradient(
+                                colors: isDark
+                                    ? [
+                                        const Color(0xFF311B92).withValues(alpha: 0.35),
+                                        const Color(0xFF4A148C).withValues(alpha: 0.35),
+                                      ]
+                                    : [
+                                        const Color(0xFFE8EAF6),
+                                        const Color(0xFFF3E5F5),
+                                      ],
+                              )
+                            : null,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(25),
+                          topRight: Radius.circular(25),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const SizedBox(width: 40),
+                            Text(
+                              _cloneContext != null
+                                  ? '🔮 ${_cloneContext!['author']} 的 AI 分身'
+                                  : '代理人助理',
                               style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF8D6E63),
-                                  fontSize: 16)),
-                          IconButton(
-                            icon: const Icon(Icons.cleaning_services_outlined,
-                                size: 20, color: Colors.grey),
-                            tooltip: '開啟新對話',
-                            onPressed: () {
-                              setModalState(() {
-                                chatLogs = [
-                                  {
-                                    'isAI': true,
-                                    'text':
-                                        '好的，已為您重啟對話！😊\n我是您的代理人，請問今天有什麼我可以幫您的嗎？',
-                                    'isCard': false
-                                  },
-                                  {
-                                    'isAI': true,
-                                    'text': '',
-                                    'isCard': false,
-                                    'widgetType': 'help_options'
-                                  }
-                                ];
-                                _aiFlowState = 'none';
-                              });
-                            },
-                          )
-                        ],
+                                fontWeight: FontWeight.bold,
+                                color: _cloneContext != null
+                                    ? const Color(0xFF6A1B9A)
+                                    : const Color(0xFF8D6E63),
+                                fontSize: 16,
+                              ),
+                            ),
+                            _cloneContext != null
+                                ? IconButton(
+                                    icon: const Icon(Icons.exit_to_app_rounded,
+                                        size: 20, color: Colors.redAccent),
+                                    tooltip: '結束分身對話',
+                                    onPressed: () {
+                                      setModalState(() {
+                                        _cloneContext = null;
+                                        _aiFlowState = 'none';
+                                        chatLogs = [
+                                          {
+                                            'isAI': true,
+                                            'text':
+                                                '已結束分身對話。我是您的代理人助理，隨時準備為您提供協助！😊',
+                                            'isCard': false
+                                          },
+                                          {
+                                            'isAI': true,
+                                            'text': '',
+                                            'isCard': false,
+                                            'widgetType': 'help_options'
+                                          }
+                                        ];
+                                      });
+                                    },
+                                  )
+                                : IconButton(
+                                    icon: const Icon(
+                                        Icons.cleaning_services_outlined,
+                                        size: 20,
+                                        color: Colors.grey),
+                                    tooltip: '開啟新對話',
+                                    onPressed: () {
+                                      setModalState(() {
+                                        chatLogs = [
+                                          {
+                                            'isAI': true,
+                                            'text':
+                                                '好的，已為您重啟對話！😊\n我是您的代理人，請問今天有什麼我可以幫您的嗎？',
+                                            'isCard': false
+                                          },
+                                          {
+                                            'isAI': true,
+                                            'text': '',
+                                            'isCard': false,
+                                            'widgetType': 'help_options'
+                                          }
+                                        ];
+                                        _aiFlowState = 'none';
+                                      });
+                                    },
+                                  )
+                          ],
+                        ),
                       ),
                     ),
                     const Divider(),
@@ -4723,9 +4782,61 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             );
                           }
 
+                          if (msg['widgetType'] == 'rag_processing_log') {
+                            final steps = List<String>.from(msg['logSteps'] ?? []);
+                            final isDone = msg['isDone'] == true;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12, left: 16, right: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF3E5F5),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFFCE93D8), width: 0.5),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        isDone ? Icons.check_circle_outline_rounded : Icons.sync_rounded,
+                                        size: 16,
+                                        color: isDone ? Colors.green : const Color(0xFF9C27B0),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isDone ? '個人化 RAG 檢索完成' : '啟動「AI 鏡像分身」個人化 RAG 檢索...',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: isDone ? Colors.green.shade700 : const Color(0xFF7B1FA2),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ...steps.map((step) => Padding(
+                                    padding: const EdgeInsets.only(left: 24, bottom: 4),
+                                    child: Text(
+                                      step,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  )),
+                                ],
+                              ),
+                            );
+                          }
+
                           if (msg['text'] == null || msg['text'].isEmpty) {
                             return const SizedBox();
                           }
+
+                          final authorName = msg['author'] as String?;
+                          final avatarColorVal = msg['avatarColor'] as int?;
+                          final noteTitle = msg['noteTitle'] as String?;
 
                           Widget messageWidget = Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -4735,7 +4846,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     MediaQuery.of(context).size.width * 0.65),
                             decoration: BoxDecoration(
                                 color: msg['isAI']
-                                    ? Colors.white
+                                    ? (authorName != null
+                                        ? const Color(0xFFF3E5F5)
+                                        : Colors.white)
                                     : const Color(0xFF8D6E63),
                                 borderRadius: BorderRadius.circular(18),
                                 boxShadow: msg['isAI']
@@ -4746,13 +4859,64 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                             blurRadius: 5)
                                       ]
                                     : []),
-                            child: Text(msg['text'],
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    color: msg['isAI']
-                                        ? Colors.black87
-                                        : Colors.white)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (msg['isAI'] && noteTitle != null) ...[
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE1BEE7),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.bookmark_added_rounded,
+                                            size: 11, color: Color(0xFF4A148C)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '依據筆記：$noteTitle',
+                                          style: const TextStyle(
+                                            fontSize: 9.5,
+                                            color: Color(0xFF4A148C),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                Text(msg['text'],
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: msg['isAI']
+                                            ? Colors.black87
+                                            : Colors.white)),
+                              ],
+                            ),
                           );
+
+                          if (msg['isAI'] == true && msg['modelUsed'] == 'gemini') {
+                            messageWidget = Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                messageWidget,
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8, top: 2, bottom: 6),
+                                  child: Text(
+                                    'Gemini',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
 
                           if (!msg['isAI']) {
                             messageWidget = GestureDetector(
@@ -4860,6 +5024,45 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             );
                           }
 
+                          if (msg['isAI'] && authorName != null) {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: avatarColorVal != null
+                                        ? Color(avatarColorVal)
+                                        : const Color(0xFF9C27B0),
+                                    child: Text(
+                                      authorName.substring(0, 1),
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$authorName 的 AI 分身',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade600,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      messageWidget,
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
                           return Align(
                             alignment: msg['isAI']
                                 ? Alignment.centerLeft
@@ -4911,8 +5114,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     }
                                     return KeyEventResult.handled;
                                   } else {
-                                    _handleAISubmit(modalController.text,
-                                        modalController, setModalState);
+                                    if (_cloneContext != null) {
+                                      final text = modalController.text;
+                                      modalController.clear();
+                                      _handleCloneChatSubmit(text, setModalState);
+                                    } else {
+                                      _handleAISubmit(modalController.text,
+                                          modalController, setModalState);
+                                    }
                                     return KeyEventResult.handled;
                                   }
                                 }
@@ -4925,7 +5134,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 keyboardType: TextInputType.multiline,
                                 textInputAction: TextInputAction.newline,
                                 decoration: InputDecoration(
-                                    hintText: '去題庫 / 看日曆 / 加行程...',
+                                    hintText: _cloneContext != null
+                                        ? '以分身視角向作者問問題...'
+                                        : '去題庫 / 看日曆 / 加行程...',
                                     filled: true,
                                     fillColor: Colors.white,
                                     border: OutlineInputBorder(
@@ -4938,14 +5149,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           ),
                           const SizedBox(width: 8),
                           CircleAvatar(
-                              backgroundColor: const Color(0xFF8D6E63),
+                              backgroundColor: _cloneContext != null
+                                  ? const Color(0xFF6A1B9A)
+                                  : const Color(0xFF8D6E63),
                               child: IconButton(
                                   icon: const Icon(Icons.send,
                                       color: Colors.white, size: 20),
-                                  onPressed: () => _handleAISubmit(
-                                      modalController.text,
-                                      modalController,
-                                      setModalState))),
+                                  onPressed: () {
+                                    if (_cloneContext != null) {
+                                      final text = modalController.text;
+                                      modalController.clear();
+                                      _handleCloneChatSubmit(text, setModalState);
+                                    } else {
+                                      _handleAISubmit(
+                                          modalController.text,
+                                          modalController,
+                                          setModalState);
+                                    }
+                                  })),
                         ],
                       ),
                     ),
@@ -6695,6 +6916,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
 
     // 最終後備：如果沒有匹配到內建功能意圖，則呼叫 OpenRouter 免費模型進行 APP 導覽問答
+    final historyContext = chatLogs
+        .where((m) => m['widgetType'] == null && m['text'] != null && m['text'].isNotEmpty)
+        .toList();
+
     setModalState(() {
       chatLogs.add({'isAI': false, 'text': text});
       chatLogs.add({
@@ -6709,22 +6934,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     String buffer = '';
 
     try {
-      final historyContext = chatLogs
-          .where((m) => m['widgetType'] == null && m['text'] != null && m['text'].isNotEmpty)
-          .toList();
-
       final stream = AiDiagnosisService.generateOpenRouterGuideStream(
         userInput: text,
         history: historyContext,
       );
 
+      String modelUsed = 'openrouter';
       await for (final chunk in stream) {
-        buffer += chunk;
+        buffer += chunk.text;
+        modelUsed = chunk.model;
         setModalState(() {
           chatLogs[targetIndex] = {
             'isAI': true,
             'text': buffer,
             'isCard': false,
+            'modelUsed': modelUsed,
           };
         });
         _scrollToBottom();
@@ -6741,6 +6965,160 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _scrollToBottom();
     }
   }
+
+  // ── 鏡像分身對話處理 ──────────────────────────────────────────────
+  Future<void> _handleCloneChatSubmit(String text, StateSetter setModalState) async {
+    if (_cloneContext == null) {
+      setModalState(() {
+        _aiFlowState = 'none';
+      });
+      return;
+    }
+
+    final historyContext = chatLogs
+        .where((m) => m['widgetType'] == null && m['text'] != null && m['text'].isNotEmpty)
+        .toList();
+
+    // 1. 顯示使用者輸入，並顯示 RAG 查詢進度
+    setModalState(() {
+      chatLogs.add({'isAI': false, 'text': text});
+      chatLogs.add({
+        'isAI': true,
+        'text': '',
+        'isCard': false,
+        'widgetType': 'rag_processing_log', // 顯示 RAG 流程日誌動畫
+        'logSteps': [
+          '🔍 正在檢索「${_cloneContext!['title']}」筆記內容...',
+          '⏳ 載入作者「${_cloneContext!['author']}」個性風格標籤...',
+        ],
+        'isDone': false,
+      });
+      chatLogs.add({
+        'isAI': true,
+        'text': '⏳ 正在思考中...',
+        'isCard': false,
+      });
+      _scrollToBottom();
+    });
+
+    final int logIndex = chatLogs.length - 2;
+    final int responseIndex = chatLogs.length - 1;
+
+    // 2. 查詢作者的微數據 (bio / tags)
+    String authorBio = '';
+    List<String> authorTags = [];
+    if (_cloneContext!['userId'] != null && _cloneContext!['userId'].toString().isNotEmpty) {
+      try {
+        final db = await DatabaseHelper.instance.database;
+        final users = await db.query('users', where: 'id = ?', whereArgs: [_cloneContext!['userId'].toString()]);
+        if (users.isNotEmpty) {
+          authorBio = (users.first['bio'] as String? ?? '').trim();
+          final tagsRaw = users.first['tags'] as String? ?? '[]';
+          final decodedTags = jsonDecode(tagsRaw);
+          if (decodedTags is List) {
+            authorTags = decodedTags.map((e) => e.toString()).toList();
+          }
+        }
+      } catch (e) {
+        debugPrint('Querying clone author profile failed: $e');
+      }
+    }
+
+    // 3. 更新 RAG 控制台，顯示查詢完成
+    final authorName = _cloneContext!['author'] ?? '作者';
+    final noteTitle = _cloneContext!['title'] ?? '無標題筆記';
+    final noteContent = _cloneContext!['content'] ?? '';
+    final int strokeCount = _cloneContext!['strokeCount'] as int? ?? 0;
+    
+    await Future.delayed(const Duration(milliseconds: 500)); // 故意留一點展示動畫時間
+
+    setModalState(() {
+      chatLogs[logIndex] = {
+        'isAI': true,
+        'text': '',
+        'isCard': false,
+        'widgetType': 'rag_processing_log',
+        'logSteps': [
+          '✅ 已成功檢索「$noteTitle」筆記文本！',
+          if (strokeCount > 0) '🎨 偵測到 $strokeCount 條手寫筆跡軌跡，已加載至 RAG Context。' else '📝 此筆記無手寫軌跡，僅檢索文字內容。',
+          if (authorTags.isNotEmpty) '👤 已讀取作者個性風格標籤：${authorTags.join('、')}' else '👤 使用預設作者個性風格。',
+          '🔮 成功重組個人化 RAG 提示詞，送出請求...',
+        ],
+        'isDone': true,
+      };
+      _scrollToBottom();
+    });
+
+    // 4. 構建 System Prompt
+    String stylePrompt = '';
+    if (authorBio.isNotEmpty) {
+      stylePrompt += '\n原作者簡介：$authorBio';
+    }
+    if (authorTags.isNotEmpty) {
+      stylePrompt += '\n原作者個性與學習風格標籤：${authorTags.join('、')}';
+    }
+    
+    String strokePrompt = '';
+    if (strokeCount > 0) {
+      strokePrompt = '\n這篇筆記在「手寫塗鴉」分頁中存有 $strokeCount 條手寫/繪圖軌跡。當同學問到圖形、重點標記或對照時，請用第一人稱引導同學，例如說：「我在這篇筆記的手寫塗鴉（🎨 頁籤）中畫了一些圖示與重點標記，你可以切換過去對照觀看喔！」以利對照。';
+    }
+
+    final customSystemPrompt = '''
+你現在是這份學習筆記的作者 $authorName。請完全依據以下筆記的邏輯、知識點與思路，用 $authorName 的口吻與角色來回答使用者的問題。
+請用第一人稱（例如：「我寫這篇筆記時...」、「我的理解是...」）、親切、溫馨且有耐心的學霸/專家語氣進行解說。
+如果同學詢問了與筆記內容無關的話題，請溫柔地提醒他你目前是該筆記的作者分身，請儘量圍繞筆記的主題進行交流。
+
+【筆記標題】: $noteTitle
+【筆記內容】:
+$noteContent
+$stylePrompt
+$strokePrompt
+
+重要規則：
+- 永遠使用繁體中文 (Traditional Chinese) 回覆，絕不使用簡體字。
+- 回答請保持親切、簡明，控制在 3-5 句以內，避免長篇大論。
+- 不要提及你是 AI、Gemini 或 GPT，你此時此刻就是這份筆記的作者本身。
+''';
+
+    // 5. 呼叫 Gemini 串流（直接使用 Gemini SDK，穩定且無需 OpenRouter）
+    String buffer = '';
+    try {
+      final stream = AiDiagnosisService.generateCloneStream(
+        systemPrompt: customSystemPrompt,
+        userInput: text,
+        history: historyContext,
+      );
+
+      await for (final chunk in stream) {
+        buffer += chunk;
+        setModalState(() {
+          chatLogs[responseIndex] = {
+            'isAI': true,
+            'text': buffer,
+            'isCard': false,
+            'author': authorName,
+            'avatarColor': _cloneContext!['avatarColor'],
+            'noteTitle': noteTitle, // 用於渲染 "依據筆記" 標籤
+            'modelUsed': 'gemini',
+          };
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint('分身對話服務異常: $e');
+      setModalState(() {
+        chatLogs[responseIndex] = {
+          'isAI': true,
+          'text': '哎呀，我（分身）目前好像暫時沒辦法回應你... 😅\n請稍等一下再試試看！',
+          'isCard': false,
+          'author': authorName,
+          'avatarColor': _cloneContext!['avatarColor'],
+        };
+      });
+      _scrollToBottom();
+    }
+  }
+
 
   // ── 風格選擇按鈕 ────────────────────────────────────────────────────────
   Widget _buildStyleBtn({

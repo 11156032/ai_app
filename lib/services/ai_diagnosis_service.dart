@@ -4,6 +4,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
 
+class AssistantResponseChunk {
+  final String text;
+  final String model; // 'gemini' or 'openrouter'
+  AssistantResponseChunk(this.text, this.model);
+}
+
 class DiagnosisResult {
   final String summary;
   final List<String> strengths;
@@ -21,8 +27,10 @@ class DiagnosisResult {
     required this.isAiGenerated,
   });
 
-  factory DiagnosisResult.fromJson(Map<String, dynamic> json,
-      {bool isAiGenerated = true}) {
+  factory DiagnosisResult.fromJson(
+    Map<String, dynamic> json, {
+    bool isAiGenerated = true,
+  }) {
     return DiagnosisResult(
       summary: json['summary'] ?? '',
       strengths: List<String>.from(json['strengths'] ?? []),
@@ -48,7 +56,8 @@ class DiagnosisResult {
 class AiDiagnosisService {
   static String get _kSystemGeminiApiKey {
     try {
-      return dotenv.env['GEMINI_API_KEY'] ?? const String.fromEnvironment('GEMINI_API_KEY');
+      return dotenv.env['GEMINI_API_KEY'] ??
+          const String.fromEnvironment('GEMINI_API_KEY');
     } catch (_) {
       return const String.fromEnvironment('GEMINI_API_KEY');
     }
@@ -56,22 +65,26 @@ class AiDiagnosisService {
 
   static String get _kOpenRouterApiKey {
     try {
-      return dotenv.env['OPENROUTER_API_KEY'] ?? const String.fromEnvironment('OPENROUTER_API_KEY');
+      return dotenv.env['OPENROUTER_API_KEY'] ??
+          const String.fromEnvironment('OPENROUTER_API_KEY');
     } catch (_) {
       return const String.fromEnvironment('OPENROUTER_API_KEY');
     }
   }
 
-
   static DateTime? nextAvailableTime;
 
   /// 呼叫 OpenRouter 免費模型進行 APP 導覽 (使用 HTTP 串流 + 備援模型)
-  static Stream<String> generateOpenRouterGuideStream({
+  static Stream<AssistantResponseChunk> generateOpenRouterGuideStream({
     required String userInput,
     required List<Map<String, dynamic>> history,
+    String? customSystemPrompt,
+    String? customModel,
   }) async* {
     // 系統提示詞：定義導覽員的角色與對答規則
-    const systemInstruction = '''
+    final systemInstruction =
+        customSystemPrompt ??
+        '''
 你是「代理人助理」，這款學習 APP 專屬的親切導覽助理。
 
 【你的定位與任務】
@@ -91,50 +104,114 @@ class AiDiagnosisService {
 【重要角色規則】
 - 你不是 ChatGPT、Gemini，你是溫暖親切的「代理人助理」。
 - 永遠使用繁體中文（Traditional Chinese）回覆，絕不使用簡體字。
-- 回答請保持簡明親切、溫馨溫暖，控制在 3-4 句以內，並適當使用合適的表情符號 😊✨。
+- 回答請保持簡明親切、溫馨溫暖，控制在 3-4 句以內，並適當使用合適的表情符號 😊，且絕對不使用任何類似星星的符號（如 ✨、⭐、🌟 等）。
 ''';
 
-    // 組建對話訊息（保留最近 6 輪對話以提升上下文理解）
+    // 1. 組建對話訊息（過濾載入中等暫存狀態）
     final messages = <Map<String, String>>[];
     messages.add({'role': 'system', 'content': systemInstruction});
     for (var msg in history.take(6)) {
       final isAi = msg['isAI'] == true;
       final text = msg['text'] as String? ?? '';
-      if (text.isNotEmpty) {
+      if (text.isNotEmpty &&
+          text != '⏳ 正在查詢中...' &&
+          text != '⏳ 正在思考中...' &&
+          msg['widgetType'] == null) {
         messages.add({'role': isAi ? 'assistant' : 'user', 'content': text});
       }
     }
     messages.add({'role': 'user', 'content': userInput});
 
-    // 備援模型清單：依序嘗試，某模型失敗則自動切換下一個
-    // 優先使用 google/gemma-4-31b-it:free，因為它在中文與提示詞理解上極度穩定。若失效再由 openrouter 尋找免費模型
-    const fallbackModels = [
-      'google/gemma-4-31b-it:free',             // 主力：Google 強大開源模型，測試表現極佳
-      'openrouter/free',                        // 備援1：平台自動路由到可用的免費模型
-      'moonshotai/kimi-k2.6:free',              // 備援2：中文支援極佳的 Kimi
+    // 優先使用繁體中文支援最強的免費模型，依穩定度排序
+    // Qwen3 對中文原生支援最佳；Llama 3.3 70B 全方位穩定；DeepSeek R1 推理精準
+    final fallbackModels = [
+      if (customModel != null && customModel.isNotEmpty) customModel,
+      'qwen/qwen3-235b-a22b:free',         // 首選：Qwen3 旗艦，繁中支援最強、最精準
+      'qwen/qwen3-32b:free',               // 備援 1：Qwen3 輕量版，速度更快
+      'meta-llama/llama-3.3-70b-instruct:free', // 備援 2：70B 大模型，全方位穩定
+      'deepseek/deepseek-r1-0528:free',    // 備援 3：DeepSeek R1，推理精準
     ];
 
+    bool openRouterSucceeded = false;
     Exception? lastError;
+
     for (final model in fallbackModels) {
-      debugPrint('代理人助理：嘗試使用模型 $model');
+      debugPrint('代理人助理：優先嘗試使用 OpenRouter 模型 $model');
       try {
         bool hasYielded = false;
         await for (final chunk in _tryOpenRouterModel(
           model: model,
           messages: messages,
         )) {
-          yield chunk;
+          yield AssistantResponseChunk(chunk, 'openrouter');
           hasYielded = true;
         }
-        if (hasYielded) return; // 成功產出內容，退出
+        if (hasYielded) {
+          openRouterSucceeded = true;
+          break; // 成功產出，直接跳出 OpenRouter 循環
+        }
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
-        debugPrint('模型 $model 失敗（$e），嘗試備援模型...');
+        debugPrint('OpenRouter 模型 $model 失敗（$e），嘗試下一個...');
       }
     }
 
-    // 所有備援模型都失敗，向上拋出最後一個錯誤
-    throw lastError ?? Exception('所有 OpenRouter 備援模型均無法使用');
+    if (openRouterSucceeded) return; // 如果 OpenRouter 成功了，就直接結束
+
+    // 2. 備援救援機制：若 OpenRouter 免費模型全都失效（例如 429 限流），啟動官方 Gemini 2.5 Flash 進行救援
+    final now = DateTime.now();
+    bool useGemini = true;
+    if (nextAvailableTime != null && nextAvailableTime!.isAfter(now)) {
+      useGemini = false;
+    }
+
+    if (useGemini && _kSystemGeminiApiKey.isNotEmpty) {
+      debugPrint('代理人助理：OpenRouter 失敗，啟動官方 Gemini 2.5 Flash 進行救援');
+      try {
+        final model = GenerativeModel(
+          model: 'gemini-2.5-flash',
+          apiKey: _kSystemGeminiApiKey,
+          systemInstruction: Content.system(systemInstruction),
+        );
+
+        // 轉換對話歷史為 Gemini Content 格式（過濾載入中等暫存狀態）
+        final geminiContents = <Content>[];
+        for (var msg in history.take(6)) {
+          final isAi = msg['isAI'] == true;
+          final text = msg['text'] as String? ?? '';
+          if (text.isNotEmpty &&
+              text != '⏳ 正在查詢中...' &&
+              text != '⏳ 正在思考中...' &&
+              msg['widgetType'] == null) {
+            geminiContents.add(
+              isAi ? Content.model([TextPart(text)]) : Content.text(text),
+            );
+          }
+        }
+        geminiContents.add(Content.text(userInput));
+
+        final responseStream = model.generateContentStream(geminiContents);
+        bool hasYielded = false;
+        await for (final chunk in responseStream) {
+          final text = chunk.text;
+          if (text != null && text.isNotEmpty) {
+            yield AssistantResponseChunk(text, 'gemini');
+            hasYielded = true;
+          }
+        }
+        if (hasYielded) return; // 成功產出，結束
+      } catch (e) {
+        debugPrint('官方 Gemini 救援也失敗（$e）');
+        lastError = e is Exception ? e : Exception(e.toString());
+        if (e.toString().contains('429') ||
+            e.toString().contains('RESOURCE_EXHAUSTED')) {
+          nextAvailableTime = DateTime.now().add(const Duration(seconds: 30));
+        }
+      }
+    }
+
+    // 最終防護線：如果所有模型均失敗，且沒產生過任何 chunk，向上拋出錯誤
+    throw lastError ?? Exception('所有 AI 助理模型（OpenRouter 及 Gemini）均無法使用');
   }
 
   /// 內部輔助：向指定模型發送串流請求，每個 chunk 逐一 yield。
@@ -155,19 +232,24 @@ class AiDiagnosisService {
       'model': model,
       'stream': true,
       'messages': messages,
-      'max_tokens': 512,
+      'max_tokens': 768,
+      'temperature': 0.7,  // 平衡流暢度與準確度
     });
 
     try {
       // 加入 15 秒連線 Timeout，防止網路卡住無限等待
-      final response = await client.send(request).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw Exception('請求逾時（15s），請檢查網路連線'),
-      );
+      final response = await client
+          .send(request)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('請求逾時（15s），請檢查網路連線'),
+          );
 
       if (response.statusCode != 200) {
         final errorBody = await response.stream.bytesToString();
-        throw Exception('OpenRouter API 錯誤 [${response.statusCode}]: $errorBody');
+        throw Exception(
+          'OpenRouter API 錯誤 [${response.statusCode}]: $errorBody',
+        );
       }
 
       final byteStream = response.stream
@@ -181,7 +263,8 @@ class AiDiagnosisService {
 
           try {
             final json = jsonDecode(dataStr);
-            final content = json['choices']?[0]?['delta']?['content'] as String?;
+            final content =
+                json['choices']?[0]?['delta']?['content'] as String?;
             if (content != null && content.isNotEmpty) {
               yield content;
             }
@@ -197,7 +280,6 @@ class AiDiagnosisService {
       client.close();
     }
   }
-
 
   // ─────────────────────────────────────────────────────────────────────────
   // 原有非串流版本（保留 fallback 用）
@@ -260,24 +342,30 @@ class AiDiagnosisService {
   }) async* {
     if (userId == 'u4') return;
 
-    final wrongDetails = wrongQuestions.map((q) {
-      final opts = q['options'] as List?;
-      final ansIdx = q['answerIndex'] as int?;
-      final correctAns = (opts != null &&
-              ansIdx != null &&
-              ansIdx >= 0 &&
-              ansIdx < opts.length)
-          ? opts[ansIdx]
-          : '未知';
-      return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}\n   正確解答: $correctAns\n   解析: ${q['explanation'] ?? '無'}';
-    }).join('\n');
+    final wrongDetails = wrongQuestions
+        .map((q) {
+          final opts = q['options'] as List?;
+          final ansIdx = q['answerIndex'] as int?;
+          final correctAns =
+              (opts != null &&
+                  ansIdx != null &&
+                  ansIdx >= 0 &&
+                  ansIdx < opts.length)
+              ? opts[ansIdx]
+              : '未知';
+          return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}\n   正確解答: $correctAns\n   解析: ${q['explanation'] ?? '無'}';
+        })
+        .join('\n');
 
-    final correctDetails = correctQuestions.map((q) {
-      return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}';
-    }).join('\n');
+    final correctDetails = correctQuestions
+        .map((q) {
+          return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}';
+        })
+        .join('\n');
 
     // 使用固定段落標籤格式，方便串流後解析
-    final prompt = '''
+    final prompt =
+        '''
 你是一個專業的 AI 學習診斷導師。請根據使用者的測驗結果，生成一份學習診斷報告。
 請嚴格依照以下固定段落格式輸出純文字報告（禁止使用 JSON 或 Markdown 語法，禁止使用 ``` 代碼塊）：
 
@@ -408,7 +496,8 @@ $correctDetails
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_kSystemGeminiApiKey',
       );
 
-      final prompt = '''
+      final prompt =
+          '''
 你是一個專業的學習筆記整理小助手。請閱讀使用者的筆記內容，並將其整理為一份簡短、精煉且結構分明的重點大綱。
 你不需要進行強制字元裁切，但請以你的專業判斷，用最精簡、通順且完整的句子來陳述核心要點，並避免照抄原文的大段落。
 重點摘要（points）建議控制在 3-4 點，行動建議（actions）建議控制在 2-3 點。
@@ -441,39 +530,37 @@ $noteContent
               'contents': [
                 {
                   'parts': [
-                    {'text': prompt}
-                  ]
-                }
+                    {'text': prompt},
+                  ],
+                },
               ],
-              'generationConfig': {
-                'responseMimeType': 'application/json',
-              }
+              'generationConfig': {'responseMimeType': 'application/json'},
             }),
           )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final resJson = jsonDecode(response.body);
-        final text = resJson['candidates']?[0]?['content']?['parts']?[0]
-            ?['text'] as String?;
+        final text =
+            resJson['candidates']?[0]?['content']?['parts']?[0]?['text']
+                as String?;
         if (text != null && text.trim().isNotEmpty) {
           final decoded = jsonDecode(text.trim());
-          final List<String> points =
-              List<String>.from(decoded['points'] ?? []);
-          final List<String> actions =
-              List<String>.from(decoded['actions'] ?? []);
-          return {
-            'points': points,
-            'actions': actions,
-            'isAiGenerated': true,
-          };
+          final List<String> points = List<String>.from(
+            decoded['points'] ?? [],
+          );
+          final List<String> actions = List<String>.from(
+            decoded['actions'] ?? [],
+          );
+          return {'points': points, 'actions': actions, 'isAiGenerated': true};
         }
       } else {
         if (response.statusCode == 429) {
           _updateNextAvailableTime(response.body);
         }
         debugPrint(
-            'Gemini note summary error: ${response.statusCode} ${response.body}');
+          'Gemini note summary error: ${response.statusCode} ${response.body}',
+        );
       }
     } catch (e) {
       debugPrint('Error calling Gemini for note summary: $e');
@@ -490,7 +577,8 @@ $noteContent
   }) async* {
     if (userId == 'u4') return;
 
-    final prompt = '''
+    final prompt =
+        '''
 你是一個專業的學習筆記整理小助手。請閱讀使用者的筆記內容，生成重點摘要與行動建議。
 請嚴格依照以下段落格式輸出（禁止使用 JSON 或 Markdown）：
 
@@ -567,6 +655,52 @@ $noteContent
     };
   }
 
+  /// 分身對話串流：使用 Gemini SDK，支援 system instruction 與多輪對話歷史。
+  /// [systemPrompt]  — 角色扮演提示詞（筆記作者分身）
+  /// [userInput]     — 使用者本次輸入
+  /// [history]       — 先前的對話紀錄（isAI/text 欄位）
+  static Stream<String> generateCloneStream({
+    required String systemPrompt,
+    required String userInput,
+    required List<Map<String, dynamic>> history,
+  }) async* {
+    try {
+      final model = GenerativeModel(
+        model: 'gemini-2.5-flash',
+        apiKey: _kSystemGeminiApiKey,
+        systemInstruction: Content.system(systemPrompt),
+      );
+
+      // 將歷史對話轉為 Gemini Content 格式
+      final List<Content> contents = [];
+      for (final msg in history) {
+        final text = (msg['text'] as String? ?? '').trim();
+        if (text.isEmpty) continue;
+        final role = (msg['isAI'] as bool? ?? false) ? 'model' : 'user';
+        contents.add(Content(role, [TextPart(text)]));
+      }
+      // 加入使用者本次輸入
+      contents.add(Content.text(userInput));
+
+      final contentStream = model.generateContentStream(contents);
+      await for (final chunk in contentStream) {
+        final text = chunk.text;
+        if (text != null && text.isNotEmpty) {
+          yield text;
+        }
+      }
+    } on GenerativeAIException catch (e) {
+      debugPrint('Gemini clone stream error: $e');
+      if (e.message.contains('429') || e.message.contains('RESOURCE_EXHAUSTED')) {
+        nextAvailableTime = DateTime.now().add(const Duration(seconds: 60));
+      }
+      rethrow;
+    } catch (e) {
+      debugPrint('Unexpected clone stream error: $e');
+      rethrow;
+    }
+  }
+
   static Map<String, dynamic> _generateLocalNoteSummaryMap(String content) {
     String cleanContent = content
         .replaceAll(RegExp(r'[#\*_\-\[\]]'), '')
@@ -622,23 +756,29 @@ $noteContent
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
 
-    final wrongDetails = wrongQuestions.map((q) {
-      final opts = q['options'] as List?;
-      final ansIdx = q['answerIndex'] as int?;
-      final correctAns = (opts != null &&
-              ansIdx != null &&
-              ansIdx >= 0 &&
-              ansIdx < opts.length)
-          ? opts[ansIdx]
-          : '未知';
-      return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}\n   正確解答: $correctAns\n   解析: ${q['explanation'] ?? '無'}';
-    }).join('\n');
+    final wrongDetails = wrongQuestions
+        .map((q) {
+          final opts = q['options'] as List?;
+          final ansIdx = q['answerIndex'] as int?;
+          final correctAns =
+              (opts != null &&
+                  ansIdx != null &&
+                  ansIdx >= 0 &&
+                  ansIdx < opts.length)
+              ? opts[ansIdx]
+              : '未知';
+          return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}\n   正確解答: $correctAns\n   解析: ${q['explanation'] ?? '無'}';
+        })
+        .join('\n');
 
-    final correctDetails = correctQuestions.map((q) {
-      return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}';
-    }).join('\n');
+    final correctDetails = correctQuestions
+        .map((q) {
+          return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}';
+        })
+        .join('\n');
 
-    final prompt = '''
+    final prompt =
+        '''
 你是一個專業的 AI 學習診斷導師。請根據使用者的測驗結果，生成一份結構化的學習診斷報告。
 你必須只回傳一個 JSON 物件，格式如下，且不得包含額外的 Markdown 標籤（如 ```json）或任何前導/後續文字：
 {
@@ -672,21 +812,20 @@ $correctDetails
             'contents': [
               {
                 'parts': [
-                  {'text': prompt}
-                ]
-              }
+                  {'text': prompt},
+                ],
+              },
             ],
-            'generationConfig': {
-              'responseMimeType': 'application/json',
-            }
+            'generationConfig': {'responseMimeType': 'application/json'},
           }),
         )
         .timeout(const Duration(seconds: 12));
 
     if (response.statusCode == 200) {
       final resJson = jsonDecode(response.body);
-      final text = resJson['candidates']?[0]?['content']?['parts']?[0]?['text']
-          as String?;
+      final text =
+          resJson['candidates']?[0]?['content']?['parts']?[0]?['text']
+              as String?;
       if (text != null && text.trim().isNotEmpty) {
         final decoded = jsonDecode(text.trim());
         return DiagnosisResult.fromJson(decoded, isAiGenerated: true);
@@ -698,7 +837,8 @@ $correctDetails
     }
 
     throw Exception(
-        'Failed to get response from Gemini API: ${response.statusCode} - ${response.body}');
+      'Failed to get response from Gemini API: ${response.statusCode} - ${response.body}',
+    );
   }
 
   static DiagnosisResult _generateLocalFallback({
@@ -738,7 +878,8 @@ $correctDetails
       if (score < 100 && wrongQuestions.isNotEmpty) {
         final firstCh = wrongQuestions.first['chapter'] as String?;
         weaknesses.add(
-            firstCh != null && firstCh.isNotEmpty ? firstCh : '$subject 錯題觀念');
+          firstCh != null && firstCh.isNotEmpty ? firstCh : '$subject 錯題觀念',
+        );
       } else {
         weaknesses.add('本次測驗無明顯弱項，表現完美！');
       }
@@ -789,8 +930,9 @@ $correctDetails
             if (delayStr != null && delayStr.endsWith('s')) {
               final secondsStr = delayStr.substring(0, delayStr.length - 1);
               final seconds = double.tryParse(secondsStr)?.ceil() ?? 60;
-              nextAvailableTime =
-                  DateTime.now().add(Duration(seconds: seconds));
+              nextAvailableTime = DateTime.now().add(
+                Duration(seconds: seconds),
+              );
               return;
             }
           }
