@@ -122,14 +122,15 @@ class AiDiagnosisService {
     }
     messages.add({'role': 'user', 'content': userInput});
 
-    // 優先使用繁體中文支援最強的免費模型，依穩定度排序
-    // Qwen3 對中文原生支援最佳；Llama 3.3 70B 全方位穩定；DeepSeek R1 推理精準
+    // 優先使用繁體中文支援最強的免費模型，依穩定度排序（2026-07 更新）
+    // 注意：qwen3-235b-a22b:free / qwen3-32b:free / deepseek-r1-0528:free 已下架或改為付費
     final fallbackModels = [
       if (customModel != null && customModel.isNotEmpty) customModel,
-      'qwen/qwen3-235b-a22b:free',         // 首選：Qwen3 旗艦，繁中支援最強、最精準
-      'qwen/qwen3-32b:free',               // 備援 1：Qwen3 輕量版，速度更快
-      'meta-llama/llama-3.3-70b-instruct:free', // 備援 2：70B 大模型，全方位穩定
-      'deepseek/deepseek-r1-0528:free',    // 備援 3：DeepSeek R1，推理精準
+      'qwen/qwen3-next-80b-a3b-instruct:free', // 首選：Qwen3 最新旗艦，繁中支援佳
+      'nvidia/nemotron-3-nano-30b-a3b:free',   // 備援 1：NVIDIA Nemotron，穩定可用
+      'openai/gpt-oss-20b:free',               // 備援 2：OpenAI OSS，多語言穩定
+      'meta-llama/llama-3.3-70b-instruct:free', // 備援 3：Llama 70B 全方位穩定
+      'google/gemma-4-31b-it:free',            // 備援 4：Gemma 4 多語言支援
     ];
 
     bool openRouterSucceeded = false;

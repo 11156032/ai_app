@@ -1314,16 +1314,18 @@ extension MainScreenSocialTab on _MainScreenState {
           attached['strokes'].toString() != '[]' &&
           attached['strokes'].toString().isNotEmpty;
 
-      return Container(
-        margin: const EdgeInsets.only(top: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderCol, width: 1.2),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      return GestureDetector(
+        onTap: () => _showNotePreviewDialog(p),
+        child: Container(
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderCol, width: 1.2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
@@ -1425,7 +1427,8 @@ extension MainScreenSocialTab on _MainScreenState {
             ),
           ],
         ),
-      );
+      ),
+    );
     } else if (sharedType == 'question') {
       final String text = attached['text'] ?? '';
       final List<dynamic> options = attached['options'] is String
@@ -1645,17 +1648,19 @@ extension MainScreenSocialTab on _MainScreenState {
 
     if (sharedType == 'note') {
       final String title = attached['title'] ?? '無標題筆記';
-      return Container(
-        margin: const EdgeInsets.only(top: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(8),
-          border:
-              Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
+      return GestureDetector(
+        onTap: () => _showNotePreviewDialog(p),
+        child: Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(8),
+            border:
+                Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+          ),
+          child: Row(
+            children: [
             const Icon(Icons.sticky_note_2_outlined,
                 color: Color(0xFF8D6E63), size: 16),
             const SizedBox(width: 6),
@@ -1701,7 +1706,8 @@ extension MainScreenSocialTab on _MainScreenState {
             ),
           ],
         ),
-      );
+      ),
+    );
     } else if (sharedType == 'question') {
       final String subject = attached['subject'] ?? '一般';
       final String text = attached['text'] ?? '';
@@ -1915,5 +1921,279 @@ extension MainScreenSocialTab on _MainScreenState {
         );
       }
     }
+  }
+
+  // ── 點擊學習筆記卡片顯示預覽視窗 (Premium Preview) ─────────────────────
+  void _showNotePreviewDialog(Map<String, dynamic> p) {
+    final attached = p['attached_data'];
+    if (attached == null) return;
+
+    final String title = attached['title'] ?? '無標題筆記';
+    final String content = attached['content'] ?? '';
+    final String category = attached['category'] ?? '未分類';
+    final String authorName = p['author'] ?? '未知用戶';
+    final String timeStr = p['time'] ?? '';
+
+    // 解析 strokes
+    final List<Stroke> strokes = [];
+    final String? strokesJson = attached['strokes'];
+    if (strokesJson != null && strokesJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(strokesJson) as List;
+        for (var s in decoded) {
+          strokes.add(Stroke.fromJson(s as Map<String, dynamic>));
+        }
+      } catch (e) {
+        debugPrint('解析筆記繪圖失敗: $e');
+      }
+    }
+
+    final bool isDark = _isDarkMode;
+    final dialogBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final borderCol = isDark ? Colors.white10 : const Color(0xFFE5DCD3);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        bool showDrawing = false; // 用於切換文字/手寫
+        
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            final controller = MarkdownTextController()..text = content;
+            final textSpan = controller.buildTextSpan(
+              context: context,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.71,
+                color: isDark ? const Color(0xFFE0E0E0) : Colors.black87,
+              ),
+              withComposing: false,
+            );
+
+            return Dialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 標題與關閉按鈕
+                    Row(
+                      children: [
+                        const Icon(Icons.sticky_note_2_outlined,
+                            color: Color(0xFF8D6E63), size: 22),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF5D4037),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                          style: IconButton.styleFrom(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // 作者資訊與分類
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            category,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF8D6E63),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '•  由 $authorName 分享於 $timeStr',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // 如果有手寫筆跡，顯示切換頁籤
+                    if (strokes.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setStateDialog(() => showDrawing = false),
+                              child: Container(
+                                alignment: Alignment.center,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: !showDrawing
+                                          ? const Color(0xFF8D6E63)
+                                          : Colors.transparent,
+                                      width: 2.5,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  '📝 文字內容',
+                                  style: TextStyle(
+                                    fontWeight: !showDrawing ? FontWeight.bold : FontWeight.normal,
+                                    color: !showDrawing
+                                        ? const Color(0xFF8D6E63)
+                                        : (isDark ? Colors.white60 : Colors.black54),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setStateDialog(() => showDrawing = true),
+                              child: Container(
+                                alignment: Alignment.center,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: showDrawing
+                                          ? const Color(0xFF8D6E63)
+                                          : Colors.transparent,
+                                      width: 2.5,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  '🎨 手寫塗鴉',
+                                  style: TextStyle(
+                                    fontWeight: showDrawing ? FontWeight.bold : FontWeight.normal,
+                                    color: showDrawing
+                                        ? const Color(0xFF8D6E63)
+                                        : (isDark ? Colors.white60 : Colors.black54),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 內容顯示區
+                    Container(
+                      height: 350,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAF9F6), // 極淡象牙白，貼合紙張質感
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: borderCol, width: 1.2),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: showDrawing
+                            ? CustomPaint(
+                                painter: StrokePainter(strokes: strokes),
+                              )
+                            : Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: CustomPaint(
+                                      painter: PaperBackgroundPainter(),
+                                    ),
+                                  ),
+                                  Positioned.fill(
+                                    child: SingleChildScrollView(
+                                      padding: const EdgeInsets.fromLTRB(48, 16, 20, 16),
+                                      child: SelectableText.rich(textSpan),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 底部按鈕區
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('關閉',
+                              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF8D6E63),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.download_rounded, size: 16),
+                          label: const Text('匯入筆記',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _importSharedNote(p);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF5D4037),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.auto_awesome, size: 16),
+                          label: const Text('召喚分身',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _summonAuthorClone(p);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }
