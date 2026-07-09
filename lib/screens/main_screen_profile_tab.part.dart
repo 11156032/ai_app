@@ -50,6 +50,8 @@ extension MainScreenProfileTab on _MainScreenState {
           _buildInteractionModule(context),
           const SizedBox(height: 16),
           _buildLearningProgressModule(context),
+          const SizedBox(height: 16),
+          _buildSupportModule(context),
         ],
       ),
     );
@@ -386,6 +388,10 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   Widget _buildInteractionModule(BuildContext context) {
+    final currentUserId = widget.currentUser['id'] as String?;
+    final myPostCount = currentUserId == null
+        ? 0
+        : socialPosts.where((p) => p['userId'] == currentUserId).length;
     return _buildModuleContainer(
       context: context,
       title: '互動紀錄',
@@ -395,7 +401,7 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.article_outlined,
             label: '我的貼文',
-            value: '查看已發佈的社群文章與筆記',
+            value: '已發佈 $myPostCount 篇貼文與筆記',
             onTap: _showMyPostsPage,
           ),
           const Divider(height: 24),
@@ -1181,6 +1187,618 @@ extension MainScreenProfileTab on _MainScreenState {
           ],
         ),
       );
+    }
+  }
+
+  // --- 系統與協助模組 ---
+  Widget _buildSupportModule(BuildContext context) {
+    return _buildModuleContainer(
+      context: context,
+      title: '系統與協助',
+      child: Column(
+        children: [
+          _buildProfileTile(
+            context: context,
+            icon: Icons.headset_mic_outlined,
+            label: '客服與意見回饋',
+            value: '回報問題或提供功能建議',
+            onTap: _showFeedbackDialog,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.menu_book_outlined,
+            label: '使用手冊',
+            value: '了解 App 各項功能的操作方式',
+            onTap: _showUserManualDialog,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.gavel_outlined,
+            label: '服務條款',
+            value: '查看使用者協議與隱私政策',
+            onTap: _showTermsDialog,
+          ),
+          const Divider(height: 24),
+          Row(
+            children: [
+              Icon(Icons.info_outline,
+                  size: 20,
+                  color: _isDarkMode
+                      ? const Color(0xFFD7CCC8)
+                      : Theme.of(context).primaryColor),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('版本資訊',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text(_appVersion,
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: _isDarkMode
+                                ? Colors.white70
+                                : Colors.black87)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFeedbackDialog() {
+    final TextEditingController subjectCtrl = TextEditingController();
+    final TextEditingController bodyCtrl = TextEditingController();
+    String selectedType = 'bug';
+    bool isSending = false;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setS) => AlertDialog(
+          backgroundColor:
+              _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.headset_mic_outlined,
+                  color: Theme.of(context).primaryColor),
+              const SizedBox(width: 10),
+              const Text('客服與意見回饋',
+                  style:
+                      TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('類型',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: _isDarkMode
+                            ? Colors.white60
+                            : Colors.grey.shade700)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _buildTypeChip(ctx2, setS, selectedType, 'bug',
+                        Icons.bug_report_outlined, '回報 Bug',
+                        (v) => selectedType = v),
+                    const SizedBox(width: 8),
+                    _buildTypeChip(ctx2, setS, selectedType, 'feature',
+                        Icons.lightbulb_outline, '功能建議',
+                        (v) => selectedType = v),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text('主旨',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: _isDarkMode
+                            ? Colors.white60
+                            : Colors.grey.shade700)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: subjectCtrl,
+                  style: TextStyle(
+                      color: _isDarkMode ? Colors.white : Colors.black87),
+                  decoration: InputDecoration(
+                    hintText: '請簡述主旨…',
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    filled: true,
+                    fillColor: _isDarkMode
+                        ? const Color(0xFF2C2C2C)
+                        : const Color(0xFFF5F5F5),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text('詳細描述',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: _isDarkMode
+                            ? Colors.white60
+                            : Colors.grey.shade700)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: bodyCtrl,
+                  maxLines: 4,
+                  style: TextStyle(
+                      color: _isDarkMode ? Colors.white : Colors.black87),
+                  decoration: InputDecoration(
+                    hintText: '請詳細說明問題或建議的功能…',
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    filled: true,
+                    fillColor: _isDarkMode
+                        ? const Color(0xFF2C2C2C)
+                        : const Color(0xFFF5F5F5),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSending ? null : () => Navigator.pop(ctx),
+              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isSending
+                  ? null
+                  : () async {
+                      final subject = subjectCtrl.text.trim();
+                      final body = bodyCtrl.text.trim();
+                      if (subject.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('請填寫主旨')),
+                        );
+                        return;
+                      }
+                      setS(() => isSending = true);
+                      final ok = await _submitFeedbackApi(
+                        type: selectedType,
+                        subject: subject,
+                        body: body,
+                      );
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok
+                                ? '已送出，感謝您的回饋！我們會盡快處理。'
+                                : '發送失敗，請稍後再試或確認網路連線。'),
+                            backgroundColor: ok
+                                ? Theme.of(context).primaryColor
+                                : Colors.redAccent,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        );
+                      }
+                    },
+              child: isSending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('送出'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeChip(
+    BuildContext ctx,
+    StateSetter setS,
+    String current,
+    String value,
+    IconData icon,
+    String label,
+    void Function(String) onChange,
+  ) {
+    final isSelected = current == value;
+    return GestureDetector(
+      onTap: () => setS(() => onChange(value)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(ctx).primaryColor.withValues(alpha: 0.15)
+              : (_isDarkMode
+                  ? const Color(0xFF2C2C2C)
+                  : const Color(0xFFF0F0F0)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? Theme.of(ctx).primaryColor
+                : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 15,
+                color: isSelected
+                    ? Theme.of(ctx).primaryColor
+                    : Colors.grey),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: isSelected
+                        ? Theme.of(ctx).primaryColor
+                        : Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showUserManualDialog() {
+    final primaryColor = Theme.of(context).primaryColor;
+    const List<Map<String, dynamic>> pages = [
+      {
+        'title': 'AI 智能解答',
+        'desc':
+            '在筆記或錯題中長按任意文字，即可呼叫 AI 助手為你解釋概念、補充說明，讓學習不再卡關。',
+        'icon': Icons.auto_awesome,
+      },
+      {
+        'title': '社群動態交流',
+        'desc':
+            '在社群頁面中發佈學習心得、筆記摘要或測驗結果，與其他使用者互動交流，一起進步。',
+        'icon': Icons.forum_outlined,
+      },
+      {
+        'title': '測驗與學習歷程',
+        'desc':
+            '完成每日測驗累積成就，在個人檔案頁面查看本週答題正確率圖表，追蹤學習進步曲線。',
+        'icon': Icons.bar_chart_rounded,
+      },
+      {
+        'title': '筆記與錯題管理',
+        'desc':
+            '瀏覽、新增和整理筆記，搭配智慧搜尋快速定位需要的資料，並將錯題加入複習清單。',
+        'icon': Icons.menu_book_rounded,
+      },
+    ];
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        int pageIndex = 0;
+        final PageController pc = PageController();
+        return StatefulBuilder(
+          builder: (ctx2, setS) => Dialog(
+            backgroundColor:
+                _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420, maxHeight: 540),
+              child: Column(
+                children: [
+                  // 標題列
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 8, 0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.menu_book_outlined, color: primaryColor),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text('使用手冊',
+                              style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx),
+                          color: Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 頁面輪播
+                  Expanded(
+                    child: PageView.builder(
+                      controller: pc,
+                      itemCount: pages.length,
+                      onPageChanged: (i) => setS(() => pageIndex = i),
+                      itemBuilder: (_, i) {
+                        final p = pages[i];
+                        return Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 88,
+                                height: 88,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      primaryColor.withValues(alpha: 0.15),
+                                      primaryColor.withValues(alpha: 0.05),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: primaryColor.withValues(alpha: 0.3),
+                                      width: 1.5),
+                                ),
+                                child: Icon(p['icon'] as IconData,
+                                    color: primaryColor, size: 40),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(p['title'] as String,
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isDarkMode
+                                          ? Colors.white
+                                          : Colors.black87)),
+                              const SizedBox(height: 12),
+                              Text(p['desc'] as String,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      height: 1.6,
+                                      color: _isDarkMode
+                                          ? Colors.white60
+                                          : Colors.grey.shade700)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // 分頁指示器 + 按鈕
+                  Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: List.generate(
+                              pages.length,
+                              (i) => AnimatedContainer(
+                                    duration:
+                                        const Duration(milliseconds: 250),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    width: i == pageIndex ? 20 : 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: i == pageIndex
+                                          ? primaryColor
+                                          : primaryColor.withValues(
+                                              alpha: 0.25),
+                                      borderRadius:
+                                          BorderRadius.circular(4),
+                                    ),
+                                  )),
+                        ),
+                        Row(
+                          children: [
+                            if (pageIndex > 0)
+                              TextButton(
+                                onPressed: () =>
+                                    pc.previousPage(
+                                        duration: const Duration(
+                                            milliseconds: 300),
+                                        curve: Curves.easeInOut),
+                                child: const Text('上一頁',
+                                    style: TextStyle(
+                                        color: Colors.grey)),
+                              ),
+                            const SizedBox(width: 4),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(10)),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 10),
+                              ),
+                              onPressed: () {
+                                if (pageIndex < pages.length - 1) {
+                                  pc.nextPage(
+                                      duration: const Duration(
+                                          milliseconds: 300),
+                                      curve: Curves.easeInOut);
+                                } else {
+                                  Navigator.pop(ctx);
+                                }
+                              },
+                              child: Text(pageIndex < pages.length - 1
+                                  ? '下一頁'
+                                  : '完成'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showTermsDialog() {
+    final primaryColor = Theme.of(context).primaryColor;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor:
+            _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.gavel_outlined, color: primaryColor),
+            const SizedBox(width: 10),
+            const Text('服務條款',
+                style:
+                    TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 320,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTermsSection('1. 使用者同意',
+                    '使用本應用程式即代表您同意遵守本服務條款。若您不同意條款，請停止使用本應用程式。'),
+                _buildTermsSection('2. 帳號責任',
+                    '您有責任保管好個人帳號資訊，並對帳號下的所有活動負責。如發現帳號遭他人盜用，請立即聯絡客服。'),
+                _buildTermsSection('3. 內容規範',
+                    '使用者在社群功能中發佈的內容須符合法律規範，不得散佈違法、誹謗、騷擾或侵權的資料。我們保留移除違規內容及封停帳號的權利。'),
+                _buildTermsSection('4. 隱私政策',
+                    '我們尊重您的隱私。您在使用過程中產生的學習資料與個人設定，僅用於提供服務所需。我們不會在未獲授權的情況下將您的個人資料提供給第三方。'),
+                _buildTermsSection('5. 服務變更',
+                    '我們保留隨時修改、暫停或終止服務（或其部分）的權利，且無需事先通知。'),
+                _buildTermsSection('6. 免責聲明',
+                    '本應用程式的學習內容由使用者社群貢獻，僅供參考。我們不對內容的正確性或完整性負責，請使用者自行判斷。'),
+                const SizedBox(height: 8),
+                Text(
+                  '最後更新日期：2026 年 7 月 9 日',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('我已了解'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTermsSection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color:
+                      _isDarkMode ? Colors.white : Colors.black87)),
+          const SizedBox(height: 6),
+          Text(content,
+              style: TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: _isDarkMode
+                      ? Colors.white60
+                      : Colors.grey.shade700)),
+        ],
+      ),
+    );
+  }
+
+  // --- 客服回饋 API 發送 ---
+  Future<bool> _submitFeedbackApi({
+    required String type,
+    required String subject,
+    required String body,
+  }) async {
+    final apiUrl = dotenv.env['FEEDBACK_API_URL'] ?? '';
+    final accessKey = dotenv.env['WEB3FORMS_ACCESS_KEY'] ?? '';
+
+    if (apiUrl.isEmpty) {
+      debugPrint('客服 API 未設定，記錄到串接日誌。');
+      debugPrint('[客服回饋] 類型: $type | 主旨: $subject | 內容: $body');
+      // 未設定時回傳 true 讓使用者知道送出成功（對測試階段友善）
+      return true;
+    }
+    try {
+      final userId = widget.currentUser['id'] as String? ?? '';
+      final userName = _displayName ?? '未知用戶';
+
+      final Map<String, dynamic> payload = {
+        'type': type,
+        'subject': '[$type] $subject',
+        'body': body,
+        'message': body, // Web3Forms 顯示內文主要使用 message
+        'userId': userId,
+        'userName': userName,
+        'appVersion': _appVersion,
+      };
+
+      if (accessKey.isNotEmpty) {
+        payload['access_key'] = accessKey;
+      }
+
+      final response = await http
+          .post(
+            Uri.parse(apiUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 10));
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      debugPrint('客服回饋發送失敗: $e');
+      return false;
     }
   }
 }

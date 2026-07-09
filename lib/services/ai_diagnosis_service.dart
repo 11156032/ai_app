@@ -82,8 +82,7 @@ class AiDiagnosisService {
     String? customModel,
   }) async* {
     // 系統提示詞：定義導覽員的角色與對答規則
-    final systemInstruction =
-        customSystemPrompt ??
+    final systemInstruction = customSystemPrompt ??
         '''
 你是「代理人助理」，這款學習 APP 專屬的親切導覽助理。
 
@@ -127,10 +126,10 @@ class AiDiagnosisService {
     final fallbackModels = [
       if (customModel != null && customModel.isNotEmpty) customModel,
       'qwen/qwen3-next-80b-a3b-instruct:free', // 首選：Qwen3 最新旗艦，繁中支援佳
-      'nvidia/nemotron-3-nano-30b-a3b:free',   // 備援 1：NVIDIA Nemotron，穩定可用
-      'openai/gpt-oss-20b:free',               // 備援 2：OpenAI OSS，多語言穩定
+      'nvidia/nemotron-3-nano-30b-a3b:free', // 備援 1：NVIDIA Nemotron，穩定可用
+      'openai/gpt-oss-20b:free', // 備援 2：OpenAI OSS，多語言穩定
       'meta-llama/llama-3.3-70b-instruct:free', // 備援 3：Llama 70B 全方位穩定
-      'google/gemma-4-31b-it:free',            // 備援 4：Gemma 4 多語言支援
+      'google/gemma-4-31b-it:free', // 備援 4：Gemma 4 多語言支援
     ];
 
     bool openRouterSucceeded = false;
@@ -234,14 +233,12 @@ class AiDiagnosisService {
       'stream': true,
       'messages': messages,
       'max_tokens': 768,
-      'temperature': 0.7,  // 平衡流暢度與準確度
+      'temperature': 0.7, // 平衡流暢度與準確度
     });
 
     try {
       // 加入 15 秒連線 Timeout，防止網路卡住無限等待
-      final response = await client
-          .send(request)
-          .timeout(
+      final response = await client.send(request).timeout(
             const Duration(seconds: 15),
             onTimeout: () => throw Exception('請求逾時（15s），請檢查網路連線'),
           );
@@ -343,30 +340,24 @@ class AiDiagnosisService {
   }) async* {
     if (userId == 'u4') return;
 
-    final wrongDetails = wrongQuestions
-        .map((q) {
-          final opts = q['options'] as List?;
-          final ansIdx = q['answerIndex'] as int?;
-          final correctAns =
-              (opts != null &&
-                  ansIdx != null &&
-                  ansIdx >= 0 &&
-                  ansIdx < opts.length)
-              ? opts[ansIdx]
-              : '未知';
-          return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}\n   正確解答: $correctAns\n   解析: ${q['explanation'] ?? '無'}';
-        })
-        .join('\n');
+    final wrongDetails = wrongQuestions.map((q) {
+      final opts = q['options'] as List?;
+      final ansIdx = q['answerIndex'] as int?;
+      final correctAns = (opts != null &&
+              ansIdx != null &&
+              ansIdx >= 0 &&
+              ansIdx < opts.length)
+          ? opts[ansIdx]
+          : '未知';
+      return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}\n   正確解答: $correctAns\n   解析: ${q['explanation'] ?? '無'}';
+    }).join('\n');
 
-    final correctDetails = correctQuestions
-        .map((q) {
-          return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}';
-        })
-        .join('\n');
+    final correctDetails = correctQuestions.map((q) {
+      return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}';
+    }).join('\n');
 
     // 使用固定段落標籤格式，方便串流後解析
-    final prompt =
-        '''
+    final prompt = '''
 你是一個專業的 AI 學習診斷導師。請根據使用者的測驗結果，生成一份學習診斷報告。
 請嚴格依照以下固定段落格式輸出純文字報告（禁止使用 JSON 或 Markdown 語法，禁止使用 ``` 代碼塊）：
 
@@ -497,8 +488,7 @@ $correctDetails
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_kSystemGeminiApiKey',
       );
 
-      final prompt =
-          '''
+      final prompt = '''
 你是一個專業的學習筆記整理小助手。請閱讀使用者的筆記內容，並將其整理為一份簡短、精煉且結構分明的重點大綱。
 你不需要進行強制字元裁切，但請以你的專業判斷，用最精簡、通順且完整的句子來陳述核心要點，並避免照抄原文的大段落。
 重點摘要（points）建議控制在 3-4 點，行動建議（actions）建議控制在 2-3 點。
@@ -542,9 +532,8 @@ $noteContent
 
       if (response.statusCode == 200) {
         final resJson = jsonDecode(response.body);
-        final text =
-            resJson['candidates']?[0]?['content']?['parts']?[0]?['text']
-                as String?;
+        final text = resJson['candidates']?[0]?['content']?['parts']?[0]
+            ?['text'] as String?;
         if (text != null && text.trim().isNotEmpty) {
           final decoded = jsonDecode(text.trim());
           final List<String> points = List<String>.from(
@@ -578,8 +567,7 @@ $noteContent
   }) async* {
     if (userId == 'u4') return;
 
-    final prompt =
-        '''
+    final prompt = '''
 你是一個專業的學習筆記整理小助手。請閱讀使用者的筆記內容，生成重點摘要與行動建議。
 請嚴格依照以下段落格式輸出（禁止使用 JSON 或 Markdown）：
 
@@ -692,7 +680,8 @@ $noteContent
       }
     } on GenerativeAIException catch (e) {
       debugPrint('Gemini clone stream error: $e');
-      if (e.message.contains('429') || e.message.contains('RESOURCE_EXHAUSTED')) {
+      if (e.message.contains('429') ||
+          e.message.contains('RESOURCE_EXHAUSTED')) {
         nextAvailableTime = DateTime.now().add(const Duration(seconds: 60));
       }
       rethrow;
@@ -757,29 +746,23 @@ $noteContent
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
 
-    final wrongDetails = wrongQuestions
-        .map((q) {
-          final opts = q['options'] as List?;
-          final ansIdx = q['answerIndex'] as int?;
-          final correctAns =
-              (opts != null &&
-                  ansIdx != null &&
-                  ansIdx >= 0 &&
-                  ansIdx < opts.length)
-              ? opts[ansIdx]
-              : '未知';
-          return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}\n   正確解答: $correctAns\n   解析: ${q['explanation'] ?? '無'}';
-        })
-        .join('\n');
+    final wrongDetails = wrongQuestions.map((q) {
+      final opts = q['options'] as List?;
+      final ansIdx = q['answerIndex'] as int?;
+      final correctAns = (opts != null &&
+              ansIdx != null &&
+              ansIdx >= 0 &&
+              ansIdx < opts.length)
+          ? opts[ansIdx]
+          : '未知';
+      return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}\n   正確解答: $correctAns\n   解析: ${q['explanation'] ?? '無'}';
+    }).join('\n');
 
-    final correctDetails = correctQuestions
-        .map((q) {
-          return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}';
-        })
-        .join('\n');
+    final correctDetails = correctQuestions.map((q) {
+      return ' - 題目: ${q['question']}\n   單元/章節: ${q['chapter'] ?? '預設單元'}\n   難度: ${q['difficulty'] ?? '中'}';
+    }).join('\n');
 
-    final prompt =
-        '''
+    final prompt = '''
 你是一個專業的 AI 學習診斷導師。請根據使用者的測驗結果，生成一份結構化的學習診斷報告。
 你必須只回傳一個 JSON 物件，格式如下，且不得包含額外的 Markdown 標籤（如 ```json）或任何前導/後續文字：
 {
@@ -824,9 +807,8 @@ $correctDetails
 
     if (response.statusCode == 200) {
       final resJson = jsonDecode(response.body);
-      final text =
-          resJson['candidates']?[0]?['content']?['parts']?[0]?['text']
-              as String?;
+      final text = resJson['candidates']?[0]?['content']?['parts']?[0]?['text']
+          as String?;
       if (text != null && text.trim().isNotEmpty) {
         final decoded = jsonDecode(text.trim());
         return DiagnosisResult.fromJson(decoded, isAiGenerated: true);

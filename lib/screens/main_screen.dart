@@ -17,6 +17,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:animate_do/animate_do.dart';
 import '../services/ai_diagnosis_service.dart';
 import 'notes_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -104,6 +107,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _totalQuestionsAnswered = 0;
   int _selectedBarIndex = DateTime.now().weekday - 1;
   String _latestQuizScore = '暫無測驗紀錄';
+  String _appVersion = 'v1.2.0';
 
   // --- 排行榜資料 ---
   List<Map<String, dynamic>> _leaderboardList = [];
@@ -231,6 +235,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _scheduleTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       _loadData();
     });
+
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = 'v${packageInfo.version}';
+        });
+      }
+    } catch (e) {
+      debugPrint('無法取得版本資訊: $e');
+    }
 
     await _loadData();
   }

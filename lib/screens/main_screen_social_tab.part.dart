@@ -415,13 +415,17 @@ extension MainScreenSocialTab on _MainScreenState {
           _showGuestLoginPrompt();
           return;
         }
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                PostReplyPage(originalPost: p, currentUser: widget.currentUser),
-          ),
-        ).then((_) => _loadData());
+        if (p['postType'] == 'note') {
+          _showNotePreviewDialog(p);
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  PostReplyPage(originalPost: p, currentUser: widget.currentUser),
+            ),
+          ).then((_) => _loadData());
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
