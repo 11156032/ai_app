@@ -2545,15 +2545,17 @@ extension MainScreenProfileTab on _MainScreenState {
     try {
       final userId = widget.currentUser['id'] as String? ?? '';
       final userName = _displayName ?? '未知用戶';
+      final userEmail = widget.currentUser['email'] as String? ?? '';
 
       final Map<String, dynamic> payload = {
-        'type': type,
         'subject': '[$type] $subject',
-        'body': body,
-        'message': body, // Web3Forms 顯示內文主要使用 message
-        'userId': userId,
-        'userName': userName,
-        'appVersion': _appVersion,
+        'from_name': userName,
+        'email': userEmail,
+        '回報類型': type == 'bug' ? 'Bug 回報 🐞' : '功能建議 💡',
+        '使用者ID': userId,
+        '使用者名稱': userName,
+        '詳細描述': body,
+        'App版本': _appVersion,
       };
 
       if (accessKey.isNotEmpty) {
