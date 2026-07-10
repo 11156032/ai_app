@@ -312,8 +312,9 @@ extension MainScreenProfileTab on _MainScreenState {
                 size: 20, color: Colors.grey.shade600),
             value: _showFloatingNavBar,
             activeThumbColor: const Color(0xFF8D6E63),
-            onChanged: (val) {
+            onChanged: (val) async {
               _update(() => _showFloatingNavBar = val);
+              await _updatePersonalization();
             },
           ),
           const Divider(height: 24),
@@ -1215,10 +1216,26 @@ extension MainScreenProfileTab on _MainScreenState {
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
+            icon: Icons.explore_outlined,
+            label: '特色功能圖文引導',
+            value: '智慧分身、對話行事曆等特色功能操作步驟說明',
+            onTap: _showFeatureWalkthroughDialog,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
             icon: Icons.gavel_outlined,
             label: '服務條款',
             value: '查看使用者協議與隱私政策',
             onTap: _showTermsDialog,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.privacy_tip_outlined,
+            label: '隱私權政策',
+            value: '了解我們如何蒐集與保護您的個人資料',
+            onTap: _showPrivacyPolicyDialog,
           ),
           const Divider(height: 24),
           Row(
@@ -1692,21 +1709,90 @@ extension MainScreenProfileTab on _MainScreenState {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildTermsSection('1. 使用者同意',
-                    '使用本應用程式即代表您同意遵守本服務條款。若您不同意條款，請停止使用本應用程式。'),
-                _buildTermsSection('2. 帳號責任',
-                    '您有責任保管好個人帳號資訊，並對帳號下的所有活動負責。如發現帳號遭他人盜用，請立即聯絡客服。'),
-                _buildTermsSection('3. 內容規範',
-                    '使用者在社群功能中發佈的內容須符合法律規範，不得散佈違法、誹謗、騷擾或侵權的資料。我們保留移除違規內容及封停帳號的權利。'),
-                _buildTermsSection('4. 隱私政策',
-                    '我們尊重您的隱私。您在使用過程中產生的學習資料與個人設定，僅用於提供服務所需。我們不會在未獲授權的情況下將您的個人資料提供給第三方。'),
-                _buildTermsSection('5. 服務變更',
-                    '我們保留隨時修改、暫停或終止服務（或其部分）的權利，且無需事先通知。'),
-                _buildTermsSection('6. 免責聲明',
-                    '本應用程式的學習內容由使用者社群貢獻，僅供參考。我們不對內容的正確性或完整性負責，請使用者自行判斷。'),
+                _buildTermsSection('1. 接受條款',
+                    '您存取或使用「YeBang 家教」應用程式即表示您已閱讀、理解並同意受本服務條款約束。若您未滿 13 歲，或您不同意本條款之任何部分，請立即停止使用本服務。'),
+                _buildTermsSection('2. 服務說明',
+                    '本服務提供學習題庫、筆記管理、AI 智慧助手、行事曆排程及社群交流等功能。我們保留隨時新增、修改或移除任何功能的權利，且不另行通知。'),
+                _buildTermsSection('3. 帳號責任',
+                    '您有責任妥善保管帳號憑證，並對您帳號下發生的所有活動負責。請勿共享帳號或讓他人代為使用。如發現帳號遭未經授權使用，請立即通知我們。'),
+                _buildTermsSection('4. 使用者行為規範',
+                    '您同意不得利用本服務從事以下行為：散佈違法、騷擾、誹謗或侵權內容；傳播惡意程式；未經授權存取他人帳號；以自動化方式大量存取服務；或任何違反中華民國法律的行為。我們保留移除違規內容及停權帳號的權利。'),
+                _buildTermsSection('5. 智慧財產權',
+                    '本應用程式的所有設計、程式碼、圖示及品牌識別均受智慧財產權法律保護，所有權歸開發團隊所有。使用者發布於社群的內容，其著作權仍屬使用者本人，惟您同意授予我們非獨家、免費的使用許可，以於服務範疇內展示該內容。'),
+                _buildTermsSection('6. AI 功能聲明',
+                    'AI 智慧功能（含 AI 診斷、AI 分身、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考，不構成專業建議。使用者應自行判斷 AI 輸出的正確性，我們不對 AI 回應的準確性或完整性負責。'),
+                _buildTermsSection('7. 免責聲明與責任限制',
+                    '本服務「依現狀」提供，不附帶任何形式的明示或默示保證。在法律允許的最大範圍內，我們不對因使用或無法使用本服務所造成的任何間接、附帶、特殊或懲罰性損害負責。'),
+                _buildTermsSection('8. 條款修改',
+                    '我們保留隨時修訂本條款的權利。修訂後的條款將於 App 內公告，並以公告日期起生效。若您在條款更新後繼續使用本服務，即視為同意接受修訂後的條款。'),
+                _buildTermsSection('9. 準據法',
+                    '本條款之解釋、效力及爭議解決，均依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。'),
                 const SizedBox(height: 8),
                 Text(
-                  '最後更新日期：2026 年 7 月 9 日',
+                  '最後更新日期：2026 年 7 月 10 日',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('我已了解'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacyPolicyDialog() {
+    final primaryColor = Theme.of(context).primaryColor;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor:
+            _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.privacy_tip_outlined, color: primaryColor),
+            const SizedBox(width: 10),
+            const Text('隱私權政策',
+                style:
+                    TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 360,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTermsSection('1. 蒐集的資料類型',
+                    '我們蒐集以下類型的資料以提供服務：\n・帳號資訊：使用者名稱、電子郵件地址。\n・學習歷程：測驗紀錄、錯題記錄、筆記內容、日曆行程。\n・使用資料：功能使用頻率、應用程式設定偏好。\n・裝置資訊：作業系統版本（僅用於相容性診斷）。'),
+                _buildTermsSection('2. 資料使用目的',
+                    '我們蒐集的資料僅用於以下目的：\n・提供、維護及改善本服務功能。\n・個人化您的學習體驗（如 AI 診斷、分身設定）。\n・發送重要服務通知（如帳號安全警示）。\n我們不會出售您的個人資料給任何第三方，也不會將資料用於廣告目的。'),
+                _buildTermsSection('3. 資料儲存與安全',
+                    '您的學習資料主要儲存於您裝置本地的 SQLite 資料庫中。部分功能（如 AI 對話、回饋提交）需將資料傳輸至我們或第三方 AI 服務的伺服器，傳輸過程採用加密連線（HTTPS）保護。我們採取合理的技術措施防止未授權存取，但無法保證 100% 的資料安全性。'),
+                _buildTermsSection('4. 您的資料權利',
+                    '您對您的個人資料享有以下權利：\n・查詢權：可在「個人檔案」頁面查看您儲存的資料。\n・更正權：可隨時修改個人資料（暱稱、頭像、簡介）。\n・刪除權：可在帳號設定中申請刪除帳號，我們將於 30 天內清除您的個人資料。\n如需行使上述權利，請透過「客服與意見回饋」功能與我們聯繫。'),
+                _buildTermsSection('5. 第三方服務',
+                    '本應用程式使用以下第三方服務，請參閱各自的隱私權政策：\n・Google 登入（Google LLC）：用於快速建立帳號。\n・Google Gemini AI（Google LLC）：用於 AI 智慧功能。\n・OpenRouter AI：用於 AI 分身對話功能。\n使用上述功能時，相關資料將依照第三方服務的隱私權政策處理。'),
+                _buildTermsSection('6. 政策更新',
+                    '我們可能因法律要求或服務調整而不定期更新本隱私權政策。更新後將於 App 內公告，重大變更將以顯著方式告知。繼續使用本服務即代表您接受更新後的政策。'),
+                const SizedBox(height: 8),
+                Text(
+                  '最後更新日期：2026 年 7 月 10 日',
                   style: TextStyle(
                       fontSize: 11, color: Colors.grey.shade500),
                 ),
@@ -1750,6 +1836,692 @@ extension MainScreenProfileTab on _MainScreenState {
                   color: _isDarkMode
                       ? Colors.white60
                       : Colors.grey.shade700)),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 特色功能圖文引導彈窗
+  // ─────────────────────────────────────────────────────────────
+  void _showFeatureWalkthroughDialog() {
+    final primaryColor = Theme.of(context).primaryColor;
+
+    const List<Map<String, String>> features = [
+      {'tab': '🤖 AI分身'},
+      {'tab': '📅 AI排程'},
+      {'tab': '📝 錯題考卷'},
+    ];
+
+    final List<List<Map<String, String>>> stepInfo = [
+      [
+        {'title': '步驟一：點選成員頭像', 'desc': '進入社群頁面，在貼文或成員清單中點選任意社群成員的大頭貼。'},
+        {'title': '步驟二：召喚 AI 分身', 'desc': '在彈出的成員個人資料卡中，點選下方的「🤖 召喚分身對話」按鈕。'},
+        {'title': '步驟三：與分身對話', 'desc': 'AI 分身將模擬該成員的個性風格進行回覆，您可以直接輸入任何問題！'},
+      ],
+      [
+        {'title': '步驟一：開啟 AI 行事曆小幫手', 'desc': '進入日曆行程頁面，點擊右下角橘色的「🤖」懸浮按鈕，開啟 AI 行事曆助手。'},
+        {'title': '步驟二：輸入行程指令', 'desc': '在對話框中以自然語言輸入行程，例如「明天下午三點和小明開會」，AI 會自動解析時間。'},
+        {'title': '步驟三：確認並設定顏色', 'desc': 'AI 擷取完時間後，選擇您喜歡的行程顏色標籤，點擊「確認新增」即完成排程！'},
+      ],
+      [
+        {'title': '步驟一：進入錯題本', 'desc': '在題庫系統中切換至「錯題本」分頁，查看所有曾經答錯的題目紀錄。'},
+        {'title': '步驟二：智慧解析弱點', 'desc': '點擊任一錯題旁的「💡 智慧解析」按鈕，AI 將為您分析錯誤原因並補充概念。'},
+        {'title': '步驟三：一鍵生成考卷', 'desc': '勾選想複習的題目，點擊底部「📋 一鍵生成考卷」，即可下載或預覽自訂考卷！'},
+      ],
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        int tabIndex = 0;
+        int stepIndex = 0;
+        final PageController pc = PageController();
+        return StatefulBuilder(
+          builder: (ctx2, setS) {
+            final isDark = _isDarkMode;
+            final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+            final cardBg = isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F5F2);
+            final textColor = isDark ? Colors.white : const Color(0xFF2D1B0E);
+            final subColor = isDark ? Colors.white54 : Colors.grey.shade600;
+            const int totalSteps = 3;
+
+            return Dialog(
+              backgroundColor: bg,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440, maxHeight: 620),
+                child: Column(
+                  children: [
+                    // ── 標題列 ──
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 8, 0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.explore_outlined, color: primaryColor),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('特色功能圖文引導',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx),
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // ── 功能分頁切換列 ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Row(
+                        children: List.generate(features.length, (i) {
+                          final isSelected = i == tabIndex;
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setS(() {
+                                  tabIndex = i;
+                                  stepIndex = 0;
+                                });
+                                pc.jumpToPage(0);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? primaryColor : cardBg,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  features[i]['tab']!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? Colors.white : subColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                    // ── 模擬畫面區（PageView） ──
+                    Expanded(
+                      child: PageView.builder(
+                        controller: pc,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: totalSteps,
+                        onPageChanged: (i) => setS(() => stepIndex = i),
+                        itemBuilder: (_, i) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: cardBg,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: primaryColor.withValues(alpha: 0.15),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: tabIndex == 0
+                                        ? _buildCloneMockup(i, primaryColor, isDark)
+                                        : tabIndex == 1
+                                            ? _buildSchedulingMockup(i, primaryColor, isDark)
+                                            : _buildReviewMockup(i, primaryColor, isDark),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  stepInfo[tabIndex][i]['title']!,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryColor,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  stepInfo[tabIndex][i]['desc']!,
+                                  style: TextStyle(fontSize: 12.5, color: subColor, height: 1.5),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    // ── 進度點 ──
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(totalSteps, (i) {
+                        final isActive = i == stepIndex;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: isActive ? 20 : 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: isActive ? primaryColor : primaryColor.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    // ── 導覽按鈕列 ──
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+                      child: Row(
+                        children: [
+                          if (stepIndex > 0)
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  setS(() => stepIndex--);
+                                  pc.previousPage(
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut);
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: primaryColor,
+                                  side: BorderSide(color: primaryColor),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Text('上一步'),
+                              ),
+                            ),
+                          if (stepIndex > 0) const SizedBox(width: 10),
+                          Expanded(
+                            flex: stepIndex > 0 ? 2 : 1,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                if (stepIndex < totalSteps - 1) {
+                                  setS(() => stepIndex++);
+                                  pc.nextPage(
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut);
+                                } else {
+                                  Navigator.pop(ctx);
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 13),
+                              ),
+                              child: Text(stepIndex < totalSteps - 1 ? '下一步 →' : '✅ 完成導覽'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ── AI 分身模擬畫面 ──
+  Widget _buildCloneMockup(int step, Color primary, bool isDark) {
+    final bg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final cardColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5);
+    switch (step) {
+      case 0:
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildMockAppBar('社群', primary, isDark),
+              const SizedBox(height: 10),
+              ...['小明', '書香', 'Alex'].map((name) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                        color: cardColor, borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: primary.withValues(alpha: 0.2),
+                          child: Text(name[0],
+                              style: TextStyle(color: primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+                              Text('點擊頭像召喚分身 →', style: TextStyle(fontSize: 10, color: primary)),
+                            ],
+                          ),
+                        ),
+                        if (name == '小明')
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                                color: primary.withValues(alpha: 0.15), shape: BoxShape.circle),
+                            child: Icon(Icons.touch_app, size: 14, color: primary),
+                          ),
+                      ],
+                    ),
+                  )),
+            ],
+          ),
+        );
+      case 1:
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                  radius: 32,
+                  backgroundColor: primary.withValues(alpha: 0.2),
+                  child: Text('明', style: TextStyle(color: primary, fontWeight: FontWeight.bold, fontSize: 22))),
+              const SizedBox(height: 8),
+              Text('小明', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+              Text('學習熱情滿滿的夥伴 ✨', style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.grey)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                children: ['勤奮', '邏輯清晰', '樂觀'].map((t) => Chip(
+                    label: Text(t, style: const TextStyle(fontSize: 10)),
+                    backgroundColor: primary.withValues(alpha: 0.12),
+                    padding: EdgeInsets.zero,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 6))).toList(),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                      colors: [const Color(0xFF7B1FA2), primary],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: primary.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('🤖', style: TextStyle(fontSize: 16)),
+                    SizedBox(width: 8),
+                    Text('召喚分身對話', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      default:
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildMockAppBar('🤖 小明的 AI 分身', primary, isDark),
+              const SizedBox(height: 10),
+              _buildMockBubble('我想了解微積分的概念，你怎麼看？', false, primary, isDark),
+              const SizedBox(height: 6),
+              _buildMockBubble('哇！這個問題超有趣！\n微積分其實就像是……（小明風格回覆）✨', true, primary, isDark),
+            ],
+          ),
+        );
+    }
+  }
+
+  // ── AI 排程模擬畫面 ──
+  Widget _buildSchedulingMockup(int step, Color primary, bool isDark) {
+    final bg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final gridColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5);
+    switch (step) {
+      case 0:
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(12),
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMockAppBar('日曆行程', primary, isDark),
+                  const SizedBox(height: 10),
+                  GridView.count(
+                    crossAxisCount: 7,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 1.1,
+                    children: List.generate(28, (i) {
+                      final day = i + 1;
+                      final isToday = day == 10;
+                      final hasEvent = day == 15 || day == 20;
+                      return Container(
+                        margin: const EdgeInsets.all(1.5),
+                        decoration: BoxDecoration(
+                          color: isToday ? primary : (hasEvent ? primary.withValues(alpha: 0.15) : gridColor),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Center(
+                          child: Text('$day',
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  color: isToday ? Colors.white : (isDark ? Colors.white70 : Colors.black54),
+                                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [primary, const Color(0xFFFF8F00)],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: primary.withValues(alpha: 0.5), blurRadius: 8, offset: const Offset(0, 4))],
+                  ),
+                  child: const Text('🤖', style: TextStyle(fontSize: 18)),
+                ),
+              ),
+            ],
+          ),
+        );
+      case 1:
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildMockAppBar('🤖 AI 行事曆助手', primary, isDark),
+              const SizedBox(height: 10),
+              _buildMockBubble('您好！請輸入您的行程，我來幫您安排 📅', true, primary, isDark),
+              const SizedBox(height: 6),
+              _buildMockBubble('明天下午三點和小明討論專題', false, primary, isDark),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: primary.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('✅ 已擷取時間', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primary)),
+                    const SizedBox(height: 4),
+                    Text('📅 明天 15:00–16:00', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87)),
+                    Text('📝 與小明討論專題', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      default:
+        final colors = [Colors.red, Colors.orange, Colors.green, Colors.blue, const Color(0xFF8D6E63), Colors.purple];
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('選擇行程顏色標籤', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+              const SizedBox(height: 4),
+              Text('讓不同類型的行程一眼可辨！', style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.grey)),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: colors.map((c) => _buildMockColorChip(c, c == Colors.orange)).toList(),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(color: primary, borderRadius: BorderRadius.circular(12)),
+                child: const Text('✓ 確認新增行程', textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  // ── 錯題考卷模擬畫面 ──
+  Widget _buildReviewMockup(int step, Color primary, bool isDark) {
+    final bg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final cardColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5);
+    switch (step) {
+      case 0:
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildMockAppBar('📕 錯題本', primary, isDark),
+              const SizedBox(height: 10),
+              ...[
+                {'q': 'Q12. 若 f(x)=x²，求 f\'(3) 的值', 'tag': '微積分', 'wrong': '2'},
+                {'q': 'Q35. 下列何者為質數？', 'tag': '數論', 'wrong': '1'},
+              ].map((item) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6)),
+                              child: Text(item['tag']!, style: const TextStyle(fontSize: 9, color: Colors.red)),
+                            ),
+                            const Spacer(),
+                            Text('答錯 ${item["wrong"]} 次', style: const TextStyle(fontSize: 9, color: Colors.red)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(item['q']!, style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87)),
+                      ],
+                    ),
+                  )),
+            ],
+          ),
+        );
+      case 1:
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildMockAppBar('Q12. 微積分', primary, isDark),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: primary.withValues(alpha: 0.3))),
+                child: Text('💡 AI 智慧解析\n\nf\'(x) 代表 f(x) 的導函數。\n當 f(x)=x² 時，f\'(x)=2x，\n所以 f\'(3) = 2×3 = 6。',
+                    style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87, height: 1.6)),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7B1FA2).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF7B1FA2).withValues(alpha: 0.4)),
+                ),
+                child: const Text('📝 加入筆記', textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF7B1FA2), fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
+          ),
+        );
+      default:
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              _buildMockAppBar('選擇題目生成考卷', primary, isDark),
+              const SizedBox(height: 10),
+              _buildMockCheckboxItem('Q12. 若 f(x)=x²，求 f\'(3)', true, primary, isDark),
+              const SizedBox(height: 6),
+              _buildMockCheckboxItem('Q35. 下列何者為質數？', true, primary, isDark),
+              const SizedBox(height: 6),
+              _buildMockCheckboxItem('Q47. 三角形面積公式', false, primary, isDark),
+              const Spacer(),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                      colors: [primary, const Color(0xFFFF8F00)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: primary.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))],
+                ),
+                child: const Text('📋 一鍵生成考卷 (已選 2 題)', textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  // ── 模擬 AppBar ──
+  Widget _buildMockAppBar(String title, Color primary, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.arrow_back_ios_new, size: 12, color: primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(title,
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 模擬聊天氣泡 ──
+  Widget _buildMockBubble(String text, bool isAI, Color primary, bool isDark) {
+    return Align(
+      alignment: isAI ? Alignment.centerLeft : Alignment.centerRight,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: isAI
+              ? primary.withValues(alpha: 0.12)
+              : const Color(0xFF8D6E63).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(12),
+            topRight: const Radius.circular(12),
+            bottomLeft: Radius.circular(isAI ? 2 : 12),
+            bottomRight: Radius.circular(isAI ? 12 : 2),
+          ),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 11,
+                color: isAI ? (isDark ? Colors.white70 : Colors.black87) : Colors.white,
+                height: 1.4)),
+      ),
+    );
+  }
+
+  // ── 模擬顏色標籤 ──
+  Widget _buildMockColorChip(Color color, bool isSelected) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
+        boxShadow: isSelected ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 8)] : null,
+      ),
+      child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+    );
+  }
+
+  // ── 模擬勾選題目 ──
+  Widget _buildMockCheckboxItem(String text, bool checked, Color primary, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: checked ? primary.withValues(alpha: 0.1) : (isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: checked ? primary.withValues(alpha: 0.4) : Colors.transparent),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            checked ? Icons.check_box : Icons.check_box_outline_blank,
+            size: 16,
+            color: checked ? primary : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87)),
+          ),
         ],
       ),
     );

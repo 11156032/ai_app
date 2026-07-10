@@ -7,7 +7,8 @@
       "type": "dart",
       "deviceId": "chrome",
       "args": [
-        "--web-port=5000"
+        "--web-port=5000",
+        "--user-data-dir=.chrome_profile"
       ]
     },
     {

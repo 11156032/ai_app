@@ -46,3 +46,7 @@ app.*.map.json
 
 # Local configuration secrets (API Keys)
 assets/keys.env
+
+# Chrome debug profile cache
+.chrome_profile/
+

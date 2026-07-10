@@ -74,6 +74,7 @@ class AIIntentService {
 
     UserIntent bestMatch = UserIntent.none;
     int highestScore = 0;
+    int bestKeywordLength = 0;
 
     _intentMetadata.forEach((intent, data) {
       List<String> keywords = data['keywords'];
@@ -97,6 +98,12 @@ class AIIntentService {
         if (score > highestScore) {
           highestScore = score;
           bestMatch = intent;
+          bestKeywordLength = keyword.length;
+        } else if (score == highestScore && score > 0) {
+          if (keyword.length > bestKeywordLength) {
+            bestMatch = intent;
+            bestKeywordLength = keyword.length;
+          }
         }
       }
     });

@@ -58,7 +58,7 @@ class DatabaseHelper {
     final db = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12,
+        version: 13,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -145,6 +145,12 @@ class DatabaseHelper {
         await db.execute(
             'ALTER TABLE users ADD COLUMN is_currently_logged_in INTEGER DEFAULT 0');
         debugPrint('Dynamic migration: Added is_currently_logged_in column to users table.');
+      }
+
+      if (!userCols.any((c) => c['name'] == 'show_floating_nav_bar')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN show_floating_nav_bar INTEGER DEFAULT 0');
+        debugPrint('Dynamic migration: Added show_floating_nav_bar column to users table.');
       }
 
       var quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
@@ -335,6 +341,13 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE users ADD COLUMN is_google INTEGER DEFAULT 0');
       }
     }
+    if (oldVersion < 13) {
+      var userCols = await db.rawQuery('PRAGMA table_info(users)');
+      if (!userCols.any((c) => c['name'] == 'show_floating_nav_bar')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN show_floating_nav_bar INTEGER DEFAULT 0');
+      }
+    }
   }
 
   Future _onConfigure(Database db) async {
@@ -366,6 +379,7 @@ class DatabaseHelper {
         calendar_view_mode TEXT DEFAULT 'dot',
         social_feed_layout TEXT DEFAULT 'card',
         is_currently_logged_in INTEGER DEFAULT 0,
+        show_floating_nav_bar INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');

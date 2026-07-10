@@ -980,6 +980,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _agreedToTerms = false; // 註冊時必須勾選吀意服務條款與隱私權政策
 
   // ── 登入成功動畫 ────────────────────────────────────────────────────────
   OverlayEntry? _overlayEntry;
@@ -1260,6 +1261,89 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // 登入頁內嵌條款/隱私彈窗（服務條款與隱私權政策的精簡版本）
+  void _showInlineDialog({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+  }) {
+    final isTerms = title == '服務條款';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF8D6E63)),
+            const SizedBox(width: 10),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 320,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: isTerms
+                  ? [
+                      _buildInlineSection('1. 接受條款', '您使用本服務即代表您已閱讀、理解並同意受本服務條款約束。若您未滿 13 歲，請停止使用本服務。'),
+                      _buildInlineSection('2. 帳號責任', '您有責任妥善保管帳號憑證，並對帳號下發生的所有活動負責。如發現帳號遭未經授權使用，請立即通知我們。'),
+                      _buildInlineSection('3. 使用者行為規範', '不得散佈違法、騷擾、誹謗或侵權內容；不得傳播惡意程式；不得以自動化方式大量存取服務。我們保留移除違規內容及停權帳號的權利。'),
+                      _buildInlineSection('4. AI 功能聲明', 'AI 智慧功能（含 AI 診斷、AI 分身、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考，不構成專業建議。'),
+                      _buildInlineSection('5. 免責聲明', '本服務「依現狀」提供，不附帶任何形式的保證。在法律允許的範圍內，我們不對因使用本服務所造成的損害負責。'),
+                      _buildInlineSection('6. 條款修改', '我們保留隨時修訂本條款的權利，修訂後的條款將於 App 內公告。繼續使用即代表接受修訂後的條款。'),
+                    ]
+                  : [
+                      _buildInlineSection('1. 蒐集的資料類型', '帳號資訊（使用者名稱、電子郵件）、學習歷程（測驗紀錄、筆記）、功能使用偏好及裝置作業系統版本。'),
+                      _buildInlineSection('2. 資料使用目的', '僅用於提供、維護及改善服務功能，以及個人化您的學習體驗。我們不會出售您的個人資料給任何第三方。'),
+                      _buildInlineSection('3. 資料儲存', '資料主要儲存於您裝置本地的 SQLite 資料庫中。AI 對話等功能需透過加密連線（HTTPS）傳輸至第三方 AI 服務。'),
+                      _buildInlineSection('4. 您的資料權利', '您可隨時查詢、修改個人資料，或申請刪除帳號（我們將於 30 天內清除您的個人資料）。'),
+                      _buildInlineSection('5. 第三方服務', '使用 Google 登入、Google Gemini AI 及 OpenRouter AI 等服務時，相關資料將依各自的隱私權政策處理。'),
+                    ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8D6E63),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('我已了解'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineSection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8D6E63))),
+          const SizedBox(height: 4),
+          Text(content,
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: Colors.grey.shade700,
+                  height: 1.5)),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (isLogin) {
       if (_emailCtrl.text.isEmpty ||
@@ -1290,6 +1374,15 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: const Text('確定'))
                   ],
                 ));
+        return;
+      }
+      if (!_agreedToTerms) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('請先閱讀並勾選同意「服務條款」與「隱私權政策」才能完成註冊。'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         return;
       }
     }
@@ -1681,7 +1774,71 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 14),
                           ],
 
-                          const SizedBox(height: 6),
+                          // 查閱與同意服務條款（僅註冊模式）
+                          if (!isLogin) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Checkbox(
+                                      value: _agreedToTerms,
+                                      onChanged: (v) =>
+                                          setState(() => _agreedToTerms = v ?? false),
+                                      activeColor: const Color(0xFF8D6E63),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(4)),
+                                      side: const BorderSide(
+                                          color: Color(0xFF8D6E63), width: 1.5),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Wrap(
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        Text('我已閱讀並同意本應用程式的 ',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600)),
+                                        GestureDetector(
+                                          onTap: () => _showInlineDialog(
+                                              context: context,
+                                              title: '服務條款',
+                                              icon: Icons.gavel_outlined),
+                                          child: const Text('服務條款',
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF8D6E63),
+                                                  fontWeight: FontWeight.bold,
+                                                  decoration: TextDecoration.underline)),
+                                        ),
+                                        Text(' 與 ',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600)),
+                                        GestureDetector(
+                                          onTap: () => _showInlineDialog(
+                                              context: context,
+                                              title: '隱私權政策',
+                                              icon: Icons.privacy_tip_outlined),
+                                          child: const Text('隱私權政策',
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF8D6E63),
+                                                  fontWeight: FontWeight.bold,
+                                                  decoration: TextDecoration.underline)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
 
                           // 主按鈕（登入 / 註冊）
                           Container(

@@ -875,8 +875,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 (userRows.first['calendar_view_mode'] as String?) ?? 'dot';
             _socialFeedLayout =
                 (userRows.first['social_feed_layout'] as String?) ?? 'card';
+            _showFloatingNavBar = (userRows.first['show_floating_nav_bar'] ?? 0) == 1;
             debugPrint(
-                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _calendarViewMode=$_calendarViewMode, _socialFeedLayout=$_socialFeedLayout');
+                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _calendarViewMode=$_calendarViewMode, _socialFeedLayout=$_socialFeedLayout, _showFloatingNavBar=$_showFloatingNavBar');
           }
         });
       }
@@ -10629,6 +10630,7 @@ $strokePrompt
         'is_dark_mode': _isDarkMode ? 1 : 0,
         'calendar_view_mode': _calendarViewMode,
         'social_feed_layout': _socialFeedLayout,
+        'show_floating_nav_bar': _showFloatingNavBar ? 1 : 0,
       },
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],
