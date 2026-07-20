@@ -58,7 +58,7 @@ class DatabaseHelper {
     final db = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 13,
+        version: 14,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -151,6 +151,12 @@ class DatabaseHelper {
         await db.execute(
             'ALTER TABLE users ADD COLUMN show_floating_nav_bar INTEGER DEFAULT 0');
         debugPrint('Dynamic migration: Added show_floating_nav_bar column to users table.');
+      }
+
+      if (!userCols.any((c) => c['name'] == 'has_seen_tour')) {
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN has_seen_tour INTEGER DEFAULT 0');
+        debugPrint('Dynamic migration: Added has_seen_tour column to users table.');
       }
 
       var quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
@@ -587,6 +593,36 @@ class DatabaseHelper {
       debugPrint('Auto-login: Set logged-in user to $userId');
     } catch (e) {
       debugPrint('Auto-login: Failed to set logged-in user: $e');
+    }
+  }
+
+  /// 查詢指定使用者是否已看過互動引導
+  Future<bool> hasSeenTour(String userId) async {
+    try {
+      final db = await database;
+      final rows = await db.query('users',
+          columns: ['has_seen_tour'], where: 'id = ?', whereArgs: [userId]);
+      if (rows.isEmpty) return false;
+      return (rows.first['has_seen_tour'] as int? ?? 0) == 1;
+    } catch (e) {
+      debugPrint('Tour: Failed to query has_seen_tour: $e');
+      return false;
+    }
+  }
+
+  /// 標記指定使用者已看過互動引導
+  Future<void> setHasSeenTour(String userId) async {
+    try {
+      final db = await database;
+      await db.update(
+        'users',
+        {'has_seen_tour': 1},
+        where: 'id = ?',
+        whereArgs: [userId],
+      );
+      debugPrint('Tour: Marked has_seen_tour=1 for user $userId');
+    } catch (e) {
+      debugPrint('Tour: Failed to set has_seen_tour: $e');
     }
   }
 

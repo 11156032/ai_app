@@ -97,7 +97,13 @@ extension MainScreenSocialTab on _MainScreenState {
           final bool isSelected = (_socialAuthorFilter == uid);
 
           return GestureDetector(
+            key: index == 0 ? _tourFirstPostAvatarKey : null,
             onTap: () {
+              // 若是為了引導，點擊時如果不是在篩選，就顯示個資
+              if (_tourOverlayEntry != null && index == 0) {
+                _showUserProfilePopup(story);
+                return;
+              }
               _update(() {
                 if (_socialAuthorFilter == uid) {
                   _socialAuthorFilter = ''; // 點擊已選中的則清除篩選
@@ -380,11 +386,11 @@ extension MainScreenSocialTab on _MainScreenState {
                 )));
   }
 
-  Widget _buildPostItem(Map<String, dynamic> p) {
+  Widget _buildPostItem(Map<String, dynamic> p, [int? index]) {
     if (_socialFeedLayout == 'list') {
-      return _buildPostItemNewsList(p);
+      return _buildPostItemNewsList(p, index);
     } else {
-      return _buildPostItemPremiumCard(p);
+      return _buildPostItemPremiumCard(p, index);
     }
   }
 
@@ -395,12 +401,12 @@ extension MainScreenSocialTab on _MainScreenState {
           '${p['id']}_${_socialFilter}_${_socialAuthorFilter}_$_socialFeedLayout'),
       duration: const Duration(milliseconds: 350),
       delay: Duration(milliseconds: 50 * (idx % 10)),
-      child: _buildPostItem(p),
+      child: _buildPostItem(p, idx),
     );
   }
 
   // ── 方案A：規格化卡片呈現 ──────────────────────────────────────────
-  Widget _buildPostItemPremiumCard(Map<String, dynamic> p) {
+  Widget _buildPostItemPremiumCard(Map<String, dynamic> p, [int? index]) {
     final bool isDark = _isDarkMode;
     final Color cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
@@ -644,7 +650,7 @@ extension MainScreenSocialTab on _MainScreenState {
               _buildPostMediaPremium(p),
             if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
               _buildFileAttachment(p),
-            _buildSharedResourceCard(p),
+            _buildSharedResourceCard(p, index ?? 0),
             const SizedBox(height: 12),
             Divider(color: borderCol, height: 1),
             const SizedBox(height: 4),
@@ -657,7 +663,8 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   // ── 方案B：新聞式列表呈現 ──────────────────────────────────────────
-  Widget _buildPostItemNewsList(Map<String, dynamic> p) {
+  Widget _buildPostItemNewsList(Map<String, dynamic> p, [int? index]) {
+    final idx = index ?? 0;
     final bool isDark = _isDarkMode;
     final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
     final Color textCol = isDark ? Colors.white70 : Colors.black87;
@@ -826,7 +833,7 @@ extension MainScreenSocialTab on _MainScreenState {
                               color: textCol,
                             ),
                           ),
-                          _buildSharedResourceCard(p),
+                          _buildSharedResourceCard(p, idx),
                           const SizedBox(height: 6),
                           Center(
                             child: GestureDetector(
@@ -1299,7 +1306,7 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   // ── 資源分享預覽卡片 (Premium) ──────────────────────────────────
-  Widget _buildSharedResourceCard(Map<String, dynamic> p) {
+  Widget _buildSharedResourceCard(Map<String, dynamic> p, [int? index]) {
     final attached = p['attached_data'];
     if (attached == null || attached['shared_type'] == null) {
       return const SizedBox.shrink();
@@ -1412,6 +1419,7 @@ extension MainScreenSocialTab on _MainScreenState {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
+                  key: index == 0 && _tourOverlayEntry != null ? _tourDialogSummonKey : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5D4037),
                     foregroundColor: Colors.white,

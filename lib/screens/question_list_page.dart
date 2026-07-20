@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
+import '../widgets/tour_overlay.dart';
 import 'question_set_detail_page.dart';
 import 'paper_builder_page.dart';
 import 'wrong_questions_page.dart';
@@ -451,10 +452,11 @@ class _QuestionListPageState extends State<QuestionListPage> {
     );
   }
 
-  Widget _buildTabItem(int index, String title, IconData icon, ColorScheme cs) {
+  Widget _buildTabItem(int index, String title, IconData icon, ColorScheme cs, {GlobalKey? key}) {
     final isSelected = _selectedTab == index;
     return Expanded(
       child: GestureDetector(
+        key: key,
         onTap: () {
           if (_selectedTab != index) {
             setState(() {
@@ -626,7 +628,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     children: [
                       _buildTabItem(0, '挑題庫', Icons.folder_open_rounded, cs),
                       _buildTabItem(1, '自訂題本', Icons.assignment_outlined, cs),
-                      _buildTabItem(2, '錯題本', Icons.error_outline_rounded, cs),
+                      _buildTabItem(2, '錯題本', Icons.error_outline_rounded, cs, key: TourKeys.wrongQuestionsTabKey),
                       _buildTabItem(3, '我的收藏', Icons.star_rounded, cs),
                     ],
                   ),

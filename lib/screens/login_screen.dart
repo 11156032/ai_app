@@ -1583,13 +1583,27 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         // 註冊新的 Google 帳號
+        String baseUsername = displayName.trim().isNotEmpty
+            ? displayName.trim()
+            : (email.contains('@') ? email.split('@')[0] : 'google_user');
+
+        String uniqueUsername = baseUsername;
+        int counter = 1;
+        while (true) {
+          final existing = await db.query('users',
+              where: 'username = ?', whereArgs: [uniqueUsername]);
+          if (existing.isEmpty) break;
+          uniqueUsername = '${baseUsername}_$counter';
+          counter++;
+        }
+
         String newId = 'g_${DateTime.now().millisecondsSinceEpoch}';
         final newUserData = {
           'id': newId,
-          'username': displayName,
+          'username': uniqueUsername,
           'email': email,
           'hashed_password': 'google_oauth_bypass',
-          'display_name': displayName,
+          'display_name': displayName.trim().isNotEmpty ? displayName : uniqueUsername,
           'is_google': 1,
           'is_email_verified': 1,
         };

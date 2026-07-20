@@ -20,6 +20,7 @@ import 'notes_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../widgets/tour_overlay.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -80,6 +81,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _socialFeedLayout = 'card'; // 社群貼文版面：'card' 規格化 / 'list' 新聞式
   bool _isEmailVerified = false;
   String? _displayName;
+
+  // ── 互動式引導 Tour ──
+  bool _isTourActive = false;
+  OverlayEntry? _tourOverlayEntry;
+  // GlobalKeys for tour spotlight
+  final GlobalKey _tourNavCalendarKey = GlobalKey();
+  final GlobalKey _tourNavQuestionKey = GlobalKey();
+  final GlobalKey _tourNavSocialKey = GlobalKey();
+  final GlobalKey _tourAiChatBarKey = GlobalKey();
+  final GlobalKey _tourFirstPostAvatarKey = GlobalKey();
+  final GlobalKey _tourDialogSummonKey = GlobalKey();
 
   Map<String, List<Map<String, dynamic>>> allSchedules = {};
   List<Map<String, dynamic>> allTodos = [];
@@ -198,6 +210,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _selectedDate = _simulatedToday;
     _calendarMonth = DateTime(now.year, now.month, 1);
 
+    // 根據使用者身份決定初始頁面：訪客 (u4) 不能進日曆，預設進入題庫 (1)
+    if (widget.currentUser['id'] == 'u4') {
+      _currentIndex = 1;
+      _appBarTitle = "題庫";
+    }
+
     // 以 2020年1月 為基準 (page 0)，計算今天所在月份的頁碼
     const baseYear = 2020;
     const baseMonth = 1;
@@ -248,7 +266,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     await _loadData();
+
+    // 首次登入自動觸發互動引導（非訪客且還未看過）
+    if (widget.currentUser['id'] != 'u4') {
+      final seen = await DatabaseHelper.instance
+          .hasSeenTour(widget.currentUser['id'].toString());
+      if (!seen && mounted) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted) _startTour();
+        });
+      }
+    }
   }
+
 
   /// 供分片檔案（Extensions）呼叫 setState 的輔助方法
   void _update(VoidCallback fn) {
@@ -924,6 +954,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _recordAppUsageTime();
     _isDisposed = true;
+    _tourOverlayEntry?.remove();
+    _tourOverlayEntry = null;
     _quizTimer?.cancel();
     _scheduleTimer?.cancel();
     _diagnosisStreamSub?.cancel(); // 取消 AI 診斷串流訂閱
@@ -942,11 +974,167 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   // ==========================================
   // 【重要修復】: 將漏掉的日曆與核心切換方法補回
   // ==========================================
+
+  // ── 互動式引導方法 ──
+
+  List<TourStep> _buildTourSteps() {
+    return [
+      // ────── 功能 1：🤖 AI 分身 ──────
+      TourStep(
+        featureTitle: '🤖 AI 分身',
+        featureIndex: 0,
+        stepInFeature: 1,
+        totalInFeature: 2,
+        targetPageIndex: 2,
+        targetKey: null,
+        title: '探索社群頁面',
+        description: '歡迎來到社群頁面！在這裡你可以與同學交流學習進度，不同成員的動態將會一一呈現。',
+      ),
+      TourStep(
+        featureTitle: '🤖 AI 分身',
+        featureIndex: 0,
+        stepInFeature: 2,
+        totalInFeature: 2,
+        targetPageIndex: 2,
+        targetKey: _tourDialogSummonKey,
+        title: '召喚 AI 分身對話',
+        description: '在貼文的筆記資源中，點選「召喚分身」按鈕，AI 將模擬該作者的風格與你進行對話！',
+        onEnter: () {
+          final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+          if (!isMainScreenCurrent && Navigator.canPop(context)) {
+            Navigator.pop(context); // 關閉任何可能打開的彈窗
+          }
+        },
+      ),
+      // ────── 功能 2：📅 AI 排程 ──────
+      TourStep(
+        featureTitle: '📅 AI 排程',
+        featureIndex: 1,
+        stepInFeature: 1,
+        totalInFeature: 2,
+        targetPageIndex: 0,
+        targetKey: null,
+        title: '日曆行程管理',
+        description: '這是你的行事曆頁面，接下來將示範如何使用 AI 排程助手幫你自動安排行程。',
+        skipForGuest: true,
+        guestNote: '🔒 此功能需要正式帳號才能使用。註冊帳號後即可開啟 AI 日曆排程功能！',
+        onEnter: () {
+          final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+          if (!isMainScreenCurrent && Navigator.canPop(context)) {
+            Navigator.pop(context); // 關閉可能遺留的對話框 (如前一步召喚分身的 Modal)
+          }
+        },
+      ),
+      TourStep(
+        featureTitle: '📅 AI 排程',
+        featureIndex: 1,
+        stepInFeature: 2,
+        totalInFeature: 2,
+        targetPageIndex: 0,
+        targetKey: _tourAiChatBarKey,
+        title: 'AI 行事曆小幫手',
+        description: '點擊下方的「去社群 / 加行程...」對話列開啟小幫手，並直接輸入「明天下午三點和小明開會」，AI 就會自動為你安排行程喔！',
+        skipForGuest: true,
+        guestNote: '🔒 此功能需要正式帳號才能使用。',
+        onLeaveBackward: () {
+          final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+          if (!isMainScreenCurrent && Navigator.canPop(context)) {
+            Navigator.pop(context); // 從題庫返回時，確保關閉可能已打開的小幫手 Modal
+          }
+        },
+      ),
+      // ────── 功能 3：📝 錯題考卷 ──────
+      TourStep(
+        featureTitle: '📝 錯題考卷',
+        featureIndex: 2,
+        stepInFeature: 1,
+        totalInFeature: 3,
+        targetPageIndex: 1,
+        targetKey: null,
+        title: '進入題庫系統',
+        description: '這裡是題庫系統，包含了豐富的題庫、自定題卷、錯題本和收藏功能。',
+        onEnter: () {
+          final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+          if (!isMainScreenCurrent && Navigator.canPop(context)) {
+            Navigator.pop(context); // 進入題庫前，關閉前一步可能打開的 AI 小幫手 Modal
+          }
+        },
+      ),
+      TourStep(
+        featureTitle: '📝 錯題考卷',
+        featureIndex: 2,
+        stepInFeature: 2,
+        totalInFeature: 3,
+        targetPageIndex: 1,
+        targetKey: TourKeys.wrongQuestionsTabKey,
+        title: '切換「錯題」分頁',
+        description: '進入題庫後，切換至第三個「錯題」分頁，查看所有曾經答錯的題目紀錄。',
+      ),
+      TourStep(
+        featureTitle: '📝 錯題考卷',
+        featureIndex: 2,
+        stepInFeature: 3,
+        totalInFeature: 3,
+        targetPageIndex: 1,
+        targetKey: TourKeys.startPracticeFabKey,
+        title: '開始全錯題複習',
+        description: '點擊右下角的「開始練習全部」，系統會為你將所有錯題彙整成考卷，馬上開始進行測驗！',
+      ),
+    ];
+  }
+
+  void _startTour() {
+    if (_isTourActive) return;
+    setState(() => _isTourActive = true);
+
+    final overlay = Overlay.of(context);
+    _tourOverlayEntry = OverlayEntry(
+      builder: (_) => TourOverlay(
+        steps: _buildTourSteps(),
+        isGuest: widget.currentUser['id'] == 'u4',
+        onSkip: _stopTour,
+        onComplete: () async {
+          _stopTour();
+          if (widget.currentUser['id'] != 'u4') {
+            await DatabaseHelper.instance
+                .setHasSeenTour(widget.currentUser['id'].toString());
+          }
+        },
+        onNavigatePage: (pageIndex) {
+          if (!mounted) return;
+          final titles = ['日曆行程', '題庫', '社群', '', '個人檔案', '筆記本'];
+          final title = pageIndex < titles.length ? titles[pageIndex] : '';
+          setState(() {
+            _currentIndex = pageIndex;
+            _appBarTitle = title;
+          });
+        },
+      ),
+    );
+    overlay.insert(_tourOverlayEntry!);
+  }
+
+  void _stopTour() {
+    if (!_isTourActive) return;
+    _tourOverlayEntry?.remove();
+    _tourOverlayEntry = null;
+    if (mounted) setState(() => _isTourActive = false);
+  }
+
   void _changePage(int index, String title) {
     if (index == 5 && widget.currentUser['id'] == 'u4') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('⚠️ 訪客帳戶無法使用筆記本功能，請註冊/登入正式帳號以開啟功能！'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    if (index == 0 && widget.currentUser['id'] == 'u4') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ 訪客帳戶無法使用日曆功能，請註冊/登入正式帳號以開啟功能！'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -2221,9 +2409,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavItem(Icons.calendar_month_rounded, '日曆行程', 0),
-              _buildNavItem(Icons.menu_book_rounded, '題庫', 1),
-              _buildNavItem(Icons.forum_rounded, '社群', 2),
+              _buildNavItem(Icons.calendar_month_rounded, '日曆行程', 0, key: _tourNavCalendarKey),
+              _buildNavItem(Icons.menu_book_rounded, '題庫', 1, key: _tourNavQuestionKey),
+              _buildNavItem(Icons.forum_rounded, '社群', 2, key: _tourNavSocialKey),
               _buildNavItem(Icons.person_rounded, '個人檔案', 4),
             ],
           ),
@@ -2232,7 +2420,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String fullLabel, int index) {
+  Widget _buildNavItem(IconData icon, String fullLabel, int index, {GlobalKey? key}) {
     final bool isSelected = _currentIndex == index;
     final primaryColor = Theme.of(context).primaryColor;
 
@@ -2241,6 +2429,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         fullLabel.length > 2 ? fullLabel.substring(0, 2) : fullLabel;
 
     return GestureDetector(
+      key: key,
       onTap: () {
         _changePage(index, fullLabel);
       },
@@ -7560,6 +7749,7 @@ $strokePrompt
   }
 
   Widget _buildAIChatBar() => GestureDetector(
+      key: _tourAiChatBarKey,
       onTap: _openChatModal,
       child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),

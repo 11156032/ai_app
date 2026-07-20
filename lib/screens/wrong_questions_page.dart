@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 // import 'dart:convert';
 import '../database/database_helper.dart';
 import '../services/notebook_helper.dart';
+import '../widgets/tour_overlay.dart';
 import 'question_practice_page.dart';
 
 class WrongQuestionsPage extends StatefulWidget {
@@ -1307,6 +1308,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
           ? null
           : (displayList.isNotEmpty
               ? FloatingActionButton.extended(
+                  key: TourKeys.startPracticeFabKey,
                   heroTag: _currentMode == 0 ? 'wrong_quiz_fab' : 'fav_quiz_fab',
                   onPressed: () {
                     Navigator.push(
