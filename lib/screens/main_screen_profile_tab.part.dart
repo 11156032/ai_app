@@ -212,7 +212,8 @@ extension MainScreenProfileTab on _MainScreenState {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: _isDarkMode ? 0.2 : 0.03), blurRadius: 10),
+              color: Colors.black.withValues(alpha: _isDarkMode ? 0.2 : 0.03),
+              blurRadius: 10),
         ],
       ),
       child: Column(
@@ -222,7 +223,9 @@ extension MainScreenProfileTab on _MainScreenState {
               style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: _isDarkMode ? const Color(0xFFD7CCC8) : Theme.of(context).primaryColor)),
+                  color: _isDarkMode
+                      ? const Color(0xFFD7CCC8)
+                      : Theme.of(context).primaryColor)),
           const SizedBox(height: 16),
           child,
         ],
@@ -307,9 +310,11 @@ extension MainScreenProfileTab on _MainScreenState {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text('顯示底部導覽列',
-                style: TextStyle(fontSize: 14, color: _isDarkMode ? Colors.white70 : Colors.black87)),
-            secondary: Icon(Icons.dock_rounded,
-                size: 20, color: Colors.grey.shade600),
+                style: TextStyle(
+                    fontSize: 14,
+                    color: _isDarkMode ? Colors.white70 : Colors.black87)),
+            secondary:
+                Icon(Icons.dock_rounded, size: 20, color: Colors.grey.shade600),
             value: _showFloatingNavBar,
             activeThumbColor: const Color(0xFF8D6E63),
             onChanged: (val) async {
@@ -321,7 +326,9 @@ extension MainScreenProfileTab on _MainScreenState {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text('深色模式',
-                style: TextStyle(fontSize: 14, color: _isDarkMode ? Colors.white70 : Colors.black87)),
+                style: TextStyle(
+                    fontSize: 14,
+                    color: _isDarkMode ? Colors.white70 : Colors.black87)),
             secondary: Icon(Icons.dark_mode_outlined,
                 size: 20, color: Colors.grey.shade600),
             value: _isDarkMode,
@@ -628,7 +635,11 @@ extension MainScreenProfileTab on _MainScreenState {
       onTap: onTap,
       child: Row(
         children: [
-          Icon(icon, size: 20, color: _isDarkMode ? const Color(0xFFD7CCC8) : Theme.of(context).primaryColor),
+          Icon(icon,
+              size: 20,
+              color: _isDarkMode
+                  ? const Color(0xFFD7CCC8)
+                  : Theme.of(context).primaryColor),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -639,7 +650,9 @@ extension MainScreenProfileTab on _MainScreenState {
                 const SizedBox(height: 4),
                 Text(value,
                     style: TextStyle(
-                        fontSize: 14, color: valueColor ?? (_isDarkMode ? Colors.white70 : Colors.black87))),
+                        fontSize: 14,
+                        color: valueColor ??
+                            (_isDarkMode ? Colors.white70 : Colors.black87))),
               ],
             ),
           ),
@@ -1049,7 +1062,9 @@ extension MainScreenProfileTab on _MainScreenState {
             Row(
               children: [
                 Icon(
-                  mode == 'card' ? Icons.crop_square_rounded : Icons.reorder_rounded,
+                  mode == 'card'
+                      ? Icons.crop_square_rounded
+                      : Icons.reorder_rounded,
                   color: isSelected ? const Color(0xFF8D6E63) : Colors.grey,
                 ),
                 const SizedBox(width: 12),
@@ -1113,18 +1128,27 @@ extension MainScreenProfileTab on _MainScreenState {
                 CircleAvatar(
                   radius: 8,
                   backgroundColor: primary.withValues(alpha: 0.3),
-                  child: Text('A', style: TextStyle(fontSize: 6, color: primary)),
+                  child:
+                      Text('A', style: TextStyle(fontSize: 6, color: primary)),
                 ),
                 const SizedBox(width: 6),
-                Container(width: 30, height: 6, color: textCol.withValues(alpha: 0.3)),
+                Container(
+                    width: 30,
+                    height: 6,
+                    color: textCol.withValues(alpha: 0.3)),
                 const Spacer(),
-                Container(width: 20, height: 6, color: textCol.withValues(alpha: 0.15)),
+                Container(
+                    width: 20,
+                    height: 6,
+                    color: textCol.withValues(alpha: 0.15)),
               ],
             ),
             const SizedBox(height: 6),
-            Container(width: 200, height: 6, color: textCol.withValues(alpha: 0.4)),
+            Container(
+                width: 200, height: 6, color: textCol.withValues(alpha: 0.4)),
             const SizedBox(height: 3),
-            Container(width: 140, height: 6, color: textCol.withValues(alpha: 0.4)),
+            Container(
+                width: 140, height: 6, color: textCol.withValues(alpha: 0.4)),
             const SizedBox(height: 6),
             Container(
               width: double.infinity,
@@ -1160,18 +1184,31 @@ extension MainScreenProfileTab on _MainScreenState {
                       CircleAvatar(
                         radius: 8,
                         backgroundColor: primary.withValues(alpha: 0.3),
-                        child: Text('A', style: TextStyle(fontSize: 6, color: primary)),
+                        child: Text('A',
+                            style: TextStyle(fontSize: 6, color: primary)),
                       ),
                       const SizedBox(width: 6),
-                      Container(width: 30, height: 6, color: textCol.withValues(alpha: 0.3)),
+                      Container(
+                          width: 30,
+                          height: 6,
+                          color: textCol.withValues(alpha: 0.3)),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Container(width: 130, height: 6, color: textCol.withValues(alpha: 0.4)),
+                  Container(
+                      width: 130,
+                      height: 6,
+                      color: textCol.withValues(alpha: 0.4)),
                   const SizedBox(height: 3),
-                  Container(width: 100, height: 6, color: textCol.withValues(alpha: 0.3)),
+                  Container(
+                      width: 100,
+                      height: 6,
+                      color: textCol.withValues(alpha: 0.3)),
                   const SizedBox(height: 6),
-                  Container(width: 50, height: 6, color: textCol.withValues(alpha: 0.15)),
+                  Container(
+                      width: 50,
+                      height: 6,
+                      color: textCol.withValues(alpha: 0.15)),
                 ],
               ),
             ),
@@ -1218,7 +1255,7 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.explore_outlined,
             label: '互動式功能引導',
-            value: '同步操作引導：AI 分身、AI 排程、錯題考卷逐步體驗',
+            value: '操作引導：AI 功能、題庫功能逐步體驗',
             onTap: _startTour,
           ),
           const Divider(height: 24),
@@ -1251,15 +1288,13 @@ extension MainScreenProfileTab on _MainScreenState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('版本資訊',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey)),
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 4),
                     Text(_appVersion,
                         style: TextStyle(
                             fontSize: 14,
-                            color: _isDarkMode
-                                ? Colors.white70
-                                : Colors.black87)),
+                            color:
+                                _isDarkMode ? Colors.white70 : Colors.black87)),
                   ],
                 ),
               ),
@@ -1279,8 +1314,7 @@ extension MainScreenProfileTab on _MainScreenState {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx2, setS) => AlertDialog(
-          backgroundColor:
-              _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
@@ -1289,8 +1323,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   color: Theme.of(context).primaryColor),
               const SizedBox(width: 10),
               const Text('客服與意見回饋',
-                  style:
-                      TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             ],
           ),
           content: SingleChildScrollView(
@@ -1307,12 +1340,22 @@ extension MainScreenProfileTab on _MainScreenState {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _buildTypeChip(ctx2, setS, selectedType, 'bug',
-                        Icons.bug_report_outlined, '回報 Bug',
+                    _buildTypeChip(
+                        ctx2,
+                        setS,
+                        selectedType,
+                        'bug',
+                        Icons.bug_report_outlined,
+                        '回報 Bug',
                         (v) => selectedType = v),
                     const SizedBox(width: 8),
-                    _buildTypeChip(ctx2, setS, selectedType, 'feature',
-                        Icons.lightbulb_outline, '功能建議',
+                    _buildTypeChip(
+                        ctx2,
+                        setS,
+                        selectedType,
+                        'feature',
+                        Icons.lightbulb_outline,
+                        '功能建議',
                         (v) => selectedType = v),
                   ],
                 ),
@@ -1446,8 +1489,7 @@ extension MainScreenProfileTab on _MainScreenState {
       onTap: () => setS(() => onChange(value)),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? Theme.of(ctx).primaryColor.withValues(alpha: 0.15)
@@ -1456,9 +1498,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   : const Color(0xFFF0F0F0)),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected
-                ? Theme.of(ctx).primaryColor
-                : Colors.transparent,
+            color: isSelected ? Theme.of(ctx).primaryColor : Colors.transparent,
             width: 1.5,
           ),
         ),
@@ -1467,19 +1507,15 @@ extension MainScreenProfileTab on _MainScreenState {
           children: [
             Icon(icon,
                 size: 15,
-                color: isSelected
-                    ? Theme.of(ctx).primaryColor
-                    : Colors.grey),
+                color: isSelected ? Theme.of(ctx).primaryColor : Colors.grey),
             const SizedBox(width: 6),
             Text(label,
                 style: TextStyle(
                     fontSize: 13,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: isSelected
-                        ? Theme.of(ctx).primaryColor
-                        : Colors.grey)),
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                    color:
+                        isSelected ? Theme.of(ctx).primaryColor : Colors.grey)),
           ],
         ),
       ),
@@ -1491,26 +1527,22 @@ extension MainScreenProfileTab on _MainScreenState {
     const List<Map<String, dynamic>> pages = [
       {
         'title': 'AI 智能解答',
-        'desc':
-            '在筆記或錯題中長按任意文字，即可呼叫 AI 助手為你解釋概念、補充說明，讓學習不再卡關。',
+        'desc': '在筆記或錯題中長按任意文字，即可呼叫 AI 助手為你解釋概念、補充說明，讓學習不再卡關。',
         'icon': Icons.auto_awesome,
       },
       {
         'title': '社群動態交流',
-        'desc':
-            '在社群頁面中發佈學習心得、筆記摘要或測驗結果，與其他使用者互動交流，一起進步。',
+        'desc': '在社群頁面中發佈學習心得、筆記摘要或測驗結果，與其他使用者互動交流，一起進步。',
         'icon': Icons.forum_outlined,
       },
       {
         'title': '測驗與學習歷程',
-        'desc':
-            '完成每日測驗累積成就，在個人檔案頁面查看本週答題正確率圖表，追蹤學習進步曲線。',
+        'desc': '完成每日測驗累積成就，在個人檔案頁面查看本週答題正確率圖表，追蹤學習進步曲線。',
         'icon': Icons.bar_chart_rounded,
       },
       {
         'title': '筆記與錯題管理',
-        'desc':
-            '瀏覽、新增和整理筆記，搭配智慧搜尋快速定位需要的資料，並將錯題加入複習清單。',
+        'desc': '瀏覽、新增和整理筆記，搭配智慧搜尋快速定位需要的資料，並將錯題加入複習清單。',
         'icon': Icons.menu_book_rounded,
       },
     ];
@@ -1523,8 +1555,8 @@ extension MainScreenProfileTab on _MainScreenState {
           builder: (ctx2, setS) => Dialog(
             backgroundColor:
                 _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420, maxHeight: 540),
               child: Column(
@@ -1539,8 +1571,7 @@ extension MainScreenProfileTab on _MainScreenState {
                         const Expanded(
                           child: Text('使用手冊',
                               style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold)),
+                                  fontSize: 17, fontWeight: FontWeight.bold)),
                         ),
                         IconButton(
                           icon: const Icon(Icons.close),
@@ -1577,7 +1608,8 @@ extension MainScreenProfileTab on _MainScreenState {
                                   ),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                      color: primaryColor.withValues(alpha: 0.3),
+                                      color:
+                                          primaryColor.withValues(alpha: 0.3),
                                       width: 1.5),
                                 ),
                                 child: Icon(p['icon'] as IconData,
@@ -1608,8 +1640,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                   // 分頁指示器 + 按鈕
                   Padding(
-                    padding:
-                        const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1617,8 +1648,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           children: List.generate(
                               pages.length,
                               (i) => AnimatedContainer(
-                                    duration:
-                                        const Duration(milliseconds: 250),
+                                    duration: const Duration(milliseconds: 250),
                                     margin: const EdgeInsets.only(right: 6),
                                     width: i == pageIndex ? 20 : 8,
                                     height: 8,
@@ -1627,8 +1657,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                           ? primaryColor
                                           : primaryColor.withValues(
                                               alpha: 0.25),
-                                      borderRadius:
-                                          BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                   )),
                         ),
@@ -1636,14 +1665,11 @@ extension MainScreenProfileTab on _MainScreenState {
                           children: [
                             if (pageIndex > 0)
                               TextButton(
-                                onPressed: () =>
-                                    pc.previousPage(
-                                        duration: const Duration(
-                                            milliseconds: 300),
-                                        curve: Curves.easeInOut),
+                                onPressed: () => pc.previousPage(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut),
                                 child: const Text('上一頁',
-                                    style: TextStyle(
-                                        color: Colors.grey)),
+                                    style: TextStyle(color: Colors.grey)),
                               ),
                             const SizedBox(width: 4),
                             ElevatedButton(
@@ -1651,24 +1677,22 @@ extension MainScreenProfileTab on _MainScreenState {
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(10)),
+                                    borderRadius: BorderRadius.circular(10)),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 10),
                               ),
                               onPressed: () {
                                 if (pageIndex < pages.length - 1) {
                                   pc.nextPage(
-                                      duration: const Duration(
-                                          milliseconds: 300),
+                                      duration:
+                                          const Duration(milliseconds: 300),
                                       curve: Curves.easeInOut);
                                 } else {
                                   Navigator.pop(ctx);
                                 }
                               },
-                              child: Text(pageIndex < pages.length - 1
-                                  ? '下一頁'
-                                  : '完成'),
+                              child: Text(
+                                  pageIndex < pages.length - 1 ? '下一頁' : '完成'),
                             ),
                           ],
                         ),
@@ -1689,17 +1713,14 @@ extension MainScreenProfileTab on _MainScreenState {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor:
-            _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             Icon(Icons.gavel_outlined, color: primaryColor),
             const SizedBox(width: 10),
             const Text('服務條款',
-                style:
-                    TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -1730,8 +1751,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 const SizedBox(height: 8),
                 Text(
                   '最後更新日期：2026 年 7 月 10 日',
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],
             ),
@@ -1758,17 +1778,14 @@ extension MainScreenProfileTab on _MainScreenState {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor:
-            _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             Icon(Icons.privacy_tip_outlined, color: primaryColor),
             const SizedBox(width: 10),
             const Text('隱私權政策',
-                style:
-                    TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -1793,8 +1810,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 const SizedBox(height: 8),
                 Text(
                   '最後更新日期：2026 年 7 月 10 日',
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],
             ),
@@ -1826,24 +1842,19 @@ extension MainScreenProfileTab on _MainScreenState {
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color:
-                      _isDarkMode ? Colors.white : Colors.black87)),
+                  color: _isDarkMode ? Colors.white : Colors.black87)),
           const SizedBox(height: 6),
           Text(content,
               style: TextStyle(
                   fontSize: 13,
                   height: 1.5,
-                  color: _isDarkMode
-                      ? Colors.white60
-                      : Colors.grey.shade700)),
+                  color: _isDarkMode ? Colors.white60 : Colors.grey.shade700)),
         ],
       ),
     );
   }
 
-
   // --- 客服回饋 API 發送 ---
-
 
   // --- 客服回饋 API 發送 ---
   Future<bool> _submitFeedbackApi({

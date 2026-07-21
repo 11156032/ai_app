@@ -61,7 +61,7 @@ extension MainScreenActivityTab on _MainScreenState {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: myPosts.length,
-      itemBuilder: (context, index) => _buildPostCard(myPosts[index], index),
+      itemBuilder: (context, index) => _buildPostCard(myPosts[index], index, false),
     );
   }
 
@@ -76,7 +76,7 @@ extension MainScreenActivityTab on _MainScreenState {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: bookmarked.length,
-      itemBuilder: (context, index) => _buildPostCard(bookmarked[index], index),
+      itemBuilder: (context, index) => _buildPostCard(bookmarked[index], index, false),
     );
   }
 

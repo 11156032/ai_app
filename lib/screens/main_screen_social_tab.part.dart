@@ -40,7 +40,7 @@ extension MainScreenSocialTab on _MainScreenState {
                 ...filtered
                     .asMap()
                     .entries
-                    .map((e) => _buildPostCard(e.value, e.key))
+                    .map((e) => _buildPostCard(e.value, e.key, true))
             ])),
       ]),
       if (widget.currentUser['id'] != 'u4')
@@ -386,27 +386,27 @@ extension MainScreenSocialTab on _MainScreenState {
                 )));
   }
 
-  Widget _buildPostItem(Map<String, dynamic> p, [int? index]) {
+  Widget _buildPostItem(Map<String, dynamic> p, [int? index, bool isSocialFeed = false]) {
     if (_socialFeedLayout == 'list') {
-      return _buildPostItemNewsList(p, index);
+      return _buildPostItemNewsList(p, index, isSocialFeed);
     } else {
-      return _buildPostItemPremiumCard(p, index);
+      return _buildPostItemPremiumCard(p, index, isSocialFeed);
     }
   }
 
-  Widget _buildPostCard(Map<String, dynamic> p, [int? index]) {
+  Widget _buildPostCard(Map<String, dynamic> p, [int? index, bool isSocialFeed = false]) {
     final idx = index ?? 0;
     return FadeInUp(
       key: ValueKey(
           '${p['id']}_${_socialFilter}_${_socialAuthorFilter}_$_socialFeedLayout'),
       duration: const Duration(milliseconds: 350),
       delay: Duration(milliseconds: 50 * (idx % 10)),
-      child: _buildPostItem(p, idx),
+      child: _buildPostItem(p, idx, isSocialFeed),
     );
   }
 
   // ── 方案A：規格化卡片呈現 ──────────────────────────────────────────
-  Widget _buildPostItemPremiumCard(Map<String, dynamic> p, [int? index]) {
+  Widget _buildPostItemPremiumCard(Map<String, dynamic> p, [int? index, bool isSocialFeed = false]) {
     final bool isDark = _isDarkMode;
     final Color cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
@@ -650,7 +650,7 @@ extension MainScreenSocialTab on _MainScreenState {
               _buildPostMediaPremium(p),
             if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
               _buildFileAttachment(p),
-            _buildSharedResourceCard(p, index ?? 0),
+            _buildSharedResourceCard(p, index ?? 0, isSocialFeed),
             const SizedBox(height: 12),
             Divider(color: borderCol, height: 1),
             const SizedBox(height: 4),
@@ -663,7 +663,7 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   // ── 方案B：新聞式列表呈現 ──────────────────────────────────────────
-  Widget _buildPostItemNewsList(Map<String, dynamic> p, [int? index]) {
+  Widget _buildPostItemNewsList(Map<String, dynamic> p, [int? index, bool isSocialFeed = false]) {
     final idx = index ?? 0;
     final bool isDark = _isDarkMode;
     final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
@@ -833,7 +833,7 @@ extension MainScreenSocialTab on _MainScreenState {
                               color: textCol,
                             ),
                           ),
-                          _buildSharedResourceCard(p, idx),
+                          _buildSharedResourceCard(p, idx, isSocialFeed),
                           const SizedBox(height: 6),
                           Center(
                             child: GestureDetector(
@@ -1306,7 +1306,7 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   // ── 資源分享預覽卡片 (Premium) ──────────────────────────────────
-  Widget _buildSharedResourceCard(Map<String, dynamic> p, [int? index]) {
+  Widget _buildSharedResourceCard(Map<String, dynamic> p, [int? index, bool isSocialFeed = false]) {
     final attached = p['attached_data'];
     if (attached == null || attached['shared_type'] == null) {
       return const SizedBox.shrink();
@@ -1324,6 +1324,15 @@ extension MainScreenSocialTab on _MainScreenState {
       final bool hasStrokes = attached['strokes'] != null &&
           attached['strokes'].toString() != '[]' &&
           attached['strokes'].toString().isNotEmpty;
+
+      final firstNotePost = socialPosts.firstWhere(
+        (post) =>
+            post['attached_data'] != null &&
+            post['attached_data']['shared_type'] == 'note',
+        orElse: () => <String, dynamic>{},
+      );
+      final bool isTargetNotePost =
+          firstNotePost.isNotEmpty && firstNotePost['id'] == p['id'];
 
       return GestureDetector(
         onTap: () => _showNotePreviewDialog(p),
@@ -1419,7 +1428,7 @@ extension MainScreenSocialTab on _MainScreenState {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
-                  key: index == 0 && _tourOverlayEntry != null ? _tourDialogSummonKey : null,
+                  key: isSocialFeed && isTargetNotePost && _tourOverlayEntry != null && _currentIndex == 2 ? _tourDialogSummonKey : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5D4037),
                     foregroundColor: Colors.white,

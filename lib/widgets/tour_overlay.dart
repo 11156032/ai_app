@@ -176,7 +176,8 @@ class _TourOverlayState extends State<TourOverlay>
   }
 
   void _goNext() {
-    _animController.reverse().then((_) {
+    final prevPageIndex = _currentStep.targetPageIndex;
+    _animController.reverse().then((_) async {
       if (!mounted) return;
       setState(() {
         int next = _stepIndex + 1;
@@ -190,17 +191,29 @@ class _TourOverlayState extends State<TourOverlay>
       if (_stepIndex >= widget.steps.length) {
         widget.onComplete();
       } else {
+        final nextPageIndex = _currentStep.targetPageIndex;
         _navigateIfNeeded();
         widget.steps[_effectiveIndex].onEnter?.call();
-        _animController.forward();
+        // 若切換了頁面，稍等讓使用者看清楚畫面再顯示下一步卡片
+        if (nextPageIndex >= 0 && nextPageIndex != prevPageIndex) {
+          await Future.delayed(const Duration(milliseconds: 380));
+        }
+        if (mounted) {
+          _animController.forward();
+          Future.delayed(const Duration(milliseconds: 250), () {
+            if (mounted) setState(() {});
+          });
+        }
       }
     });
   }
 
+
   void _goBack() {
     if (_stepIndex <= 0) return;
+    final prevPageIndex = _currentStep.targetPageIndex;
     widget.steps[_effectiveIndex].onLeaveBackward?.call();
-    _animController.reverse().then((_) {
+    _animController.reverse().then((_) async {
       if (!mounted) return;
       setState(() {
         int prev = _stepIndex - 1;
@@ -210,10 +223,20 @@ class _TourOverlayState extends State<TourOverlay>
           prev--;
         }
         if (prev >= 0) _stepIndex = prev;
-        _navigateIfNeeded();
-        widget.steps[_effectiveIndex].onEnter?.call();
       });
-      _animController.forward();
+      final nextPageIndex = _currentStep.targetPageIndex;
+      _navigateIfNeeded();
+      widget.steps[_effectiveIndex].onEnter?.call();
+      // 若切換了頁面，稍等讓使用者看清楚畫面再顯示上一步卡片
+      if (nextPageIndex >= 0 && nextPageIndex != prevPageIndex) {
+        await Future.delayed(const Duration(milliseconds: 380));
+      }
+      if (mounted) {
+        _animController.forward();
+        Future.delayed(const Duration(milliseconds: 250), () {
+          if (mounted) setState(() {});
+        });
+      }
     });
   }
 
@@ -278,9 +301,10 @@ class _TourOverlayState extends State<TourOverlay>
           // ── 遮罩 + 聚光燈 ──
           Positioned.fill(
             child: Listener(
-              behavior: HitTestBehavior.translucent,
+              behavior: HitTestBehavior.opaque, // opaque：吸收所有點擊，防止穿透到底層 Widget
               onPointerDown: (event) {
-                if (targetRect != null && targetRect.contains(event.position)) {
+                final liveRect = _getTargetRect(step.targetKey);
+                if (liveRect != null && liveRect.contains(event.position)) {
                   _goNext();
                 }
               },
@@ -288,13 +312,14 @@ class _TourOverlayState extends State<TourOverlay>
                 child: AnimatedBuilder(
                   animation: _pulseCtrl,
                   builder: (context, child) {
+                    final liveRect = _getTargetRect(step.targetKey);
                     return CustomPaint(
                       painter: SpotlightPainter(
-                        highlightRect: targetRect,
+                        highlightRect: liveRect ?? targetRect,
                         pulseValue: _pulseCtrl.value,
                       ),
                     );
-                  }
+                  },
                 ),
               ),
             ),

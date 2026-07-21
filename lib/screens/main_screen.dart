@@ -21,6 +21,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../widgets/tour_overlay.dart';
+import '../widgets/welcome_splash.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -85,6 +86,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   // ── 互動式引導 Tour ──
   bool _isTourActive = false;
   OverlayEntry? _tourOverlayEntry;
+  OverlayEntry? _welcomeSplashEntry; // 歡迎頁 Overlay
   // GlobalKeys for tour spotlight
   final GlobalKey _tourNavCalendarKey = GlobalKey();
   final GlobalKey _tourNavQuestionKey = GlobalKey();
@@ -267,16 +269,43 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     await _loadData();
 
-    // 首次登入自動觸發互動引導（非訪客且還未看過）
+    // 首次登入自動觸發歡迎頁 + 互動引導（非訪客且還未看過）
     if (widget.currentUser['id'] != 'u4') {
       final seen = await DatabaseHelper.instance
           .hasSeenTour(widget.currentUser['id'].toString());
       if (!seen && mounted) {
-        Future.delayed(const Duration(milliseconds: 800), () {
-          if (mounted) _startTour();
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) _showWelcomeSplash();
         });
       }
     }
+  }
+
+  /// 顯示全頁歡迎引導（3 slides），完成後接著跑 Tour
+  void _showWelcomeSplash() {
+    if (_welcomeSplashEntry != null) return;
+    final overlay = Overlay.of(context);
+    _welcomeSplashEntry = OverlayEntry(
+      builder: (_) => WelcomeSplash(
+        userName: _displayName,
+        onDone: () {
+          // 關閉歡迎頁，接著啟動互動引導 Tour
+          _welcomeSplashEntry?.remove();
+          _welcomeSplashEntry = null;
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) _startTour();
+          });
+        },
+        onSkip: () async {
+          // 略過全部引導，標記已看過
+          _welcomeSplashEntry?.remove();
+          _welcomeSplashEntry = null;
+          await DatabaseHelper.instance
+              .setHasSeenTour(widget.currentUser['id'].toString());
+        },
+      ),
+    );
+    overlay.insert(_welcomeSplashEntry!);
   }
 
 
@@ -954,6 +983,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _recordAppUsageTime();
     _isDisposed = true;
+    _welcomeSplashEntry?.remove();
+    _welcomeSplashEntry = null;
     _tourOverlayEntry?.remove();
     _tourOverlayEntry = null;
     _quizTimer?.cancel();
