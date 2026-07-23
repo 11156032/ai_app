@@ -22,6 +22,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
+import 'tabs/group_detail_page.dart';
+import 'tabs/create_group_dialog.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -80,6 +82,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _socialFilter = '全部'; // 社群貼文分類篩選狀態
   String _socialAuthorFilter = ''; // 社群貼文作者篩選（空字串 = 全部）
   String _socialFeedLayout = 'card'; // 社群貼文版面：'card' 規格化 / 'list' 新聞式
+  int _socialMainTab = 0; // 0=廣場, 1=群組
+  int _groupSubTab = 0; // 0=我的群組, 1=探索
+  List<Map<String, dynamic>> myGroups = [];
+  List<Map<String, dynamic>> allGroups = [];
   bool _isEmailVerified = false;
   String? _displayName;
 
@@ -121,7 +127,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _totalQuestionsAnswered = 0;
   int _selectedBarIndex = DateTime.now().weekday - 1;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.2.0';
+  String _appVersion = 'v1.3.0';
 
   // --- 排行榜資料 ---
   List<Map<String, dynamic>> _leaderboardList = [];
@@ -200,6 +206,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     },
     {'isAI': true, 'text': '', 'isCard': false, 'widgetType': 'help_options'}
   ];
+
+  /// 安全更新 UI 狀態（避免 extension 呼叫 protected member 警告）
+  void _updateState(VoidCallback fn) {
+    if (mounted) {
+      setState(fn);
+    }
+  }
 
   @override
   void initState() {
@@ -539,8 +552,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         debugPrint('Diaries table query failed: $e');
       }
 
-      // ── 載入貼文（含作者頭像資料與貼文分類）──────────────────────
-      final postsdb = await db.query('posts', orderBy: 'created_at DESC');
+      // ── 載入廣場貼文（group_id IS NULL，群組貼文不顯示在廣場）──────────
+      final postsdb = await db.rawQuery(
+          'SELECT * FROM posts WHERE group_id IS NULL ORDER BY created_at DESC');
       List<Map<String, dynamic>> pList = [];
       List<Map<String, dynamic>> sList = [];
       for (var p in postsdb) {
@@ -898,6 +912,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         };
       }).toList();
 
+      // ── 載入群組資料 ──────────────────────────────────────────────
+      List<Map<String, dynamic>> myGroupsList = [];
+      List<Map<String, dynamic>> allGroupsList = [];
+      try {
+        myGroupsList = await DatabaseHelper.instance
+            .getMyGroups(currentUserId.toString());
+        allGroupsList = await DatabaseHelper.instance.getAllGroups();
+      } catch (e) {
+        debugPrint('群組資料載入失敗: $e');
+      }
+
       if (mounted) {
         setState(() {
           allSchedules = schedulesMap;
@@ -906,6 +931,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           socialPosts = pList;
           scheduledPosts = sList;
           questionBank = qList;
+          myGroups = myGroupsList;
+          allGroups = allGroupsList;
           _userAvatarBlob = userAvatar;
           _userAvatarColor = userAvatarColor;
           _userAvatarSelected = userAvatarSelected == 1;
@@ -12106,8 +12133,9 @@ class _QuizHistoryPageState extends State<_QuizHistoryPage> {
 class CreatePostPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
   final VoidCallback onPosted;
+  final int? groupId; // null = 廣場貼文, 非 null = 群組貼文
   const CreatePostPage(
-      {super.key, required this.currentUser, required this.onPosted});
+      {super.key, required this.currentUser, required this.onPosted, this.groupId});
   @override
   State<CreatePostPage> createState() => _CreatePostPageState();
 }
@@ -12272,6 +12300,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         'media_blob': blobData,
         'attached_data': jsonEncode(attachedMap),
         'created_at': DateTime.now().toIso8601String(),
+        if (widget.groupId != null) 'group_id': widget.groupId,
       });
 
       if ((widget.currentUser['username'] ?? '') == '訪客') {

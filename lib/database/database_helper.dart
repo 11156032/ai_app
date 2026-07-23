@@ -58,7 +58,7 @@ class DatabaseHelper {
     final db = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 14,
+        version: 16,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
         onConfigure: _onConfigure,
@@ -109,6 +109,55 @@ class DatabaseHelper {
             'ALTER TABLE posts ADD COLUMN is_edited INTEGER DEFAULT 0');
         debugPrint('Dynamic migration: Added is_edited column to posts table.');
       }
+      if (!postCols.any((c) => c['name'] == 'group_id')) {
+        await db.execute('ALTER TABLE posts ADD COLUMN group_id INTEGER');
+        debugPrint('Dynamic migration: Added group_id column to posts table.');
+      }
+
+      // 社群群組相關資料表（防禦性建立）
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS community_groups (
+          id               INTEGER PRIMARY KEY AUTOINCREMENT,
+          name             TEXT    NOT NULL,
+          description      TEXT    DEFAULT '',
+          icon_emoji       TEXT    DEFAULT '📚',
+          type             TEXT    NOT NULL DEFAULT 'public',
+          owner_id         TEXT    NOT NULL,
+          tags             TEXT    DEFAULT '[]',
+          member_count     INTEGER DEFAULT 1,
+          invite_token     TEXT,
+          token_expires_at DATETIME,
+          invite_link_active INTEGER DEFAULT 1,
+          created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS group_members (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          group_id     INTEGER NOT NULL,
+          user_id      TEXT    NOT NULL,
+          role         TEXT    DEFAULT 'member',
+          status       TEXT    DEFAULT 'active',
+          joined_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+          last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          is_muted     INTEGER DEFAULT 0,
+          FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE (group_id, user_id)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS group_announcements (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          group_id   INTEGER NOT NULL,
+          author_id  TEXT    NOT NULL,
+          content    TEXT    NOT NULL,
+          is_pinned  INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE
+        )
+      ''');
       
       var userCols = await db.rawQuery('PRAGMA table_info(users)');
       if (!userCols.any((c) => c['name'] == 'deleted_at')) {
@@ -179,6 +228,16 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Added recurrence_end column to calendar_events table.');
       }
 
+      var gmCols = await db.rawQuery('PRAGMA table_info(group_members)');
+      if (gmCols.isNotEmpty && !gmCols.any((c) => c['name'] == 'last_read_at')) {
+        await db.execute("ALTER TABLE group_members ADD COLUMN last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        debugPrint('Dynamic migration: Added last_read_at column to group_members table.');
+      }
+      if (gmCols.isNotEmpty && !gmCols.any((c) => c['name'] == 'is_muted')) {
+        await db.execute("ALTER TABLE group_members ADD COLUMN is_muted INTEGER DEFAULT 0");
+        debugPrint('Dynamic migration: Added is_muted column to group_members table.');
+      }
+
       // 自我修復：如果原廠測試帳號被清空，自動重新導入 (以 Sharon 帳號 id = u1 為指標)
       final u1Check = await db.query('users', where: "id = 'u1'");
       if (u1Check.isEmpty) {
@@ -197,6 +256,7 @@ class DatabaseHelper {
       if (qCount < 100) {
         await _seedAllChapterMockQuestions(db);
       }
+      await _healOrphanedGroups(db);
     } catch (e) {
       debugPrint('Error checking/adding dynamic columns or cleaning up: $e');
     }
@@ -352,6 +412,66 @@ class DatabaseHelper {
       if (!userCols.any((c) => c['name'] == 'show_floating_nav_bar')) {
         await db.execute(
             'ALTER TABLE users ADD COLUMN show_floating_nav_bar INTEGER DEFAULT 0');
+      }
+    }
+    if (oldVersion < 15) {
+      // posts.group_id
+      var postCols = await db.rawQuery('PRAGMA table_info(posts)');
+      if (!postCols.any((c) => c['name'] == 'group_id')) {
+        await db.execute('ALTER TABLE posts ADD COLUMN group_id INTEGER');
+      }
+      // community_groups
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS community_groups (
+          id               INTEGER PRIMARY KEY AUTOINCREMENT,
+          name             TEXT    NOT NULL,
+          description      TEXT    DEFAULT '',
+          icon_emoji       TEXT    DEFAULT '📚',
+          type             TEXT    NOT NULL DEFAULT 'public',
+          owner_id         TEXT    NOT NULL,
+          tags             TEXT    DEFAULT '[]',
+          member_count     INTEGER DEFAULT 1,
+          invite_token     TEXT,
+          token_expires_at DATETIME,
+          invite_link_active INTEGER DEFAULT 1,
+          created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      ''');
+      // group_members
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS group_members (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          group_id  INTEGER NOT NULL,
+          user_id   TEXT    NOT NULL,
+          role      TEXT    DEFAULT 'member',
+          status    TEXT    DEFAULT 'active',
+          joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE (group_id, user_id)
+        )
+      ''');
+      // group_announcements
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS group_announcements (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          group_id   INTEGER NOT NULL,
+          author_id  TEXT    NOT NULL,
+          content    TEXT    NOT NULL,
+          is_pinned  INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE
+        )
+      ''');
+    }
+    if (oldVersion < 16) {
+      var gmCols = await db.rawQuery('PRAGMA table_info(group_members)');
+      if (gmCols.isNotEmpty && !gmCols.any((c) => c['name'] == 'last_read_at')) {
+        await db.execute("ALTER TABLE group_members ADD COLUMN last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+      }
+      if (gmCols.isNotEmpty && !gmCols.any((c) => c['name'] == 'is_muted')) {
+        await db.execute("ALTER TABLE group_members ADD COLUMN is_muted INTEGER DEFAULT 0");
       }
     }
   }
@@ -556,6 +676,54 @@ class DatabaseHelper {
       )
     ''');
 
+    // 13. community_groups
+    await db.execute('''
+      CREATE TABLE community_groups (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        name             TEXT    NOT NULL,
+        description      TEXT    DEFAULT '',
+        icon_emoji       TEXT    DEFAULT '📚',
+        type             TEXT    NOT NULL DEFAULT 'public',
+        owner_id         TEXT    NOT NULL,
+        tags             TEXT    DEFAULT '[]',
+        member_count     INTEGER DEFAULT 1,
+        invite_token     TEXT,
+        token_expires_at DATETIME,
+        invite_link_active INTEGER DEFAULT 1,
+        created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // 14. group_members
+    await db.execute('''
+      CREATE TABLE group_members (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id     INTEGER NOT NULL,
+        user_id      TEXT    NOT NULL,
+        role         TEXT    DEFAULT 'member',
+        status       TEXT    DEFAULT 'active',
+        joined_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE (group_id, user_id)
+      )
+    ''');
+
+    // 15. group_announcements
+    await db.execute('''
+      CREATE TABLE group_announcements (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id   INTEGER NOT NULL,
+        author_id  TEXT    NOT NULL,
+        content    TEXT    NOT NULL,
+        is_pinned  INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE
+      )
+    ''');
+
     // Indexes
     await db.execute(
         'CREATE INDEX idx_events_user_id ON calendar_events (user_id)');
@@ -573,6 +741,9 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_posts_type ON posts (type)');
     await db.execute('CREATE INDEX idx_comments_post_id ON comments (post_id)');
     await db.execute('CREATE INDEX idx_diaries_user_id ON diaries (user_id)');
+    await db.execute('CREATE INDEX idx_group_members_group ON group_members (group_id)');
+    await db.execute('CREATE INDEX idx_group_members_user ON group_members (user_id)');
+    await db.execute('CREATE INDEX idx_posts_group_id ON posts (group_id)');
 
     await _seedDatabase(db);
   }
@@ -665,6 +836,401 @@ class DatabaseHelper {
       debugPrint('Auto-login: Failed to get logged-in user: $e');
     }
     return null;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // 社群群組 Helper Methods
+  // ─────────────────────────────────────────────────────────────────
+
+  /// 產生一個簡單的 UUID-like token（不依賴外部套件）
+  String _generateToken() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final rand = (now * 6364136223846793005 + 1442695040888963407) % (1 << 53);
+    return '${now.toRadixString(16)}-${rand.abs().toRadixString(16)}';
+  }
+
+  /// 動態修復 group_members 欄位 (確保 last_read_at 與 is_muted 存在)
+  Future<void> _ensureGroupMembersColumns(Database db) async {
+    try {
+      var gmCols = await db.rawQuery('PRAGMA table_info(group_members)');
+      if (gmCols.isNotEmpty) {
+        if (!gmCols.any((c) => c['name'] == 'last_read_at')) {
+          await db.execute("ALTER TABLE group_members ADD COLUMN last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+          debugPrint('Dynamic migration: Added last_read_at column to group_members table.');
+        }
+        if (!gmCols.any((c) => c['name'] == 'is_muted')) {
+          await db.execute("ALTER TABLE group_members ADD COLUMN is_muted INTEGER DEFAULT 0");
+          debugPrint('Dynamic migration: Added is_muted column to group_members table.');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in _ensureGroupMembersColumns: $e');
+    }
+  }
+
+  /// 建立群組，自動加入 owner 成員，返回新群組 id
+  Future<int> createGroup({
+    required String name,
+    required String description,
+    required String iconEmoji,
+    required String type, // 'public' | 'private'
+    required String ownerId,
+    List<String> tags = const [],
+  }) async {
+    final db = await database;
+    await _ensureGroupMembersColumns(db);
+
+    final token = _generateToken();
+    final groupId = await db.insert('community_groups', {
+      'name': name,
+      'description': description,
+      'icon_emoji': iconEmoji,
+      'type': type,
+      'owner_id': ownerId,
+      'tags': jsonEncode(tags),
+      'member_count': 1,
+      'invite_token': token,
+      'invite_link_active': 1,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+    final now = DateTime.now().toIso8601String();
+    
+    // 自動加入 owner 成員 (帶容錯降級處理)
+    try {
+      await db.insert('group_members', {
+        'group_id': groupId,
+        'user_id': ownerId,
+        'role': 'owner',
+        'status': 'active',
+        'joined_at': now,
+        'last_read_at': now,
+        'is_muted': 0,
+      });
+    } catch (e) {
+      debugPrint('createGroup insert with new columns failed, repairing schema...: $e');
+      await _ensureGroupMembersColumns(db);
+      try {
+        await db.insert('group_members', {
+          'group_id': groupId,
+          'user_id': ownerId,
+          'role': 'owner',
+          'status': 'active',
+          'joined_at': now,
+          'last_read_at': now,
+          'is_muted': 0,
+        });
+      } catch (_) {
+        await db.insert('group_members', {
+          'group_id': groupId,
+          'user_id': ownerId,
+          'role': 'owner',
+          'status': 'active',
+          'joined_at': now,
+        });
+      }
+    }
+    return groupId;
+  }
+
+  /// 自我修復：將孤立的群組（有 community_groups 但創辦者未加入 group_members）自動補齊至 group_members
+  Future<void> _healOrphanedGroups(Database db) async {
+    try {
+      await _ensureGroupMembersColumns(db);
+      // 1. 補齊未出現在 group_members 的群組創辦者 (正確對應 group_id, user_id，不覆蓋 group_members.id)
+      await db.execute('''
+        INSERT INTO group_members (group_id, user_id, role, status, joined_at, last_read_at, is_muted)
+        SELECT cg.id, cg.owner_id, 'owner', 'active', cg.created_at, cg.created_at, 0
+        FROM community_groups cg
+        WHERE cg.owner_id IS NOT NULL AND cg.owner_id != ''
+          AND NOT EXISTS (
+            SELECT 1 FROM group_members gm WHERE gm.group_id = cg.id AND gm.user_id = cg.owner_id
+          )
+      ''');
+      // 2. 確保所有創辦者成員狀態皆為 owner / active
+      await db.execute('''
+        UPDATE group_members
+        SET role = 'owner', status = 'active'
+        WHERE EXISTS (
+          SELECT 1 FROM community_groups cg
+          WHERE cg.id = group_members.group_id AND cg.owner_id = group_members.user_id
+        )
+      ''');
+    } catch (e) {
+      debugPrint('Error healing orphaned groups: $e');
+    }
+  }
+
+  /// 取得我加入（或我建立）的所有群組，含待審核人數 pending_count、未讀動態數 unread_count 與靜音狀態 is_muted
+  Future<List<Map<String, dynamic>>> getMyGroups(String userId) async {
+    try {
+      final db = await database;
+      await _healOrphanedGroups(db);
+      return await db.rawQuery('''
+        SELECT cg.*,
+               COALESCE(gm.role, 'owner') as role,
+               COALESCE(gm.status, 'active') as status,
+               COALESCE(gm.last_read_at, '1970-01-01') as last_read_at,
+               COALESCE(gm.is_muted, 0) as is_muted,
+               (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = cg.id AND gm2.status = 'pending') as pending_count,
+               (SELECT COUNT(*) FROM posts p WHERE p.group_id = cg.id AND p.created_at > COALESCE(gm.last_read_at, '1970-01-01')) as unread_count
+        FROM community_groups cg
+        LEFT JOIN group_members gm ON cg.id = gm.group_id AND gm.user_id = ?
+        WHERE (gm.user_id = ? AND gm.status = 'active') OR cg.owner_id = ?
+        ORDER BY (CASE WHEN COALESCE(gm.is_muted, 0) = 1 THEN 1 ELSE 0 END) ASC, unread_count DESC, cg.created_at DESC
+      ''', [userId, userId, userId]);
+    } catch (e) {
+      debugPrint('Error in getMyGroups: $e');
+      return [];
+    }
+  }
+
+  /// 將指定群組標記為已讀（更新 last_read_at 時間）
+  Future<void> markGroupAsRead(int groupId, String userId) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'group_members',
+      {'last_read_at': now},
+      where: 'group_id = ? AND user_id = ?',
+      whereArgs: [groupId, userId],
+    );
+  }
+
+  /// 將指定群組標記為未讀（重置 last_read_at）
+  Future<void> markGroupAsUnread(int groupId, String userId) async {
+    final db = await database;
+    await db.update(
+      'group_members',
+      {'last_read_at': '1970-01-01 00:00:00'},
+      where: 'group_id = ? AND user_id = ?',
+      whereArgs: [groupId, userId],
+    );
+  }
+
+  /// 一鍵將所有群組標記為已讀（LINE 經典功能）
+  Future<void> markAllGroupsAsRead(String userId) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'group_members',
+      {'last_read_at': now},
+      where: 'user_id = ? AND status = "active"',
+      whereArgs: [userId],
+    );
+  }
+
+  /// 切換群組靜音狀態（0 <-> 1）
+  Future<bool> toggleGroupMute(int groupId, String userId) async {
+    final db = await database;
+    final rows = await db.query('group_members',
+        where: 'group_id = ? AND user_id = ?',
+        whereArgs: [groupId, userId],
+        limit: 1);
+    if (rows.isEmpty) return false;
+    final currentMuted = (rows.first['is_muted'] as int? ?? 0) == 1;
+    final newMuted = !currentMuted;
+    await db.update(
+      'group_members',
+      {'is_muted': newMuted ? 1 : 0},
+      where: 'group_id = ? AND user_id = ?',
+      whereArgs: [groupId, userId],
+    );
+    return newMuted;
+  }
+
+  /// 取得所有公開群組
+  Future<List<Map<String, dynamic>>> getAllPublicGroups() async {
+    final db = await database;
+    return await db.query('community_groups',
+        where: "type = 'public'",
+        orderBy: 'member_count DESC, created_at DESC');
+  }
+
+  /// 取得所有群組（公開 + 私人，用於探索頁）
+  Future<List<Map<String, dynamic>>> getAllGroups() async {
+    final db = await database;
+    return await db.query('community_groups',
+        orderBy: 'member_count DESC, created_at DESC');
+  }
+
+  /// 取得群組詳細資料（含成員數）
+  Future<Map<String, dynamic>?> getGroupById(int groupId) async {
+    final db = await database;
+    final rows = await db.query('community_groups',
+        where: 'id = ?', whereArgs: [groupId], limit: 1);
+    if (rows.isEmpty) return null;
+    return Map<String, dynamic>.from(rows.first);
+  }
+
+  /// 取得群組成員列表（含使用者資訊，使用 LEFT JOIN 防止使用者不存在引發成員歸零）
+  Future<List<Map<String, dynamic>>> getGroupMembers(int groupId) async {
+    final db = await database;
+    await _healOrphanedGroups(db);
+    return await db.rawQuery('''
+      SELECT gm.*,
+             COALESCE(u.display_name, '群組成員') as display_name,
+             u.avatar_blob, u.avatar_color, u.avatar_selected, u.bio
+      FROM group_members gm
+      LEFT JOIN users u ON gm.user_id = u.id
+      WHERE gm.group_id = ? AND gm.status IN ('active', 'pending')
+      ORDER BY
+        CASE gm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
+        gm.joined_at ASC
+    ''', [groupId]);
+  }
+
+  /// 取得群組貼文
+  Future<List<Map<String, dynamic>>> getGroupPosts(int groupId) async {
+    final db = await database;
+    return await db.query('posts',
+        where: 'group_id = ?',
+        whereArgs: [groupId],
+        orderBy: 'created_at DESC');
+  }
+
+  /// 查詢使用者是否為群組成員（status = active）
+  Future<Map<String, dynamic>?> getGroupMembership(
+      int groupId, String userId) async {
+    final db = await database;
+    final rows = await db.query('group_members',
+        where: 'group_id = ? AND user_id = ?',
+        whereArgs: [groupId, userId],
+        limit: 1);
+    if (rows.isEmpty) return null;
+    return Map<String, dynamic>.from(rows.first);
+  }
+
+  /// 加入公開群組 / 申請私人群組
+  /// isPending: true = 申請中（私人群組），false = 直接加入（公開群組）
+  Future<void> joinGroup(int groupId, String userId,
+      {bool isPending = false}) async {
+    final db = await database;
+    await _ensureGroupMembersColumns(db);
+    final status = isPending ? 'pending' : 'active';
+    final now = DateTime.now().toIso8601String();
+    // 若已存在則更新 status
+    final existing = await db.query('group_members',
+        where: 'group_id = ? AND user_id = ?',
+        whereArgs: [groupId, userId],
+        limit: 1);
+    if (existing.isEmpty) {
+      try {
+        await db.insert('group_members', {
+          'group_id': groupId,
+          'user_id': userId,
+          'role': 'member',
+          'status': status,
+          'joined_at': now,
+          'last_read_at': now,
+          'is_muted': 0,
+        });
+      } catch (_) {
+        await db.insert('group_members', {
+          'group_id': groupId,
+          'user_id': userId,
+          'role': 'member',
+          'status': status,
+          'joined_at': now,
+        });
+      }
+    } else {
+      await db.update('group_members', {'status': status},
+          where: 'group_id = ? AND user_id = ?',
+          whereArgs: [groupId, userId]);
+    }
+    if (!isPending) {
+      // 更新成員數
+      await db.execute(
+          'UPDATE community_groups SET member_count = member_count + 1 WHERE id = ?',
+          [groupId]);
+    }
+  }
+
+  /// 離開群組
+  Future<void> leaveGroup(int groupId, String userId) async {
+    final db = await database;
+    await db.delete('group_members',
+        where: 'group_id = ? AND user_id = ?',
+        whereArgs: [groupId, userId]);
+    await db.execute(
+        'UPDATE community_groups SET member_count = MAX(0, member_count - 1) WHERE id = ?',
+        [groupId]);
+  }
+
+  /// 審核申請（同意 / 拒絕）
+  Future<void> approveGroupRequest(
+      int groupId, String userId, bool approved) async {
+    final db = await database;
+    if (approved) {
+      await db.update('group_members', {'status': 'active'},
+          where: 'group_id = ? AND user_id = ?',
+          whereArgs: [groupId, userId]);
+      await db.execute(
+          'UPDATE community_groups SET member_count = member_count + 1 WHERE id = ?',
+          [groupId]);
+    } else {
+      await db.delete('group_members',
+          where: 'group_id = ? AND user_id = ?',
+          whereArgs: [groupId, userId]);
+    }
+  }
+
+  /// 透過 invite_token 查詢群組
+  Future<Map<String, dynamic>?> getGroupByToken(String token) async {
+    final db = await database;
+    final rows = await db.query('community_groups',
+        where: 'invite_token = ? AND invite_link_active = 1',
+        whereArgs: [token],
+        limit: 1);
+    if (rows.isEmpty) return null;
+    final group = Map<String, dynamic>.from(rows.first);
+    // 檢查是否過期
+    final expiresAt = group['token_expires_at'] as String?;
+    if (expiresAt != null && expiresAt.isNotEmpty) {
+      final exp = DateTime.tryParse(expiresAt);
+      if (exp != null && exp.isBefore(DateTime.now())) return null;
+    }
+    return group;
+  }
+
+  /// 重新生成 invite_token（讓舊連結失效）
+  Future<String> regenerateInviteToken(int groupId) async {
+    final db = await database;
+    final token = _generateToken();
+    await db.update('community_groups', {'invite_token': token},
+        where: 'id = ?', whereArgs: [groupId]);
+    return token;
+  }
+
+  /// 設定邀請連結過期時間（null = 永久）
+  Future<void> setTokenExpiry(int groupId, DateTime? expiresAt) async {
+    final db = await database;
+    await db.update('community_groups',
+        {'token_expires_at': expiresAt?.toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [groupId]);
+  }
+
+  /// 開啟/關閉邀請連結
+  Future<void> setInviteLinkActive(int groupId, bool active) async {
+    final db = await database;
+    await db.update('community_groups',
+        {'invite_link_active': active ? 1 : 0},
+        where: 'id = ?',
+        whereArgs: [groupId]);
+  }
+
+  /// 刪除群組（同步連動清理成員、公告與貼文）
+  Future<void> deleteGroup(int groupId) async {
+    final db = await database;
+    await db.delete('community_groups',
+        where: 'id = ?', whereArgs: [groupId]);
+    await db.delete('group_members',
+        where: 'group_id = ?', whereArgs: [groupId]);
+    await db.delete('group_announcements',
+        where: 'group_id = ?', whereArgs: [groupId]);
+    await db.delete('posts',
+        where: 'group_id = ?', whereArgs: [groupId]);
   }
 
   // --- Paper helpers ---

@@ -4,6 +4,146 @@ part of 'main_screen.dart';
 extension MainScreenSocialTab on _MainScreenState {
   // --- 社群分頁 ---
   Widget _buildSocialTab() {
+    final isDark = _isDarkMode;
+    return Column(children: [
+      // ── 頂部廣場/群組切換列 ──────────────────────────────────────
+      _buildSocialMainTabBar(isDark),
+      // ── 內容 ──
+      Expanded(
+        child: _socialMainTab == 0
+            ? _buildPlazaContent(isDark)
+            : _buildGroupsContent(isDark),
+      ),
+    ]);
+  }
+
+  // ── 廣場 / 群組 頂部切換列 ───────────────────────────────────────────
+  Widget _buildSocialMainTabBar(bool isDark) {
+    final int totalPendingRequests = myGroups.fold(0, (sum, g) {
+      final role = g['role'] as String?;
+      if (role == 'owner' || role == 'admin') {
+        return sum + ((g['pending_count'] as int?) ?? 0);
+      }
+      return sum;
+    });
+
+    final int totalUnreadPosts =
+        myGroups.fold(0, (sum, g) => sum + ((g['unread_count'] as int?) ?? 0));
+
+    return Container(
+      color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _updateState(() => _socialMainTab = 0),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _socialMainTab == 0
+                              ? const Color(0xFF8D6E63)
+                              : Colors.transparent,
+                          width: 2.5,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      '🌐 廣場',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: _socialMainTab == 0
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: _socialMainTab == 0
+                            ? const Color(0xFF8D6E63)
+                            : (isDark ? Colors.white54 : Colors.black45),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _updateState(() => _socialMainTab = 1),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _socialMainTab == 1
+                              ? const Color(0xFF8D6E63)
+                              : Colors.transparent,
+                          width: 2.5,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '👥 群組',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: _socialMainTab == 1
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: _socialMainTab == 1
+                                ? const Color(0xFF8D6E63)
+                                : (isDark ? Colors.white54 : Colors.black45),
+                          ),
+                        ),
+                        if (totalPendingRequests > 0) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade700,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('$totalPendingRequests',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ] else if (totalUnreadPosts > 0) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('$totalUnreadPosts',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 廣場原有邏輯（完全不變）──────────────────────────────────────────
+  Widget _buildPlazaContent(bool isDark) {
     final typeFilter = kSocialFilterMap[_socialFilter];
     var filtered = typeFilter == null
         ? socialPosts
@@ -53,6 +193,685 @@ extension MainScreenSocialTab on _MainScreenState {
                 onPressed: _showCreatePostScreen,
                 child: const Icon(Icons.add, color: Colors.white)))
     ]);
+  }
+
+  // ── 群組頁面 ─────────────────────────────────────────────────────────
+  Widget _buildGroupsContent(bool isDark) {
+    final bool isGuest = widget.currentUser['id'] == 'u4';
+    final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final secondaryBg = isDark ? Colors.white10 : Colors.grey.shade50;
+    final borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
+
+    return Column(children: [
+      // ── 子 Tab: 我的群組 / 探索群組 ──
+      Container(
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+        child: Row(
+          children: [
+            _buildGroupSubTabChip(isDark, myGroups.isNotEmpty ? '我的群組 (${myGroups.length})' : '我的群組', 0),
+            const SizedBox(width: 8),
+            _buildGroupSubTabChip(isDark, '探索群組', 1),
+            const Spacer(),
+            // 邀請連結加入按鈕
+            TextButton.icon(
+              onPressed: () => _showJoinByLinkDialog(isDark),
+              icon: const Icon(Icons.link, size: 16, color: Color(0xFF8D6E63)),
+              label: const Text('用連結加入',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8D6E63),
+                      fontWeight: FontWeight.w600)),
+              style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+            ),
+          ],
+        ),
+      ),
+      // ── 內容 ──
+      Expanded(
+        child: Stack(
+          children: [
+            _groupSubTab == 0
+                ? _buildMyGroupsList(isDark, cardBg, borderCol, isGuest)
+                : _buildExploreGroups(isDark, cardBg, secondaryBg, borderCol),
+            // 建立群組 FAB
+            if (!isGuest)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: FloatingActionButton.extended(
+                  heroTag: 'create_group_fab',
+                  backgroundColor: const Color(0xFF8D6E63),
+                  onPressed: () => _showCreateGroupDialog(),
+                  icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                  label: const Text('建立群組',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildGroupSubTabChip(bool isDark, String label, int idx) {
+    final isSelected = _groupSubTab == idx;
+    return GestureDetector(
+      onTap: () => _updateState(() => _groupSubTab = idx),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF8D6E63)
+              : (isDark ? Colors.white10 : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? Colors.white60 : Colors.black54),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── 我的群組列表 ──────────────────────────────────────────────────────
+  Widget _buildMyGroupsList(
+      bool isDark, Color cardBg, Color borderCol, bool isGuest) {
+    if (isGuest) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_outline_rounded,
+                size: 48, color: isDark ? Colors.white30 : Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text('登入後才能加入或建立群組',
+                style: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.grey, fontSize: 15)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => _showGuestLoginPrompt(),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8D6E63),
+                  foregroundColor: Colors.white,
+                  shape: const StadiumBorder()),
+              child: const Text('去登入'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (myGroups.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('📚', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 12),
+            Text('還沒有加入任何群組',
+                style: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.grey, fontSize: 15)),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => _updateState(() => _groupSubTab = 1),
+              child: const Text('去探索群組 →',
+                  style: TextStyle(color: Color(0xFF8D6E63))),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: myGroups.length,
+      itemBuilder: (context, idx) {
+        final g = myGroups[idx];
+        return _buildGroupCard(g, isDark, cardBg, borderCol, isMember: true);
+      },
+    );
+  }
+
+  // ── 探索群組 ──────────────────────────────────────────────────────────
+  Widget _buildExploreGroups(
+      bool isDark, Color cardBg, Color secondaryBg, Color borderCol) {
+    if (allGroups.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('🔭', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 12),
+            Text('目前還沒有任何群組',
+                style: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.grey, fontSize: 15)),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => _showCreateGroupDialog(),
+              child: const Text('建立第一個群組 →',
+                  style: TextStyle(color: Color(0xFF8D6E63))),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: allGroups.length,
+      itemBuilder: (context, idx) {
+        final g = allGroups[idx];
+        final isMember = myGroups.any(
+            (m) => m['id'].toString() == g['id'].toString());
+        return _buildGroupCard(g, isDark, cardBg, borderCol, isMember: isMember);
+      },
+    );
+  }
+
+  // ── 群組卡片 ─────────────────────────────────────────────────────────
+  Widget _buildGroupCard(
+      Map<String, dynamic> g, bool isDark, Color cardBg, Color borderCol,
+      {required bool isMember}) {
+    final iconEmoji = g['icon_emoji'] as String? ?? '📚';
+    final name = g['name'] as String? ?? '群組';
+    final desc = g['description'] as String? ?? '';
+    final isPrivate = g['type'] == 'private';
+    final memberCount = g['member_count'] as int? ?? 0;
+    final int pendingCount = (g['pending_count'] as int?) ?? 0;
+    final int unreadCount = (g['unread_count'] as int?) ?? 0;
+    final bool isMuted = (g['is_muted'] as int? ?? 0) == 1;
+    final String role = g['role'] as String? ?? '';
+    final bool isOwnerOrAdmin = role == 'owner' || role == 'admin';
+    List tags = [];
+    try {
+      tags = jsonDecode((g['tags'] as String?) ?? '[]') as List;
+    } catch (_) {}
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => GroupDetailPage(
+              group: g,
+              currentUser: widget.currentUser,
+            ),
+          ),
+        ).then((_) => _loadData());
+      },
+      onLongPress: () {
+        if (!isMember) return;
+        showModalBottomSheet(
+          context: context,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          builder: (ctx) => Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(iconEmoji, style: const TextStyle(fontSize: 24)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(name,
+                          style: const TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                ListTile(
+                  leading: Icon(
+                      isMuted
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_off_rounded,
+                      color: const Color(0xFF8D6E63)),
+                  title: Text(isMuted ? '開啟群組通知 🔔' : '關閉群組通知 (靜音) 🔕'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final newMuted = await DatabaseHelper.instance
+                        .toggleGroupMute(g['id'] as int, widget.currentUser['id']);
+                    await _loadData();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(newMuted ? '🔕 已將群組設定為靜音' : '🔔 已開啟群組通知'),
+                          backgroundColor: const Color(0xFF8D6E63),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                      unreadCount > 0
+                          ? Icons.mark_chat_read_rounded
+                          : Icons.mark_chat_unread_rounded,
+                      color: Colors.orange),
+                  title: Text(unreadCount > 0 ? '標示為已讀 ✓' : '標示為未讀 🔴'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    if (unreadCount > 0) {
+                      await DatabaseHelper.instance
+                          .markGroupAsRead(g['id'] as int, widget.currentUser['id']);
+                    } else {
+                      await DatabaseHelper.instance.markGroupAsUnread(
+                          g['id'] as int, widget.currentUser['id']);
+                    }
+                    await _loadData();
+                  },
+                ),
+                if (g['owner_id'].toString() == widget.currentUser['id'].toString() || role == 'owner')
+                  ListTile(
+                    leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+                    title: const Text('刪除群組', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final groupName = name;
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (dlgCtx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          title: const Text('確定要刪除群組？'),
+                          content: Text('刪除後「$groupName」內的所有公告與訊息將會被永久清空。'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dlgCtx, false),
+                              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: () => Navigator.pop(dlgCtx, true),
+                              child: const Text('確定刪除'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await DatabaseHelper.instance.deleteGroup(g['id'] as int);
+                        await _loadData();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('已刪除群組「$groupName」'),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderCol),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Emoji 圖示（若有未讀動態，右上角加上紅點；靜音顯示灰色點）
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                      child: Text(iconEmoji,
+                          style: const TextStyle(fontSize: 26))),
+                ),
+                if (isMember && unreadCount > 0)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: isMuted ? Colors.grey : Colors.redAccent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: cardBg, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(name,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                            if (isMuted) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.notifications_off_rounded,
+                                  size: 14, color: Colors.grey),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isPrivate
+                              ? Colors.orange.withValues(alpha: 0.12)
+                              : Colors.blue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          isPrivate ? '🔒 私人' : '🌐 公開',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isPrivate
+                                  ? Colors.orange.shade700
+                                  : Colors.blue.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (desc.isNotEmpty) ...[  
+                    const SizedBox(height: 4),
+                    Text(
+                      desc,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: isDark ? Colors.white60 : Colors.black54,
+                          height: 1.3),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.people_outline,
+                          size: 14,
+                          color: isDark ? Colors.white38 : Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Text('$memberCount 位成員',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? Colors.white38
+                                  : Colors.grey.shade500)),
+                      if (tags.isNotEmpty) ...[
+                        const SizedBox(width: 10),
+                        ...tags.take(2).map((t) => Container(
+                              margin: const EdgeInsets.only(right: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8D6E63)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(t.toString(),
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF8D6E63))),
+                            )),
+                      ],
+                      const Spacer(),
+                      if (isOwnerOrAdmin && pendingCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: Colors.orange.withValues(alpha: 0.4)),
+                          ),
+                          child: Text('⏳ $pendingCount 待審核',
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.bold)),
+                        )
+                      else if (isMember && unreadCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isMuted
+                                ? Colors.grey.withValues(alpha: 0.15)
+                                : Colors.redAccent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: isMuted
+                                    ? Colors.grey.withValues(alpha: 0.4)
+                                    : Colors.redAccent.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                              isMuted
+                                  ? '🔕 $unreadCount 則新動態'
+                                  : '🔴 $unreadCount 則新動態',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: isMuted ? Colors.grey : Colors.redAccent,
+                                  fontWeight: FontWeight.bold)),
+                        )
+                      else if (isMember)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text('✓ 已加入',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF8D6E63),
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 建立群組 ─────────────────────────────────────────────────────────
+  void _showCreateGroupDialog() {
+    if (widget.currentUser['id'] == 'u4') {
+      _showGuestLoginPrompt();
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) => CreateGroupDialog(
+        currentUser: widget.currentUser,
+        onCreated: () {
+          _loadData();
+          _updateState(() {
+            _socialMainTab = 1;
+            _groupSubTab = 0;
+          });
+        },
+      ),
+    );
+  }
+
+  // ── 透過邀請連結加入 ──────────────────────────────────────────────────
+  void _showJoinByLinkDialog(bool isDark) {
+    if (widget.currentUser['id'] == 'u4') {
+      _showGuestLoginPrompt();
+      return;
+    }
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(children: [
+          Icon(Icons.link_rounded, color: Color(0xFF8D6E63)),
+          SizedBox(width: 8),
+          Text('用邀請連結加入', style: TextStyle(fontSize: 17)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '請貼上對方分享的邀請連結',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              decoration: InputDecoration(
+                hintText: 'app://join?token=...',
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.paste, size: 18),
+                  onPressed: () async {
+                    final data =
+                        await Clipboard.getData(Clipboard.kTextPlain);
+                    if (data?.text != null) {
+                      ctrl.text = data!.text!;
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8D6E63),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _joinByLink(ctrl.text.trim());
+            },
+            child: const Text('加入'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _joinByLink(String link) async {
+    // 解析 token：app://join?token=xxxxx
+    String? token;
+    try {
+      final uri = Uri.tryParse(link);
+      token = uri?.queryParameters['token'];
+    } catch (_) {}
+
+    if (token == null || token.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無效的邀請連結，請確認後再試')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final group = await DatabaseHelper.instance.getGroupByToken(token);
+      if (group == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('找不到對應的群組，連結可能已失效或過期'),
+                backgroundColor: Colors.redAccent),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => GroupDetailPage(
+              group: group,
+              currentUser: widget.currentUser,
+            ),
+          ),
+        ).then((_) => _loadData());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加入失敗：$e')),
+        );
+      }
+    }
   }
 
   // ── Stories 活躍成員列 ───────────────────────────────────────────
