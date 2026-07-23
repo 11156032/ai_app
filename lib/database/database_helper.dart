@@ -613,6 +613,7 @@ class DatabaseHelper {
       CREATE TABLE posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id VARCHAR NOT NULL,
+        group_id INTEGER,
         content TEXT NOT NULL,
         type VARCHAR DEFAULT 'text',
         attached_data TEXT DEFAULT '{}',
@@ -705,6 +706,7 @@ class DatabaseHelper {
         status       TEXT    DEFAULT 'active',
         joined_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        is_muted     INTEGER DEFAULT 0,
         FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE,
         UNIQUE (group_id, user_id)
