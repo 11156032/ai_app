@@ -1,23 +1,26 @@
 import 'dart:convert';
 import 'dart:io' show File;
-import 'package:animate_do/animate_do.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../database/database_helper.dart';
 import '../../widgets/common_widgets.dart';
-import '../main_screen.dart'; // for CreatePostPage (defined in main_screen.dart)
+import '../main_screen.dart'; // for CreatePostPage, PostReplyPage (defined in main_screen.dart)
 import 'group_invite_page.dart';
 
 /// 群組詳細頁（動態牆 + 成員）
 class GroupDetailPage extends StatefulWidget {
   final Map<String, dynamic> group;
   final Map<String, dynamic> currentUser;
+  final String? inviteType;
+  final String? inviteRefId;
 
   const GroupDetailPage({
     super.key,
     required this.group,
     required this.currentUser,
+    this.inviteType,
+    this.inviteRefId,
   });
 
   @override
@@ -34,6 +37,11 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   List<Map<String, dynamic>> _members = [];
   bool _isLoading = true;
   bool _isJoining = false;
+  bool _requiresApproval = false;
+  
+  final TextEditingController _chatController = TextEditingController();
+  final FocusNode _chatFocusNode = FocusNode();
+  bool _isSending = false;
 
   String get _currentUserId => widget.currentUser['id'].toString();
   bool get _isGuest => _currentUserId == 'u4';
@@ -64,6 +72,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   @override
   void dispose() {
     _tabController.dispose();
+    _chatController.dispose();
+    _chatFocusNode.dispose();
     super.dispose();
   }
 
@@ -151,12 +161,41 @@ class _GroupDetailPageState extends State<GroupDetailPage>
 
       members = await DatabaseHelper.instance.getGroupMembers(groupId);
 
+      bool requiresApproval = (updatedGroup?['join_requires_approval'] as int? ?? _group['join_requires_approval'] as int?) == 1 ||
+          (((updatedGroup?['join_requires_approval'] ?? _group['join_requires_approval']) == null) && _isPrivate);
+
+      if (widget.inviteType != null && widget.inviteRefId != null) {
+        final db = await DatabaseHelper.instance.database;
+        final refUserMembership = await db.query('group_members',
+            where: 'group_id = ? AND user_id = ?',
+            whereArgs: [groupId, widget.inviteRefId]);
+            
+        bool refIsAdmin = false;
+        if (refUserMembership.isNotEmpty) {
+          final role = refUserMembership.first['role'] as String?;
+          refIsAdmin = role == 'owner' || role == 'admin';
+        }
+
+        if (widget.inviteType == 'approval') {
+          requiresApproval = true;
+        } else if (widget.inviteType == 'auto') {
+          if (refIsAdmin) {
+            requiresApproval = false; // 管理員產生的 auto 連結可直接加入
+          } else if (_isPrivate) {
+            requiresApproval = true; // 私人群組中，一般成員產生的 auto 連結無效，強制審核
+          } else {
+            requiresApproval = false; // 公開群組一般成員的 auto 連結有效
+          }
+        }
+      }
+
       if (mounted) {
         setState(() {
           _group = updatedGroup ?? _group;
           _membership = membership;
           _posts = posts;
           _members = members;
+          _requiresApproval = requiresApproval;
           _isLoading = false;
         });
       }
@@ -174,16 +213,17 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     setState(() => _isJoining = true);
     try {
       final groupId = _group['id'] as int;
+
       await DatabaseHelper.instance.joinGroup(
         groupId,
         _currentUserId,
-        isPending: _isPrivate,
+        isPending: _requiresApproval,
       );
       await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isPrivate ? '已送出申請，等待管理員審核' : '🎉 成功加入群組！'),
+            content: Text(_requiresApproval ? '已送出申請，等待管理員審核' : '🎉 成功加入群組！'),
             backgroundColor: const Color(0xFF8D6E63),
           ),
         );
@@ -411,7 +451,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               onPressed: () => Navigator.pop(context),
             ),
             actions: [
-              if (_isOwnerOrAdmin)
+              if (_isMember)
                 IconButton(
                   icon: const Icon(Icons.link_rounded),
                   tooltip: '邀請連結管理',
@@ -422,6 +462,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         builder: (_) => GroupInvitePage(
                           group: _group,
                           currentUserId: _currentUserId,
+                          isOwnerOrAdmin: _isOwnerOrAdmin,
                         ),
                       ),
                     );
@@ -695,21 +736,19 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           ],
         ),
       ),
-      // ── 加入 / 申請 按鈕（非成員顯示）+ 發文 FAB（成員顯示）──
+      // ── 加入 / 申請 按鈕（非成員顯示）──
       floatingActionButton: _isLoading
           ? null
           : _isMember
-              ? FloatingActionButton(
-                  heroTag: 'group_post_fab',
-                  backgroundColor: const Color(0xFF8D6E63),
-                  onPressed: _openCreatePost,
-                  child: const Icon(Icons.add, color: Colors.white),
-                )
+              ? null
               : (_isPrivate && _tabController.index == 0)
                   ? null // 私人群組在「動態」Tab 中已有中央解鎖 Overlay 按鈕，不重複顯示 FAB
                   : _isPending
                       ? null
                       : _buildJoinButton(),
+      bottomNavigationBar: (_isMember && _tabController.index == 0)
+          ? _buildChatInputBar(isDark)
+          : null,
     );
   }
 
@@ -762,26 +801,15 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       onRefresh: _loadData,
       color: const Color(0xFF8D6E63),
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+        reverse: true,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         itemCount: _posts.length + (showPendingBanner ? 1 : 0),
         itemBuilder: (context, idx) {
-          if (showPendingBanner) {
-            if (idx == 0) {
-              return _buildPendingNotificationBanner(pendingCount, isDark);
-            }
-            final p = _posts[idx - 1];
-            return FadeInUp(
-              duration: const Duration(milliseconds: 300),
-              delay: Duration(milliseconds: 40 * ((idx - 1) % 10)),
-              child: _buildPostCard(p, isDark),
-            );
+          if (showPendingBanner && idx == _posts.length) {
+            return _buildPendingNotificationBanner(pendingCount, isDark);
           }
           final p = _posts[idx];
-          return FadeInUp(
-            duration: const Duration(milliseconds: 300),
-            delay: Duration(milliseconds: 40 * (idx % 10)),
-            child: _buildPostCard(p, isDark),
-          );
+          return _buildChatBubble(p, isDark);
         },
       ),
     );
@@ -909,7 +937,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '申請加入經管理員審核後，即可查看群組動態',
+                  _requiresApproval ? '申請加入經管理員審核後，即可查看群組動態' : '加入群組後，即可查看群組動態',
                   style: TextStyle(
                       fontSize: 13,
                       color: isDark ? Colors.white54 : Colors.grey.shade600),
@@ -945,7 +973,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   ElevatedButton.icon(
                     onPressed: _isJoining ? null : _joinOrApply,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF9800),
+                      backgroundColor: _requiresApproval ? const Color(0xFFFF9800) : const Color(0xFF8D6E63),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 28, vertical: 13),
@@ -960,9 +988,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                             child: CircularProgressIndicator(
                                 color: Colors.white, strokeWidth: 2),
                           )
-                        : const Icon(Icons.lock_open_rounded, size: 18),
-                    label: const Text('申請加入',
-                        style: TextStyle(
+                        : Icon(_requiresApproval ? Icons.lock_open_rounded : Icons.group_add_rounded, size: 18),
+                    label: Text(_requiresApproval ? '申請加入' : '加入群組',
+                        style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.bold)),
                   ),
                 const SizedBox(height: 48),
@@ -974,109 +1002,251 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     );
   }
 
-  Widget _buildPostCard(Map<String, dynamic> p, bool isDark) {
-    final Color cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final Color borderCol =
-        isDark ? Colors.white10 : Colors.grey.shade100;
+  Future<void> _sendMessage() async {
+    final text = _chatController.text.trim();
+    if (text.isEmpty) return;
 
+    setState(() => _isSending = true);
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.insert('posts', {
+        'group_id': _group['id'],
+        'user_id': _currentUserId,
+        'content': text,
+        'type': 'text',
+        'is_edited': 0,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      _chatController.clear();
+      await _loadData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('發送失敗：$e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
+  }
+
+  Widget _buildChatInputBar(bool isDark) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderCol),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      padding: EdgeInsets.only(
+        left: 12,
+        right: 12,
+        top: 8,
+        bottom: 8 + MediaQuery.of(context).padding.bottom,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        border: Border(
+          top: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        ),
+      ),
+      child: Row(
         children: [
-          // 作者列
-          Row(
-            children: [
-              buildAvatar(
-                blob: p['authorAvatarBlob'] as Uint8List?,
-                colorIdx: (p['authorAvatarColor'] as int?) ??
-                    getAvatarColorIdx(p['author'] ?? ''),
-                initial: (p['author'] ?? '?').substring(0, 1),
-                radius: 18,
-                usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
-                    p['authorAvatarBlob'] == null,
+          IconButton(
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            color: Colors.grey,
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('傳送圖片功能開發中')),
+              );
+            },
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white10 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(p['author'] ?? '未知',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13.5,
-                            color: isDark ? Colors.white : Colors.black87)),
-                    Text(p['time'] ?? '',
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: isDark
-                                ? Colors.white38
-                                : Colors.grey.shade500)),
-                  ],
+              child: TextField(
+                controller: _chatController,
+                focusNode: _chatFocusNode,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                maxLines: null,
+                keyboardType: TextInputType.multiline,
+                decoration: const InputDecoration(
+                  hintText: '輸入訊息...',
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // 內文
-          Text(
-            p['content'] ?? '',
-            style: TextStyle(
-                fontSize: 14,
-                height: 1.45,
-                color: isDark ? Colors.white.withValues(alpha: 0.87) : Colors.black87),
-          ),
-          // 媒體
-          if (p['media_blob'] != null) ...[
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.memory(p['media_blob'] as Uint8List,
-                  fit: BoxFit.cover, width: double.infinity, height: 160),
             ),
-          ] else if (p['media'] != null &&
-              p['media'].toString().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: _buildNetworkOrFile(p['media'].toString()),
+          ),
+          const SizedBox(width: 8),
+          _isSending
+              ? const Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.send_rounded),
+                  color: const Color(0xFF8D6E63),
+                  onPressed: _sendMessage,
+                ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleLike(Map<String, dynamic> p) async {
+    final postId = p['id'] as int;
+    final isLiked = p['isLiked'] == true;
+    final currentLikes = p['likes'] as int? ?? 0;
+    
+    // Optimistic UI update
+    setState(() {
+      p['isLiked'] = !isLiked;
+      p['likes'] = isLiked ? (currentLikes > 0 ? currentLikes - 1 : 0) : (currentLikes + 1);
+    });
+
+    final db = await DatabaseHelper.instance.database;
+    if (isLiked) {
+      await db.delete('post_likes',
+          where: 'post_id = ? AND user_id = ?',
+          whereArgs: [postId, _currentUserId]);
+      await db.execute('UPDATE posts SET likes = MAX(0, likes - 1) WHERE id = ?', [postId]);
+    } else {
+      await db.insert('post_likes', {'post_id': postId, 'user_id': _currentUserId});
+      await db.execute('UPDATE posts SET likes = likes + 1 WHERE id = ?', [postId]);
+    }
+  }
+
+  void _replyToPost(Map<String, dynamic> post) {
+    final authorName = post['author'] ?? '未知';
+    setState(() {
+      _chatController.text = '@$authorName ';
+    });
+    _chatFocusNode.requestFocus();
+  }
+
+  Widget _buildChatBubble(Map<String, dynamic> p, bool isDark) {
+    final bool isMe = p['userId'] == _currentUserId;
+    final Color bubbleColor = isMe
+        ? const Color(0xFF8D6E63)
+        : (isDark ? const Color(0xFF2C2C2C) : Colors.white);
+    final Color textColor = isMe
+        ? Colors.white
+        : (isDark ? Colors.white : Colors.black87);
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe) ...[
+            buildAvatar(
+              blob: p['authorAvatarBlob'] as Uint8List?,
+              colorIdx: (p['authorAvatarColor'] as int?) ?? getAvatarColorIdx(p['author'] ?? ''),
+              initial: (p['author'] ?? '?').substring(0, 1),
+              radius: 16,
+              usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 && p['authorAvatarBlob'] == null,
             ),
+            const SizedBox(width: 8),
           ],
-          const SizedBox(height: 10),
-          // 互動按鈕列
-          Row(
-            children: [
-              Icon(Icons.favorite_border,
-                  size: 17,
-                  color: isDark ? Colors.white38 : Colors.grey.shade400),
-              const SizedBox(width: 4),
-              Text('${p['likes'] ?? 0}',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.white38 : Colors.grey.shade500)),
-              const SizedBox(width: 16),
-              Icon(Icons.mode_comment_outlined,
-                  size: 17,
-                  color: isDark ? Colors.white38 : Colors.grey.shade400),
-              const SizedBox(width: 4),
-              Text('${p['replies'] ?? 0}',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.white38 : Colors.grey.shade500)),
-            ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                if (!isMe)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 4),
+                    child: Text(
+                      p['author'] ?? '未知',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: bubbleColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+                      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p['content'] ?? '',
+                        style: TextStyle(fontSize: 15, color: textColor, height: 1.3),
+                      ),
+                      if (p['media_blob'] != null) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover, width: 200, height: 150),
+                        ),
+                      ] else if (p['media'] != null && p['media'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: _buildNetworkOrFile(p['media'].toString()),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        p['time'] ?? '',
+                        style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => _toggleLike(p),
+                        child: Row(
+                          children: [
+                            Icon(
+                              p['isLiked'] == true ? Icons.favorite : Icons.favorite_border,
+                              size: 14,
+                              color: p['isLiked'] == true ? Colors.redAccent : (isDark ? Colors.white38 : Colors.grey.shade400),
+                            ),
+                            const SizedBox(width: 4),
+                            Text('${p['likes'] ?? 0}', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => _replyToPost(p),
+                        child: Row(
+                          children: [
+                            Icon(Icons.mode_comment_outlined, size: 14, color: isDark ? Colors.white38 : Colors.grey.shade400),
+                            const SizedBox(width: 4),
+                            Text('回覆', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1305,7 +1475,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       heroTag: 'group_join_fab',
       onPressed: _isJoining ? null : _joinOrApply,
       backgroundColor:
-          _isPrivate ? const Color(0xFFFF9800) : const Color(0xFF8D6E63),
+          _requiresApproval ? const Color(0xFFFF9800) : const Color(0xFF8D6E63),
       icon: _isJoining
           ? const SizedBox(
               width: 18,
@@ -1313,10 +1483,10 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               child:
                   CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
             )
-          : Icon(_isPrivate ? Icons.lock_open_rounded : Icons.group_add_rounded,
+          : Icon(_requiresApproval ? Icons.lock_open_rounded : Icons.group_add_rounded,
               color: Colors.white),
       label: Text(
-        _isPrivate ? '申請加入' : '加入群組',
+        _requiresApproval ? '申請加入' : '加入群組',
         style: const TextStyle(
             fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
       ),

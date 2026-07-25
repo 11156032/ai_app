@@ -29,6 +29,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   final _descController = TextEditingController();
   String _selectedEmoji = '📚';
   String _selectedType = 'public'; // 'public' | 'private'
+  bool _joinRequiresApproval = false;
   final Set<String> _selectedTags = {};
   bool _isCreating = false;
 
@@ -55,6 +56,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
         iconEmoji: _selectedEmoji,
         type: _selectedType,
         ownerId: widget.currentUser['id'].toString(),
+        joinRequiresApproval: _joinRequiresApproval,
         tags: _selectedTags.toList(),
       );
       if (mounted) {
@@ -244,7 +246,26 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               icon: Icons.lock_rounded,
               iconColor: const Color(0xFFFF9800),
               title: '私人群組 🔒',
-              subtitle: '需管理員審核才可加入，非成員無法閱讀貼文',
+              subtitle: '未公開，非成員無法閱讀貼文',
+            ),
+            const SizedBox(height: 8),
+            // 加入設定
+            SwitchListTile(
+              title: Text('加入群組需審核',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white70 : Colors.black87)),
+              subtitle: Text(
+                _joinRequiresApproval ? '使用者點擊連結後需由管理員審核' : '知道連結的人可直接加入群組',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white38 : Colors.grey.shade600),
+              ),
+              value: _joinRequiresApproval,
+              onChanged: (val) => setState(() => _joinRequiresApproval = val),
+              activeTrackColor: const Color(0xFF8D6E63),
+              contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 16),
 
@@ -351,7 +372,16 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
         : iconColor.withValues(alpha: 0.06);
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedType = type),
+      onTap: () {
+        setState(() {
+          _selectedType = type;
+          if (type == 'private') {
+            _joinRequiresApproval = true; // 預設私人群組開啟審核
+          } else {
+            _joinRequiresApproval = false; // 預設公開群組關閉審核
+          }
+        });
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(12),

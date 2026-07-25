@@ -6,11 +6,13 @@ import '../../database/database_helper.dart';
 class GroupInvitePage extends StatefulWidget {
   final Map<String, dynamic> group;
   final String currentUserId;
+  final bool isOwnerOrAdmin;
 
   const GroupInvitePage({
     super.key,
     required this.group,
     required this.currentUserId,
+    required this.isOwnerOrAdmin,
   });
 
   @override
@@ -21,11 +23,21 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
   late Map<String, dynamic> _group;
   bool _isLoading = false;
   String? _expiryLabel; // 顯示用的過期標籤
+  late String _linkType;
 
   @override
   void initState() {
     super.initState();
     _group = Map<String, dynamic>.from(widget.group);
+    
+    if (widget.isOwnerOrAdmin) {
+      _linkType = 'auto'; // Admin defaults to auto
+    } else if (_group['type'] == 'private') {
+      _linkType = 'approval'; // Member in private defaults to approval
+    } else {
+      _linkType = 'default'; // Member in public defaults to group's global setting
+    }
+
     _updateExpiryLabel();
   }
 
@@ -48,7 +60,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
 
   String get _inviteUrl {
     final token = _group['invite_token'] ?? '';
-    return 'app://join?token=$token';
+    return 'app://join?token=$token&ref=${widget.currentUserId}&type=$_linkType';
   }
 
   bool get _linkActive => (_group['invite_link_active'] as int? ?? 1) == 1;
@@ -327,6 +339,83 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                             ),
                           ],
                         ),
+
+                        if (_linkActive) ...[
+                          const SizedBox(height: 16),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
+                          Text('加入權限設定',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: isDark ? Colors.white : Colors.black87)),
+                          const SizedBox(height: 8),
+
+                          if (!widget.isOwnerOrAdmin && _group['type'] == 'private')
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.shield_outlined, color: Colors.orange, size: 18),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '此為私人群組，一般成員分享的連結預設為「需審核」，對方須經管理員同意才能加入。',
+                                      style: TextStyle(fontSize: 12, color: Colors.orange),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (!widget.isOwnerOrAdmin && _group['type'] != 'private')
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: Colors.blue, size: 18),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '此為公開群組，對方點擊連結的加入權限將依據群組預設設定。',
+                                      style: TextStyle(fontSize: 12, color: Colors.blue),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else ...[
+                            RadioGroup<String>(
+                              groupValue: _linkType,
+                              onChanged: (val) => setState(() => _linkType = val!),
+                              child: Column(
+                                children: [
+                                  RadioListTile<String>(
+                                    title: const Text('知道連結即可直接加入', style: TextStyle(fontSize: 13.5)),
+                                    value: 'auto',
+                                    activeColor: const Color(0xFF8D6E63),
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  RadioListTile<String>(
+                                    title: const Text('加入需經管理員審核', style: TextStyle(fontSize: 13.5)),
+                                    value: 'approval',
+                                    activeColor: const Color(0xFF8D6E63),
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
 
                         if (_linkActive) ...[
                           const SizedBox(height: 12),

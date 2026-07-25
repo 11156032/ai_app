@@ -84,6 +84,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _socialFeedLayout = 'card'; // 社群貼文版面：'card' 規格化 / 'list' 新聞式
   int _socialMainTab = 0; // 0=廣場, 1=群組
   int _groupSubTab = 0; // 0=我的群組, 1=探索
+  String _exploreGroupSearchQuery = ''; // 探索群組搜尋字串
   List<Map<String, dynamic>> myGroups = [];
   List<Map<String, dynamic>> allGroups = [];
   bool _isEmailVerified = false;
@@ -12408,11 +12409,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       buildAvatar(
-                        blob: null,
-                        colorIdx: getAvatarColorIdx(displayName),
+                        blob: widget.currentUser['avatar_blob'] as Uint8List?,
+                        colorIdx: (widget.currentUser['avatar_color'] as int?) ?? getAvatarColorIdx(displayName),
                         initial: displayName.substring(0, 1),
                         radius: 20,
-                        usePreset: false,
+                        usePreset: (widget.currentUser['avatar_selected'] as int? ?? 0) == 1 && widget.currentUser['avatar_blob'] == null,
                       ),
                       const SizedBox(width: 12),
                       Column(

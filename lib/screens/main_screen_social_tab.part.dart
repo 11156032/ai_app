@@ -346,7 +346,7 @@ extension MainScreenSocialTab on _MainScreenState {
   // ── 探索群組 ──────────────────────────────────────────────────────────
   Widget _buildExploreGroups(
       bool isDark, Color cardBg, Color secondaryBg, Color borderCol) {
-    if (allGroups.isEmpty) {
+    if (allGroups.isEmpty && _exploreGroupSearchQuery.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -367,15 +367,61 @@ extension MainScreenSocialTab on _MainScreenState {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-      itemCount: allGroups.length,
-      itemBuilder: (context, idx) {
-        final g = allGroups[idx];
-        final isMember = myGroups.any(
-            (m) => m['id'].toString() == g['id'].toString());
-        return _buildGroupCard(g, isDark, cardBg, borderCol, isMember: isMember);
-      },
+    final filteredGroups = allGroups.where((g) {
+      final query = _exploreGroupSearchQuery.toLowerCase();
+      if (query.isEmpty) return true;
+      final name = g['name']?.toString().toLowerCase() ?? '';
+      final desc = g['description']?.toString().toLowerCase() ?? '';
+      final tags = g['tags']?.toString().toLowerCase() ?? '';
+      return name.contains(query) || desc.contains(query) || tags.contains(query);
+    }).toList();
+
+    return Column(
+      children: [
+        // 搜尋列
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: TextField(
+            onChanged: (val) {
+              _updateState(() {
+                _exploreGroupSearchQuery = val;
+              });
+            },
+            decoration: InputDecoration(
+              hintText: '搜尋群組名稱、描述或標籤...',
+              hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
+              prefixIcon: Icon(Icons.search, color: isDark ? Colors.white54 : Colors.grey),
+              filled: true,
+              fillColor: secondaryBg,
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+          ),
+        ),
+        // 群組列表
+        Expanded(
+          child: filteredGroups.isEmpty
+              ? Center(
+                  child: Text('找不到符合的群組',
+                      style: TextStyle(
+                          color: isDark ? Colors.white38 : Colors.grey, fontSize: 15)),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                  itemCount: filteredGroups.length,
+                  itemBuilder: (context, idx) {
+                    final g = filteredGroups[idx];
+                    final isMember = myGroups.any(
+                        (m) => m['id'].toString() == g['id'].toString());
+                    return _buildGroupCard(g, isDark, cardBg, borderCol, isMember: isMember);
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -825,11 +871,14 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   Future<void> _joinByLink(String link) async {
-    // 解析 token：app://join?token=xxxxx
     String? token;
+    String? type;
+    String? ref;
     try {
       final uri = Uri.tryParse(link);
       token = uri?.queryParameters['token'];
+      type = uri?.queryParameters['type'];
+      ref = uri?.queryParameters['ref'];
     } catch (_) {}
 
     if (token == null || token.isEmpty) {
@@ -861,6 +910,8 @@ extension MainScreenSocialTab on _MainScreenState {
             builder: (_) => GroupDetailPage(
               group: group,
               currentUser: widget.currentUser,
+              inviteType: type,
+              inviteRefId: ref,
             ),
           ),
         ).then((_) => _loadData());

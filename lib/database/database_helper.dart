@@ -434,6 +434,7 @@ class DatabaseHelper {
           invite_token     TEXT,
           token_expires_at DATETIME,
           invite_link_active INTEGER DEFAULT 1,
+          join_requires_approval INTEGER DEFAULT 0,
           created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
         )
@@ -468,7 +469,7 @@ class DatabaseHelper {
     if (oldVersion < 16) {
       var gmCols = await db.rawQuery('PRAGMA table_info(group_members)');
       if (gmCols.isNotEmpty && !gmCols.any((c) => c['name'] == 'last_read_at')) {
-        await db.execute("ALTER TABLE group_members ADD COLUMN last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        await db.execute("ALTER TABLE group_members ADD COLUMN last_read_at DATETIME DEFAULT '1970-01-01T00:00:00.000'");
       }
       if (gmCols.isNotEmpty && !gmCols.any((c) => c['name'] == 'is_muted')) {
         await db.execute("ALTER TABLE group_members ADD COLUMN is_muted INTEGER DEFAULT 0");
@@ -691,6 +692,7 @@ class DatabaseHelper {
         invite_token     TEXT,
         token_expires_at DATETIME,
         invite_link_active INTEGER DEFAULT 1,
+        join_requires_approval INTEGER DEFAULT 0,
         created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
       )
@@ -857,12 +859,21 @@ class DatabaseHelper {
       var gmCols = await db.rawQuery('PRAGMA table_info(group_members)');
       if (gmCols.isNotEmpty) {
         if (!gmCols.any((c) => c['name'] == 'last_read_at')) {
-          await db.execute("ALTER TABLE group_members ADD COLUMN last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+          await db.execute("ALTER TABLE group_members ADD COLUMN last_read_at DATETIME DEFAULT '1970-01-01T00:00:00.000'");
           debugPrint('Dynamic migration: Added last_read_at column to group_members table.');
         }
         if (!gmCols.any((c) => c['name'] == 'is_muted')) {
           await db.execute("ALTER TABLE group_members ADD COLUMN is_muted INTEGER DEFAULT 0");
           debugPrint('Dynamic migration: Added is_muted column to group_members table.');
+        }
+      }
+      
+      var cgCols = await db.rawQuery('PRAGMA table_info(community_groups)');
+      if (cgCols.isNotEmpty) {
+        if (!cgCols.any((c) => c['name'] == 'join_requires_approval')) {
+          await db.execute("ALTER TABLE community_groups ADD COLUMN join_requires_approval INTEGER");
+          debugPrint('Dynamic migration: Added join_requires_approval column to community_groups table.');
+          await db.execute("UPDATE community_groups SET join_requires_approval = CASE WHEN type = 'private' THEN 1 ELSE 0 END");
         }
       }
     } catch (e) {
@@ -877,6 +888,7 @@ class DatabaseHelper {
     required String iconEmoji,
     required String type, // 'public' | 'private'
     required String ownerId,
+    required bool joinRequiresApproval,
     List<String> tags = const [],
   }) async {
     final db = await database;
@@ -893,6 +905,7 @@ class DatabaseHelper {
       'member_count': 1,
       'invite_token': token,
       'invite_link_active': 1,
+      'join_requires_approval': joinRequiresApproval ? 1 : 0,
       'created_at': DateTime.now().toIso8601String(),
     });
     final now = DateTime.now().toIso8601String();
