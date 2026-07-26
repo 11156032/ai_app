@@ -30,12 +30,12 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
     super.initState();
     _group = Map<String, dynamic>.from(widget.group);
     
-    if (widget.isOwnerOrAdmin) {
-      _linkType = 'auto'; // Admin defaults to auto
-    } else if (_group['type'] == 'private') {
-      _linkType = 'approval'; // Member in private defaults to approval
+    if (_group['type'] != 'private') {
+      _linkType = 'auto'; // 公開群組預設直接加入
+    } else if (widget.isOwnerOrAdmin) {
+      _linkType = 'auto'; // 私人群組管理員預設直接加入
     } else {
-      _linkType = 'default'; // Member in public defaults to group's global setting
+      _linkType = 'approval'; // 私人群組成員預設需要審核
     }
 
     _updateExpiryLabel();
@@ -341,79 +341,94 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                         ),
 
                         if (_linkActive) ...[
-                          const SizedBox(height: 16),
-                          const Divider(height: 1),
-                          const SizedBox(height: 16),
-                          Text('加入權限設定',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: isDark ? Colors.white : Colors.black87)),
-                          const SizedBox(height: 8),
-
-                          if (!widget.isOwnerOrAdmin && _group['type'] == 'private')
+                          if (_group['type'] != 'private') ...[
+                            const SizedBox(height: 12),
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
-                                color: Colors.orange.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : const Color(0xFFF5F0EE),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Row(
                                 children: [
-                                  Icon(Icons.shield_outlined, color: Colors.orange, size: 18),
+                                  Icon(Icons.public_rounded,
+                                      color: Color(0xFF8D6E63), size: 18),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      '此為私人群組，一般成員分享的連結預設為「需審核」，對方須經管理員同意才能加入。',
-                                      style: TextStyle(fontSize: 12, color: Colors.orange),
+                                      '公開群組：點擊連結即可直接加入',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF8D6E63),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else if (!widget.isOwnerOrAdmin && _group['type'] != 'private')
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.info_outline, color: Colors.blue, size: 18),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '此為公開群組，對方點擊連結的加入權限將依據群組預設設定。',
-                                      style: TextStyle(fontSize: 12, color: Colors.blue),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else ...[
-                            RadioGroup<String>(
-                              groupValue: _linkType,
-                              onChanged: (val) => setState(() => _linkType = val!),
-                              child: Column(
-                                children: [
-                                  RadioListTile<String>(
-                                    title: const Text('知道連結即可直接加入', style: TextStyle(fontSize: 13.5)),
-                                    value: 'auto',
-                                    activeColor: const Color(0xFF8D6E63),
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  RadioListTile<String>(
-                                    title: const Text('加入需經管理員審核', style: TextStyle(fontSize: 13.5)),
-                                    value: 'approval',
-                                    activeColor: const Color(0xFF8D6E63),
-                                    contentPadding: EdgeInsets.zero,
                                   ),
                                 ],
                               ),
                             ),
+                          ] else ...[
+                            const SizedBox(height: 16),
+                            const Divider(height: 1),
+                            const SizedBox(height: 16),
+                            Text('加入權限設定',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: isDark ? Colors.white : Colors.black87)),
+                            const SizedBox(height: 8),
+
+                            if (!widget.isOwnerOrAdmin)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: Colors.orange.withValues(alpha: 0.3)),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.shield_outlined,
+                                        color: Colors.orange, size: 18),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '此為私人群組，成員分享的連結需經管理員審核才能加入。',
+                                        style: TextStyle(
+                                            fontSize: 12, color: Colors.orange),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              RadioGroup<String>(
+                                groupValue: _linkType,
+                                onChanged: (val) =>
+                                    setState(() => _linkType = val!),
+                                child: Column(
+                                  children: [
+                                    RadioListTile<String>(
+                                      title: const Text('知道連結即可直接加入',
+                                          style: TextStyle(fontSize: 13.5)),
+                                      value: 'auto',
+                                      activeColor: const Color(0xFF8D6E63),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    RadioListTile<String>(
+                                      title: const Text('加入需經管理員審核',
+                                          style: TextStyle(fontSize: 13.5)),
+                                      value: 'approval',
+                                      activeColor: const Color(0xFF8D6E63),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ],
 
@@ -540,8 +555,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                         Text('💡 ', style: TextStyle(fontSize: 14)),
                         Expanded(
                           child: Text(
-                            '複製邀請連結後，透過 LINE、訊息或其他管道分享給對方。'
-                            '對方在 App 的「群組」→「探索群組」頁面貼上連結，即可加入群組。',
+                            '複製連結分享給對方，對方貼上連結即可加入群組。',
                             style: TextStyle(
                                 fontSize: 12.5,
                                 color: Color(0xFF8D4200),

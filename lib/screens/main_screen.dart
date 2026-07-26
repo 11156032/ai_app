@@ -1229,18 +1229,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
   }
 
-  void _updateDiaryController(DateTime date) {
+  void _updateDiaryController(DateTime date, {bool force = false}) {
+    if (!force) {
+      if (_diaryFocusNode.hasFocus) return;
+      if (_diaryInputController.text != _originalDiaryContent) return;
+    }
     String dateKey = date.toString().split(' ')[0];
     final existing = allDiaries.firstWhere(
       (d) => d['date'] == dateKey,
       orElse: () => {},
     );
-    if (existing.isNotEmpty) {
-      _diaryInputController.text = existing['content'] as String;
-    } else {
-      _diaryInputController.text = '';
+    final String content = existing.isNotEmpty ? (existing['content'] as String? ?? '') : '';
+    if (_diaryInputController.text != content) {
+      _diaryInputController.text = content;
     }
-    _originalDiaryContent = _diaryInputController.text;
+    _originalDiaryContent = content;
   }
 
   Future<bool> _checkUnsavedDiaryChanges() async {
@@ -1334,7 +1337,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void> _syncDate(DateTime date, {bool fromCalendar = false}) async {
     if (await _checkUnsavedDiaryChanges()) {
       setState(() => _selectedDate = date);
-      _updateDiaryController(date);
+      _updateDiaryController(date, force: true);
       if (fromCalendar) {
         _timelinePageController
             .jumpToPage(1000 + date.difference(_simulatedToday).inDays);
@@ -1788,7 +1791,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           'updated_at': DateTime.now().toIso8601String(),
         });
       }
+      _originalDiaryContent = content;
       await _loadData();
+      _updateDiaryController(_selectedDate, force: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1821,7 +1826,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           where: 'id = ?',
           whereArgs: [int.parse(existing['id'].toString())],
         );
+        _diaryInputController.text = '';
+        _originalDiaryContent = '';
         await _loadData();
+        _updateDiaryController(_selectedDate, force: true);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -7833,8 +7841,7 @@ $strokePrompt
 
   Widget _buildCalendarTab() {
     final primaryColor = Theme.of(context).primaryColor;
-    final bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-    final bool isCalendarExpandedForHeight = _isCalendarExpanded && !isKeyboardVisible;
+    final bool isCalendarExpandedForHeight = _isCalendarExpanded;
 
     return Column(children: [
       // Collapsible Calendar Grid Container (with compact row when collapsed)
@@ -7872,6 +7879,7 @@ $strokePrompt
                     )
                   : GestureDetector(
                       onTap: () {
+                        FocusScope.of(context).unfocus();
                         setState(() {
                           _isCalendarExpanded = true;
                         });
@@ -7902,6 +7910,7 @@ $strokePrompt
                             const Spacer(),
                             TextButton.icon(
                               onPressed: () {
+                                FocusScope.of(context).unfocus();
                                 setState(() {
                                   _isCalendarExpanded = true;
                                 });

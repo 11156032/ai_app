@@ -38,6 +38,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   bool _isLoading = true;
   bool _isJoining = false;
   bool _requiresApproval = false;
+  Map<String, dynamic>? _replyingPost;
   
   final TextEditingController _chatController = TextEditingController();
   final FocusNode _chatFocusNode = FocusNode();
@@ -155,6 +156,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             'media': attached['media_url'],
             'media_blob': p['media_blob'] as Uint8List?,
             'attached_data': attached,
+            'replyTo': attached['reply_to'],
           });
         }
       }
@@ -1009,15 +1011,25 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     setState(() => _isSending = true);
     try {
       final db = await DatabaseHelper.instance.database;
+      final attachedData = <String, dynamic>{};
+      if (_replyingPost != null) {
+        attachedData['reply_to'] = {
+          'id': _replyingPost!['id'],
+          'author': _replyingPost!['author'],
+          'content': _replyingPost!['content'],
+        };
+      }
       await db.insert('posts', {
         'group_id': _group['id'],
         'user_id': _currentUserId,
         'content': text,
         'type': 'text',
         'is_edited': 0,
+        'attached_data': jsonEncode(attachedData),
         'created_at': DateTime.now().toIso8601String(),
       });
       _chatController.clear();
+      _replyingPost = null;
       await _loadData();
     } catch (e) {
       if (mounted) {
@@ -1034,62 +1046,108 @@ class _GroupDetailPageState extends State<GroupDetailPage>
 
   Widget _buildChatInputBar(bool isDark) {
     return Container(
-      padding: EdgeInsets.only(
-        left: 12,
-        right: 12,
-        top: 8,
-        bottom: 8 + MediaQuery.of(context).padding.bottom,
-      ),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         border: Border(
           top: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200),
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-            color: Colors.grey,
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('傳送圖片功能開發中')),
-              );
-            },
-          ),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+          if (_replyingPost != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: isDark ? Colors.white10 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: TextField(
-                controller: _chatController,
-                focusNode: _chatFocusNode,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
-                decoration: const InputDecoration(
-                  hintText: '輸入訊息...',
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                color: isDark
+                    ? Colors.orange.withValues(alpha: 0.12)
+                    : const Color(0xFFFFF8F0),
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? Colors.white10 : Colors.grey.shade200,
+                  ),
                 ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.reply_rounded, size: 16, color: Color(0xFF8D6E63)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '正在回覆 ${_replyingPost!['author']}：${_replyingPost!['content']}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8D6E63),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _replyingPost = null),
+                    child: const Padding(
+                      padding: EdgeInsets.all(2.0),
+                      child: Icon(Icons.close_rounded, size: 16, color: Color(0xFF8D6E63)),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          _isSending
-              ? const Padding(
-                  padding: EdgeInsets.all(12.0),
-                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.send_rounded),
-                  color: const Color(0xFF8D6E63),
-                  onPressed: _sendMessage,
+          Padding(
+            padding: EdgeInsets.only(
+              left: 12,
+              right: 12,
+              top: 8,
+              bottom: 8 + MediaQuery.of(context).padding.bottom,
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  color: Colors.grey,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('傳送圖片功能開發中')),
+                    );
+                  },
                 ),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: TextField(
+                      controller: _chatController,
+                      focusNode: _chatFocusNode,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      decoration: const InputDecoration(
+                        hintText: '輸入訊息...',
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _isSending
+                    ? const Padding(
+                        padding: EdgeInsets.all(12.0),
+                        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.send_rounded),
+                        color: const Color(0xFF8D6E63),
+                        onPressed: _sendMessage,
+                      ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1121,7 +1179,11 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   void _replyToPost(Map<String, dynamic> post) {
     final authorName = post['author'] ?? '未知';
     setState(() {
+      _replyingPost = post;
       _chatController.text = '@$authorName ';
+      _chatController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _chatController.text.length),
+      );
     });
     _chatFocusNode.requestFocus();
   }
@@ -1134,7 +1196,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     final Color textColor = isMe
         ? Colors.white
         : (isDark ? Colors.white : Colors.black87);
-    
+    final replyTo = p['replyTo'] as Map<String, dynamic>?;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -1187,6 +1250,59 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (replyTo != null) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              color: isMe
+                                  ? Colors.black.withValues(alpha: 0.15)
+                                  : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04)),
+                              child: IntrinsicHeight(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Container(
+                                      width: 3,
+                                      color: isMe ? Colors.white.withValues(alpha: 0.6) : const Color(0xFF8D6E63).withValues(alpha: 0.7),
+                                    ),
+                                    Flexible(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              replyTo['author'] ?? '未知',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: isMe ? Colors.white.withValues(alpha: 0.95) : const Color(0xFF8D6E63),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              replyTo['content'] ?? '',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: isMe ? Colors.white.withValues(alpha: 0.85) : (isDark ? Colors.white70 : Colors.black87),
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       Text(
                         p['content'] ?? '',
                         style: TextStyle(fontSize: 15, color: textColor, height: 1.3),
