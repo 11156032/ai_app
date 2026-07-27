@@ -1731,7 +1731,7 @@ extension MainScreenProfileTab on _MainScreenState {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildTermsSection('1. 接受條款',
-                    '您存取或使用「YeBang 家教」應用程式即表示您已閱讀、理解並同意受本服務條款約束。若您未滿 13 歲，或您不同意本條款之任何部分，請立即停止使用本服務。'),
+                    '您存取或使用「YeBang 家教」應用程式即表示您已閱讀、理解並同意受本服務條款約束。若您不同意本條款之任何部分，請立即停止使用本服務。'),
                 _buildTermsSection('2. 服務說明',
                     '本服務提供學習題庫、筆記管理、AI 智慧助手、行事曆排程及社群交流等功能。我們保留隨時新增、修改或移除任何功能的權利，且不另行通知。'),
                 _buildTermsSection('3. 帳號責任',
@@ -1741,7 +1741,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 _buildTermsSection('5. 智慧財產權',
                     '本應用程式的所有設計、程式碼、圖示及品牌識別均受智慧財產權法律保護，所有權歸開發團隊所有。使用者發布於社群的內容，其著作權仍屬使用者本人，惟您同意授予我們非獨家、免費的使用許可，以於服務範疇內展示該內容。'),
                 _buildTermsSection('6. AI 功能聲明',
-                    'AI 智慧功能（含 AI 診斷、AI 分身、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考，不構成專業建議。使用者應自行判斷 AI 輸出的正確性，我們不對 AI 回應的準確性或完整性負責。'),
+                    'AI 智慧功能（含 AI 診斷、AI 分身、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考。使用者應自行判斷 AI 輸出的正確性，如有題可藉由客服與意見回饋功能回報。'),
                 _buildTermsSection('7. 免責聲明與責任限制',
                     '本服務「依現狀」提供，不附帶任何形式的明示或默示保證。在法律允許的最大範圍內，我們不對因使用或無法使用本服務所造成的任何間接、附帶、特殊或懲罰性損害負責。'),
                 _buildTermsSection('8. 條款修改',
@@ -1750,7 +1750,7 @@ extension MainScreenProfileTab on _MainScreenState {
                     '本條款之解釋、效力及爭議解決，均依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。'),
                 const SizedBox(height: 8),
                 Text(
-                  '最後更新日期：2026 年 7 月 10 日',
+                  '最後更新日期：2026 年 7 月27 日',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],
@@ -1809,7 +1809,7 @@ extension MainScreenProfileTab on _MainScreenState {
                     '我們可能因法律要求或服務調整而不定期更新本隱私權政策。更新後將於 App 內公告，重大變更將以顯著方式告知。繼續使用本服務即代表您接受更新後的政策。'),
                 const SizedBox(height: 8),
                 Text(
-                  '最後更新日期：2026 年 7 月 10 日',
+                  '最後更新日期：2026 年 7 月 27 日',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],

@@ -957,6 +957,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
               onPressed: () {
                 setState(() {
                   _showAnswers = !_showAnswers;
+                  // 切換解析顯示時同步清空個別展開記錄，確保狀態一致
+                  _expandedIndices.clear();
                 });
               },
               icon: Icon(

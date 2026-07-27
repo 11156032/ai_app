@@ -85,6 +85,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _socialMainTab = 0; // 0=廣場, 1=群組
   int _groupSubTab = 0; // 0=我的群組, 1=探索
   String _exploreGroupSearchQuery = ''; // 探索群組搜尋字串
+  // ── 社群動態（Activity Tab）狀態 ──
+  int _activityTab = 0;           // 0=我的發佈, 1=收藏貼文
+  String _activityTypeFilter = '全部'; // 類型篩選
+  bool _activitySortNewest = true;    // true=由新到舊
   List<Map<String, dynamic>> myGroups = [];
   List<Map<String, dynamic>> allGroups = [];
   bool _isEmailVerified = false;
@@ -2300,19 +2304,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 Row(mainAxisSize: MainAxisSize.min, children: [
                               Text(
                                   "${_calendarMonth.year}年 ${_calendarMonth.month}月",
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 16,
-                                      color: Colors.black87,
+                                      color: _isDarkMode ? Colors.white : Colors.black87,
                                       fontWeight: FontWeight.w700)),
-                              const Icon(Icons.keyboard_arrow_down,
-                                  color: Colors.black87)
+                              Icon(Icons.keyboard_arrow_down,
+                                  color: _isDarkMode ? Colors.white : Colors.black87)
                             ]))
                         : Text(_appBarTitle,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 18,
-                                color: Colors.black87,
+                                color: _isDarkMode ? Colors.white : Colors.black87,
                                 fontWeight: FontWeight.bold)),
-                    backgroundColor: Colors.white.withValues(alpha: 0.7),
+                    backgroundColor: _isDarkMode
+                        ? Colors.black.withValues(alpha: 0.7)
+                        : Colors.white.withValues(alpha: 0.7),
+                    iconTheme: IconThemeData(
+                        color: _isDarkMode ? Colors.white : Colors.black87),
                     flexibleSpace: ClipRect(
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -2323,13 +2331,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     actions: [
                         if (_currentIndex == 0)
                           IconButton(
-                              icon: const Icon(Icons.today_rounded,
-                                  color: Colors.black87),
+                              icon: Icon(Icons.today_rounded,
+                                  color: _isDarkMode ? Colors.white : Colors.black87),
                               onPressed: _returnToToday,
                               tooltip: '回到今日'),
                         IconButton(
-                            icon: const Icon(Icons.logout_rounded,
-                                color: Colors.black87),
+                            icon: Icon(Icons.logout_rounded,
+                                color: _isDarkMode ? Colors.white : Colors.black87),
                             onPressed: _showLogoutDialog)
                       ]),
             drawer: Drawer(
