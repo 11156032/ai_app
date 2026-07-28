@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io' show File, Platform;
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:image_picker/image_picker.dart';
@@ -24,6 +25,7 @@ import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
 import 'tabs/group_detail_page.dart';
 import 'tabs/create_group_dialog.dart';
+import 'about_us_screen.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -1052,6 +1054,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: null,
         title: '探索社群頁面',
         description: '歡迎來到社群頁面！在這裡你可以與同學交流學習進度，不同成員的動態將會一一呈現。',
+        onEnter: () {
+          _socialFilter = '全部';
+          _socialAuthorFilter = '';
+        },
       ),
       TourStep(
         featureTitle: '🤖 AI 分身',
@@ -1063,6 +1069,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         title: '召喚 AI 分身對話',
         description: '在貼文的筆記資源中，點選「召喚分身」按鈕，AI 將模擬該作者的風格與你進行對話！',
         onEnter: () {
+          _socialFilter = '全部';
+          _socialAuthorFilter = '';
           final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
             Navigator.pop(context); // 關閉任何可能打開的彈窗
@@ -2432,8 +2440,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     NotesScreen(currentUser: widget.currentUser),
                     _buildLeaderboardTab(),
                   ])),
-                  if (_currentIndex != 1 || _quizStep == 0) _buildAIChatBar(),
-                  if (_showFloatingNavBar) const SizedBox(height: 80), // Padding for floating nav bar
+                  if (!_showFloatingNavBar && (_currentIndex != 1 || _quizStep == 0)) _buildAIChatBar(),
+                  if (_showFloatingNavBar) SizedBox(height: 75 + MediaQuery.of(context).padding.bottom), // Padding for floating nav bar
                 ]),
               ),
             ),
@@ -2452,8 +2460,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildFloatingNavBar() {
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: bottomInset > 0 ? bottomInset : 10,
+      ),
       height: 65,
       decoration: BoxDecoration(
         color: _isDarkMode
@@ -2486,6 +2499,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             children: [
               _buildNavItem(Icons.calendar_month_rounded, '日曆行程', 0, key: _tourNavCalendarKey),
               _buildNavItem(Icons.menu_book_rounded, '題庫', 1, key: _tourNavQuestionKey),
+              _buildNavItem(Icons.auto_awesome_rounded, 'AI助理', -1, key: _tourAiChatBarKey, onTap: _openChatModal),
               _buildNavItem(Icons.forum_rounded, '社群', 2, key: _tourNavSocialKey),
               _buildNavItem(Icons.person_rounded, '個人檔案', 4),
             ],
@@ -2495,8 +2509,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String fullLabel, int index, {GlobalKey? key}) {
-    final bool isSelected = _currentIndex == index;
+  Widget _buildNavItem(IconData icon, String fullLabel, int index, {GlobalKey? key, VoidCallback? onTap}) {
+    final bool isSelected = index >= 0 && _currentIndex == index;
     final primaryColor = Theme.of(context).primaryColor;
 
     // 取前兩個字當作簡稱
@@ -2506,18 +2520,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return GestureDetector(
       key: key,
       onTap: () {
-        _changePage(index, fullLabel);
+        HapticFeedback.selectionClick();
+        if (onTap != null) {
+          onTap();
+        } else {
+          _changePage(index, fullLabel);
+        }
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutBack,
         padding:
-            EdgeInsets.symmetric(horizontal: isSelected ? 16 : 12, vertical: 8),
+            EdgeInsets.symmetric(horizontal: isSelected ? 12 : 8, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
               ? primaryColor.withValues(alpha: 0.15)
-              : Colors.transparent,
+              : (index == -1
+                  ? const Color(0xFF8D6E63).withValues(alpha: 0.12)
+                  : Colors.transparent),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -2525,20 +2546,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           children: [
             Icon(
               icon,
-              color: isSelected ? primaryColor : Colors.grey.shade500,
-              size: isSelected ? 26 : 24,
+              color: isSelected
+                  ? primaryColor
+                  : (index == -1
+                      ? const Color(0xFF8D6E63)
+                      : Colors.grey.shade500),
+              size: isSelected ? 24 : 22,
             ),
             if (isSelected) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: primaryColor,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
-            ]
+            ],
           ],
         ),
       ),
@@ -5359,11 +5386,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           style: TextStyle(
                               color: Colors.grey.shade400, fontSize: 11)),
                     ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(16, 4, 16,
-                          MediaQuery.of(context).viewInsets.bottom + 20),
-                      child: Row(
-                        children: [
+                    Builder(builder: (context) {
+                      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+                      final systemBottom = MediaQuery.of(context).padding.bottom;
+                      final double paddingBottom = bottomInset > 0
+                          ? bottomInset + 12.0
+                          : math.max(systemBottom, 12.0) + 10.0;
+
+                      return Padding(
+                        padding: EdgeInsets.fromLTRB(16, 4, 16, paddingBottom),
+                        child: Row(
+                          children: [
                           Expanded(
                             child: Focus(
                               onKeyEvent: (FocusNode node, KeyEvent event) {
@@ -5449,7 +5482,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   })),
                         ],
                       ),
-                    ),
+                    );
+                  }),
                   ],
                 ),
               ),
@@ -7823,29 +7857,54 @@ $strokePrompt
     );
   }
 
-  Widget _buildAIChatBar() => GestureDetector(
+  Widget _buildAIChatBar() {
+    final double systemBottom = MediaQuery.of(context).padding.bottom;
+    final double extraBottomPadding = _showFloatingNavBar
+        ? 15.0
+        : (systemBottom > 0 ? (15.0 + systemBottom) : 15.0);
+
+    return GestureDetector(
       key: _tourAiChatBarKey,
-      onTap: _openChatModal,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        _openChatModal();
+      },
       child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          decoration: BoxDecoration(color: Colors.white, boxShadow: [
+        padding: EdgeInsets.fromLTRB(20, 15, 20, extraBottomPadding),
+        decoration: BoxDecoration(
+          color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -2))
-          ]),
-          child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(30)),
-              child: const Row(children: [
-                Icon(Icons.chat_bubble_outline,
-                    color: Color(0xFF8D6E63), size: 18),
-                SizedBox(width: 10),
-                Text('去社群 / 加行程...',
-                    style: TextStyle(color: Colors.grey, fontSize: 14))
-              ]))));
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            )
+          ],
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.chat_bubble_outline,
+                  color: Color(0xFF8D6E63), size: 18),
+              const SizedBox(width: 10),
+              Text(
+                '去社群 / 加行程...',
+                style: TextStyle(
+                  color: _isDarkMode ? Colors.white60 : Colors.grey,
+                  fontSize: 14,
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildCalendarTab() {
     final primaryColor = Theme.of(context).primaryColor;

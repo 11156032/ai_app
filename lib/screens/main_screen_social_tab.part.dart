@@ -142,12 +142,48 @@ extension MainScreenSocialTab on _MainScreenState {
     );
   }
 
+  static final Map<String, dynamic> _tourDemoNotePost = {
+    'id': -999,
+    'userId': 'u5',
+    'author': 'Aden',
+    'authorAvatarColor': 0,
+    'authorAvatarSelected': 0,
+    'authorBio': 'AI 學習助手',
+    'time': '18 天前',
+    'content': '我分享了我的學習筆記《測試》，歡迎點擊一鍵匯入！ 📝',
+    'postType': 'share',
+    'isEdited': 0,
+    'isLiked': false,
+    'isBookmarked': false,
+    'likes': 12,
+    'replies': 3,
+    'attached_data': {
+      'shared_type': 'note',
+      'title': '測試',
+      'category': '未分類',
+      'content':
+          '巴威颱風強勢逼近台灣，北部地區首當其衝。台北市、新北市、基隆市及桃園市達成共識，宣布今（10）日停止上班上課。然而，外界有輿論質疑...',
+    },
+  };
+
+  List<Map<String, dynamic>> _getEffectiveSocialPosts() {
+    final bool hasNotePost = socialPosts.any((p) =>
+        p['attached_data'] != null &&
+        p['attached_data']['shared_type'] == 'note');
+
+    if ((_tourOverlayEntry != null || _isTourActive) && !hasNotePost) {
+      return [_tourDemoNotePost, ...socialPosts];
+    }
+    return socialPosts;
+  }
+
   // ── 廣場原有邏輯（完全不變）──────────────────────────────────────────
   Widget _buildPlazaContent(bool isDark) {
+    final effectivePosts = _getEffectiveSocialPosts();
     final typeFilter = kSocialFilterMap[_socialFilter];
     var filtered = typeFilter == null
-        ? socialPosts
-        : socialPosts.where((p) => p['postType'] == typeFilter).toList();
+        ? effectivePosts
+        : effectivePosts.where((p) => p['postType'] == typeFilter).toList();
 
     if (_socialAuthorFilter.isNotEmpty) {
       filtered =
@@ -2195,7 +2231,8 @@ extension MainScreenSocialTab on _MainScreenState {
           attached['strokes'].toString() != '[]' &&
           attached['strokes'].toString().isNotEmpty;
 
-      final firstNotePost = socialPosts.firstWhere(
+      final effectivePosts = _getEffectiveSocialPosts();
+      final firstNotePost = effectivePosts.firstWhere(
         (post) =>
             post['attached_data'] != null &&
             post['attached_data']['shared_type'] == 'note',

@@ -1429,6 +1429,23 @@ class DatabaseHelper {
           DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
+    await db.insert('posts', {
+      'id': 2,
+      'user_id': 'u5',
+      'content': '我分享了我的學習筆記《測試》，歡迎點擊一鍵匯入！ 📝',
+      'likes': 12,
+      'type': 'share',
+      'attached_data': jsonEncode({
+        'shared_type': 'note',
+        'title': '測試',
+        'category': '未分類',
+        'content':
+            '巴威颱風強勢逼近台灣，北部地區首當其衝。台北市、新北市、基隆市及桃園市達成共識，宣布今（10）日停止上班上課。然而，外界有輿論質疑...',
+      }),
+      'created_at':
+          DateTime.now().subtract(const Duration(days: 18)).toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
     // 5. Questions
     await db.insert('questions', {
       'id': 1,

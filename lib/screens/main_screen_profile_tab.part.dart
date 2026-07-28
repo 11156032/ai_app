@@ -1,4 +1,4 @@
-﻿part of 'main_screen.dart';
+part of 'main_screen.dart';
 
 // ignore: library_private_types_in_public_api
 extension MainScreenProfileTab on _MainScreenState {
@@ -1237,19 +1237,21 @@ extension MainScreenProfileTab on _MainScreenState {
         children: [
           _buildProfileTile(
             context: context,
+            icon: Icons.info_outline_rounded,
+            label: '關於我們',
+            value: '了解 App 技術運用、核心功能與品牌故事',
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const AboutUsScreen())),
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
             icon: Icons.headset_mic_outlined,
             label: '客服與意見回饋',
             value: '回報問題或提供功能建議',
             onTap: _showFeedbackDialog,
           ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.menu_book_outlined,
-            label: '使用手冊',
-            value: '了解 App 各項功能的操作方式',
-            onTap: _showUserManualDialog,
-          ),
+
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
@@ -1522,191 +1524,7 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  void _showUserManualDialog() {
-    final primaryColor = Theme.of(context).primaryColor;
-    const List<Map<String, dynamic>> pages = [
-      {
-        'title': 'AI 智能解答',
-        'desc': '在筆記或錯題中長按任意文字，即可呼叫 AI 助手為你解釋概念、補充說明，讓學習不再卡關。',
-        'icon': Icons.auto_awesome,
-      },
-      {
-        'title': '社群動態交流',
-        'desc': '在社群頁面中發佈學習心得、筆記摘要或測驗結果，與其他使用者互動交流，一起進步。',
-        'icon': Icons.forum_outlined,
-      },
-      {
-        'title': '測驗與學習歷程',
-        'desc': '完成每日測驗累積成就，在個人檔案頁面查看本週答題正確率圖表，追蹤學習進步曲線。',
-        'icon': Icons.bar_chart_rounded,
-      },
-      {
-        'title': '筆記與錯題管理',
-        'desc': '瀏覽、新增和整理筆記，搭配智慧搜尋快速定位需要的資料，並將錯題加入複習清單。',
-        'icon': Icons.menu_book_rounded,
-      },
-    ];
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        int pageIndex = 0;
-        final PageController pc = PageController();
-        return StatefulBuilder(
-          builder: (ctx2, setS) => Dialog(
-            backgroundColor:
-                _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420, maxHeight: 540),
-              child: Column(
-                children: [
-                  // 標題列
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 8, 0),
-                    child: Row(
-                      children: [
-                        Icon(Icons.menu_book_outlined, color: primaryColor),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text('使用手冊',
-                              style: TextStyle(
-                                  fontSize: 17, fontWeight: FontWeight.bold)),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(ctx),
-                          color: Colors.grey,
-                        ),
-                      ],
-                    ),
-                  ),
-                  // 頁面輪播
-                  Expanded(
-                    child: PageView.builder(
-                      controller: pc,
-                      itemCount: pages.length,
-                      onPageChanged: (i) => setS(() => pageIndex = i),
-                      itemBuilder: (_, i) {
-                        final p = pages[i];
-                        return Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 88,
-                                height: 88,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      primaryColor.withValues(alpha: 0.15),
-                                      primaryColor.withValues(alpha: 0.05),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color:
-                                          primaryColor.withValues(alpha: 0.3),
-                                      width: 1.5),
-                                ),
-                                child: Icon(p['icon'] as IconData,
-                                    color: primaryColor, size: 40),
-                              ),
-                              const SizedBox(height: 24),
-                              Text(p['title'] as String,
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: _isDarkMode
-                                          ? Colors.white
-                                          : Colors.black87)),
-                              const SizedBox(height: 12),
-                              Text(p['desc'] as String,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      height: 1.6,
-                                      color: _isDarkMode
-                                          ? Colors.white60
-                                          : Colors.grey.shade700)),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  // 分頁指示器 + 按鈕
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: List.generate(
-                              pages.length,
-                              (i) => AnimatedContainer(
-                                    duration: const Duration(milliseconds: 250),
-                                    margin: const EdgeInsets.only(right: 6),
-                                    width: i == pageIndex ? 20 : 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: i == pageIndex
-                                          ? primaryColor
-                                          : primaryColor.withValues(
-                                              alpha: 0.25),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  )),
-                        ),
-                        Row(
-                          children: [
-                            if (pageIndex > 0)
-                              TextButton(
-                                onPressed: () => pc.previousPage(
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut),
-                                child: const Text('上一頁',
-                                    style: TextStyle(color: Colors.grey)),
-                              ),
-                            const SizedBox(width: 4),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 10),
-                              ),
-                              onPressed: () {
-                                if (pageIndex < pages.length - 1) {
-                                  pc.nextPage(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      curve: Curves.easeInOut);
-                                } else {
-                                  Navigator.pop(ctx);
-                                }
-                              },
-                              child: Text(
-                                  pageIndex < pages.length - 1 ? '下一頁' : '完成'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+
 
   void _showTermsDialog() {
     final primaryColor = Theme.of(context).primaryColor;

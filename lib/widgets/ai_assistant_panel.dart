@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import '../services/ai_diagnosis_service.dart';
@@ -1251,8 +1252,14 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
   }
 
   Widget _buildInputBar() {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final systemBottom = MediaQuery.of(context).padding.bottom;
+    final double paddingBottom = bottomInset > 0
+        ? bottomInset + 12.0
+        : math.max(systemBottom, 12.0) + 8.0;
+
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, paddingBottom),
       child: Row(
         children: [
           Expanded(
