@@ -38,7 +38,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _loadAllQuestions();
     if (widget.paperId != null) _loadPaper(widget.paperId!);
   }

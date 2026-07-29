@@ -1354,24 +1354,29 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    final inputEmail = _emailCtrl.text.trim();
+    final inputPassword = _passwordCtrl.text.trim();
+    final inputUsername = _usernameCtrl.text.trim();
+    final inputConfirm = _confirmPasswordCtrl.text.trim();
+
     if (isLogin) {
-      if (_emailCtrl.text.isEmpty ||
-          _emailCtrl.text == '@gmail.com' ||
-          _passwordCtrl.text.isEmpty) {
+      if (inputEmail.isEmpty ||
+          inputEmail == '@gmail.com' ||
+          inputPassword.isEmpty) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('信箱與密碼不得為空')));
         return;
       }
     } else {
-      if (_usernameCtrl.text.isEmpty ||
-          _emailCtrl.text.isEmpty ||
-          _emailCtrl.text == '@gmail.com' ||
-          _passwordCtrl.text.isEmpty) {
+      if (inputUsername.isEmpty ||
+          inputEmail.isEmpty ||
+          inputEmail == '@gmail.com' ||
+          inputPassword.isEmpty) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('所有欄位皆不得為空')));
         return;
       }
-      if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
+      if (inputPassword != inputConfirm) {
         showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -1401,8 +1406,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (isLogin) {
         final res = await db.query('users',
-            where: 'email = ? AND hashed_password = ?',
-            whereArgs: [_emailCtrl.text, _passwordCtrl.text]);
+            where: 'LOWER(email) = LOWER(?) AND hashed_password = ?',
+            whereArgs: [inputEmail, inputPassword]);
         if (!mounted) return;
         if (res.isNotEmpty) {
           final userMap = Map<String, dynamic>.from(res.first);
@@ -1439,7 +1444,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _showSuccessOverlay(userMap);
         } else {
           final userCheck = await db
-              .query('users', where: 'email = ?', whereArgs: [_emailCtrl.text]);
+              .query('users', where: 'LOWER(email) = LOWER(?)', whereArgs: [inputEmail]);
           if (!mounted) return;
           if (userCheck.isNotEmpty) {
             showDialog(
@@ -1470,13 +1475,34 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         // 註冊
         try {
+          // 在註冊前，先明確以「不區分大小寫」的方式檢查是否已有相同的信箱或使用者名稱
+          final checkRes = await db.query('users',
+              where: 'LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)',
+              whereArgs: [inputUsername, inputEmail]);
+              
+          if (checkRes.isNotEmpty) {
+            if (!mounted) return;
+            showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                      title: const Text('註冊失敗'),
+                      content: const Text('此帳號名稱或信箱已被使用，請換一個試試。'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('確定'))
+                      ],
+                    ));
+            return;
+          }
+
           String newId = 'u_${DateTime.now().millisecondsSinceEpoch}';
           await db.insert('users', {
             'id': newId,
-            'username': _usernameCtrl.text,
-            'email': _emailCtrl.text,
-            'hashed_password': _passwordCtrl.text,
-            'display_name': _usernameCtrl.text,
+            'username': inputUsername,
+            'email': inputEmail,
+            'hashed_password': inputPassword,
+            'display_name': inputUsername,
           });
           _passwordCtrl.clear();
           _confirmPasswordCtrl.clear();
@@ -1497,8 +1523,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ));
         } catch (e) {
           if (!mounted) return;
-          String errorMsg = '帳號名稱或信箱可能已被使用，請換一個試試。';
-          // 如果不是 UNIQUE constraint 錯誤，才顯示詳細訊息，或者是乾脆不顯示詳細訊息以維持簡潔
+          String errorMsg = '發生未知的錯誤，請稍後再試。';
           if (!e.toString().contains('UNIQUE constraint failed')) {
             errorMsg += '\n錯誤詳情：$e';
           }

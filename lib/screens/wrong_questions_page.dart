@@ -38,7 +38,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _currentMode = widget.mode;
     loadWrongQuestions();
   }

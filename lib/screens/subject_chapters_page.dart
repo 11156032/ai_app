@@ -24,7 +24,7 @@ class _SubjectChaptersPageState extends State<SubjectChaptersPage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   void _openChapter(BuildContext context, String chapter) {

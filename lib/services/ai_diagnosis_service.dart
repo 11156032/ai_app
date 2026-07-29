@@ -56,20 +56,22 @@ class DiagnosisResult {
 class AiDiagnosisService {
   static String get _kSystemGeminiApiKey {
     try {
-      return dotenv.env['GEMINI_API_KEY'] ??
-          const String.fromEnvironment('GEMINI_API_KEY');
-    } catch (_) {
-      return const String.fromEnvironment('GEMINI_API_KEY');
-    }
+      final key = dotenv.env['GEMINI_API_KEY'];
+      if (key != null && key.isNotEmpty) return key;
+    } catch (_) {}
+    const envKey = String.fromEnvironment('GEMINI_API_KEY');
+    if (envKey.isNotEmpty) return envKey;
+    return '';
   }
 
   static String get _kOpenRouterApiKey {
     try {
-      return dotenv.env['OPENROUTER_API_KEY'] ??
-          const String.fromEnvironment('OPENROUTER_API_KEY');
-    } catch (_) {
-      return const String.fromEnvironment('OPENROUTER_API_KEY');
-    }
+      final key = dotenv.env['OPENROUTER_API_KEY'];
+      if (key != null && key.isNotEmpty) return key;
+    } catch (_) {}
+    const envKey = String.fromEnvironment('OPENROUTER_API_KEY');
+    if (envKey.isNotEmpty) return envKey;
+    return '';
   }
 
   static DateTime? nextAvailableTime;

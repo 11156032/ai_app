@@ -41,7 +41,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     subject = widget.initialData?['subject'] ?? widget.allSubjects.first;
     type = widget.initialData?['type'] ?? '單選題';
     final rawDiff = widget.initialData?['difficulty'];

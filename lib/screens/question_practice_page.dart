@@ -38,7 +38,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _currentIndex = widget.questions.isEmpty
         ? 0
         : widget.initialIndex.clamp(0, widget.questions.length - 1);

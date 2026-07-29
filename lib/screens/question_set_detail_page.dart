@@ -47,7 +47,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _loadQuestions();
   }
 

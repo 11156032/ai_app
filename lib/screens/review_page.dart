@@ -38,7 +38,7 @@ class _ReviewPageState extends State<ReviewPage>
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _itemKeys = List.generate(widget.questions.length, (_) => GlobalKey());
     for (int i = 0; i < widget.questions.length; i++) {
       _noteCtrls[i] = TextEditingController();
