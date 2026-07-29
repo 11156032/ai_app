@@ -174,6 +174,27 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Timer? _scheduleTimer;
   final List<Timer> _postTimers = [];
 
+  static final Map<String, Uint8List> _globalBlobCache = {};
+
+  static Uint8List? _getStableBlob(String key, Uint8List? newBlob) {
+    if (newBlob == null) return null;
+    final cached = _globalBlobCache[key];
+    if (cached != null && _uint8ListEquals(cached, newBlob)) {
+      return cached;
+    }
+    _globalBlobCache[key] = newBlob;
+    return newBlob;
+  }
+
+  static bool _uint8ListEquals(Uint8List a, Uint8List b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   void _clearPostTimers() {
     for (var t in _postTimers) {
       t.cancel();
@@ -272,7 +293,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       debugPrint('清理舊資料失敗: $e');
     }
 
-    _scheduleTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+    _scheduleTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       _loadData();
     });
 
@@ -572,8 +593,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         // 作者頭像（emoji 預設索引 或 自訂圖片）
         final int authorAvatarColor =
             u.isNotEmpty ? ((u.first['avatar_color'] as int?) ?? 0) : 0;
-        final Uint8List? authorAvatarBlob =
+        final Uint8List? rawAuthorAvatarBlob =
             u.isNotEmpty ? u.first['avatar_blob'] as Uint8List? : null;
+        final Uint8List? authorAvatarBlob =
+            _getStableBlob('user_${p['user_id']}', rawAuthorAvatarBlob);
         // avatar_selected=1 表示使用者已明確選取頭像
         final int authorAvatarSelected =
             u.isNotEmpty ? ((u.first['avatar_selected'] as int?) ?? 0) : 0;
@@ -594,7 +617,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
         final Map<String, dynamic> attached =
             jsonDecode((p['attached_data'] as String?) ?? '{}');
-        final Uint8List? blobData = p['media_blob'] as Uint8List?;
+        final Uint8List? rawBlobData = p['media_blob'] as Uint8List?;
+        final Uint8List? blobData =
+            _getStableBlob('post_media_${p['id']}', rawBlobData);
 
         Map<String, dynamic> postData = {
           'id': p['id'],
@@ -747,7 +772,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       int userAvatarColor = 0;
       int userAvatarSelected = 0;
       if (userRows.isNotEmpty) {
-        userAvatar = userRows.first['avatar_blob'] as Uint8List?;
+        userAvatar = _getStableBlob('user_$currentUserId', userRows.first['avatar_blob'] as Uint8List?);
         userAvatarColor = (userRows.first['avatar_color'] as int?) ?? 0;
         userAvatarSelected = (userRows.first['avatar_selected'] as int?) ?? 0;
         displayName = userRows.first['display_name'] as String?;
@@ -1218,13 +1243,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _selectedFolder = null;
     });
 
-    // 題庫功能（index == 1）隱藏手機控制列，其餘還原
-    if (index == 1) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    } else {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
-
+    // 移除針對題庫隱藏系統控制列的邏輯，保持全站統一 edgeToEdge 體驗
     // 當切換到個人檔案分頁時，重置捲動位置到頂部
     if (index == 4 && _profileScrollController.hasClients) {
       _profileScrollController.jumpTo(0);
@@ -2425,34 +2444,37 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     Navigator.pop(context);
                   }),
             ]))),
-            body: Container(
-              color: _isDarkMode ? Colors.black87 : Colors.white,
-              child: SafeArea(
-                bottom: false, // Let bottom bar handle bottom safe area
-                child: Column(children: [
-                  Expanded(
-                      child: IndexedStack(index: _currentIndex, children: [
-                    _buildCalendarTab(),
-                    _buildQuestionBankTab(),
-                    _buildSocialTab(),
-                    _buildSocialActivityTab(),
-                    _buildPersonalProfileTab(context),
-                    NotesScreen(currentUser: widget.currentUser),
-                    _buildLeaderboardTab(),
-                  ])),
-                  if (!_showFloatingNavBar && (_currentIndex != 1 || _quizStep == 0)) _buildAIChatBar(),
-                  if (_showFloatingNavBar) SizedBox(height: 75 + MediaQuery.of(context).padding.bottom), // Padding for floating nav bar
-                ]),
-              ),
-            ),
-            floatingActionButtonLocation:
-                FloatingActionButtonLocation.centerFloat,
-            floatingActionButton: (_quizStep == 2 || !_showFloatingNavBar)
-                ? null
-                : FadeInUp(
-                    duration: const Duration(milliseconds: 600),
+            body: Stack(
+              children: [
+                Container(
+                  color: _isDarkMode ? Colors.black87 : Colors.white,
+                  child: SafeArea(
+                    bottom: false, // Let bottom bar handle bottom safe area
+                    child: Column(children: [
+                      Expanded(
+                          child: IndexedStack(index: _currentIndex, children: [
+                        _buildCalendarTab(),
+                        _buildQuestionBankTab(),
+                        _buildSocialTab(),
+                        _buildSocialActivityTab(),
+                        _buildPersonalProfileTab(context),
+                        NotesScreen(currentUser: widget.currentUser),
+                        _buildLeaderboardTab(),
+                      ])),
+                      if (!_showFloatingNavBar && (_currentIndex != 1 || _quizStep == 0)) _buildAIChatBar(),
+                      if (_showFloatingNavBar) SizedBox(height: 75 + MediaQuery.of(context).padding.bottom), // Padding for floating nav bar
+                    ]),
+                  ),
+                ),
+                if (_quizStep != 2 && _showFloatingNavBar)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     child: _buildFloatingNavBar(),
                   ),
+              ],
+            ),
           );
         }),
       ),
@@ -2461,11 +2483,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Widget _buildFloatingNavBar() {
     final double bottomInset = MediaQuery.of(context).padding.bottom;
+    final double safeBottom = bottomInset > 0 ? bottomInset + 6 : 20;
     return Container(
       margin: EdgeInsets.only(
         left: 20,
         right: 20,
-        bottom: bottomInset > 0 ? bottomInset : 10,
+        bottom: safeBottom,
       ),
       height: 65,
       decoration: BoxDecoration(

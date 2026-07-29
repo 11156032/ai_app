@@ -1259,50 +1259,94 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
             ],
           );
 
-    return Scaffold(
-      backgroundColor: widget.embed ? Colors.transparent : const Color(0xFFFAF8F6),
-      appBar: widget.embed
-          ? null
-          : (_isSelectionMode
-              ? AppBar(
-                  title: Text('已選取 ${_selected.length} 項'),
-                  backgroundColor: cs.secondaryContainer,
-                  foregroundColor: cs.onSecondaryContainer,
-                  leading: IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: _exitSelectionMode,
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          final allKeys = displayList
-                              .map((r) {
-                                final rid = int.tryParse(r['id'].toString()) ?? 0;
-                                final qid =
-                                    int.tryParse(r['question_id'].toString()) ?? 0;
-                                return _currentMode == 0 ? rid : qid;
-                              })
-                              .where((k) => k > 0)
-                              .toList();
-                          _selected.addAll(allKeys);
-                        });
-                      },
-                      child: Text(
-                        '全選',
-                        style: TextStyle(
-                          color: cs.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+    if (widget.embed) {
+      final fab = !_isSelectionMode && displayList.isNotEmpty
+          ? FloatingActionButton.extended(
+              key: TourKeys.startPracticeFabKey,
+              heroTag: _currentMode == 0 ? 'wrong_quiz_fab' : 'fav_quiz_fab',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuestionPracticePage(
+                      questions: displayList,
+                      title: _currentMode == 0
+                          ? (_selectedSubject == '全部' ? '全錯題複習' : '錯題複習 ($_selectedSubject)')
+                          : (_selectedSubject == '全部' ? '全收藏練習' : '收藏練習 ($_selectedSubject)'),
+                      currentUser: widget.currentUser,
                     ),
-                  ],
-                )
-              : AppBar(
-                  title: Text(_currentMode == 0 ? '錯題本' : '我的收藏'),
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
-                )),
+                  ),
+                ).then((_) {
+                  loadWrongQuestions();
+                });
+              },
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+              icon: const Icon(Icons.play_arrow_rounded, size: 24),
+              label: Text(
+                _selectedSubject == '全部'
+                    ? '開始練習全部 (${displayList.length} 題)'
+                    : '練習「$_selectedSubject」(${displayList.length} 題)',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            )
+          : null;
+
+      return Stack(
+        children: [
+          content,
+          if (fab != null)
+            Positioned(
+              right: 16,
+              bottom: 80,
+              child: fab,
+            ),
+        ],
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAF8F6),
+      appBar: _isSelectionMode
+          ? AppBar(
+              title: Text('已選取 ${_selected.length} 項'),
+              backgroundColor: cs.secondaryContainer,
+              foregroundColor: cs.onSecondaryContainer,
+              leading: IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: _exitSelectionMode,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      final allKeys = displayList
+                          .map((r) {
+                            final rid = int.tryParse(r['id'].toString()) ?? 0;
+                            final qid =
+                                int.tryParse(r['question_id'].toString()) ?? 0;
+                            return _currentMode == 0 ? rid : qid;
+                          })
+                          .where((k) => k > 0)
+                          .toList();
+                      _selected.addAll(allKeys);
+                    });
+                  },
+                  child: Text(
+                    '全選',
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : AppBar(
+              title: Text(_currentMode == 0 ? '錯題本' : '我的收藏'),
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+            ),
       body: content,
       floatingActionButton: _isSelectionMode
           ? null

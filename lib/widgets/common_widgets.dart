@@ -27,7 +27,20 @@ Widget buildAvatar({
   bool usePreset = false,
 }) {
   if (blob != null) {
-    return CircleAvatar(radius: radius, backgroundImage: MemoryImage(blob));
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.transparent,
+      child: ClipOval(
+        child: Image.memory(
+          blob,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) => const Icon(Icons.person),
+        ),
+      ),
+    );
   }
   if (usePreset) {
     final preset = kPresetAvatars[colorIdx % kPresetAvatars.length];

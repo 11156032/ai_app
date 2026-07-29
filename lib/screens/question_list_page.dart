@@ -610,73 +610,76 @@ class _QuestionListPageState extends State<QuestionListPage> {
     final cs = Theme.of(context).colorScheme;
     final subjects = widget.allSubjects.where((s) => _subjectCounts.containsKey(s)).toList();
 
-    return Scaffold(
-      body: _isLoading || _isLoadingPapers
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: Column(
+    return Stack(
+      children: [
+        _isLoading || _isLoadingPapers
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
                 children: [
                   // 頂部切換按鈕
                   Container(
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                     color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
+                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildTabItem(0, '挑題庫', Icons.folder_open_rounded, cs),
+                        _buildTabItem(1, '自訂題本', Icons.assignment_outlined, cs),
+                        _buildTabItem(2, '錯題本', Icons.error_outline_rounded, cs, key: TourKeys.wrongQuestionsTabKey),
+                        _buildTabItem(3, '我的收藏', Icons.star_rounded, cs),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      _buildTabItem(0, '挑題庫', Icons.folder_open_rounded, cs),
-                      _buildTabItem(1, '自訂題本', Icons.assignment_outlined, cs),
-                      _buildTabItem(2, '錯題本', Icons.error_outline_rounded, cs, key: TourKeys.wrongQuestionsTabKey),
-                      _buildTabItem(3, '我的收藏', Icons.star_rounded, cs),
-                    ],
+                  // 內容區域
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        if (_selectedTab == 2) {
+                          await _wrongQuestionsKey.currentState?.loadWrongQuestions();
+                        } else if (_selectedTab == 3) {
+                          await _favoritesKey.currentState?.loadWrongQuestions();
+                        } else {
+                          await _loadData();
+                        }
+                      },
+                      child: _selectedTab == 0
+                          ? _buildSubjectBankContent(context, subjects, cs)
+                          : _selectedTab == 1
+                              ? _buildCustomPaperContent(context, cs)
+                              : _selectedTab == 2
+                                  ? WrongQuestionsPage(
+                                      key: _wrongQuestionsKey,
+                                      currentUser: widget.currentUser,
+                                      embed: true,
+                                      mode: 0,
+                                    )
+                                  : WrongQuestionsPage(
+                                      key: _favoritesKey,
+                                      currentUser: widget.currentUser,
+                                      embed: true,
+                                      mode: 1,
+                                    ),
+                    ),
                   ),
-                ),
-                // 內容區域
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () async {
-                      if (_selectedTab == 2) {
-                        await _wrongQuestionsKey.currentState?.loadWrongQuestions();
-                      } else if (_selectedTab == 3) {
-                        await _favoritesKey.currentState?.loadWrongQuestions();
-                      } else {
-                        await _loadData();
-                      }
-                    },
-                    child: _selectedTab == 0
-                        ? _buildSubjectBankContent(context, subjects, cs)
-                        : _selectedTab == 1
-                            ? _buildCustomPaperContent(context, cs)
-                            : _selectedTab == 2
-                                ? WrongQuestionsPage(
-                                    key: _wrongQuestionsKey,
-                                    currentUser: widget.currentUser,
-                                    embed: true,
-                                    mode: 0,
-                                  )
-                                : WrongQuestionsPage(
-                                    key: _favoritesKey,
-                                    currentUser: widget.currentUser,
-                                    embed: true,
-                                    mode: 1,
-                                  ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      floatingActionButton: _selectedTab == 1
-          ? FloatingActionButton.extended(
+                ],
+              ),
+        if (_selectedTab == 1)
+          Positioned(
+            right: 16,
+            bottom: 80,
+            child: FloatingActionButton.extended(
               heroTag: 'custom_add_fab',
               onPressed: () => _showAddCustomContentBottomSheet(context, cs),
               icon: const Icon(Icons.add),
               label: const Text('新增'),
               backgroundColor: cs.primary,
               foregroundColor: cs.onPrimary,
-            )
-          : null,
+            ),
+          ),
+      ],
     );
   }
 }

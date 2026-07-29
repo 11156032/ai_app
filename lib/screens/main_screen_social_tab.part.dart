@@ -1783,27 +1783,31 @@ extension MainScreenSocialTab on _MainScreenState {
           // Thumbnail Right
           if (hasMedia) ...[
             const SizedBox(width: 12),
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: isDark ? Colors.black26 : Colors.grey.shade100,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: (p['media_blob'] != null)
-                    ? Image.memory(p['media_blob'] as Uint8List,
-                        fit: BoxFit.cover)
-                    : (p['media'].toString().startsWith('data:image'))
-                        ? Image.memory(
-                            base64Decode(p['media'].toString().split(',').last),
-                            fit: BoxFit.cover)
-                        : (p['media'].toString().startsWith('http') || kIsWeb)
-                            ? Image.network(p['media'] as String,
-                                fit: BoxFit.cover)
-                            : Image.file(File(p['media'] as String),
-                                fit: BoxFit.cover),
+            GestureDetector(
+              onTap: () => _showImagePreviewDialog(p),
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: isDark ? Colors.black26 : Colors.grey.shade100,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: (p['media_blob'] != null)
+                      ? Image.memory(p['media_blob'] as Uint8List,
+                          fit: BoxFit.cover, gaplessPlayback: true)
+                      : (p['media'].toString().startsWith('data:image'))
+                          ? Image.memory(
+                              base64Decode(p['media'].toString().split(',').last),
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true)
+                          : (p['media'].toString().startsWith('http') || kIsWeb)
+                              ? Image.network(p['media'] as String,
+                                  fit: BoxFit.cover, gaplessPlayback: true)
+                              : Image.file(File(p['media'] as String),
+                                  fit: BoxFit.cover, gaplessPlayback: true),
+                ),
               ),
             ),
           ],
@@ -1884,45 +1888,251 @@ extension MainScreenSocialTab on _MainScreenState {
     );
   }
 
-  Widget _buildPostMediaPremium(Map<String, dynamic> p) {
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      width: double.infinity,
-      height: 160,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: _isDarkMode ? Colors.black26 : Colors.grey.shade50,
-        border: Border.all(
-            color: _isDarkMode ? Colors.white10 : Colors.grey.shade100),
+  void _showImagePreviewDialog(Map<String, dynamic> p) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 可手勢縮放/拖曳的全螢幕圖片
+            InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Center(
+                child: (p['media_blob'] != null)
+                    ? Image.memory(p['media_blob'] as Uint8List,
+                        fit: BoxFit.contain, gaplessPlayback: true)
+                    : (p['media'].toString().startsWith('data:image'))
+                        ? Image.memory(
+                            base64Decode(p['media'].toString().split(',').last),
+                            fit: BoxFit.contain,
+                            gaplessPlayback: true)
+                        : (p['media'].toString().startsWith('http') || kIsWeb)
+                            ? Image.network(p['media'] as String,
+                                fit: BoxFit.contain, gaplessPlayback: true)
+                            : Image.file(File(p['media'] as String),
+                                fit: BoxFit.contain, gaplessPlayback: true),
+              ),
+            ),
+            // 頂部關閉按鈕
+            Positioned(
+              top: MediaQuery.of(ctx).padding.top + 16,
+              right: 16,
+              child: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black45,
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+            ),
+            // 底部發文者資訊與提示
+            Positioned(
+              bottom: MediaQuery.of(ctx).padding.bottom + 20,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.zoom_in_rounded, color: Colors.white70, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        p['author'] != null ? '${p['author']} 的動態圖片（雙指可放大）' : '圖片大圖預覽（雙指可放大）',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: (p['media_blob'] != null)
-            ? Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover)
-            : (p['media'].toString().startsWith('data:image'))
-                ? Image.memory(
-                    base64Decode(p['media'].toString().split(',').last),
-                    fit: BoxFit.cover)
-                : (p['media'].toString().startsWith('http') || kIsWeb)
-                    ? Image.network(p['media'] as String, fit: BoxFit.cover)
-                    : Image.file(File(p['media'] as String), fit: BoxFit.cover),
+    );
+  }
+
+  Widget _buildPostMediaPremium(Map<String, dynamic> p) {
+    return GestureDetector(
+      onTap: () => _showImagePreviewDialog(p),
+      child: Container(
+        margin: const EdgeInsets.only(top: 12),
+        width: double.infinity,
+        height: 160,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: _isDarkMode ? Colors.black26 : Colors.grey.shade50,
+          border: Border.all(
+              color: _isDarkMode ? Colors.white10 : Colors.grey.shade100),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: (p['media_blob'] != null)
+              ? Image.memory(p['media_blob'] as Uint8List,
+                  fit: BoxFit.cover, gaplessPlayback: true)
+              : (p['media'].toString().startsWith('data:image'))
+                  ? Image.memory(
+                      base64Decode(p['media'].toString().split(',').last),
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true)
+                  : (p['media'].toString().startsWith('http') || kIsWeb)
+                      ? Image.network(p['media'] as String,
+                          fit: BoxFit.cover, gaplessPlayback: true)
+                      : Image.file(File(p['media'] as String),
+                          fit: BoxFit.cover, gaplessPlayback: true),
+        ),
       ),
     );
   }
 
   Widget _buildFileAttachment(Map<String, dynamic> p) {
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-          color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-      child: Row(children: [
-        const Icon(Icons.attach_file, size: 16, color: Colors.blue),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Text(p['fileName'] as String,
-                style: const TextStyle(fontSize: 12))),
-      ]),
+    final fileName = p['fileName'] as String? ?? '未命名文件';
+    final isDark = _isDarkMode;
+    final primary = Theme.of(context).primaryColor;
+
+    return GestureDetector(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          builder: (ctx) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: Colors.grey.shade400,
+                          borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 20),
+                  Icon(Icons.description, size: 52, color: primary),
+                  const SizedBox(height: 12),
+                  Text(fileName,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      maxLines: 2),
+                  const SizedBox(height: 8),
+                  Text('文件大小：未知 • 類型：文件',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white54 : Colors.grey)),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildFileActionBtn(ctx, Icons.visibility_rounded, '線上預覽', () {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('啟動文件預覽器... (此為示範功能)')),
+                        );
+                      }),
+                      _buildFileActionBtn(ctx, Icons.download_rounded, '下載檔案', () {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('已開始下載 $fileName 至手機空間'),
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: Colors.green.shade600,
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+            color: isDark ? Colors.blue.withValues(alpha: 0.1) : Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: isDark ? Colors.blue.withValues(alpha: 0.2) : Colors.blue.shade100)),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8)),
+            child: Icon(Icons.description_rounded, size: 24, color: primary),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(fileName,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.blue.shade200 : Colors.blue.shade900),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Text('點擊預覽或下載',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
+              ],
+            ),
+          ),
+          Icon(Icons.download_for_offline_rounded, size: 22, color: primary),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildFileActionBtn(BuildContext ctx, IconData icon, String label, VoidCallback onTap) {
+    final primary = Theme.of(ctx).primaryColor;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: primary, size: 28),
+            ),
+            const SizedBox(height: 10),
+            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
     );
   }
 

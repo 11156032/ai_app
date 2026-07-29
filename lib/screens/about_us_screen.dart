@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 // ======================================================
-//  AboutUsScreen — 關於我們頁面（支援動態捲動與 3D 視覺）
+//  AboutUsScreen — 關於我們頁面（進階滾動動畫 & 3D 背景）
 // ======================================================
 class AboutUsScreen extends StatefulWidget {
   const AboutUsScreen({super.key});
@@ -15,9 +15,10 @@ class AboutUsScreen extends StatefulWidget {
 class _AboutUsScreenState extends State<AboutUsScreen>
     with TickerProviderStateMixin {
   late ScrollController _scrollController;
-  late AnimationController _idleController;
-  late AnimationController _entranceController;
+  late AnimationController _idleController;      // background loop + orbital
+  late AnimationController _entranceController;  // hero entrance
   late AnimationController _typewriterController;
+  late AnimationController _shimmerController;   // mission card shimmer
   late List<ParticleData> _particles;
 
   double _scrollProgress = 0.0;
@@ -31,26 +32,58 @@ class _AboutUsScreenState extends State<AboutUsScreen>
   void initState() {
     super.initState();
     _scrollController = ScrollController()..addListener(_onScroll);
-    _idleController = AnimationController(
-        vsync: this, duration: const Duration(seconds: 20))
-      ..repeat();
-    _entranceController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1000))
-      ..forward();
-    _typewriterController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 2500));
+
+    _idleController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 20))
+          ..repeat();
+
+    _entranceController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
+          ..forward();
+
+    _typewriterController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 2800));
+
+    _shimmerController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))
+          ..repeat();
 
     final rng = math.Random(42);
-    _particles = List.generate(
-      22,
-      (i) => ParticleData(
-        x: rng.nextDouble(),
-        y: rng.nextDouble(),
-        radius: 1.0 + rng.nextDouble() * 2.2,
-        speed: 0.08 + rng.nextDouble() * 0.25,
-        phase: rng.nextDouble() * math.pi * 2,
-      ),
-    );
+    _particles = [
+      // Far layer (15): small, slow, purple-tinted
+      ...List.generate(
+          15,
+          (i) => ParticleData(
+                x: rng.nextDouble(),
+                y: rng.nextDouble(),
+                radius: 0.7 + rng.nextDouble() * 1.0,
+                speed: 0.04 + rng.nextDouble() * 0.07,
+                phase: rng.nextDouble() * math.pi * 2,
+                layer: 0,
+              )),
+      // Mid layer (20): default
+      ...List.generate(
+          20,
+          (i) => ParticleData(
+                x: rng.nextDouble(),
+                y: rng.nextDouble(),
+                radius: 1.2 + rng.nextDouble() * 1.8,
+                speed: 0.10 + rng.nextDouble() * 0.16,
+                phase: rng.nextDouble() * math.pi * 2,
+                layer: 1,
+              )),
+      // Near layer (10): large, fast, glowing
+      ...List.generate(
+          10,
+          (i) => ParticleData(
+                x: rng.nextDouble(),
+                y: rng.nextDouble(),
+                radius: 2.5 + rng.nextDouble() * 2.2,
+                speed: 0.20 + rng.nextDouble() * 0.28,
+                phase: rng.nextDouble() * math.pi * 2,
+                layer: 2,
+              )),
+    ];
   }
 
   void _onScroll() {
@@ -69,6 +102,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
     _idleController.dispose();
     _entranceController.dispose();
     _typewriterController.dispose();
+    _shimmerController.dispose();
     super.dispose();
   }
 
@@ -103,7 +137,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
             ),
           ),
         ),
-        // ✏️ [修改處 2] 頁面頂部標題（捲動時與返回按鈕一同淡出隱藏）
+        // ✏️ [修改處 2] 頁面頂部標題
         title: Opacity(
           opacity: topBarOpacity,
           child: const Text(
@@ -117,11 +151,9 @@ class _AboutUsScreenState extends State<AboutUsScreen>
       ),
       body: Stack(
         children: [
-          // Dynamic background gradient shifts with scroll
+          // ── Layer 1: Shifting base gradient ─────────────
           AnimatedBuilder(
-            animation: _scrollController.hasClients
-                ? _scrollController
-                : _idleController,
+            animation: _idleController,
             builder: (context, _) {
               final t = _scrollProgress;
               return Container(
@@ -146,6 +178,34 @@ class _AboutUsScreenState extends State<AboutUsScreen>
               );
             },
           ),
+
+          // ── Layer 2: Nebula clouds ───────────────────────
+          AnimatedBuilder(
+            animation: _idleController,
+            builder: (context, _) => CustomPaint(
+              size: MediaQuery.of(context).size,
+              painter: NebulaPainter(
+                time: _idleController.value,
+                scrollOffset: _scrollOffset,
+                primaryColor: primaryColor,
+              ),
+            ),
+          ),
+
+          // ── Layer 3: Hex flow grid ───────────────────────
+          AnimatedBuilder(
+            animation: _idleController,
+            builder: (context, _) => CustomPaint(
+              size: MediaQuery.of(context).size,
+              painter: FlowGridPainter(
+                time: _idleController.value,
+                scrollOffset: _scrollOffset,
+                primaryColor: primaryColor,
+              ),
+            ),
+          ),
+
+          // ── Main scrollable content ──────────────────────
           CustomScrollView(
             controller: _scrollController,
             physics: const BouncingScrollPhysics(),
@@ -162,15 +222,19 @@ class _AboutUsScreenState extends State<AboutUsScreen>
 
   // ─── HERO ─────────────────────────────────────────────
   Widget _buildHero(Color primaryColor) {
+    // Parallax: sphere shrinks + fades as user scrolls down
+    final heroScale = (1.0 - _scrollOffset / 900.0).clamp(0.85, 1.0);
+    final heroOpacity = (1.0 - _scrollOffset / 280.0).clamp(0.0, 1.0);
+
     return SizedBox(
-      height: 340,
+      height: 380,
       child: Stack(
         children: [
-          // Floating particle layer
+          // 3-layer particles (always present)
           AnimatedBuilder(
             animation: _idleController,
             builder: (_, __) => CustomPaint(
-              size: const Size(double.infinity, 340),
+              size: const Size(double.infinity, 380),
               painter: ParticlePainter(
                 particles: _particles,
                 time: _idleController.value,
@@ -179,75 +243,89 @@ class _AboutUsScreenState extends State<AboutUsScreen>
               ),
             ),
           ),
-          // 3D orbital sphere
-          AnimatedBuilder(
-            animation: _idleController,
-            builder: (_, __) {
-              final idleRot = _idleController.value * 2 * math.pi;
-              final scrollRot = _scrollProgress * 3 * math.pi;
-              return CustomPaint(
-                size: const Size(double.infinity, 340),
-                painter: OrbitalSpherePainter(
-                  rotation: idleRot + scrollRot,
-                  primaryColor: primaryColor,
-                ),
-              );
-            },
+
+          // 3D orbital sphere — parallax scale + fade
+          Opacity(
+            opacity: heroOpacity,
+            child: Transform.scale(
+              scale: heroScale,
+              child: AnimatedBuilder(
+                animation: _idleController,
+                builder: (_, __) {
+                  final idleRot = _idleController.value * 2 * math.pi;
+                  final scrollRot = _scrollProgress * 3 * math.pi;
+                  return CustomPaint(
+                    size: const Size(double.infinity, 380),
+                    painter: OrbitalSpherePainter(
+                      rotation: idleRot + scrollRot,
+                      primaryColor: primaryColor,
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
-          // Title with entrance animation
+
+          // ✏️ [修改處 3] 標題 — parallax translate + entrance
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: FadeTransition(
-              opacity: _entranceController,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.3),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                    parent: _entranceController,
-                    curve: Curves.easeOutCubic)),
-                child: Column(
-                  children: [
-                    // ✏️ [修改處 3] 頂部 3D 球體下方大標題與副標題
-                    Text(
-                      'AI 學習助手',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1.5,
-                        shadows: [
-                          Shadow(
-                              color: primaryColor.withValues(alpha: 0.9),
-                              blurRadius: 24),
-                          const Shadow(
-                              color: Colors.black54,
-                              blurRadius: 12,
-                              offset: Offset(0, 4)),
-                        ],
-                      ),
+            child: Transform.translate(
+              offset: Offset(0, -_scrollOffset * 0.28),
+              child: Opacity(
+                opacity: heroOpacity,
+                child: FadeTransition(
+                  opacity: _entranceController,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.45),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                        parent: _entranceController,
+                        curve: Curves.easeOutCubic)),
+                    child: Column(
+                      children: [
+                        Text(
+                          'AI 學習助手',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.5,
+                            shadows: [
+                              Shadow(
+                                  color: primaryColor.withValues(alpha: 0.9),
+                                  blurRadius: 28),
+                              const Shadow(
+                                  color: Colors.black54,
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '智慧伴學 × 學習無界',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.65),
+                            letterSpacing: 3.5,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '智慧伴學 × 學習無界',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.65),
-                        letterSpacing: 3.5,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-          // Scroll hint bounce arrow
+
+          // Bounce scroll hint
           Positioned(
             bottom: 4,
             left: 0,
@@ -261,7 +339,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   animation: _idleController,
                   builder: (_, __) {
                     final b =
-                        math.sin(_idleController.value * 2 * math.pi * 2) * 4;
+                        math.sin(_idleController.value * 2 * math.pi * 2) * 5;
                     return Transform.translate(
                       offset: Offset(0, b),
                       child: Icon(Icons.keyboard_arrow_down_rounded,
@@ -285,9 +363,9 @@ class _AboutUsScreenState extends State<AboutUsScreen>
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
           BoxShadow(
-              color: primaryColor.withValues(alpha: 0.14),
-              blurRadius: 32,
-              offset: const Offset(0, -10)),
+              color: primaryColor.withValues(alpha: 0.18),
+              blurRadius: 40,
+              offset: const Offset(0, -12)),
         ],
       ),
       child: Column(
@@ -313,19 +391,22 @@ class _AboutUsScreenState extends State<AboutUsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ✏️ [修改處 4] 「關於這款 App」區塊文字
+                // ✏️ [修改處 4] 關於這款 App — 從左飛入
                 _RevealOnScroll(
                   scrollController: _scrollController,
-                  slideBegin: const Offset(-0.08, 0),
-                  duration: const Duration(milliseconds: 500),
-                  child: _sectionLabel('關於這款 App', '🚀', primaryColor, isDark),
+                  slideBegin: const Offset(-0.10, 0),
+                  duration: const Duration(milliseconds: 550),
+                  curve: Curves.easeOutCubic,
+                  child:
+                      _sectionLabel('關於這款 App', '🚀', primaryColor, isDark),
                 ),
                 const SizedBox(height: 14),
                 _RevealOnScroll(
                   scrollController: _scrollController,
-                  delay: const Duration(milliseconds: 120),
-                  slideBegin: const Offset(0, 0.1),
-                  duration: const Duration(milliseconds: 600),
+                  delay: const Duration(milliseconds: 100),
+                  slideBegin: const Offset(0, 0.12),
+                  duration: const Duration(milliseconds: 650),
+                  curve: Curves.easeOutCubic,
                   child: Text(
                     '業來業棒 是一款融合人工智慧技術、題庫與互動學習社群的全方位學習平台。以市面上穩定 AI 作為核心引擎，為每位使用者打造專屬於你的學習體驗。',
                     style: TextStyle(
@@ -339,34 +420,38 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                 ),
                 const SizedBox(height: 36),
 
-                // ✏️ [修改處 5] 「技術運用」區塊
+                // ✏️ [修改處 5] 技術運用 — 交錯飛入
                 _RevealOnScroll(
                   scrollController: _scrollController,
-                  slideBegin: const Offset(-0.08, 0),
+                  slideBegin: const Offset(-0.10, 0),
                   duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOutCubic,
                   child: _sectionLabel('技術運用', '⚙️', primaryColor, isDark),
                 ),
                 const SizedBox(height: 18),
                 _buildTechGrid(primaryColor, isDark),
                 const SizedBox(height: 36),
 
-                // ✏️ [修改處 6] 「核心功能」區塊
+                // ✏️ [修改處 6] 核心功能 — 交錯左右飛入
                 _RevealOnScroll(
                   scrollController: _scrollController,
-                  slideBegin: const Offset(-0.08, 0),
+                  slideBegin: const Offset(-0.10, 0),
                   duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOutCubic,
                   child: _sectionLabel('核心功能', '✨', primaryColor, isDark),
                 ),
                 const SizedBox(height: 16),
                 ..._buildFeatureList(primaryColor, isDark),
                 const SizedBox(height: 36),
 
-                // ✏️ [修改處 7] 「我們所打造的目標」卡片區塊
+                // ✏️ [修改處 7] 目標卡片 — 縮放+微旋轉飛入 + shimmer
                 _RevealOnScroll(
                   scrollController: _scrollController,
-                  slideBegin: const Offset(0, 0.12),
-                  scaleBegin: 0.94,
-                  duration: const Duration(milliseconds: 700),
+                  slideBegin: const Offset(0, 0.14),
+                  scaleBegin: 0.92,
+                  rotateBegin: 0.016,
+                  duration: const Duration(milliseconds: 750),
+                  curve: Curves.easeOutBack,
                   onTriggered: () {
                     Future.delayed(const Duration(milliseconds: 400), () {
                       if (mounted) _typewriterController.forward();
@@ -407,7 +492,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
     );
   }
 
-  // ✏️ [修改處 5 項目內容] 技術運用選單列表
+  // ✏️ [修改處 5 項目] 技術運用 — 行間交錯方向飛入
   Widget _buildTechGrid(Color primaryColor, bool isDark) {
     final techs = [
       _TechItem('Flutter', 'UI Framework', Icons.phone_android_rounded,
@@ -424,15 +509,31 @@ class _AboutUsScreenState extends State<AboutUsScreen>
           primaryColor),
     ];
 
+    // Row 0: left←, right→ | Row 1: left→, right← | Row 2: left←, right→
+    final slideDirections = [
+      [const Offset(-0.12, 0.05), const Offset(0.12, 0.05)],
+      [const Offset(0.12, 0.05), const Offset(-0.12, 0.05)],
+      [const Offset(-0.12, 0.05), const Offset(0.12, 0.05)],
+    ];
+    final rotateAngles = [
+      [-0.022, 0.022],
+      [0.022, -0.022],
+      [-0.022, 0.022],
+    ];
+
     Widget card(int i) {
       final t = techs[i];
+      final row = i ~/ 2;
+      final col = i % 2;
       return Expanded(
         child: _RevealOnScroll(
           scrollController: _scrollController,
-          delay: Duration(milliseconds: i * 80),
-          slideBegin: const Offset(0, 0.1),
+          delay: Duration(milliseconds: i * 70),
+          slideBegin: slideDirections[row][col],
           scaleBegin: 0.82,
-          duration: const Duration(milliseconds: 480),
+          rotateBegin: rotateAngles[row][col],
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.easeOutBack,
           child: Container(
             decoration: BoxDecoration(
               color: isDark
@@ -442,8 +543,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
               border:
                   Border.all(color: t.color.withValues(alpha: 0.28), width: 1),
             ),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
                 Container(
@@ -499,147 +599,220 @@ class _AboutUsScreenState extends State<AboutUsScreen>
     );
   }
 
-  // ✏️ [修改處 6 項目內容] 核心功能條列列表
+  // ✏️ [修改處 6 項目] 核心功能 — 奇偶項交錯左右飛入
   List<Widget> _buildFeatureList(Color primaryColor, bool isDark) {
     final List<(IconData, String, String)> features = [
-      (
-        Icons.auto_awesome_rounded,
-        'AI 智能解答',
-        '長按文字即可呼叫 Gemini AI 解釋任何概念'
-      ),
-      (
-        Icons.menu_book_rounded,
-        '題庫',
-        '分類題目、錯題本與個人化複習排程'
-      ),
-      (
-        Icons.forum_rounded,
-        '學習社群',
-        '分享心得、互動交流，與同學共同進步'
-      ),
-      (
-        Icons.calendar_month_rounded,
-        '行程規劃',
-        '自然語言輸入即可新增與管理學習行程'
-      ),
-      (
-        Icons.bar_chart_rounded,
-        '學習歷程分析',
-        '視覺化圖表追蹤每週答題正確率'
-      ),
+      (Icons.auto_awesome_rounded, 'AI 智能解答',
+          '長按文字即可呼叫 Gemini AI 解釋任何概念'),
+      (Icons.menu_book_rounded, '題庫', '分類題目、錯題本與個人化複習排程'),
+      (Icons.forum_rounded, '學習社群', '分享心得、互動交流，與同學共同進步'),
+      (Icons.calendar_month_rounded, '行程規劃', '自然語言輸入即可新增與管理學習行程'),
+      (Icons.bar_chart_rounded, '學習歷程分析', '視覺化圖表追蹤每週答題正確率'),
     ];
 
-    return features.indexed
-        .map((entry) {
-          final (idx, f) = entry;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: _RevealOnScroll(
-              scrollController: _scrollController,
-              delay: Duration(milliseconds: idx * 100),
-              slideBegin: const Offset(0.06, 0),
-              duration: const Duration(milliseconds: 500),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _RevealOnScroll(
-                    scrollController: _scrollController,
-                    delay: Duration(milliseconds: idx * 100),
-                    slideBegin: Offset.zero,
-                    scaleBegin: 0.6,
-                    duration: const Duration(milliseconds: 400),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                          color: primaryColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10)),
-                      child: Icon(f.$1, color: primaryColor, size: 18),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(f.$2,
-                            style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color:
-                                    isDark ? Colors.white : Colors.black87)),
-                        const SizedBox(height: 3),
-                        Text(f.$3,
-                            style: TextStyle(
-                                fontSize: 13,
-                                height: 1.5,
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.55)
-                                    : Colors.grey.shade600)),
-                      ],
-                    ),
-                  ),
-                ],
+    return features.indexed.map((entry) {
+      final (idx, f) = entry;
+      // Even → from right, Odd → from left, for a weaving feel
+      final slideDir =
+          idx.isEven ? const Offset(0.09, 0) : const Offset(-0.09, 0);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: _RevealOnScroll(
+          scrollController: _scrollController,
+          delay: Duration(milliseconds: idx * 85),
+          slideBegin: slideDir,
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.easeOutCubic,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Icon — pop-in scale with spring
+              _RevealOnScroll(
+                scrollController: _scrollController,
+                delay: Duration(milliseconds: idx * 85 + 55),
+                slideBegin: Offset.zero,
+                scaleBegin: 0.45,
+                duration: const Duration(milliseconds: 420),
+                curve: Curves.easeOutBack,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Icon(f.$1, color: primaryColor, size: 18),
+                ),
               ),
-            ),
-          );
-        })
-        .toList();
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(f.$2,
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black87)),
+                    const SizedBox(height: 3),
+                    Text(f.$3,
+                        style: TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.55)
+                                : Colors.grey.shade600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildMissionCard(Color primaryColor, bool isDark) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            primaryColor.withValues(alpha: 0.18),
-            primaryColor.withValues(alpha: 0.06),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.flag_rounded, color: primaryColor, size: 20),
-              const SizedBox(width: 8),
-              Text('我們所打造的目標',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor)),
+    return _ShimmerCard(
+      shimmerController: _shimmerController,
+      primaryColor: primaryColor,
+      borderRadius: 20,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              primaryColor.withValues(alpha: 0.18),
+              primaryColor.withValues(alpha: 0.06),
             ],
           ),
-          const SizedBox(height: 12),
-          TypewriterText(
-            text: _missionText,
-            controller: _typewriterController,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.8,
-              fontStyle: FontStyle.italic,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.75)
-                  : Colors.black.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: primaryColor.withValues(alpha: 0.28)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.flag_rounded, color: primaryColor, size: 20),
+                const SizedBox(width: 8),
+                Text('我們所打造的目標',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor)),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            TypewriterText(
+              text: _missionText,
+              controller: _typewriterController,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.8,
+                fontStyle: FontStyle.italic,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.75)
+                    : Colors.black.withValues(alpha: 0.65),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
+// ======================================================
+//  _ShimmerCard — Diagonal sweep light on Mission Card
+// ======================================================
+class _ShimmerCard extends StatelessWidget {
+  final AnimationController shimmerController;
+  final Color primaryColor;
+  final double borderRadius;
+  final Widget child;
 
+  const _ShimmerCard({
+    required this.shimmerController,
+    required this.primaryColor,
+    required this.child,
+    this.borderRadius = 16,
+  });
 
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: AnimatedBuilder(
+        animation: shimmerController,
+        builder: (context, childWidget) {
+          return Stack(
+            children: [
+              childWidget!,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _ShimmerPainter(
+                      progress: shimmerController.value,
+                      primaryColor: primaryColor,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+        child: child,
+      ),
+    );
+  }
+}
+
+class _ShimmerPainter extends CustomPainter {
+  final double progress;
+  final Color primaryColor;
+
+  _ShimmerPainter({required this.progress, required this.primaryColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const shimmerHalfW = 90.0;
+    const tilt = 32.0;
+    // Sweep from left-off to right-off
+    final x = -shimmerHalfW - tilt + (size.width + (shimmerHalfW + tilt) * 2) * progress;
+
+    final path = Path()
+      ..moveTo(x - shimmerHalfW - tilt, 0)
+      ..lineTo(x + shimmerHalfW - tilt, 0)
+      ..lineTo(x + shimmerHalfW + tilt, size.height)
+      ..lineTo(x - shimmerHalfW + tilt, size.height)
+      ..close();
+
+    final shaderRect = Rect.fromLTWH(
+        x - shimmerHalfW - tilt, 0, (shimmerHalfW + tilt) * 2, size.height);
+
+    final gradient = LinearGradient(
+      colors: [
+        Colors.transparent,
+        primaryColor.withValues(alpha: 0.09),
+        Colors.white.withValues(alpha: 0.07),
+        primaryColor.withValues(alpha: 0.09),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.35, 0.5, 0.65, 1.0],
+    );
+
+    canvas.drawPath(path, Paint()..shader = gradient.createShader(shaderRect));
+  }
+
+  @override
+  bool shouldRepaint(_ShimmerPainter old) => old.progress != progress;
+}
 
 // ======================================================
-//  _RevealOnScroll — Scroll-triggered reveal animation
+//  _RevealOnScroll — Upgraded scroll-triggered animation
+//  新增：rotateBegin, curve 參數；觸發閾值調整至 0.88
 // ======================================================
 class _RevealOnScroll extends StatefulWidget {
   final Widget child;
@@ -647,7 +820,9 @@ class _RevealOnScroll extends StatefulWidget {
   final Duration delay;
   final Offset slideBegin;
   final double? scaleBegin;
+  final double? rotateBegin; // 弧度 radians
   final Duration duration;
+  final Curve curve;
   final VoidCallback? onTriggered;
 
   const _RevealOnScroll({
@@ -656,7 +831,9 @@ class _RevealOnScroll extends StatefulWidget {
     this.delay = Duration.zero,
     this.slideBegin = const Offset(0, 0.08),
     this.scaleBegin,
+    this.rotateBegin,
     this.duration = const Duration(milliseconds: 600),
+    this.curve = Curves.easeOutCubic,
     this.onTriggered,
   });
 
@@ -670,6 +847,7 @@ class _RevealOnScrollState extends State<_RevealOnScroll>
   late Animation<double> _opacity;
   late Animation<Offset> _slide;
   Animation<double>? _scale;
+  Animation<double>? _rotate;
   final _key = GlobalKey();
   bool _triggered = false;
 
@@ -677,13 +855,23 @@ class _RevealOnScrollState extends State<_RevealOnScroll>
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: widget.duration);
-    _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+
+    final curved = CurvedAnimation(parent: _ctrl, curve: widget.curve);
+
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     _slide = Tween<Offset>(begin: widget.slideBegin, end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+        .animate(curved);
+
     if (widget.scaleBegin != null) {
       _scale = Tween<double>(begin: widget.scaleBegin!, end: 1.0)
-          .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+          .animate(curved);
     }
+    if (widget.rotateBegin != null) {
+      _rotate = Tween<double>(begin: widget.rotateBegin!, end: 0.0)
+          .animate(curved);
+    }
+
     widget.scrollController.addListener(_check);
     WidgetsBinding.instance.addPostFrameCallback((_) => _check());
   }
@@ -696,7 +884,8 @@ class _RevealOnScrollState extends State<_RevealOnScroll>
     if (box == null || !box.hasSize) return;
     final pos = box.localToGlobal(Offset.zero);
     final screenH = MediaQuery.of(ctx).size.height;
-    if (pos.dy < screenH * 0.92) {
+    // 閾值從 0.92 → 0.88，更早觸發、更順暢的感知
+    if (pos.dy < screenH * 0.88) {
       _triggered = true;
       widget.onTriggered?.call();
       Future.delayed(widget.delay, () {
@@ -715,11 +904,178 @@ class _RevealOnScrollState extends State<_RevealOnScroll>
   @override
   Widget build(BuildContext context) {
     Widget w = widget.child;
-    if (_scale != null) w = ScaleTransition(scale: _scale!, child: w);
+    if (_scale != null) {
+      w = ScaleTransition(scale: _scale!, child: w);
+    }
+    if (_rotate != null) {
+      final rot = _rotate!;
+      w = AnimatedBuilder(
+        animation: rot,
+        builder: (_, child) =>
+            Transform.rotate(angle: rot.value, child: child),
+        child: w,
+      );
+    }
     w = SlideTransition(position: _slide, child: w);
     w = FadeTransition(opacity: _opacity, child: w);
     return Container(key: _key, child: w);
   }
+}
+
+// ======================================================
+//  NebulaPainter — Soft drifting nebula clouds
+// ======================================================
+class NebulaPainter extends CustomPainter {
+  final double time;
+  final double scrollOffset;
+  final Color primaryColor;
+
+  NebulaPainter({
+    required this.time,
+    required this.scrollOffset,
+    required this.primaryColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = time * 2 * math.pi;
+    final purpleAccentColor = Color.lerp(primaryColor, Colors.purpleAccent, 0.5)!;
+    final blueAccentColor = Color.lerp(primaryColor, Colors.blueAccent, 0.4)!;
+    final deepPurpleColor = Color.lerp(primaryColor, Colors.deepPurple, 0.55)!;
+
+    // (relX, relY, radiusX, radiusY, driftPhase, alpha, color)
+    final blobs = [
+      (0.14, 0.10, 190.0, 130.0, 0.0,  0.070, primaryColor),
+      (0.82, 0.20, 155.0, 105.0, 1.2,  0.055, purpleAccentColor),
+      (0.32, 0.72, 205.0, 135.0, 2.4,  0.062, blueAccentColor),
+      (0.72, 0.82, 145.0, 92.0,  3.7,  0.048, deepPurpleColor),
+    ];
+
+    for (final blob in blobs) {
+      final relX = blob.$1;
+      final relY = blob.$2;
+      final rX = blob.$3;
+      final rY = blob.$4;
+      final phase = blob.$5;
+      final alpha = blob.$6;
+      final color = blob.$7;
+
+      final driftX = math.sin(t * 0.28 + phase) * 18.0;
+      final driftY = math.cos(t * 0.19 + phase) * 13.0 - scrollOffset * 0.11;
+
+      final cx = relX * size.width + driftX;
+      final cy = relY * size.height + driftY;
+
+      final rect =
+          Rect.fromCenter(center: Offset(cx, cy), width: rX * 2, height: rY * 2);
+
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            color.withValues(alpha: alpha),
+            color.withValues(alpha: alpha * 0.38),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(rect);
+
+      canvas.save();
+      canvas.translate(cx, cy);
+      canvas.scale(1.0, rY / rX);
+      canvas.translate(-cx, -cy);
+      canvas.drawCircle(Offset(cx, cy), rX, paint);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(NebulaPainter old) =>
+      old.time != time || old.scrollOffset != scrollOffset;
+}
+
+// ======================================================
+//  FlowGridPainter — Animated hexagonal grid
+// ======================================================
+class FlowGridPainter extends CustomPainter {
+  final double time;
+  final double scrollOffset;
+  final Color primaryColor;
+
+  FlowGridPainter({
+    required this.time,
+    required this.scrollOffset,
+    required this.primaryColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    const hexR = 22.0;
+    final hexW = math.sqrt(3) * hexR;   // ~38.1
+    const hexH = 2.0 * hexR;            // 44.0
+    const rowStep = hexH * 0.75;        // 33.0
+
+    final t = time * 2 * math.pi;
+    // Grid drifts slowly downward with scroll for parallax depth
+    final yShift = (scrollOffset * 0.055) % rowStep;
+
+    final linePaint = Paint()
+      ..strokeWidth = 0.55
+      ..style = PaintingStyle.stroke;
+
+    final nodePaint = Paint();
+    final glowPaint = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+
+    int nodeIndex = 0;
+    final colCount = (size.width / hexW + 3).ceil();
+    final rowCount = (size.height / rowStep + 3).ceil();
+
+    for (int col = -1; col < colCount; col++) {
+      for (int row = -1; row < rowCount; row++) {
+        final cx = col * hexW + (row.isOdd ? hexW * 0.5 : 0.0);
+        final cy = row * rowStep + yShift;
+
+        // Each node pulses independently
+        final pulse = math.sin(t * 0.55 + nodeIndex * 0.43) * 0.5 + 0.5;
+        final lineAlpha = 0.022 + pulse * 0.022;
+        final nodeAlpha = 0.028 + pulse * 0.042;
+
+        // Hex outline
+        final path = Path();
+        for (int v = 0; v <= 6; v++) {
+          final angle = (v * 60 - 30) * math.pi / 180.0;
+          final px = cx + hexR * math.cos(angle);
+          final py = cy + hexR * math.sin(angle);
+          if (v == 0) {
+            path.moveTo(px, py);
+          } else {
+            path.lineTo(px, py);
+          }
+        }
+        path.close();
+        linePaint.color = primaryColor.withValues(alpha: lineAlpha);
+        canvas.drawPath(path, linePaint);
+
+        // Center node dot
+        nodePaint.color = primaryColor.withValues(alpha: nodeAlpha);
+        canvas.drawCircle(Offset(cx, cy), 1.2, nodePaint);
+
+        // Periodic glow nodes (every 11th)
+        if (nodeIndex % 11 == 0) {
+          glowPaint.color = primaryColor.withValues(alpha: pulse * 0.075);
+          canvas.drawCircle(Offset(cx, cy), 4.0, glowPaint);
+        }
+
+        nodeIndex++;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(FlowGridPainter old) =>
+      old.time != time || old.scrollOffset != scrollOffset;
 }
 
 // ======================================================
@@ -865,7 +1221,7 @@ class OrbitalSpherePainter extends CustomPainter {
 }
 
 // ======================================================
-//  ParticlePainter — Floating parallax particles
+//  ParticlePainter — 3-layer depth floating particles
 // ======================================================
 class ParticlePainter extends CustomPainter {
   final List<ParticleData> particles;
@@ -882,20 +1238,52 @@ class ParticlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final accent = Color.lerp(primaryColor, Colors.purpleAccent, 0.35)!;
+
     for (final p in particles) {
       final x = p.x * size.width;
       final rawY = p.y * size.height - scrollOffset * p.speed;
       final y = rawY % size.height;
-      final opacity =
+      final pulse =
           (math.sin(time * 2 * math.pi * 1.5 + p.phase) * 0.35 + 0.5)
               .clamp(0.0, 1.0);
+
+      final double baseAlpha;
+      final double blurFactor;
+      final Color color;
+
+      if (p.layer == 0) {
+        // Far: small, dim, purple-tinted
+        baseAlpha = 0.26;
+        blurFactor = 0.65;
+        color = Color.lerp(primaryColor, accent, 0.65)!;
+      } else if (p.layer == 2) {
+        // Near: large, bright, with halo glow
+        baseAlpha = 0.68;
+        blurFactor = 1.5;
+        color = Color.lerp(primaryColor, Colors.white, 0.22)!;
+        // Extra soft halo
+        canvas.drawCircle(
+          Offset(x, y),
+          p.radius * 2.4,
+          Paint()
+            ..color = primaryColor.withValues(alpha: pulse * 0.11)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, p.radius * 2.2),
+        );
+      } else {
+        // Mid: default
+        baseAlpha = 0.46;
+        blurFactor = 0.95;
+        color = primaryColor;
+      }
+
       canvas.drawCircle(
         Offset(x, y),
         p.radius,
         Paint()
-          ..color = primaryColor.withValues(alpha: opacity * 0.55)
+          ..color = color.withValues(alpha: pulse * baseAlpha)
           ..maskFilter =
-              MaskFilter.blur(BlurStyle.normal, p.radius * 0.8),
+              MaskFilter.blur(BlurStyle.normal, p.radius * blurFactor),
       );
     }
   }
@@ -950,11 +1338,14 @@ class ParticleData {
   final double radius;
   final double speed;
   final double phase;
+  final int layer; // 0 = 遠景, 1 = 中景, 2 = 近景
+
   const ParticleData({
     required this.x,
     required this.y,
     required this.radius,
     required this.speed,
     required this.phase,
+    this.layer = 1,
   });
 }
