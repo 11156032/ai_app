@@ -39,7 +39,7 @@ class SocialTab extends StatelessWidget {
     return Stack(children: [
       Column(children: [
         // 分類篩選
-        _buildFilterBar(),
+        _buildFilterBar(context),
         // 貼文列表
         Expanded(
           child: ListView(
@@ -55,7 +55,7 @@ class SocialTab extends StatelessWidget {
     ]);
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar(BuildContext context) {
     return SizedBox(
       height: 50,
       child: ListView(
@@ -71,7 +71,7 @@ class SocialTab extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade100,
+                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(label,

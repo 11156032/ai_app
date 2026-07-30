@@ -23,7 +23,7 @@ extension MainScreenProfileTab on _MainScreenState {
                     fontWeight: FontWeight.bold,
                     color: _isDarkMode
                         ? Colors.white
-                        : Theme.of(context).primaryColor,
+                        : _currentPrimaryColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -76,8 +76,8 @@ extension MainScreenProfileTab on _MainScreenState {
                 onTap: _showUnifiedAvatarPicker,
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF8D6E63),
+                  decoration: BoxDecoration(
+                    color: _currentPrimaryColor,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.camera_alt,
@@ -142,7 +142,7 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   Widget _buildPersonalizedDashboard(BuildContext context) {
-    final primaryColor = Theme.of(context).primaryColor;
+    final primaryColor = _currentPrimaryColor;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -225,7 +225,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   fontWeight: FontWeight.bold,
                   color: _isDarkMode
                       ? const Color(0xFFD7CCC8)
-                      : Theme.of(context).primaryColor)),
+                      : _currentPrimaryColor)),
           const SizedBox(height: 16),
           child,
         ],
@@ -271,11 +271,13 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.format_size,
             label: '字體大小',
-            value: _fontSizeFactor == 0.9
-                ? '較小'
-                : _fontSizeFactor == 1.1
-                    ? '較大'
-                    : '標準',
+            value: _fontSizeFactor <= 0.88
+                ? '精簡 (小)'
+                : _fontSizeFactor <= 1.05
+                    ? '標準 (預設)'
+                    : _fontSizeFactor <= 1.25
+                        ? '放大 (大)'
+                        : '特大 (清晰)',
             onTap: _showFontSizeDialog,
           ),
           const Divider(height: 24),
@@ -316,7 +318,7 @@ extension MainScreenProfileTab on _MainScreenState {
             secondary:
                 Icon(Icons.dock_rounded, size: 20, color: Colors.grey.shade600),
             value: _showFloatingNavBar,
-            activeThumbColor: const Color(0xFF8D6E63),
+            activeThumbColor: _currentPrimaryColor,
             onChanged: (val) async {
               _update(() => _showFloatingNavBar = val);
               await _updatePersonalization();
@@ -332,7 +334,7 @@ extension MainScreenProfileTab on _MainScreenState {
             secondary: Icon(Icons.dark_mode_outlined,
                 size: 20, color: Colors.grey.shade600),
             value: _isDarkMode,
-            activeThumbColor: const Color(0xFF8D6E63),
+            activeThumbColor: _currentPrimaryColor,
             onChanged: (val) async {
               _update(() => _isDarkMode = val);
               await _updatePersonalization();
@@ -473,7 +475,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   border: Border(
                     bottom: BorderSide(
                       color:
-                          Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                          _currentPrimaryColor.withValues(alpha: 0.2),
                       width: 1,
                       style: BorderStyle.solid,
                     ),
@@ -585,7 +587,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           fontWeight:
                               isToday ? FontWeight.bold : FontWeight.normal,
                           color: isToday
-                              ? Theme.of(context).primaryColor
+                              ? _currentPrimaryColor
                               : Colors.grey.shade600,
                         ),
                       ),
@@ -639,7 +641,7 @@ extension MainScreenProfileTab on _MainScreenState {
               size: 20,
               color: _isDarkMode
                   ? const Color(0xFFD7CCC8)
-                  : Theme.of(context).primaryColor),
+                  : _currentPrimaryColor),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -675,7 +677,7 @@ extension MainScreenProfileTab on _MainScreenState {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: _isDarkMode ? Colors.white : const Color(0xFF8D6E63),
+              color: _isDarkMode ? Colors.white : _currentPrimaryColor,
             ),
           ),
         ),
@@ -696,7 +698,7 @@ extension MainScreenProfileTab on _MainScreenState {
               child: Text(
                 '取消',
                 style: TextStyle(
-                  color: _isDarkMode ? Colors.white70 : const Color(0xFF8D6E63),
+                  color: _isDarkMode ? Colors.white70 : _currentPrimaryColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -725,11 +727,11 @@ extension MainScreenProfileTab on _MainScreenState {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade200,
+            color: isSelected ? _currentPrimaryColor : Colors.grey.shade200,
             width: isSelected ? 2 : 1,
           ),
           color: isSelected
-              ? const Color(0xFF8D6E63).withValues(alpha: 0.05)
+              ? _currentPrimaryColor.withValues(alpha: 0.05)
               : Colors.transparent,
         ),
         child: Column(
@@ -740,7 +742,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   mode == 'dot'
                       ? Icons.fiber_manual_record
                       : Icons.calendar_view_month,
-                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey,
+                  color: isSelected ? _currentPrimaryColor : Colors.grey,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -768,8 +770,8 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                 ),
                 if (isSelected)
-                  const Icon(Icons.check_circle,
-                      color: Color(0xFF8D6E63), size: 18),
+                  Icon(Icons.check_circle,
+                      color: _currentPrimaryColor, size: 18),
               ],
             ),
             const SizedBox(height: 10),
@@ -1000,7 +1002,7 @@ extension MainScreenProfileTab on _MainScreenState {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: _isDarkMode ? Colors.white : const Color(0xFF8D6E63),
+              color: _isDarkMode ? Colors.white : _currentPrimaryColor,
             ),
           ),
         ),
@@ -1021,7 +1023,7 @@ extension MainScreenProfileTab on _MainScreenState {
               child: Text(
                 '取消',
                 style: TextStyle(
-                  color: _isDarkMode ? Colors.white70 : const Color(0xFF8D6E63),
+                  color: _isDarkMode ? Colors.white70 : _currentPrimaryColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1050,11 +1052,11 @@ extension MainScreenProfileTab on _MainScreenState {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade200,
+            color: isSelected ? _currentPrimaryColor : Colors.grey.shade200,
             width: isSelected ? 2 : 1,
           ),
           color: isSelected
-              ? const Color(0xFF8D6E63).withValues(alpha: 0.05)
+              ? _currentPrimaryColor.withValues(alpha: 0.05)
               : Colors.transparent,
         ),
         child: Column(
@@ -1065,7 +1067,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   mode == 'card'
                       ? Icons.crop_square_rounded
                       : Icons.reorder_rounded,
-                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey,
+                  color: isSelected ? _currentPrimaryColor : Colors.grey,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1092,8 +1094,8 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                 ),
                 if (isSelected)
-                  const Icon(Icons.check_circle,
-                      color: Color(0xFF8D6E63), size: 18),
+                  Icon(Icons.check_circle,
+                      color: _currentPrimaryColor, size: 18),
               ],
             ),
             const SizedBox(height: 10),
@@ -1109,7 +1111,7 @@ extension MainScreenProfileTab on _MainScreenState {
     Color cellBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
     Color textCol = isDark ? Colors.white54 : Colors.black54;
     Color borderCol = isDark ? Colors.white12 : Colors.grey.shade200;
-    Color primary = const Color(0xFF8D6E63);
+    Color primary = _currentPrimaryColor;
 
     if (mode == 'card') {
       return Container(
@@ -1282,7 +1284,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   size: 20,
                   color: _isDarkMode
                       ? const Color(0xFFD7CCC8)
-                      : Theme.of(context).primaryColor),
+                      : _currentPrimaryColor),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -1321,7 +1323,7 @@ extension MainScreenProfileTab on _MainScreenState {
           title: Row(
             children: [
               Icon(Icons.headset_mic_outlined,
-                  color: Theme.of(context).primaryColor),
+                  color: _currentPrimaryColor),
               const SizedBox(width: 10),
               const Text('客服與意見回饋',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
@@ -1423,7 +1425,7 @@ extension MainScreenProfileTab on _MainScreenState {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
+                backgroundColor: _currentPrimaryColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -1454,7 +1456,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                   ? '已送出，感謝您的回饋！我們會盡快處理。'
                                   : '發送失敗，請稍後再試或確認網路連線。'),
                               backgroundColor: ok
-                                  ? Theme.of(context).primaryColor
+                                  ? _currentPrimaryColor
                                   : Colors.redAccent,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
@@ -1531,7 +1533,7 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   void _showTermsDialog() {
-    final primaryColor = Theme.of(context).primaryColor;
+    final primaryColor = _currentPrimaryColor;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1596,7 +1598,7 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   void _showPrivacyPolicyDialog() {
-    final primaryColor = Theme.of(context).primaryColor;
+    final primaryColor = _currentPrimaryColor;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:convert';
-import 'dart:io' show File, Platform;
+import 'dart:io' show File, Directory, Platform;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -26,6 +26,8 @@ import '../widgets/welcome_splash.dart';
 import 'tabs/group_detail_page.dart';
 import 'tabs/create_group_dialog.dart';
 import 'about_us_screen.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -84,7 +86,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _socialFilter = '全部'; // 社群貼文分類篩選狀態
   String _socialAuthorFilter = ''; // 社群貼文作者篩選（空字串 = 全部）
   String _socialFeedLayout = 'card'; // 社群貼文版面：'card' 規格化 / 'list' 新聞式
-  int _socialMainTab = 0; // 0=廣場, 1=群組
+  int _socialMainTab = 0;
+  late PageController _socialPageController; // 0=廣場, 1=群組
   int _groupSubTab = 0; // 0=我的群組, 1=探索
   String _exploreGroupSearchQuery = ''; // 探索群組搜尋字串
   // ── 社群動態（Activity Tab）狀態 ──
@@ -236,6 +239,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   ];
 
   /// 安全更新 UI 狀態（避免 extension 呼叫 protected member 警告）
+  Color get _currentPrimaryColor {
+    if (_themeColorIdx == 1) return const Color(0xFF6B8A96);
+    if (_themeColorIdx == 2) return const Color(0xFF8AA682);
+    return const Color(0xFF8D6E63);
+  }
+
+  /// 安全更新 UI 狀態（避免 extension 呼叫 protected member 警告）
   void _updateState(VoidCallback fn) {
     if (mounted) {
       setState(fn);
@@ -245,6 +255,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _socialPageController = PageController(initialPage: _socialMainTab);
     WidgetsBinding.instance.addObserver(this);
     _sessionStartTime = DateTime.now();
     // 初始化為真實今天（去掉時分秒）
@@ -639,6 +650,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           'replies': replies,
           'media': attached['media_url'],
           'media_blob': blobData,
+          'file_blob': p['file_blob'] as Uint8List?,
           'fileName': attached['file_name'],
           'scheduled_at': attached['scheduled_at'],
           'attached_data': attached,
@@ -1296,7 +1308,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               onPressed: () {
                 Navigator.pop(ctx, false); // Discard
               },
-              child: const Text('捨棄', style: TextStyle(color: Colors.redAccent)),
+              child: Text('捨棄', style: TextStyle(color: Colors.redAccent)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -1493,11 +1505,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text('取消'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8D6E63),
+                backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -1662,7 +1674,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('已新增行程：$title'),
-          backgroundColor: const Color(0xFF8D6E63),
+          backgroundColor: Theme.of(context).primaryColor,
         ),
       );
     } catch (e) {
@@ -1751,7 +1763,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('已新增待辦：$title'),
-          backgroundColor: const Color(0xFF8D6E63),
+          backgroundColor: Theme.of(context).primaryColor,
         ),
       );
     } catch (e) {
@@ -1828,7 +1840,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('日記已儲存'),
+          content: Text('日記已儲存'),
           backgroundColor: Theme.of(context).primaryColor,
         ),
       );
@@ -2190,10 +2202,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消')),
+                      child: Text('取消')),
                   ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8D6E63),
+                          backgroundColor: Theme.of(context).primaryColor,
                           foregroundColor: Colors.white),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -2225,15 +2237,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-                title: const Text('系統提示'),
-                content: const Text('確定要登出並切換至其他帳號嗎？'),
+                title: Text('系統提示'),
+                content: Text('確定要登出並切換至其他帳號嗎？'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消')),
+                      child: Text('取消')),
                   ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8D6E63),
+                          backgroundColor: Theme.of(context).primaryColor,
                           foregroundColor: Colors.white),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -2299,10 +2311,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // 根據使用者設定建立主題
     final baseTheme = _isDarkMode ? ThemeData.dark() : ThemeData.light();
     final primaryColor = _themeColorIdx == 1
-        ? const Color(0xFF6B8A96) // 孔雀藍 (霧霾藍，淡雅且內斂)
+        ? const Color(0xFF6B8A96) // 孔雀藍 (霧霾藍)
         : (_themeColorIdx == 2
-            ? const Color(0xFF8AA682) // 森林綠 (鼠尾草綠，柔和且自然)
-            : const Color(0xFF9E8E81)); // 經典暖棕 (莫蘭迪棕，溫潤且協調)
+            ? const Color(0xFF8AA682) // 森林綠 (鼠尾草綠)
+            : const Color(0xFF8D6E63)); // 經典暖棕 (預設)
 
     return Theme(
       data: baseTheme.copyWith(
@@ -2371,7 +2383,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 child: SafeArea(
                     child: ListView(children: [
               Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: EdgeInsets.all(20.0),
                   child: Text('系統選單',
                       style: TextStyle(
                           fontSize: 18,
@@ -2380,7 +2392,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ListTile(
                   leading: Icon(Icons.calendar_month,
                       color: Theme.of(context).primaryColor),
-                  title: const Text('日曆行程'),
+                  title: Text('日曆行程'),
                   onTap: () {
                     _changePage(0, '日曆行程');
                     Navigator.pop(context);
@@ -2389,7 +2401,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 ListTile(
                     leading: Icon(Icons.edit_note,
                         color: Theme.of(context).primaryColor),
-                    title: const Text('筆記本'),
+                    title: Text('筆記本'),
                     onTap: () {
                       _changePage(5, '筆記本');
                       Navigator.pop(context);
@@ -2397,7 +2409,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ListTile(
                   leading: Icon(Icons.menu_book,
                       color: Theme.of(context).primaryColor),
-                  title: const Text('題庫'),
+                  title: Text('題庫'),
                   onTap: () {
                     _changePage(1, '題庫');
                     Navigator.pop(context);
@@ -2422,7 +2434,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ListTile(
                   leading: Icon(Icons.history_edu_rounded,
                       color: Theme.of(context).primaryColor),
-                  title: const Text('社群動態'),
+                  title: Text('社群動態'),
                   onTap: () {
                     _changePage(3, '社群動態');
                     Navigator.pop(context);
@@ -2430,7 +2442,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ListTile(
                   leading: Icon(Icons.settings_suggest_rounded,
                       color: Theme.of(context).primaryColor),
-                  title: const Text('個人檔案'),
+                  title: Text('個人檔案'),
                   onTap: () {
                     _changePage(4, '個人檔案');
                     Navigator.pop(context);
@@ -2552,7 +2564,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
+        duration: Duration(milliseconds: 300),
         curve: Curves.easeOutBack,
         padding:
             EdgeInsets.symmetric(horizontal: isSelected ? 12 : 8, vertical: 6),
@@ -2560,7 +2572,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           color: isSelected
               ? primaryColor.withValues(alpha: 0.15)
               : (index == -1
-                  ? const Color(0xFF8D6E63).withValues(alpha: 0.12)
+                  ? Theme.of(context).primaryColor.withValues(alpha: 0.12)
                   : Colors.transparent),
           borderRadius: BorderRadius.circular(20),
         ),
@@ -2572,7 +2584,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               color: isSelected
                   ? primaryColor
                   : (index == -1
-                      ? const Color(0xFF8D6E63)
+                      ? Theme.of(context).primaryColor
                       : Colors.grey.shade500),
               size: isSelected ? 24 : 22,
             ),
@@ -2649,7 +2661,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const SizedBox(width: 40),
+                            SizedBox(width: 40),
                             Text(
                               _cloneContext != null
                                   ? '🔮 ${_cloneContext!['author']} 的 AI 分身'
@@ -2657,8 +2669,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: _cloneContext != null
-                                    ? const Color(0xFF6A1B9A)
-                                    : const Color(0xFF8D6E63),
+                                    ? Color(0xFF6A1B9A)
+                                    : Theme.of(context).primaryColor,
                                 fontSize: 16,
                               ),
                             ),
@@ -2760,12 +2772,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                         modalController, setModalState);
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(
+                                    padding: EdgeInsets.symmetric(
                                         horizontal: 18, vertical: 14),
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
+                                      gradient: LinearGradient(
                                         colors: [
-                                          Color(0xFF8D6E63),
+                                          Theme.of(context).primaryColor,
                                           Color(0xFFBCAAA4)
                                         ],
                                         begin: Alignment.topLeft,
@@ -2774,7 +2786,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF8D6E63)
+                                          color: Theme.of(context).primaryColor
                                               .withValues(alpha: 0.35),
                                           blurRadius: 12,
                                           offset: const Offset(0, 4),
@@ -2872,15 +2884,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                             return StatefulBuilder(builder: (ctx2, setL) {
                               return Container(
-                                margin: const EdgeInsets.only(
+                                margin: EdgeInsets.only(
                                     bottom: 16, left: 16, right: 16),
-                                padding: const EdgeInsets.all(14),
+                                padding: EdgeInsets.all(14),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                        color: const Color(0xFF8D6E63)
+                                        color: Theme.of(context).primaryColor
                                             .withValues(alpha: 0.12),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4))
@@ -2891,14 +2903,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   children: [
                                     Row(children: [
                                       Container(
-                                          padding: const EdgeInsets.all(6),
+                                          padding: EdgeInsets.all(6),
                                           decoration: BoxDecoration(
-                                              color: const Color(0xFF8D6E63)
+                                              color: Theme.of(context).primaryColor
                                                   .withValues(alpha: 0.1),
                                               borderRadius:
                                                   BorderRadius.circular(10)),
-                                          child: const Icon(Icons.schedule,
-                                              color: Color(0xFF8D6E63),
+                                          child: Icon(Icons.schedule,
+                                              color: Theme.of(context).primaryColor,
                                               size: 18)),
                                       const SizedBox(width: 10),
                                       const Text('選擇日期與時段',
@@ -2911,14 +2923,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     const Text('日期',
                                         style: TextStyle(
                                             fontSize: 12, color: Colors.grey)),
-                                    const SizedBox(height: 4),
+                                    SizedBox(height: 4),
                                     Stack(
                                         alignment: Alignment.center,
                                         children: [
                                           Container(
                                               height: 36,
                                               decoration: BoxDecoration(
-                                                  color: const Color(0xFF8D6E63)
+                                                  color: Theme.of(context).primaryColor
                                                       .withValues(alpha: 0.08),
                                                   borderRadius:
                                                       BorderRadius.circular(
@@ -3093,13 +3105,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     SizedBox(
                                       width: double.infinity,
                                       child: ElevatedButton.icon(
-                                        icon: const Icon(
+                                        icon: Icon(
                                             Icons.check_circle_outline,
                                             size: 18),
-                                        label: const Text('確認時段'),
+                                        label: Text('確認時段'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor:
-                                              const Color(0xFF8D6E63),
+                                              Theme.of(context).primaryColor,
                                           foregroundColor: Colors.white,
                                           shape: RoundedRectangleBorder(
                                               borderRadius:
@@ -3278,7 +3290,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             final categories = <Map<String, dynamic>>[
                               {
                                 'title': '📚 筆記管理常用功能',
-                                'color': const Color(0xFF8D6E63),
+                                'color': Theme.of(context).primaryColor,
                                 'bgColor': const Color(0xFFEFEBE9),
                                 'items': <Map<String, dynamic>>[
                                   {
@@ -3483,15 +3495,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             final categories = <Map<String, dynamic>>[
                               {
                                 'title': '📁 選擇筆記分類',
-                                'color': const Color(0xFF8D6E63),
-                                'bgColor': const Color(0xFFEFEBE9),
+                                'color': Theme.of(context).primaryColor,
+                                'bgColor': Color(0xFFEFEBE9),
                                 'items': filteredCats.map((cat) {
                                   return {
                                     'icon': Icons.folder_open_outlined,
                                     'l': cat,
                                     'sub': '將此筆記歸類於 $cat',
                                     'v': cat,
-                                    'c': const Color(0xFF8D6E63),
+                                    'c': Theme.of(context).primaryColor,
                                   };
                                 }).toList(),
                               }
@@ -3828,7 +3840,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     'l': '跳轉題庫測驗',
                                     'sub': '開始練習與自我測試',
                                     'v': '題庫',
-                                    'c': const Color(0xFF26A69A),
+                                    'c': Color(0xFF26A69A),
                                   },
                                   if (!isGuest)
                                     {
@@ -3836,7 +3848,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       'l': '筆記本管理',
                                       'sub': '整理並查閱學習筆記',
                                       'v': '筆記本管理',
-                                      'c': const Color(0xFF8D6E63),
+                                      'c': Theme.of(context).primaryColor,
                                     },
                                 ],
                               },
@@ -4501,17 +4513,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                         modalController,
                                         setModalState),
                                     child: Container(
-                                      margin: const EdgeInsets.only(bottom: 8),
-                                      padding: const EdgeInsets.all(12),
+                                      margin: EdgeInsets.only(bottom: 8),
+                                      padding: EdgeInsets.all(12),
                                       decoration: BoxDecoration(
                                         color: isDone
                                             ? Colors.grey.shade100
-                                            : const Color(0xFF8D6E63)
+                                            : Theme.of(context).primaryColor
                                                 .withValues(alpha: 0.1),
                                         border: Border.all(
                                             color: isDone
                                                 ? Colors.grey.shade300
-                                                : const Color(0xFF8D6E63)
+                                                : Theme.of(context).primaryColor
                                                     .withValues(alpha: 0.4)),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -4523,7 +4535,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                 : Icons.circle_outlined,
                                             color: isDone
                                                 ? Colors.grey
-                                                : const Color(0xFF8D6E63),
+                                                : Theme.of(context).primaryColor,
                                             size: 16,
                                           ),
                                           const SizedBox(width: 10),
@@ -4561,11 +4573,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 children: [
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.edit, size: 16),
-                                      label: const Text('修改內容'),
+                                      icon: Icon(Icons.edit, size: 16),
+                                      label: Text('修改內容'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
-                                            const Color(0xFF8D6E63),
+                                            Theme.of(context).primaryColor,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
@@ -4648,14 +4660,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 children: [
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.event, size: 16),
+                                      icon: Icon(Icons.event, size: 16),
                                       label: Text(msg['widgetType'] ==
                                               'add_type_confirmation'
                                           ? '新增行程'
                                           : '修改行程'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
-                                            const Color(0xFF8D6E63),
+                                            Theme.of(context).primaryColor,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
@@ -4851,14 +4863,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             };
                             final typeIcon = typeIconMap[typeLabel] ?? '💬';
                             return Container(
-                              margin: const EdgeInsets.only(
+                              margin: EdgeInsets.only(
                                   bottom: 14, left: 16, right: 10),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF8D6E63)
+                                    color: Theme.of(context).primaryColor
                                         .withValues(alpha: 0.15),
                                     blurRadius: 16,
                                     offset: const Offset(0, 4),
@@ -4870,13 +4882,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 children: [
                                   // ── Header gradient bar ──
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
+                                    padding: EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 14),
-                                    decoration: const BoxDecoration(
+                                    decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: [
                                           Color(0xFF6D4C41),
-                                          Color(0xFF8D6E63)
+                                          Theme.of(context).primaryColor
                                         ],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
@@ -4986,15 +4998,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                 height: 1.5),
                                           ),
                                         ),
-                                        const SizedBox(height: 10),
+                                        SizedBox(height: 10),
                                         // Schedule time row
                                         Row(
                                           children: [
-                                            const Icon(
+                                            Icon(
                                                 Icons
                                                     .access_time_filled_rounded,
                                                 size: 15,
-                                                color: Color(0xFF8D6E63)),
+                                                color: Theme.of(context).primaryColor),
                                             const SizedBox(width: 6),
                                             Text(
                                               pData['time'] != null &&
@@ -5003,9 +5015,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                           .isNotEmpty
                                                   ? pData['time'].toString()
                                                   : '立即發布',
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                   fontSize: 12,
-                                                  color: Color(0xFF8D6E63),
+                                                  color: Theme.of(context).primaryColor,
                                                   fontWeight: FontWeight.w600),
                                             ),
                                           ],
@@ -5047,14 +5059,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                             ],
                                           ),
                                         ),
-                                        const Spacer(),
+                                        Spacer(),
                                         // Publish now
                                         OutlinedButton(
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor:
-                                                const Color(0xFF8D6E63),
-                                            side: const BorderSide(
-                                                color: Color(0xFF8D6E63),
+                                                Theme.of(context).primaryColor,
+                                            side: BorderSide(
+                                                color: Theme.of(context).primaryColor,
                                                 width: 1.2),
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 14, vertical: 9),
@@ -5170,16 +5182,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                           Widget messageWidget = Container(
                             margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(14),
+                            padding: EdgeInsets.all(14),
                             constraints: BoxConstraints(
                                 maxWidth:
                                     MediaQuery.of(context).size.width * 0.65),
                             decoration: BoxDecoration(
                                 color: msg['isAI']
                                     ? (authorName != null
-                                        ? const Color(0xFFF3E5F5)
+                                        ? Color(0xFFF3E5F5)
                                         : Colors.white)
-                                    : const Color(0xFF8D6E63),
+                                    : Theme.of(context).primaryColor,
                                 borderRadius: BorderRadius.circular(18),
                                 boxShadow: msg['isAI']
                                     ? [
@@ -5263,9 +5275,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               ListTile(
-                                                  leading: const Icon(
+                                                  leading: Icon(
                                                       Icons.copy,
-                                                      color: Color(0xFF8D6E63)),
+                                                      color: Theme.of(context).primaryColor),
                                                   title: const Text('複製文字'),
                                                   onTap: () {
                                                     Navigator.pop(ctx);
@@ -5275,14 +5287,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                     ScaffoldMessenger.of(
                                                             context)
                                                         .showSnackBar(
-                                                            const SnackBar(
+                                                            SnackBar(
                                                                 content: Text(
                                                                     '已複製到剪貼簿')));
                                                   }),
                                               ListTile(
-                                                  leading: const Icon(
+                                                  leading: Icon(
                                                       Icons.edit,
-                                                      color: Color(0xFF8D6E63)),
+                                                      color: Theme.of(context).primaryColor),
                                                   title: const Text('編輯'),
                                                   onTap: () async {
                                                     Navigator.pop(ctx);
@@ -5478,16 +5490,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(20),
                                         borderSide: BorderSide.none),
-                                    contentPadding: const EdgeInsets.symmetric(
+                                    contentPadding: EdgeInsets.symmetric(
                                         horizontal: 20, vertical: 10)),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           CircleAvatar(
                               backgroundColor: _cloneContext != null
-                                  ? const Color(0xFF6A1B9A)
-                                  : const Color(0xFF8D6E63),
+                                  ? Color(0xFF6A1B9A)
+                                  : Theme.of(context).primaryColor,
                               child: IconButton(
                                   icon: const Icon(Icons.send,
                                       color: Colors.white, size: 20),
@@ -6515,7 +6527,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('✅ 行程標題已更新為「$newTitle」！'),
-                backgroundColor: const Color(0xFF8D6E63),
+                backgroundColor: Theme.of(context).primaryColor,
               ),
             );
           }
@@ -6593,7 +6605,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 SnackBar(
                   content:
                       Text('✅ 行程「$eventTitle」時間已更新至 $newDate $newTimeRange！'),
-                  backgroundColor: const Color(0xFF8D6E63),
+                  backgroundColor: Theme.of(context).primaryColor,
                 ),
               );
             }
@@ -6634,7 +6646,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('✅ 代理人已新增待辦：${_aiFlowData['title']}'),
-                backgroundColor: const Color(0xFF8D6E63),
+                backgroundColor: Theme.of(context).primaryColor,
               ),
             );
           }
@@ -6830,7 +6842,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('✅ 待辦事項內容已更新為「$newTitle」！'),
-                backgroundColor: const Color(0xFF8D6E63),
+                backgroundColor: Theme.of(context).primaryColor,
               ),
             );
           }
@@ -7151,9 +7163,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           if (Navigator.canPop(context)) Navigator.pop(context);
           _changePage(3, '社群動態');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('✅ 貼文已成功發佈！'),
-              backgroundColor: Color(0xFF8D6E63),
+              backgroundColor: Theme.of(context).primaryColor,
             ),
           );
         }
@@ -7619,14 +7631,14 @@ $strokePrompt
 
     return StatefulBuilder(builder: (ctx, setLocal) {
       return Container(
-        margin: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
-        padding: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: 16, left: 12, right: 12),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-                color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
                 blurRadius: 12,
                 offset: const Offset(0, 4))
           ],
@@ -7837,12 +7849,12 @@ $strokePrompt
   Widget _buildConfirmationCard(
       Map<String, dynamic> data, StateSetter setModalState) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.all(18),
+      margin: EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFF8D6E63), width: 1.5)),
+          border: Border.all(color: Theme.of(context).primaryColor, width: 1.5)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -7861,11 +7873,11 @@ $strokePrompt
               TextButton(
                   onPressed: () => setModalState(() => chatLogs
                       .add({'isAI': true, 'text': '好的，已取消。', 'isCard': false})),
-                  child: const Text('取消',
+                  child: Text('取消',
                       style: TextStyle(color: Colors.redAccent))),
               ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8D6E63),
+                      backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white),
                   onPressed: () {
                     _addSchedule(data['time'], data['title'], data['color']);
@@ -7905,15 +7917,15 @@ $strokePrompt
           ],
         ),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: _isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5),
+            color: _isDarkMode ? Color(0xFF2C2C2C) : Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(30),
           ),
           child: Row(
             children: [
-              const Icon(Icons.chat_bubble_outline,
-                  color: Color(0xFF8D6E63), size: 18),
+              Icon(Icons.chat_bubble_outline,
+                  color: Theme.of(context).primaryColor, size: 18),
               const SizedBox(width: 10),
               Text(
                 '去社群 / 加行程...',
@@ -8144,31 +8156,31 @@ $strokePrompt
                 }
               },
               itemBuilder: (ctx) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 0,
                   child: Row(
                     children: [
-                      Icon(Icons.event_note_rounded, color: Color(0xFF8D6E63), size: 20),
+                      Icon(Icons.event_note_rounded, color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
                       Text('新增行程'),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 1,
                   child: Row(
                     children: [
-                      Icon(Icons.check_box_outlined, color: Color(0xFF8D6E63), size: 20),
+                      Icon(Icons.check_box_outlined, color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
                       Text('新增待辦'),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 2,
                   child: Row(
                     children: [
-                      Icon(Icons.book_outlined, color: Color(0xFF8D6E63), size: 20),
+                      Icon(Icons.book_outlined, color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
                       Text('寫今日日記'),
                     ],
@@ -8236,12 +8248,12 @@ $strokePrompt
       double itemWidth = (constraints.maxWidth - 40 - 48) / 7;
 
       // 動態計算需要的高度比例，避免跨越 6 列的月份溢出 (例如 2026年3月)
-      double headerHeight = 36.0; // 星期列約略佔用高度
+      double headerHeight = 38.0; // 星期列約略佔用高度
       double mainAxisSpacing = 8.0;
       double availableHeight = constraints.maxHeight > 0
-          ? constraints.maxHeight -
+          ? (constraints.maxHeight -
               headerHeight -
-              ((rows - 1) * mainAxisSpacing)
+              ((rows - 1) * mainAxisSpacing) - 4.0)
           : rows * 50.0;
 
       double itemHeight = availableHeight / rows;
@@ -8261,7 +8273,9 @@ $strokePrompt
           weeks.add(week);
         }
 
-        return Column(children: [
+        return SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(children: [
           // 星期標題行
           Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -8404,20 +8418,20 @@ $strokePrompt
                           child: Align(
                             alignment: Alignment.topCenter,
                             child: Container(
-                              margin: const EdgeInsets.only(
+                              margin: EdgeInsets.only(
                                   top: 2), // Small offset from top
                               width: 20, // Reduced from 24
                               height: 20, // Reduced from 24
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: isSel
-                                    ? const Color(0xFF8D6E63)
+                                    ? Theme.of(context).primaryColor
                                     : (isToday
                                         ? todayBgColor
                                         : Colors.transparent),
                                 border: Border.all(
                                   color: isSel
-                                      ? const Color(0xFF8D6E63)
+                                      ? Theme.of(context).primaryColor
                                       : (isToday
                                           ? todayBorderColor
                                           : Colors.transparent),
@@ -8587,7 +8601,7 @@ $strokePrompt
                           decoration: BoxDecoration(
                             color: _isDarkMode
                                 ? Colors.white12
-                                : const Color(0xFF8D6E63)
+                                : Theme.of(context).primaryColor
                                     .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(3),
                           ),
@@ -8599,7 +8613,7 @@ $strokePrompt
                               fontWeight: FontWeight.bold,
                               color: _isDarkMode
                                   ? Colors.white70
-                                  : const Color(0xFF8D6E63),
+                                  : Theme.of(context).primaryColor,
                             ),
                           ),
                         ),
@@ -8611,11 +8625,13 @@ $strokePrompt
               ),
             );
           }),
-        ]);
+        ]));
       }
 
       // Default classic dot mode (the original implementation)
-      return Column(children: [
+      return SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(children: [
         Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
@@ -8659,20 +8675,20 @@ $strokePrompt
                     child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Container(
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: isSel
-                                  ? const Color(0xFF8D6E63)
+                                  ? Theme.of(context).primaryColor
                                   : (isToday
                                       ? todayBgColor
                                       : Colors.transparent),
                               border: Border.all(
                                   color: isSel
-                                      ? const Color(0xFF8D6E63)
+                                      ? Theme.of(context).primaryColor
                                       : (isToday
                                           ? todayBorderColor
                                           : Colors.transparent))), // 去除無行程非今日日期的白色圓邊框，美化日曆
@@ -8725,7 +8741,7 @@ $strokePrompt
                     ],
                   )));
             })
-      ]);
+      ]));
     });
   }
 
@@ -9140,16 +9156,16 @@ $strokePrompt
       padding: const EdgeInsets.symmetric(horizontal: 25),
       children: [
         if (uncompleted.isEmpty && completed.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 40),
             child: Center(
               child: Text('目前沒有待辦事項', style: TextStyle(color: Colors.grey)),
             ),
           ),
         if (uncompleted.isNotEmpty) ...[
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 8, bottom: 8),
-            child: Text('待辦中', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF8D6E63))),
+            child: Text('待辦中', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Theme.of(context).primaryColor)),
           ),
           ...uncompleted.map((item) => _buildTodoListItem(item, targetDate)),
         ],
@@ -9160,7 +9176,7 @@ $strokePrompt
           ),
           ...completed.map((item) => _buildTodoListItem(item, targetDate)),
         ],
-        const SizedBox(height: 100),
+        SizedBox(height: 100),
       ],
     );
   }
@@ -9465,16 +9481,16 @@ $strokePrompt
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       TextField(
                           controller: titleController,
-                          decoration: const InputDecoration(labelText: '行程名稱')),
-                      const SizedBox(height: 16),
+                          decoration: InputDecoration(labelText: '行程名稱')),
+                      SizedBox(height: 16),
                       // ── 跨日行程切換 ──
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('跨日行程',
+                        title: Text('跨日行程',
                             style:
                                 TextStyle(fontSize: 13, color: Colors.black87)),
                         value: isMultiDay,
-                        activeThumbColor: const Color(0xFF8D6E63),
+                        activeThumbColor: Theme.of(context).primaryColor,
                         onChanged: (val) {
                           setDialogState(() {
                             isMultiDay = val;
@@ -9509,15 +9525,15 @@ $strokePrompt
                             }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey.shade300),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(children: [
-                              const Icon(Icons.calendar_today,
-                                  size: 16, color: Color(0xFF8D6E63)),
+                              Icon(Icons.calendar_today,
+                                  size: 16, color: Theme.of(context).primaryColor),
                               const SizedBox(width: 8),
                               Text(
                                 '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
@@ -9567,8 +9583,8 @@ $strokePrompt
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Row(children: [
-                                      const Icon(Icons.calendar_today,
-                                          size: 16, color: Color(0xFF8D6E63)),
+                                      Icon(Icons.calendar_today,
+                                          size: 16, color: Theme.of(context).primaryColor),
                                       const SizedBox(width: 4),
                                       Text(
                                         '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
@@ -9610,8 +9626,8 @@ $strokePrompt
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Row(children: [
-                                      const Icon(Icons.calendar_today,
-                                          size: 16, color: Color(0xFF8D6E63)),
+                                      Icon(Icons.calendar_today,
+                                          size: 16, color: Theme.of(context).primaryColor),
                                       const SizedBox(width: 4),
                                       Text(
                                         '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
@@ -9692,7 +9708,7 @@ $strokePrompt
                                 height: 32,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade200,
+                                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200,
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
@@ -9765,15 +9781,15 @@ $strokePrompt
                               }
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(children: [
-                                const Icon(Icons.calendar_today,
-                                    size: 16, color: Color(0xFF8D6E63)),
+                                Icon(Icons.calendar_today,
+                                    size: 16, color: Theme.of(context).primaryColor),
                                 const SizedBox(width: 8),
                                 Text(
                                   '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
@@ -9849,13 +9865,13 @@ $strokePrompt
                           ),
                         );
                       },
-                      child: const Text('刪除', style: TextStyle(color: Colors.redAccent))),
+                      child: Text('刪除', style: TextStyle(color: Colors.redAccent))),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消')),
+                      child: Text('取消')),
                   ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8D6E63),
+                          backgroundColor: Theme.of(context).primaryColor,
                           foregroundColor: Colors.white),
                       onPressed: () {
                         if (titleController.text.isEmpty) return;
@@ -10010,14 +10026,14 @@ $strokePrompt
                                                   : Colors.transparent,
                                               width: 2)))))
                               .toList()),
-                      const SizedBox(height: 15),
+                      SizedBox(height: 15),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('跨日行程',
+                        title: Text('跨日行程',
                             style: TextStyle(
                                 fontSize: 13, color: Colors.black87)),
                         value: isMultiDay,
-                        activeThumbColor: const Color(0xFF8D6E63),
+                        activeThumbColor: Theme.of(context).primaryColor,
                         onChanged: (val) {
                           setDialogState(() {
                             isMultiDay = val;
@@ -10052,15 +10068,15 @@ $strokePrompt
                             }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey.shade300),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(children: [
-                              const Icon(Icons.calendar_today,
-                                  size: 16, color: Color(0xFF8D6E63)),
+                              Icon(Icons.calendar_today,
+                                  size: 16, color: Theme.of(context).primaryColor),
                               const SizedBox(width: 8),
                               Text(
                                 '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
@@ -10109,8 +10125,8 @@ $strokePrompt
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Row(children: [
-                                      const Icon(Icons.calendar_today,
-                                          size: 16, color: Color(0xFF8D6E63)),
+                                      Icon(Icons.calendar_today,
+                                          size: 16, color: Theme.of(context).primaryColor),
                                       const SizedBox(width: 4),
                                       Text(
                                         '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
@@ -10152,8 +10168,8 @@ $strokePrompt
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Row(children: [
-                                      const Icon(Icons.calendar_today,
-                                          size: 16, color: Color(0xFF8D6E63)),
+                                      Icon(Icons.calendar_today,
+                                          size: 16, color: Theme.of(context).primaryColor),
                                       const SizedBox(width: 4),
                                       Text(
                                         '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
@@ -10234,7 +10250,7 @@ $strokePrompt
                                 height: 32,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade200,
+                                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200,
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
@@ -10307,15 +10323,15 @@ $strokePrompt
                               }
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(children: [
-                                const Icon(Icons.calendar_today,
-                                    size: 16, color: Color(0xFF8D6E63)),
+                                Icon(Icons.calendar_today,
+                                    size: 16, color: Theme.of(context).primaryColor),
                                 const SizedBox(width: 8),
                                 Text(
                                   '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
@@ -10485,9 +10501,9 @@ $strokePrompt
                             final ImagePicker picker = ImagePicker();
                             final XFile? image = await picker.pickImage(
                               source: ImageSource.gallery,
-                              maxWidth: 1024,
-                              maxHeight: 1024,
-                              imageQuality: 85,
+                              maxWidth: 2048,
+                              maxHeight: 2048,
+                              imageQuality: 95,
                             );
                             if (image != null) {
                               final bytes = await image.readAsBytes();
@@ -10497,11 +10513,11 @@ $strokePrompt
                               });
                             }
                           },
-                          icon: const Icon(Icons.add_a_photo, size: 18),
-                          label: const Text('新增圖片'),
+                          icon: Icon(Icons.add_a_photo, size: 18),
+                          label: Text('新增圖片'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF8D6E63),
-                            side: const BorderSide(color: Color(0xFF8D6E63)),
+                            foregroundColor: Theme.of(context).primaryColor,
+                            side: BorderSide(color: Theme.of(context).primaryColor),
                           ),
                         ),
                     ],
@@ -10525,8 +10541,8 @@ $strokePrompt
                           'imageChanged': imageChanged,
                         });
                       },
-                      child: const Text('儲存',
-                          style: TextStyle(color: Color(0xFF8D6E63)))),
+                      child: Text('儲存',
+                          style: TextStyle(color: Theme.of(context).primaryColor))),
                 ],
               );
             }));
@@ -10576,12 +10592,12 @@ $strokePrompt
     return GestureDetector(
       onTap: () => onSelected(type),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF8D6E63) : Colors.grey.shade100,
+          color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(
-              color: isSelected ? const Color(0xFF8D6E63) : Colors.transparent),
+              color: isSelected ? Theme.of(context).primaryColor : Colors.transparent),
         ),
         child: Text(
           label,
@@ -10740,8 +10756,12 @@ $strokePrompt
                     onTap: () async {
                       Navigator.pop(ctx);
                       final ImagePicker picker = ImagePicker();
-                      final XFile? image =
-                          await picker.pickImage(source: ImageSource.camera);
+                      final XFile? image = await picker.pickImage(
+                        source: ImageSource.camera,
+                        maxWidth: 2048,
+                        maxHeight: 2048,
+                        imageQuality: 95,
+                      );
                       if (image != null) {
                         final bytes = await image.readAsBytes();
                         await _saveAvatar(
@@ -10834,14 +10854,14 @@ $strokePrompt
     required VoidCallback onTap,
   }) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       leading: Container(
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: const Color(0xFF8D6E63), size: 24),
+        child: Icon(icon, color: Theme.of(context).primaryColor, size: 24),
       ),
       title: Text(label,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -10861,15 +10881,15 @@ $strokePrompt
         content: TextField(
           controller: controller,
           maxLines: 3,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
               hintText: '介紹一下自己吧...', border: OutlineInputBorder()),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx), child: Text('取消')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8D6E63),
+                backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white),
             onPressed: () async {
               final newBio = controller.text.trim();
@@ -10903,15 +10923,20 @@ $strokePrompt
       builder: (ctx) => SimpleDialog(
         title: const Text('選擇字體大小'),
         children: [
-          _buildFontSizeOption(ctx, '較小', 0.9),
-          _buildFontSizeOption(ctx, '標準', 1.0),
-          _buildFontSizeOption(ctx, '較大', 1.1),
+          _buildFontSizeOption(ctx, '精簡 (小)', 0.85, '範例文字 Aa'),
+          _buildFontSizeOption(ctx, '標準 (預設)', 1.0, '範例文字 Aa'),
+          _buildFontSizeOption(ctx, '放大 (大)', 1.2, '範例文字 Aa'),
+          _buildFontSizeOption(ctx, '特大 (清晰)', 1.4, '範例文字 Aa'),
         ],
       ),
     );
   }
 
-  Widget _buildFontSizeOption(BuildContext ctx, String label, double factor) {
+  Widget _buildFontSizeOption(
+      BuildContext ctx, String label, double factor, String sampleText) {
+    final bool isSelected = (_fontSizeFactor - factor).abs() < 0.05;
+    final primary = Theme.of(context).primaryColor;
+
     return SimpleDialogOption(
       onPressed: () async {
         Navigator.pop(ctx);
@@ -10919,12 +10944,41 @@ $strokePrompt
         await _updatePersonalization();
       },
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(label,
-            style: TextStyle(
-                fontWeight: _fontSizeFactor == factor
-                    ? FontWeight.bold
-                    : FontWeight.normal)),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: isSelected ? primary : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? primary : null,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sampleText,
+                    style: TextStyle(
+                      fontSize: 12 * factor,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -10936,8 +10990,8 @@ $strokePrompt
         title: const Text('選擇主題顏色'),
         children: [
           _buildThemeOption(ctx, '經典暖棕 (預設)', 0, const Color(0xFF8D6E63)),
-          _buildThemeOption(ctx, '孔雀藍', 1, Colors.blueGrey),
-          _buildThemeOption(ctx, '森林綠', 2, Colors.teal),
+          _buildThemeOption(ctx, '孔雀藍', 1, const Color(0xFF6B8A96)),
+          _buildThemeOption(ctx, '森林綠', 2, const Color(0xFF8AA682)),
         ],
       ),
     );
@@ -11000,14 +11054,14 @@ $strokePrompt
         title: const Text('更改暱稱'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: '請輸入新的暱稱'),
+          decoration: InputDecoration(hintText: '請輸入新的暱稱'),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx), child: Text('取消')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8D6E63),
+                backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white),
             onPressed: () async {
               final newName = controller.text.trim();
@@ -11199,9 +11253,9 @@ $strokePrompt
     };
 
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       itemCount: myPosts.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => SizedBox(height: 12),
       itemBuilder: (ctx, i) {
         final post = myPosts[i];
         final postType = post['postType'] as String? ?? 'text';
@@ -11331,15 +11385,15 @@ $strokePrompt
 
                   // Title Area
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
                           children: [
                             ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [Color(0xFF8D6E63), Color(0xFFD7CCC8)],
+                              shaderCallback: (bounds) => LinearGradient(
+                                colors: [Theme.of(context).primaryColor, Color(0xFFD7CCC8)],
                               ).createShader(bounds),
                               child: const Icon(
                                 Icons.analytics_outlined,
@@ -11419,16 +11473,16 @@ $strokePrompt
                   ),
 
                   // Bottom Actions
-                  const Divider(height: 1),
+                  Divider(height: 1),
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: EdgeInsets.all(16.0),
                     child: Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: const BorderSide(color: Color(0xFF8D6E63)),
+                              padding: EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(color: Theme.of(context).primaryColor),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
                             ),
@@ -11436,20 +11490,20 @@ $strokePrompt
                               _sheetStateSetter = null;
                               Navigator.pop(context);
                             },
-                            child: const Text('關閉',
+                            child: Text('關閉',
                                 style: TextStyle(
-                                    color: Color(0xFF8D6E63),
+                                    color: Theme.of(context).primaryColor,
                                     fontWeight: FontWeight.bold)),
                           ),
                         ),
                         if (!_isDiagnosing && _lastQuizWrongIds.isNotEmpty) ...[
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                backgroundColor: const Color(0xFF8D6E63),
+                                    EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: Theme.of(context).primaryColor,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12)),
@@ -11494,16 +11548,16 @@ $strokePrompt
       children: [
         // 頂部轉圈提示列
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: const Color(0xFFFFF8F5),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Color(0xFFFFF8F5),
           child: Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 14,
                 height: 14,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8D6E63)),
+                  valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
                 ),
               ),
               const SizedBox(width: 10),
@@ -11670,19 +11724,19 @@ $strokePrompt
 
         // 1. 本次摘要
         FadeInUp(
-          duration: const Duration(milliseconds: 500),
+          duration: Duration(milliseconds: 500),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8D6E63), Color(0xFF795548)],
+                gradient: LinearGradient(
+                  colors: [Theme.of(context).primaryColor, Color(0xFF795548)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.2),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   )
@@ -11890,7 +11944,7 @@ $strokePrompt
                       color: Colors.grey.shade300,
                       borderRadius: BorderRadius.circular(2))),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Row(children: [
                   Icon(Icons.error_outline,
                       color: Theme.of(context).primaryColor),
@@ -12244,6 +12298,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _contentController = TextEditingController();
   XFile? _selectedImageX;
   String? _selectedFileName;
+  Uint8List? _selectedFileBytes;
   String? _postType;
   bool _isSubmitting = false;
   DateTime? _scheduledAt; // 定時發佈時間
@@ -12252,9 +12307,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
+      maxWidth: 2048,
+      maxHeight: 2048,
+      imageQuality: 95,
     );
     if (image != null && mounted) {
       setState(() => _selectedImageX = image);
@@ -12330,9 +12385,13 @@ class _CreatePostPageState extends State<CreatePostPage> {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: extensions,
+        withData: true,
       );
       if (result != null && mounted) {
-        setState(() => _selectedFileName = result.files.single.name);
+        setState(() {
+          _selectedFileName = result.files.single.name;
+          _selectedFileBytes = result.files.single.bytes;
+        });
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('已附加檔案：$_selectedFileName')));
       }
@@ -12398,6 +12457,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         'content': _contentController.text,
         'type': _postType ?? (blobData != null ? 'image' : 'text'),
         'media_blob': blobData,
+        'file_blob': _selectedFileBytes,
         'attached_data': jsonEncode(attachedMap),
         'created_at': DateTime.now().toIso8601String(),
         if (widget.groupId != null) 'group_id': widget.groupId,
@@ -12413,7 +12473,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content:
               Text(_scheduledAt != null ? '⏰ 已設定排程，將於指定時間發佈！' : '🎉 貼文發佈成功！'),
-          backgroundColor: const Color(0xFF8D6E63),
+          backgroundColor: Theme.of(context).primaryColor,
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -12460,15 +12520,15 @@ class _CreatePostPageState extends State<CreatePostPage> {
         centerTitle: true,
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: EdgeInsets.only(right: 12),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: Duration(milliseconds: 200),
               child: ElevatedButton(
                 onPressed: _isSubmitting ? null : _submitPost,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _contentController.text.isEmpty
                       ? Colors.grey.shade300
-                      : const Color(0xFF8D6E63),
+                      : Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   padding:
@@ -12699,14 +12759,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Row(
                   children: [
                     // 附加圖片
                     _buildToolBtn(
                       icon: Icons.image_outlined,
                       label: '圖片',
-                      color: const Color(0xFF8D6E63),
+                      color: Theme.of(context).primaryColor,
                       onTap: _isSubmitting ? null : _pickImage,
                     ),
                     // 附加文件
@@ -12768,9 +12828,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
   Widget _buildTypeChip(
     String label,
     String type, {
-    Color selectedColor = const Color(0xFF8D6E63),
+    Color? selectedColor,
     Color bgColor = const Color(0xFFF5F0EE),
   }) {
+    selectedColor ??= Theme.of(context).primaryColor;
     final bool isSelected = _postType == type;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -12982,11 +13043,11 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
                     child:
-                        const Text('取消', style: TextStyle(color: Colors.grey))),
+                        Text('取消', style: TextStyle(color: Colors.grey))),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, editController.text),
-                    child: const Text('儲存',
-                        style: TextStyle(color: Color(0xFF8D6E63)))),
+                    child: Text('儲存',
+                        style: TextStyle(color: Theme.of(context).primaryColor))),
               ],
             ));
 
@@ -13036,8 +13097,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
     final brightness = Theme.of(context).brightness;
     final isDark = brightness == Brightness.dark;
     final bgColor =
-        isDark ? const Color(0xFF121212) : const Color(0xFFF5F3F0);
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+        isDark ? Color(0xFF121212) : Color(0xFFF5F3F0);
+    final cardColor = isDark ? Color(0xFF1E1E1E) : Colors.white;
     final primaryColor = Theme.of(context).primaryColor;
     final textPrimary = isDark ? Colors.white : Colors.black87;
     final textSecondary = isDark ? Colors.white54 : Colors.grey.shade600;
@@ -13344,16 +13405,16 @@ class _PostReplyPageState extends State<PostReplyPage> {
                             const TextStyle(color: Colors.grey, fontSize: 11)),
                     if (postType != null &&
                         kPostTypeLabel.containsKey(postType)) ...[
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 7, vertical: 1),
                         decoration: BoxDecoration(
-                            color: const Color(0xFFF5F0EE),
+                            color: Color(0xFFF5F0EE),
                             borderRadius: BorderRadius.circular(8)),
                         child: Text(kPostTypeLabel[postType]!,
-                            style: const TextStyle(
-                                fontSize: 10, color: Color(0xFF8D6E63))),
+                            style: TextStyle(
+                                fontSize: 10, color: Theme.of(context).primaryColor)),
                       ),
                     ],
                   ]),
@@ -13412,25 +13473,25 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.subdirectory_arrow_right_rounded,
                           size: 13,
                           color:
-                              const Color(0xFF8D6E63).withValues(alpha: 0.8)),
-                      const SizedBox(width: 6),
+                              Theme.of(context).primaryColor.withValues(alpha: 0.8)),
+                      SizedBox(width: 6),
                       Text(
                         '查看 ${sub.length} 則回覆...',
-                        style: const TextStyle(
-                          color: Color(0xFF8D6E63),
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const Icon(Icons.keyboard_arrow_down_rounded,
-                          size: 14, color: Color(0xFF8D6E63)),
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 14, color: Theme.of(context).primaryColor),
                     ],
                   ),
                 ),
@@ -13461,18 +13522,18 @@ class _PostReplyPageState extends State<PostReplyPage> {
                         },
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: const [
+                            children: [
                               Icon(Icons.keyboard_arrow_up_rounded,
-                                  size: 14, color: Color(0xFF8D6E63)),
+                                  size: 14, color: Theme.of(context).primaryColor),
                               SizedBox(width: 4),
                               Text(
                                 '收合回覆',
                                 style: TextStyle(
-                                  color: Color(0xFF8D6E63),
+                                  color: Theme.of(context).primaryColor,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -13857,11 +13918,11 @@ class QuestionDiscussionPage extends StatelessWidget {
                             fillColor: Color(0xFFF5F5F5),
                             border: OutlineInputBorder(
                                 borderSide: BorderSide.none)))),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 TextButton(
                     onPressed: () {},
-                    child: const Text('送出',
-                        style: TextStyle(color: Color(0xFF8D6E63))))
+                    child: Text('送出',
+                        style: TextStyle(color: Theme.of(context).primaryColor)))
               ]))
         ])));
   }
@@ -13928,16 +13989,16 @@ class _OrganizeNotePickerWidgetState extends State<_OrganizeNotePickerWidget> {
                 )),
           ...notes.take(6).map((n) => ListTile(
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 2),
                 leading: Container(
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.article_outlined,
-                      color: Color(0xFF8D6E63), size: 20),
+                  child: Icon(Icons.article_outlined,
+                      color: Theme.of(context).primaryColor, size: 20),
                 ),
                 title: Text(n.title,
                     maxLines: 1,
@@ -13977,8 +14038,8 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
     final isAi = data['isAiGenerated'] as bool? ?? false;
 
     // Colour constants
-    const brown = Color(0xFF6D4C41);
-    const lightBrown = Color(0xFF8D6E63);
+    final brown = Theme.of(context).primaryColor;
+    final lightBrown = Theme.of(context).primaryColor;
     const tealAccent = Color(0xFF00897B);
 
     Widget buildChip(String label, Color bg, Color fg) {
@@ -13999,7 +14060,7 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              margin: const EdgeInsets.only(top: 2, right: 8),
+              margin: EdgeInsets.only(top: 2, right: 8),
               width: 22,
               height: 22,
               alignment: Alignment.center,
@@ -14007,7 +14068,7 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
                   color: lightBrown.withValues(alpha: 0.15),
                   shape: BoxShape.circle),
               child: Text('${idx + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11,
                       color: lightBrown,
                       fontWeight: FontWeight.bold)),
@@ -14044,7 +14105,7 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14, left: 10, right: 10),
+      margin: EdgeInsets.only(bottom: 14, left: 10, right: 10),
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -14061,10 +14122,10 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
         children: [
           // ── Header ──
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6D4C41), Color(0xFF8D6E63)],
+              gradient: LinearGradient(
+                colors: [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withValues(alpha: 0.7)],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
@@ -14144,12 +14205,12 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                             color: lightBrown.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8)),
-                        child: const Row(
+                        child: Row(
                           children: [
                             Text('📌', style: TextStyle(fontSize: 12)),
                             SizedBox(width: 4),
@@ -14213,16 +14274,16 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
 
           // ── Buttons ──
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
             child: Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.add_to_photos, size: 15),
-                    label: const Text('附加至原筆記', style: TextStyle(fontSize: 12)),
+                    icon: Icon(Icons.add_to_photos, size: 15),
+                    label: Text('附加至原筆記', style: TextStyle(fontSize: 12)),
                     style: OutlinedButton.styleFrom(
                         foregroundColor: brown,
-                        side: const BorderSide(color: lightBrown),
+                        side: BorderSide(color: lightBrown),
                         padding: const EdgeInsets.symmetric(vertical: 8)),
                     onPressed: onReplace,
                   ),
@@ -14450,8 +14511,8 @@ class _DiagnosisLoadingProgressState extends State<_DiagnosisLoadingProgress> {
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(7),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFD7CCC8), Color(0xFF8D6E63)],
+                            gradient: LinearGradient(
+                              colors: [Theme.of(context).primaryColor.withValues(alpha: 0.3), Theme.of(context).primaryColor],
                             ),
                           ),
                         ),
@@ -14472,10 +14533,10 @@ class _DiagnosisLoadingProgressState extends State<_DiagnosisLoadingProgress> {
                         ),
                         Text(
                           '${(_value * 100).toInt()}%',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF8D6E63),
+                            color: Theme.of(context).primaryColor,
                           ),
                         ),
                       ],
@@ -14540,14 +14601,14 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
-        padding: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: 12, left: 16, right: 16),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             )
@@ -14572,10 +14633,10 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
                 ),
                 Text(
                   '${(_value * 100).toInt()}%',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF8D6E63),
+                    color: Theme.of(context).primaryColor,
                   ),
                 ),
               ],
@@ -14595,8 +14656,8 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFD7CCC8), Color(0xFF8D6E63)],
+                    gradient: LinearGradient(
+                      colors: [Theme.of(context).primaryColor.withValues(alpha: 0.3), Theme.of(context).primaryColor],
                     ),
                   ),
                 ),

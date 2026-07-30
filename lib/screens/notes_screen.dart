@@ -306,7 +306,7 @@ class MarkdownTextController extends TextEditingController {
         spans.add(TextSpan(
           text: '  •  ',
           style: lineStyle.copyWith(
-            color: const Color(0xFF8D6E63),
+            color: Theme.of(context).primaryColor,
             fontWeight: FontWeight.bold,
           ),
         ));
@@ -412,9 +412,9 @@ class _NotesScreenState extends State<NotesScreen> {
           return AlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.label_important_outline, color: Color(0xFF8D6E63)),
+                Icon(Icons.label_important_outline, color: Theme.of(context).primaryColor),
                 SizedBox(width: 8),
                 Text('管理分類標籤'),
               ],
@@ -447,7 +447,7 @@ class _NotesScreenState extends State<NotesScreen> {
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8D6E63),
+                            backgroundColor: Theme.of(context).primaryColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
@@ -468,7 +468,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                   SnackBar(
                                     content:
                                         Text('🎉 分類標籤「$newCat」新增成功！已排在列表最前。'),
-                                    backgroundColor: const Color(0xFF8D6E63),
+                                    backgroundColor: Theme.of(context).primaryColor,
                                     duration: const Duration(seconds: 2),
                                   ),
                                 );
@@ -617,7 +617,7 @@ class _NotesScreenState extends State<NotesScreen> {
                           child: ChoiceChip(
                             label: Text('$cat ($count)'),
                             selected: isSelected,
-                            selectedColor: const Color(0xFF8D6E63),
+                            selectedColor: Theme.of(context).primaryColor,
                             backgroundColor: const Color(0xFFEFEBE9),
                             labelStyle: TextStyle(
                               color: isSelected
@@ -656,12 +656,12 @@ class _NotesScreenState extends State<NotesScreen> {
                 // 管理分類按鈕
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.settings,
-                        color: Color(0xFF8D6E63), size: 20),
+                    icon: Icon(Icons.settings,
+                        color: Theme.of(context).primaryColor, size: 20),
                     tooltip: '管理分類',
                     onPressed: _showCategoryManagementDialog,
                   ),
@@ -755,7 +755,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF8D6E63)
+                                      color: Theme.of(context).primaryColor
                                           .withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -770,10 +770,10 @@ class _NotesScreenState extends State<NotesScreen> {
                                   ),
                                   const Spacer(),
                                   if (note.strokes.isNotEmpty)
-                                    const Padding(
+                                    Padding(
                                       padding: EdgeInsets.only(right: 4.0),
                                       child: Icon(Icons.palette_outlined,
-                                          size: 14, color: Color(0xFF8D6E63)),
+                                          size: 14, color: Theme.of(context).primaryColor),
                                     ),
                                   GestureDetector(
                                     onTap: () => _deleteNote(note),
@@ -841,7 +841,7 @@ class _NotesScreenState extends State<NotesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF8D6E63),
+        backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -998,9 +998,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.share, color: Color(0xFF8D6E63)),
+            Icon(Icons.share, color: Theme.of(context).primaryColor),
             SizedBox(width: 8),
             Text('分享筆記'),
           ],
@@ -1014,7 +1014,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8D6E63),
+              backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
@@ -1031,8 +1031,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF8D6E63)),
+        builder: (ctx) => Center(
+          child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
         ),
       );
 
@@ -1058,9 +1058,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         if (mounted) {
           Navigator.pop(context); // 關閉讀取框
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('🎉 筆記已成功分享至社群論壇！'),
-              backgroundColor: Color(0xFF8D6E63),
+              backgroundColor: Theme.of(context).primaryColor,
             ),
           );
         }
@@ -1082,9 +1082,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.save_outlined, color: Color(0xFF8D6E63)),
+            Icon(Icons.save_outlined, color: Theme.of(context).primaryColor),
             SizedBox(width: 8),
             Text('儲存確認'),
           ],
@@ -1109,7 +1109,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8D6E63),
+              backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
             ),
             onPressed: () {
@@ -1428,9 +1428,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           title: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _currentCategory,
-              icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF8D6E63)),
-              style: const TextStyle(
-                color: Color(0xFF8D6E63),
+              icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).primaryColor),
+              style: TextStyle(
+                color: Theme.of(context).primaryColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
@@ -1473,7 +1473,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               IconButton(
                 icon: Icon(
                   Icons.auto_awesome,
-                  color: _showCloneDrawer ? const Color(0xFF6A1B9A) : const Color(0xFF8D6E63),
+                  color: _showCloneDrawer ? const Color(0xFF6A1B9A) : Theme.of(context).primaryColor,
                 ),
                 tooltip: '召喚作者 AI 分身 🔮',
                 onPressed: () {
@@ -1483,12 +1483,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                 },
               ),
             IconButton(
-              icon: const Icon(Icons.share, color: Color(0xFF8D6E63)),
+              icon: Icon(Icons.share, color: Theme.of(context).primaryColor),
               tooltip: '分享至社群',
               onPressed: _shareNote,
             ),
             IconButton(
-              icon: const Icon(Icons.save, color: Color(0xFF8D6E63)),
+              icon: Icon(Icons.save, color: Theme.of(context).primaryColor),
               tooltip: '儲存筆記',
               onPressed: () {
                 _autoSave();
@@ -1501,9 +1501,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           ],
           bottom: TabBar(
             controller: _tabController,
-            labelColor: const Color(0xFF8D6E63),
+            labelColor: Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
-            indicatorColor: const Color(0xFF8D6E63),
+            indicatorColor: Theme.of(context).primaryColor,
             indicatorSize: TabBarIndicatorSize.label,
             labelStyle:
                 const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
@@ -1882,12 +1882,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: _isEraser
-                        ? const Color(0xFF8D6E63).withValues(alpha: 0.15)
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.15)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: _isEraser
-                          ? const Color(0xFF8D6E63)
+                          ? Theme.of(context).primaryColor
                           : Colors.grey.shade300,
                     ),
                   ),
@@ -1897,7 +1897,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                         Icons.cleaning_services_outlined,
                         size: 14,
                         color: _isEraser
-                            ? const Color(0xFF8D6E63)
+                            ? Theme.of(context).primaryColor
                             : Colors.black87,
                       ),
                       const SizedBox(width: 4),
@@ -1908,7 +1908,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                           fontWeight:
                               _isEraser ? FontWeight.bold : FontWeight.normal,
                           color: _isEraser
-                              ? const Color(0xFF8D6E63)
+                              ? Theme.of(context).primaryColor
                               : Colors.black87,
                         ),
                       )
@@ -1932,8 +1932,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                     Expanded(
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: const Color(0xFF8D6E63),
-                          thumbColor: const Color(0xFF8D6E63),
+                          activeTrackColor: Theme.of(context).primaryColor,
+                          thumbColor: Theme.of(context).primaryColor,
                           trackHeight: 2.0,
                         ),
                         child: Slider(
@@ -2020,7 +2020,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8D6E63),
+              backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
             ),
             onPressed: () {

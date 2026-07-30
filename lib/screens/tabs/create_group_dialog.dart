@@ -65,7 +65,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('🎉 群組「$name」已建立！'),
-            backgroundColor: const Color(0xFF8D6E63),
+            backgroundColor: Theme.of(context).primaryColor,
           ),
         );
       }
@@ -102,11 +102,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.group_add_rounded,
-                      color: Color(0xFF8D6E63), size: 22),
+                  child: Icon(Icons.group_add_rounded,
+                      color: Theme.of(context).primaryColor, size: 22),
                 ),
                 const SizedBox(width: 12),
                 const Text('建立新群組',
@@ -150,12 +150,12 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                       height: 42,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFF8D6E63)
+                            ? Theme.of(context).primaryColor
                             : inputBg,
                         shape: BoxShape.circle,
                         border: Border.all(
                             color: isSelected
-                                ? const Color(0xFF8D6E63)
+                                ? Theme.of(context).primaryColor
                                 : borderCol,
                             width: isSelected ? 2 : 1),
                       ),
@@ -264,7 +264,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               ),
               value: _joinRequiresApproval,
               onChanged: (val) => setState(() => _joinRequiresApproval = val),
-              activeTrackColor: const Color(0xFF8D6E63),
+              activeTrackColor: Theme.of(context).primaryColor,
               contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 16),
@@ -295,12 +295,12 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                         horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF8D6E63)
+                          ? Theme.of(context).primaryColor
                           : inputBg,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                           color: isSelected
-                              ? const Color(0xFF8D6E63)
+                              ? Theme.of(context).primaryColor
                               : borderCol),
                     ),
                     child: Text(
@@ -327,7 +327,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               child: ElevatedButton(
                 onPressed: _isCreating ? null : _createGroup,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8D6E63),
+                  backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(

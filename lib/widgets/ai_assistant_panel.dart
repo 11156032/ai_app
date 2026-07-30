@@ -52,10 +52,10 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const SizedBox(width: 40),
-                  const Text('代理人助理',
+                  Text('代理人助理',
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF8D6E63),
+                          color: Theme.of(context).primaryColor,
                           fontSize: 16)),
                   IconButton(
                     icon: const Icon(Icons.cleaning_services_outlined,
@@ -249,15 +249,15 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF8D6E63), Color(0xFFA1887F)],
+              gradient: LinearGradient(
+                colors: [Theme.of(context).primaryColor, Color(0xFFA1887F)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.3),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4))
               ],
@@ -291,7 +291,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           label: const Text('選擇日期與時間'),
           style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF8D6E63),
+              foregroundColor: Theme.of(context).primaryColor,
               elevation: 1,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20))),
@@ -523,7 +523,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-                color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
                 blurRadius: 12,
                 offset: const Offset(0, 4))
           ],
@@ -780,7 +780,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -795,11 +795,11 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.schedule,
-                      color: Color(0xFF8D6E63), size: 18),
+                  child: Icon(Icons.schedule,
+                      color: Theme.of(context).primaryColor, size: 18),
                 ),
                 const SizedBox(width: 10),
                 const Text(
@@ -825,7 +825,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 Container(
                   height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.08),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -979,7 +979,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 icon: const Icon(Icons.check_circle_outline, size: 18),
                 label: const Text('確認時段'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8D6E63),
+                  backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -1162,7 +1162,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFF8D6E63), width: 1)),
+          border: Border.all(color: Theme.of(context).primaryColor, width: 1)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1188,7 +1188,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       const Text('取消', style: TextStyle(color: Colors.grey))),
               ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8D6E63),
+                      backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white),
                   onPressed: () => widget.onHandleSubmit(
                       '確認發佈', _modalController, setModalState),
@@ -1241,7 +1241,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: msg['isAI'] ? Colors.white : const Color(0xFF8D6E63),
+          color: msg['isAI'] ? Colors.white : Theme.of(context).primaryColor,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Text(msg['text'],
@@ -1322,7 +1322,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           ),
           const SizedBox(width: 8),
           CircleAvatar(
-            backgroundColor: const Color(0xFF8D6E63),
+            backgroundColor: Theme.of(context).primaryColor,
             child: IconButton(
               icon: const Icon(Icons.send, color: Colors.white),
               onPressed: () => widget.onHandleSubmit(
@@ -1488,7 +1488,7 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             )
@@ -1513,10 +1513,10 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
                 ),
                 Text(
                   '${(_value * 100).toInt()}%',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF8D6E63),
+                    color: Theme.of(context).primaryColor,
                   ),
                 ),
               ],
@@ -1536,8 +1536,8 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFD7CCC8), Color(0xFF8D6E63)],
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFD7CCC8), Theme.of(context).primaryColor],
                     ),
                   ),
                 ),

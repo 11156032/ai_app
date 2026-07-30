@@ -3,11 +3,12 @@ part of 'main_screen.dart';
 // ignore: library_private_types_in_public_api
 extension MainScreenActivityTab on _MainScreenState {
   // ─── 貼文類型顏色對應 ───────────────────────────────────────────
-  static const Map<String, Color> _postTypeAccentColor = {
-    'note': Color(0xFF8D6E63),   // 棕 - 學習筆記
-    'mood': Color(0xFFE91E8C),   // 粉 - 心情文章
-    'doc':  Color(0xFF1976D2),   // 藍 - 分享資料
-  };
+  Color _getPostTypeAccentColor(String type) {
+    if (type == 'note') return _currentPrimaryColor;
+    if (type == 'mood') return const Color(0xFFE91E8C);
+    if (type == 'doc') return const Color(0xFF1976D2);
+    return _currentPrimaryColor;
+  }
 
   static const Map<String, Color> _postTypeBadgeBg = {
     'note': Color(0xFFF5EEE8),
@@ -87,7 +88,7 @@ extension MainScreenActivityTab on _MainScreenState {
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? const Color(0xFF8D6E63)
+                                      ? _currentPrimaryColor
                                       : (isDark ? Colors.white10 : Colors.grey.shade100),
                                   borderRadius: BorderRadius.circular(20),
                                   border: isSelected
@@ -179,13 +180,13 @@ extension MainScreenActivityTab on _MainScreenState {
           margin: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF8D6E63)
+                ? _currentPrimaryColor
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF8D6E63).withValues(alpha: 0.3),
+                      color: _currentPrimaryColor.withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -313,7 +314,7 @@ extension MainScreenActivityTab on _MainScreenState {
   Widget _buildActivityFullWidthCard(Map<String, dynamic> p, int index, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final postType = p['postType'] as String? ?? '';
-    final accentColor = _postTypeAccentColor[postType] ?? const Color(0xFF8D6E63);
+    final accentColor = _getPostTypeAccentColor(postType);
     final badgeBg = isDark
         ? (_postTypeBadgeBgDark[postType] ?? const Color(0xFF3E2723))
         : (_postTypeBadgeBg[postType] ?? const Color(0xFFF5EEE8));
@@ -469,7 +470,7 @@ extension MainScreenActivityTab on _MainScreenState {
   Widget _buildActivityCompactCard(Map<String, dynamic> p, int index, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final postType = p['postType'] as String? ?? '';
-    final accentColor = _postTypeAccentColor[postType] ?? const Color(0xFF8D6E63);
+    final accentColor = _getPostTypeAccentColor(postType);
     final badgeBg = isDark
         ? (_postTypeBadgeBgDark[postType] ?? const Color(0xFF3E2723))
         : (_postTypeBadgeBg[postType] ?? const Color(0xFFF5EEE8));
@@ -644,7 +645,7 @@ extension MainScreenActivityTab on _MainScreenState {
                     isBookmarked ? Icons.bookmark : Icons.bookmark_border,
                     size: 13,
                     color: isBookmarked
-                        ? const Color(0xFF8D6E63)
+                        ? _currentPrimaryColor
                         : (isDark ? Colors.white38 : Colors.grey.shade400),
                   ),
                 ],
@@ -764,7 +765,7 @@ extension MainScreenActivityTab on _MainScreenState {
             color: isGuest
                 ? Colors.grey.shade300
                 : (isBookmarked
-                    ? const Color(0xFF8D6E63)
+                    ? _currentPrimaryColor
                     : (isDark ? Colors.white38 : Colors.grey.shade400)),
           ),
         ),
@@ -812,13 +813,13 @@ extension MainScreenActivityTab on _MainScreenState {
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: const Color(0xFF8D6E63).withValues(alpha: isDark ? 0.15 : 0.1),
+                color: _currentPrimaryColor.withValues(alpha: isDark ? 0.15 : 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 42,
-                color: const Color(0xFF8D6E63).withValues(alpha: 0.6),
+                color: _currentPrimaryColor.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 20),
@@ -846,7 +847,7 @@ extension MainScreenActivityTab on _MainScreenState {
               icon: const Icon(Icons.arrow_forward_rounded, size: 16),
               label: Text(ctaLabel),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8D6E63),
+                backgroundColor: _currentPrimaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(

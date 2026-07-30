@@ -112,6 +112,10 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE posts ADD COLUMN group_id INTEGER');
         debugPrint('Dynamic migration: Added group_id column to posts table.');
       }
+      if (!postCols.any((c) => c['name'] == 'file_blob')) {
+        await db.execute('ALTER TABLE posts ADD COLUMN file_blob BLOB');
+        debugPrint('Dynamic migration: Added file_blob column to posts table.');
+      }
 
       // 社群群組相關資料表（防禦性建立）
       await db.execute('''
@@ -644,6 +648,7 @@ class DatabaseHelper {
         type VARCHAR DEFAULT 'text',
         attached_data TEXT DEFAULT '{}',
         media_blob BLOB,
+        file_blob BLOB,
         likes INTEGER DEFAULT 0,
         is_edited INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

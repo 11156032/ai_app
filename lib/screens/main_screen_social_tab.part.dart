@@ -10,9 +10,14 @@ extension MainScreenSocialTab on _MainScreenState {
       _buildSocialMainTabBar(isDark),
       // ── 內容 ──
       Expanded(
-        child: _socialMainTab == 0
-            ? _buildPlazaContent(isDark)
-            : _buildGroupsContent(isDark),
+        child: PageView(
+          controller: _socialPageController,
+          onPageChanged: (index) => _updateState(() => _socialMainTab = index),
+          children: [
+            _buildPlazaContent(isDark),
+            _buildGroupsContent(isDark),
+          ],
+        ),
       ),
     ]);
   }
@@ -38,7 +43,10 @@ extension MainScreenSocialTab on _MainScreenState {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _updateState(() => _socialMainTab = 0),
+                  onTap: () {
+                    _updateState(() => _socialMainTab = 0);
+                    _socialPageController.animateToPage(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -46,7 +54,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       border: Border(
                         bottom: BorderSide(
                           color: _socialMainTab == 0
-                              ? const Color(0xFF8D6E63)
+                              ? _currentPrimaryColor
                               : Colors.transparent,
                           width: 2.5,
                         ),
@@ -61,7 +69,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             ? FontWeight.bold
                             : FontWeight.normal,
                         color: _socialMainTab == 0
-                            ? const Color(0xFF8D6E63)
+                            ? _currentPrimaryColor
                             : (isDark ? Colors.white54 : Colors.black45),
                       ),
                     ),
@@ -70,7 +78,10 @@ extension MainScreenSocialTab on _MainScreenState {
               ),
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _updateState(() => _socialMainTab = 1),
+                  onTap: () {
+                    _updateState(() => _socialMainTab = 1);
+                    _socialPageController.animateToPage(1, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -78,7 +89,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       border: Border(
                         bottom: BorderSide(
                           color: _socialMainTab == 1
-                              ? const Color(0xFF8D6E63)
+                              ? _currentPrimaryColor
                               : Colors.transparent,
                           width: 2.5,
                         ),
@@ -95,7 +106,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                             color: _socialMainTab == 1
-                                ? const Color(0xFF8D6E63)
+                                ? _currentPrimaryColor
                                 : (isDark ? Colors.white54 : Colors.black45),
                           ),
                         ),
@@ -225,7 +236,7 @@ extension MainScreenSocialTab on _MainScreenState {
             bottom: 16,
             child: FloatingActionButton(
                 heroTag: 'add_post',
-                backgroundColor: Theme.of(context).primaryColor,
+                backgroundColor: _currentPrimaryColor,
                 onPressed: _showCreatePostScreen,
                 child: const Icon(Icons.add, color: Colors.white)))
     ]);
@@ -252,11 +263,11 @@ extension MainScreenSocialTab on _MainScreenState {
             // 邀請連結加入按鈕
             TextButton.icon(
               onPressed: () => _showJoinByLinkDialog(isDark),
-              icon: const Icon(Icons.link, size: 16, color: Color(0xFF8D6E63)),
-              label: const Text('用連結加入',
+              icon: Icon(Icons.link, size: 16, color: _currentPrimaryColor),
+              label: Text('用連結加入',
                   style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF8D6E63),
+                      color: _currentPrimaryColor,
                       fontWeight: FontWeight.w600)),
               style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 8)),
@@ -278,7 +289,7 @@ extension MainScreenSocialTab on _MainScreenState {
                 bottom: 16,
                 child: FloatingActionButton.extended(
                   heroTag: 'create_group_fab',
-                  backgroundColor: const Color(0xFF8D6E63),
+                  backgroundColor: _currentPrimaryColor,
                   onPressed: () => _showCreateGroupDialog(),
                   icon: const Icon(Icons.add, color: Colors.white, size: 20),
                   label: const Text('建立群組',
@@ -302,7 +313,7 @@ extension MainScreenSocialTab on _MainScreenState {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF8D6E63)
+              ? _currentPrimaryColor
               : (isDark ? Colors.white10 : Colors.grey.shade100),
           borderRadius: BorderRadius.circular(20),
         ),
@@ -338,7 +349,7 @@ extension MainScreenSocialTab on _MainScreenState {
             ElevatedButton(
               onPressed: () => _showGuestLoginPrompt(),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8D6E63),
+                  backgroundColor: _currentPrimaryColor,
                   foregroundColor: Colors.white,
                   shape: const StadiumBorder()),
               child: const Text('去登入'),
@@ -361,8 +372,8 @@ extension MainScreenSocialTab on _MainScreenState {
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => _updateState(() => _groupSubTab = 1),
-              child: const Text('去探索群組 →',
-                  style: TextStyle(color: Color(0xFF8D6E63))),
+              child: Text('去探索群組 →',
+                  style: TextStyle(color: _currentPrimaryColor)),
             ),
           ],
         ),
@@ -395,8 +406,8 @@ extension MainScreenSocialTab on _MainScreenState {
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => _showCreateGroupDialog(),
-              child: const Text('建立第一個群組 →',
-                  style: TextStyle(color: Color(0xFF8D6E63))),
+              child: Text('建立第一個群組 →',
+                  style: TextStyle(color: _currentPrimaryColor)),
             ),
           ],
         ),
@@ -521,7 +532,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       isMuted
                           ? Icons.notifications_active_rounded
                           : Icons.notifications_off_rounded,
-                      color: const Color(0xFF8D6E63)),
+                      color: _currentPrimaryColor),
                   title: Text(isMuted ? '開啟群組通知 🔔' : '關閉群組通知 (靜音) 🔕'),
                   onTap: () async {
                     Navigator.pop(ctx);
@@ -532,7 +543,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(newMuted ? '🔕 已將群組設定為靜音' : '🔔 已開啟群組通知'),
-                          backgroundColor: const Color(0xFF8D6E63),
+                          backgroundColor: _currentPrimaryColor,
                         ),
                       );
                     }
@@ -632,7 +643,7 @@ extension MainScreenSocialTab on _MainScreenState {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    color: _currentPrimaryColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -738,14 +749,14 @@ extension MainScreenSocialTab on _MainScreenState {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF8D6E63)
+                                color: _currentPrimaryColor
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(t.toString(),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 10,
-                                      color: Color(0xFF8D6E63))),
+                                      color: _currentPrimaryColor)),
                             )),
                       ],
                       const Spacer(),
@@ -793,13 +804,13 @@ extension MainScreenSocialTab on _MainScreenState {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+                            color: _currentPrimaryColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text('✓ 已加入',
+                          child: Text('✓ 已加入',
                               style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF8D6E63),
+                                  color: _currentPrimaryColor,
                                   fontWeight: FontWeight.bold)),
                         ),
                     ],
@@ -845,8 +856,8 @@ extension MainScreenSocialTab on _MainScreenState {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(children: [
-          Icon(Icons.link_rounded, color: Color(0xFF8D6E63)),
+        title: Row(children: [
+          Icon(Icons.link_rounded, color: _currentPrimaryColor),
           SizedBox(width: 8),
           Text('用邀請連結加入', style: TextStyle(fontSize: 17)),
         ]),
@@ -890,7 +901,7 @@ extension MainScreenSocialTab on _MainScreenState {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8D6E63),
+              backgroundColor: _currentPrimaryColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
@@ -981,7 +992,7 @@ extension MainScreenSocialTab on _MainScreenState {
     if (stories.isEmpty) return const SizedBox.shrink();
 
     return Container(
-      height: 90,
+      height: 98,
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: _isDarkMode ? Colors.black26 : Colors.white,
@@ -1029,7 +1040,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isSelected
-                            ? const Color(0xFFFF9800)
+                            ? _currentPrimaryColor
                             : Colors.transparent,
                         width: 2.5,
                       ),
@@ -1051,7 +1062,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.normal,
                       color: isSelected
-                          ? const Color(0xFFFF9800)
+                          ? _currentPrimaryColor
                           : (_isDarkMode ? Colors.white70 : Colors.black87),
                     ),
                   ),
@@ -1083,7 +1094,7 @@ extension MainScreenSocialTab on _MainScreenState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 48,
+          height: 52,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1099,7 +1110,7 @@ extension MainScreenSocialTab on _MainScreenState {
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF8D6E63)
+                          ? _currentPrimaryColor
                           : (_isDarkMode
                               ? Colors.white10
                               : Colors.grey.shade100),
@@ -1135,7 +1146,7 @@ extension MainScreenSocialTab on _MainScreenState {
                         color: Colors.white,
                         fontWeight: FontWeight.w500),
                   ),
-                  backgroundColor: const Color(0xFFFF9800),
+                  backgroundColor: _currentPrimaryColor,
                   deleteIconColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
@@ -1198,11 +1209,11 @@ extension MainScreenSocialTab on _MainScreenState {
                         style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             minimumSize: const Size(40, 30)),
-                        icon: const Icon(Icons.edit,
-                            size: 16, color: Color(0xFF8D6E63)),
-                        label: const Text('編輯',
+                        icon: Icon(Icons.edit,
+                            size: 16, color: _currentPrimaryColor),
+                        label: Text('編輯',
                             style: TextStyle(
-                                fontSize: 12, color: Color(0xFF8D6E63))),
+                                fontSize: 12, color: _currentPrimaryColor)),
                         onPressed: () => _showEditScheduledPostDialog(sp),
                       ),
                       const SizedBox(width: 4),
@@ -1304,7 +1315,7 @@ extension MainScreenSocialTab on _MainScreenState {
     final idx = index ?? 0;
     return FadeInUp(
       key: ValueKey(
-          '${p['id']}_${_socialFilter}_${_socialAuthorFilter}_$_socialFeedLayout'),
+          '${p['id']}_${_socialFilter}_${_socialAuthorFilter}_${_socialFeedLayout}_$_themeColorIdx'),
       duration: const Duration(milliseconds: 350),
       delay: Duration(milliseconds: 50 * (idx % 10)),
       child: _buildPostItem(p, idx, isSocialFeed),
@@ -1393,18 +1404,14 @@ extension MainScreenSocialTab on _MainScreenState {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 1.5),
                               decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.brown.shade800
-                                    : const Color(0xFFF5F0EE),
+                                color: _currentPrimaryColor.withValues(alpha: isDark ? 0.2 : 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 kPostTypeLabel[p['postType']]!,
                                 style: TextStyle(
                                   fontSize: 9.5,
-                                  color: isDark
-                                      ? const Color(0xFFFFCC80)
-                                      : const Color(0xFF8D6E63),
+                                  color: _currentPrimaryColor,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -1486,13 +1493,13 @@ extension MainScreenSocialTab on _MainScreenState {
                               p['_isExpanded'] = true;
                             });
                           },
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 '展開全文',
                                 style: TextStyle(
-                                  color: Color(0xFF8D6E63),
+                                  color: _currentPrimaryColor,
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1501,7 +1508,7 @@ extension MainScreenSocialTab on _MainScreenState {
                               Icon(
                                 Icons.keyboard_arrow_down_rounded,
                                 size: 16,
-                                color: Color(0xFF8D6E63),
+                                color: _currentPrimaryColor,
                               ),
                             ],
                           ),
@@ -1522,13 +1529,13 @@ extension MainScreenSocialTab on _MainScreenState {
                               p['_isExpanded'] = false;
                             });
                           },
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 '收起全文',
                                 style: TextStyle(
-                                  color: Color(0xFF8D6E63),
+                                  color: _currentPrimaryColor,
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1537,7 +1544,7 @@ extension MainScreenSocialTab on _MainScreenState {
                               Icon(
                                 Icons.keyboard_arrow_up_rounded,
                                 size: 16,
-                                color: Color(0xFF8D6E63),
+                                color: _currentPrimaryColor,
                               ),
                             ],
                           ),
@@ -1634,8 +1641,8 @@ extension MainScreenSocialTab on _MainScreenState {
                             horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? Colors.brown.shade800
-                              : const Color(0xFFF5F0EE),
+                              ? _currentPrimaryColor.withValues(alpha: 0.2)
+                              : _currentPrimaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -1643,8 +1650,8 @@ extension MainScreenSocialTab on _MainScreenState {
                           style: TextStyle(
                             fontSize: 8.5,
                             color: isDark
-                                ? const Color(0xFFFFCC80)
-                                : const Color(0xFF8D6E63),
+                                ? Theme.of(context).colorScheme.primary
+                                : _currentPrimaryColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1703,13 +1710,13 @@ extension MainScreenSocialTab on _MainScreenState {
                                     p['_isExpanded'] = true;
                                   });
                                 },
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       '展開全文',
                                       style: TextStyle(
-                                        color: Color(0xFF8D6E63),
+                                        color: _currentPrimaryColor,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -1718,7 +1725,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                     Icon(
                                       Icons.keyboard_arrow_down_rounded,
                                       size: 16,
-                                      color: Color(0xFF8D6E63),
+                                      color: _currentPrimaryColor,
                                     ),
                                   ],
                                 ),
@@ -1748,13 +1755,13 @@ extension MainScreenSocialTab on _MainScreenState {
                                   p['_isExpanded'] = false;
                                 });
                               },
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
                                     '收起內容',
                                     style: TextStyle(
-                                      color: Color(0xFF8D6E63),
+                                      color: _currentPrimaryColor,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1763,7 +1770,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                   Icon(
                                     Icons.keyboard_arrow_up_rounded,
                                     size: 16,
-                                    color: Color(0xFF8D6E63),
+                                    color: _currentPrimaryColor,
                                   ),
                                 ],
                               ),
@@ -1880,7 +1887,7 @@ extension MainScreenSocialTab on _MainScreenState {
             color: isGuest
                 ? Colors.grey.shade300
                 : ((p['isBookmarked'] as bool? ?? false)
-                    ? const Color(0xFF8D6E63)
+                    ? _currentPrimaryColor
                     : Colors.grey),
           ),
         ),
@@ -2005,7 +2012,7 @@ extension MainScreenSocialTab on _MainScreenState {
   Widget _buildFileAttachment(Map<String, dynamic> p) {
     final fileName = p['fileName'] as String? ?? '未命名文件';
     final isDark = _isDarkMode;
-    final primary = Theme.of(context).primaryColor;
+    final primary = _currentPrimaryColor;
 
     return GestureDetector(
       onTap: () {
@@ -2043,21 +2050,69 @@ extension MainScreenSocialTab on _MainScreenState {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildFileActionBtn(ctx, Icons.visibility_rounded, '線上預覽', () {
+                      _buildFileActionBtn(ctx, Icons.visibility_rounded, '線上預覽', () async {
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('啟動文件預覽器... (此為示範功能)')),
-                        );
+                        try {
+                          final dir = await getTemporaryDirectory();
+                          // Force .txt extension for preview if it's dummy so OpenFilex knows how to open it
+                          final ext = fileName.contains('.') ? '' : '.txt';
+                          final file = File('${dir.path}/$fileName$ext');
+                          if (p['file_blob'] != null) {
+                            await file.writeAsBytes(p['file_blob'] as Uint8List);
+                          } else {
+                            await file.writeAsString('這是一個示範用的檔案預覽內容：\n\n$fileName\n\n這是社群分享的文件內容...');
+                          }
+                          final result = await OpenFilex.open(file.path);
+                          if (result.type != ResultType.done && mounted) {
+                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('預覽失敗: ${result.message}')));
+                          }
+                        } catch (e) {
+                           if (mounted) {
+                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('預覽發生錯誤: $e')));
+                           }
+                        }
                       }),
-                      _buildFileActionBtn(ctx, Icons.download_rounded, '下載檔案', () {
+                      _buildFileActionBtn(ctx, Icons.download_rounded, '下載檔案', () async {
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('已開始下載 $fileName 至手機空間'),
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: Colors.green.shade600,
-                          ),
-                        );
+                        try {
+                          Directory? dir;
+                          if (Platform.isAndroid) {
+                            final publicDownload = Directory('/storage/emulated/0/Download');
+                            if (await publicDownload.exists()) {
+                              dir = publicDownload;
+                            }
+                          }
+                          dir ??= await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+
+                          final ext = fileName.contains('.') ? '' : '.txt';
+                          final file = File('${dir.path}/$fileName$ext');
+                          if (p['file_blob'] != null) {
+                            await file.writeAsBytes(p['file_blob'] as Uint8List);
+                          } else {
+                            await file.writeAsString('這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...');
+                          }
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('已下載至手機「Downloads (下載)」目錄'),
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: Colors.green.shade600,
+                                duration: const Duration(seconds: 5),
+                                action: SnackBarAction(
+                                  label: '開啟檔案',
+                                  textColor: Colors.white,
+                                  onPressed: () => OpenFilex.open(file.path),
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('下載失敗: $e')),
+                            );
+                          }
+                        }
                       }),
                     ],
                   ),
@@ -2174,7 +2229,7 @@ extension MainScreenSocialTab on _MainScreenState {
               color: isGuest
                   ? Colors.grey.shade300
                   : ((p['isBookmarked'] as bool? ?? false)
-                      ? const Color(0xFF8D6E63)
+                      ? _currentPrimaryColor
                       : Colors.grey)),
           onPressed: () =>
               isGuest ? _showGuestLoginPrompt() : _toggleBookmark(p)),
@@ -2217,11 +2272,11 @@ extension MainScreenSocialTab on _MainScreenState {
         icon: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF3E0),
+            color: _currentPrimaryColor.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.lock_outline_rounded,
-              color: Color(0xFFFF9800), size: 32),
+          child: Icon(Icons.lock_outline_rounded,
+              color: _currentPrimaryColor, size: 32),
         ),
         title: const Text('需要登入才能使用',
             textAlign: TextAlign.center,
@@ -2248,7 +2303,7 @@ extension MainScreenSocialTab on _MainScreenState {
               widget.onLogout();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8D6E63),
+              backgroundColor: _currentPrimaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               shape: RoundedRectangleBorder(
@@ -2284,10 +2339,10 @@ extension MainScreenSocialTab on _MainScreenState {
       final url = m.group(0)!;
       spans.add(TextSpan(
         text: url,
-        style: const TextStyle(
-          color: Color(0xFF1565C0),
+        style: TextStyle(
+          color: _currentPrimaryColor,
           decoration: TextDecoration.underline,
-          decorationColor: Color(0xFF1565C0),
+          decorationColor: _currentPrimaryColor,
         ),
         recognizer: TapGestureRecognizer()
           ..onTap = () async {
@@ -2353,12 +2408,12 @@ extension MainScreenSocialTab on _MainScreenState {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F0EE),
+                    color: _currentPrimaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
+                  child: Text(
                     '這是你',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF8D6E63)),
+                    style: TextStyle(fontSize: 11, color: _currentPrimaryColor),
                   ),
                 ),
               ],
@@ -2367,21 +2422,21 @@ extension MainScreenSocialTab on _MainScreenState {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAF8F6),
+                  color: _currentPrimaryColor.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFEEE5DF)),
+                  border: Border.all(color: _currentPrimaryColor.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(children: [
+                    Row(children: [
                       Icon(Icons.person_outline,
-                          size: 14, color: Color(0xFF8D6E63)),
+                          size: 14, color: _currentPrimaryColor),
                       SizedBox(width: 6),
                       Text('個人簡介',
                           style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF8D6E63),
+                              color: _currentPrimaryColor,
                               fontWeight: FontWeight.w600)),
                     ]),
                     const SizedBox(height: 8),
@@ -2404,8 +2459,8 @@ extension MainScreenSocialTab on _MainScreenState {
                 child: TextButton(
                   onPressed: () => Navigator.pop(ctx),
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFFF5F0EE),
-                    foregroundColor: const Color(0xFF8D6E63),
+                    backgroundColor: _currentPrimaryColor.withValues(alpha: 0.1),
+                    foregroundColor: _currentPrimaryColor,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -2430,8 +2485,8 @@ extension MainScreenSocialTab on _MainScreenState {
 
     final sharedType = attached['shared_type'];
     final bool isDark = _isDarkMode;
-    final cardBg = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF9F7F5);
-    final borderCol = isDark ? Colors.white10 : const Color(0xFFE5DCD3);
+    final cardBg = isDark ? const Color(0xFF2C2C2C) : _currentPrimaryColor.withValues(alpha: 0.05);
+    final borderCol = isDark ? Colors.white10 : _currentPrimaryColor.withValues(alpha: 0.2);
 
     if (sharedType == 'note') {
       final String title = attached['title'] ?? '無標題筆記';
@@ -2466,8 +2521,8 @@ extension MainScreenSocialTab on _MainScreenState {
           children: [
             Row(
               children: [
-                const Icon(Icons.sticky_note_2_outlined,
-                    color: Color(0xFF8D6E63), size: 18),
+                Icon(Icons.sticky_note_2_outlined,
+                    color: _currentPrimaryColor, size: 18),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -2476,22 +2531,22 @@ extension MainScreenSocialTab on _MainScreenState {
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                         color: isDark
-                            ? const Color(0xFFFFCC80)
-                            : const Color(0xFF5D4037)),
+                            ? Theme.of(context).colorScheme.primary
+                            : _currentPrimaryColor),
                   ),
                 ),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    color: _currentPrimaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     category,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10,
-                        color: Color(0xFF8D6E63),
+                        color: _currentPrimaryColor,
                         fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -2529,7 +2584,7 @@ extension MainScreenSocialTab on _MainScreenState {
                 const Spacer(),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8D6E63),
+                    backgroundColor: _currentPrimaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18)),
@@ -2547,7 +2602,7 @@ extension MainScreenSocialTab on _MainScreenState {
                 ElevatedButton.icon(
                   key: isSocialFeed && isTargetNotePost && _tourOverlayEntry != null && _currentIndex == 2 ? _tourDialogSummonKey : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5D4037),
+                    backgroundColor: _currentPrimaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18)),
@@ -2593,30 +2648,30 @@ extension MainScreenSocialTab on _MainScreenState {
           children: [
             Row(
               children: [
-                const Icon(Icons.help_outline_rounded,
-                    color: Color(0xFF8D6E63), size: 18),
+                Icon(Icons.help_outline_rounded,
+                    color: _currentPrimaryColor, size: 18),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '題目挑戰：$subject',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: Color(0xFF8D6E63)),
+                        color: _currentPrimaryColor),
                   ),
                 ),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                    color: _currentPrimaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     '難度: $difficulty',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10,
-                        color: Color(0xFF8D6E63),
+                        color: _currentPrimaryColor,
                         fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -2736,7 +2791,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             fontSize: 12,
                             color: isDark
                                 ? Colors.white70
-                                : Colors.brown.shade800),
+                                : _currentPrimaryColor.withValues(alpha: 0.2)),
                       ),
                     ),
                   ],
@@ -2749,7 +2804,7 @@ extension MainScreenSocialTab on _MainScreenState {
               children: [
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8D6E63),
+                    backgroundColor: _currentPrimaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18)),
@@ -2782,7 +2837,7 @@ extension MainScreenSocialTab on _MainScreenState {
 
     final sharedType = attached['shared_type'];
     final bool isDark = _isDarkMode;
-    final cardBg = isDark ? Colors.white10 : const Color(0xFFFAF9F6);
+    final cardBg = isDark ? Colors.white10 : _currentPrimaryColor.withValues(alpha: 0.05);
 
     if (sharedType == 'note') {
       final String title = attached['title'] ?? '無標題筆記';
@@ -2799,16 +2854,16 @@ extension MainScreenSocialTab on _MainScreenState {
           ),
           child: Row(
             children: [
-            const Icon(Icons.sticky_note_2_outlined,
-                color: Color(0xFF8D6E63), size: 16),
+            Icon(Icons.sticky_note_2_outlined,
+                color: _currentPrimaryColor, size: 16),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 '分享筆記: $title',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF8D6E63)),
+                    color: _currentPrimaryColor),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -2820,10 +2875,10 @@ extension MainScreenSocialTab on _MainScreenState {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               onPressed: () => _importSharedNote(p),
-              child: const Text('一鍵匯入',
+              child: Text('一鍵匯入',
                   style: TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF8D6E63),
+                      color: _currentPrimaryColor,
                       fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 4),
@@ -2833,12 +2888,12 @@ extension MainScreenSocialTab on _MainScreenState {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              icon: const Icon(Icons.auto_awesome,
-                  size: 12, color: Color(0xFF8D6E63)),
-              label: const Text('召喚分身',
+              icon: Icon(Icons.auto_awesome,
+                  size: 12, color: _currentPrimaryColor),
+              label: Text('召喚分身',
                   style: TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF8D6E63),
+                      color: _currentPrimaryColor,
                       fontWeight: FontWeight.bold)),
               onPressed: () => _summonAuthorClone(p),
             ),
@@ -2862,16 +2917,16 @@ extension MainScreenSocialTab on _MainScreenState {
         ),
         child: Row(
           children: [
-            const Icon(Icons.help_outline_rounded,
-                color: Color(0xFF8D6E63), size: 16),
+            Icon(Icons.help_outline_rounded,
+                color: _currentPrimaryColor, size: 16),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 '分享題目: [$subject] $snippet',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF8D6E63)),
+                    color: _currentPrimaryColor),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -2883,10 +2938,10 @@ extension MainScreenSocialTab on _MainScreenState {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               onPressed: () => _importSharedQuestion(attached),
-              child: const Text('一鍵收藏',
+              child: Text('一鍵收藏',
                   style: TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF8D6E63),
+                      color: _currentPrimaryColor,
                       fontWeight: FontWeight.bold)),
             ),
           ],
@@ -2940,9 +2995,9 @@ extension MainScreenSocialTab on _MainScreenState {
       NotesDatabase.notes.insert(0, newNote);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('🎉 筆記已成功匯入您的筆記本！'),
-          backgroundColor: Color(0xFF8D6E63),
+          backgroundColor: _currentPrimaryColor,
         ),
       );
     } catch (e) {
@@ -3043,9 +3098,9 @@ extension MainScreenSocialTab on _MainScreenState {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('🎉 題目已成功收藏至您的題庫！'),
-            backgroundColor: Color(0xFF8D6E63),
+            backgroundColor: _currentPrimaryColor,
           ),
         );
       }
@@ -3088,7 +3143,7 @@ extension MainScreenSocialTab on _MainScreenState {
 
     final bool isDark = _isDarkMode;
     final dialogBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final borderCol = isDark ? Colors.white10 : const Color(0xFFE5DCD3);
+    final borderCol = isDark ? Colors.white10 : _currentPrimaryColor.withValues(alpha: 0.2);
 
     showDialog(
       context: context,
@@ -3123,8 +3178,8 @@ extension MainScreenSocialTab on _MainScreenState {
                     // 標題與關閉按鈕
                     Row(
                       children: [
-                        const Icon(Icons.sticky_note_2_outlined,
-                            color: Color(0xFF8D6E63), size: 22),
+                        Icon(Icons.sticky_note_2_outlined,
+                            color: _currentPrimaryColor, size: 22),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -3132,7 +3187,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF5D4037),
+                              color: isDark ? Theme.of(context).colorScheme.primary : _currentPrimaryColor,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -3155,14 +3210,14 @@ extension MainScreenSocialTab on _MainScreenState {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                            color: _currentPrimaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             category,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF8D6E63),
+                              color: _currentPrimaryColor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -3193,7 +3248,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                   border: Border(
                                     bottom: BorderSide(
                                       color: !showDrawing
-                                          ? const Color(0xFF8D6E63)
+                                          ? _currentPrimaryColor
                                           : Colors.transparent,
                                       width: 2.5,
                                     ),
@@ -3204,7 +3259,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                   style: TextStyle(
                                     fontWeight: !showDrawing ? FontWeight.bold : FontWeight.normal,
                                     color: !showDrawing
-                                        ? const Color(0xFF8D6E63)
+                                        ? _currentPrimaryColor
                                         : (isDark ? Colors.white60 : Colors.black54),
                                   ),
                                 ),
@@ -3221,7 +3276,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                   border: Border(
                                     bottom: BorderSide(
                                       color: showDrawing
-                                          ? const Color(0xFF8D6E63)
+                                          ? _currentPrimaryColor
                                           : Colors.transparent,
                                       width: 2.5,
                                     ),
@@ -3232,7 +3287,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                   style: TextStyle(
                                     fontWeight: showDrawing ? FontWeight.bold : FontWeight.normal,
                                     color: showDrawing
-                                        ? const Color(0xFF8D6E63)
+                                        ? _currentPrimaryColor
                                         : (isDark ? Colors.white60 : Colors.black54),
                                   ),
                                 ),
@@ -3249,7 +3304,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       height: 350,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAF9F6), // 極淡象牙白，貼合紙張質感
+                        color: _currentPrimaryColor.withValues(alpha: 0.05), // 極淡象牙白，貼合紙張質感
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: borderCol, width: 1.2),
                       ),
@@ -3290,7 +3345,7 @@ extension MainScreenSocialTab on _MainScreenState {
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8D6E63),
+                            backgroundColor: _currentPrimaryColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),
@@ -3308,7 +3363,7 @@ extension MainScreenSocialTab on _MainScreenState {
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF5D4037),
+                            backgroundColor: _currentPrimaryColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),

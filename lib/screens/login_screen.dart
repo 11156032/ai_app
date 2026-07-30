@@ -521,7 +521,7 @@ class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
                           child: ShaderMask(
                             shaderCallback: (bounds) {
                               return LinearGradient(
-                                colors: const [
+                                colors: [
                                   Color(0xFF4E342E), // Deep brown
                                   Color(0xFF8D6E63), // Light warm brown
                                   Color(0xFF4E342E), // Deep brown
@@ -571,7 +571,7 @@ class _LoginSuccessOverlayState extends State<_LoginSuccessOverlay>
                           offset: Offset(0, _textSlideY.value * 0.5),
                           child: Text(
                             'Welcome, ${widget.displayName}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               color: Color(0xFF8D6E63),
@@ -678,13 +678,13 @@ class _LeafBranchDivider extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF8D6E63).withValues(alpha: 0.5)
+      ..color = Color(0xFF8D6E63).withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
 
     final fillPaint = Paint()
-      ..color = const Color(0xFF8D6E63).withValues(alpha: 0.1)
+      ..color = Color(0xFF8D6E63).withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     final w = size.width;
@@ -753,7 +753,7 @@ class _GlassCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8D6E63).withValues(alpha: 0.08),
+            color: Color(0xFF8D6E63).withValues(alpha: 0.08),
             blurRadius: 36,
             offset: const Offset(0, 16),
           ),
@@ -944,7 +944,7 @@ class _FocusedGlowFieldState extends State<_FocusedGlowField> {
         boxShadow: [
           BoxShadow(
             color: _hasFocus
-                ? const Color(0xFF8D6E63).withValues(alpha: 0.18)
+                ? Color(0xFF8D6E63).withValues(alpha: 0.18)
                 : Colors.black.withValues(alpha: 0.01),
             blurRadius: _hasFocus ? 14 : 4,
             spreadRadius: _hasFocus ? 1 : 0,
@@ -1032,13 +1032,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ── 樣式常數 ──────────────────────────────────────────────────────────────
-  static const _primaryColor = Color(0xFF8D6E63);
+  static final _primaryColor = Color(0xFF8D6E63);
   static const _bgColor = Color(0xFFF7F3F0);
 
   InputDecoration _inputDeco(String label, {Widget? suffix}) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Color(0xFF8D6E63), fontSize: 13.5),
+      labelStyle: TextStyle(color: Color(0xFF8D6E63), fontSize: 13.5),
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.45),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
@@ -1054,7 +1054,7 @@ class _LoginScreenState extends State<LoginScreen> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(
-            color: const Color(0xFF8D6E63).withValues(alpha: 0.7), width: 1.8),
+            color: Color(0xFF8D6E63).withValues(alpha: 0.7), width: 1.8),
       ),
       suffixIcon: suffix,
     );
@@ -1274,7 +1274,7 @@ class _LoginScreenState extends State<LoginScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(icon, color: const Color(0xFF8D6E63)),
+            Icon(icon, color: Color(0xFF8D6E63)),
             const SizedBox(width: 10),
             Text(title,
                 style:
@@ -1320,7 +1320,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8D6E63),
+              backgroundColor: Color(0xFF8D6E63),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
@@ -1340,7 +1340,7 @@ class _LoginScreenState extends State<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF8D6E63))),
@@ -1711,7 +1711,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 6),
                           Text(
                             isLogin ? '請輸入您的信箱與密碼' : '填寫資料以完成註冊',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 13.5, color: Color(0xFF8D6E63)),
                           ),
                           const SizedBox(height: 28),
@@ -1784,7 +1784,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   tapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
                                 ),
-                                child: const Text(
+                                child: Text(
                                   '忘記密碼？',
                                   style: TextStyle(
                                     color: Color(0xFF8D6E63),
@@ -1837,11 +1837,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                       value: _agreedToTerms,
                                       onChanged: (v) => setState(
                                           () => _agreedToTerms = v ?? false),
-                                      activeColor: const Color(0xFF8D6E63),
+                                      activeColor: Color(0xFF8D6E63),
                                       shape: RoundedRectangleBorder(
                                           borderRadius:
                                               BorderRadius.circular(4)),
-                                      side: const BorderSide(
+                                      side: BorderSide(
                                           color: Color(0xFF8D6E63), width: 1.5),
                                     ),
                                   ),
@@ -1860,7 +1860,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                               context: context,
                                               title: '服務條款',
                                               icon: Icons.gavel_outlined),
-                                          child: const Text('服務條款',
+                                          child: Text('服務條款',
                                               style: TextStyle(
                                                   fontSize: 12,
                                                   color: Color(0xFF8D6E63),
@@ -1877,7 +1877,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                               context: context,
                                               title: '隱私權政策',
                                               icon: Icons.privacy_tip_outlined),
-                                          child: const Text('隱私權政策',
+                                          child: Text('隱私權政策',
                                               style: TextStyle(
                                                   fontSize: 12,
                                                   color: Color(0xFF8D6E63),
@@ -1898,7 +1898,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: double.infinity,
                             height: 54,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 colors: [
                                   Color(0xFF8D6E63),
                                   Color(0xFFA1887F),
@@ -1909,7 +1909,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF8D6E63)
+                                  color: Color(0xFF8D6E63)
                                       .withValues(alpha: 0.32),
                                   blurRadius: 18,
                                   offset: const Offset(0, 8),
@@ -1947,7 +1947,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             }),
                             child: Text(
                               isLogin ? '還沒有帳號？點此註冊' : '已有帳號？點此登入',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: Color(0xFF8D6E63),
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13.5),
@@ -2021,7 +2021,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 backgroundColor:
                                     Colors.white.withValues(alpha: 0.35),
                                 side: BorderSide(
-                                    color: const Color(0xFF8D6E63)
+                                    color: Color(0xFF8D6E63)
                                         .withValues(alpha: 0.4),
                                     width: 1.2),
                                 shape: RoundedRectangleBorder(
@@ -2029,11 +2029,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 elevation: 0,
                               ),
                               icon: const Icon(Icons.person_outline_rounded,
-                                  color: _primaryColor, size: 20),
+                                  color: Color(0xFF8D6E63), size: 20),
                               label: const Text(
                                 '以訪客身份直接登入',
                                 style: TextStyle(
-                                    color: _primaryColor,
+                                    color: Color(0xFF8D6E63),
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0.5),
                               ),

@@ -418,7 +418,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
   //       title: const Row(
   //         children: [
-  //           Icon(Icons.share, color: Color(0xFF8D6E63)),
+  //           Icon(Icons.share, color: Theme.of(context).primaryColor),
   //           SizedBox(width: 8),
   //           Text('分享題目'),
   //         ],
@@ -431,7 +431,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   //         ),
   //         ElevatedButton(
   //           style: ElevatedButton.styleFrom(
-  //             backgroundColor: const Color(0xFF8D6E63),
+  //             backgroundColor: Theme.of(context).primaryColor,
   //             foregroundColor: Colors.white,
   //             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   //           ),
@@ -448,7 +448,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   //       context: context,
   //       barrierDismissible: false,
   //       builder: (ctx) => const Center(
-  //         child: CircularProgressIndicator(color: Color(0xFF8D6E63)),
+  //         child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
   //       ),
   //     );
   //
@@ -493,7 +493,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   //         ScaffoldMessenger.of(context).showSnackBar(
   //           const SnackBar(
   //             content: Text('🎉 題目已成功分享至社群論壇！'),
-  //             backgroundColor: Color(0xFF8D6E63),
+  //             backgroundColor: Theme.of(context).primaryColor,
   //           ),
   //         );
   //       }
@@ -678,7 +678,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                color: Colors.white,
+                color: Colors.transparent,
                 child: Row(
                   children: [
                     Expanded(

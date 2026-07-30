@@ -69,9 +69,9 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
     await Clipboard.setData(ClipboardData(text: _inviteUrl));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('✅ 邀請連結已複製到剪貼板！'),
-          backgroundColor: Color(0xFF8D6E63),
+          backgroundColor: Theme.of(context).primaryColor,
           duration: Duration(seconds: 2),
         ),
       );
@@ -183,8 +183,8 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
             ...options.map((opt) => ListTile(
                   title: Text(opt['label'] as String),
                   trailing: (_expiryLabel == opt['label'])
-                      ? const Icon(Icons.check_circle,
-                          color: Color(0xFF8D6E63))
+                      ? Icon(Icons.check_circle,
+                          color: Theme.of(context).primaryColor)
                       : null,
                   onTap: () {
                     Navigator.pop(ctx);
@@ -245,7 +245,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
+                            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Center(
@@ -268,8 +268,8 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                 _group['type'] == 'private'
                                     ? '🔒 私人群組'
                                     : '🌐 公開群組',
-                                style: const TextStyle(
-                                    fontSize: 12, color: Color(0xFF8D6E63))),
+                                style: TextStyle(
+                                    fontSize: 12, color: Theme.of(context).primaryColor)),
                           ],
                         ),
                       ],
@@ -295,14 +295,14 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: _linkActive
-                                    ? const Color(0xFF8D6E63).withValues(alpha: 0.1)
+                                    ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
                                     : Colors.grey.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 Icons.link_rounded,
                                 color: _linkActive
-                                    ? const Color(0xFF8D6E63)
+                                    ? Theme.of(context).primaryColor
                                     : Colors.grey,
                                 size: 20,
                               ),
@@ -326,7 +326,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                     style: TextStyle(
                                         fontSize: 11.5,
                                         color: _linkActive
-                                            ? const Color(0xFF8D6E63)
+                                            ? Theme.of(context).primaryColor
                                             : Colors.grey),
                                   ),
                                 ],
@@ -335,7 +335,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                             Switch(
                               value: _linkActive,
                               onChanged: (_) => _toggleLinkActive(),
-                              activeThumbColor: const Color(0xFF8D6E63),
+                              activeThumbColor: Theme.of(context).primaryColor,
                             ),
                           ],
                         ),
@@ -352,10 +352,10 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                     : const Color(0xFFF5F0EE),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Row(
+                              child: Row(
                                 children: [
                                   Icon(Icons.public_rounded,
-                                      color: Color(0xFF8D6E63), size: 18),
+                                      color: Theme.of(context).primaryColor, size: 18),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -363,7 +363,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                       style: TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w500,
-                                        color: Color(0xFF8D6E63),
+                                        color: Theme.of(context).primaryColor,
                                       ),
                                     ),
                                   ),
@@ -416,14 +416,14 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                       title: const Text('知道連結即可直接加入',
                                           style: TextStyle(fontSize: 13.5)),
                                       value: 'auto',
-                                      activeColor: const Color(0xFF8D6E63),
+                                      activeColor: Theme.of(context).primaryColor,
                                       contentPadding: EdgeInsets.zero,
                                     ),
                                     RadioListTile<String>(
                                       title: const Text('加入需經管理員審核',
                                           style: TextStyle(fontSize: 13.5)),
                                       value: 'approval',
-                                      activeColor: const Color(0xFF8D6E63),
+                                      activeColor: Theme.of(context).primaryColor,
                                       contentPadding: EdgeInsets.zero,
                                     ),
                                   ],
@@ -463,7 +463,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                   child: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF8D6E63),
+                                      color: Theme.of(context).primaryColor,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: const Icon(Icons.copy_rounded,
@@ -482,9 +482,9 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                 child: OutlinedButton.icon(
                                   onPressed: _copyLink,
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF8D6E63),
-                                    side: const BorderSide(
-                                        color: Color(0xFF8D6E63)),
+                                    foregroundColor: Theme.of(context).primaryColor,
+                                    side: BorderSide(
+                                        color: Theme.of(context).primaryColor),
                                     shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10)),
                                     padding: const EdgeInsets.symmetric(

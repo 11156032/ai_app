@@ -155,6 +155,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             'replies': (replies.first['c'] as int?) ?? 0,
             'media': attached['media_url'],
             'media_blob': p['media_blob'] as Uint8List?,
+            'file_blob': p['file_blob'] as Uint8List?,
+            'fileName': attached['file_name'],
             'attached_data': attached,
             'replyTo': attached['reply_to'],
           });
@@ -226,7 +228,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_requiresApproval ? '已送出申請，等待管理員審核' : '🎉 成功加入群組！'),
-            backgroundColor: const Color(0xFF8D6E63),
+            backgroundColor: Theme.of(context).primaryColor,
           ),
         );
       }
@@ -367,7 +369,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(newMuted ? '🔕 已將群組設定為靜音' : '🔔 已開啟群組通知'),
-          backgroundColor: const Color(0xFF8D6E63),
+          backgroundColor: Theme.of(context).primaryColor,
         ),
       );
     }
@@ -379,9 +381,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('🔴 已標示為未讀'),
-          backgroundColor: Color(0xFF8D6E63),
+          backgroundColor: Theme.of(context).primaryColor,
         ),
       );
     }
@@ -399,7 +401,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               ? '✅ 已同意 ${member['display_name']} 加入'
               : '已拒絕申請'),
           backgroundColor:
-              approved ? const Color(0xFF8D6E63) : Colors.grey,
+              approved ? Theme.of(context).primaryColor : Colors.grey,
         ),
       );
     }
@@ -498,7 +500,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                 isMuted
                                     ? Icons.notifications_active_rounded
                                     : Icons.notifications_off_rounded,
-                                color: const Color(0xFF8D6E63),
+                                color: Theme.of(context).primaryColor,
                                 size: 18),
                             const SizedBox(width: 8),
                             Text(isMuted ? '開啟群組通知 🔔' : '關閉群組通知 (靜音) 🔕'),
@@ -578,7 +580,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF8D6E63)
+                                color: Theme.of(context).primaryColor
                                     .withValues(alpha: 0.12),
                                 shape: BoxShape.circle,
                               ),
@@ -638,7 +640,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                         fontSize: 12.5,
                                         color: isDark
                                             ? Colors.white60
-                                            : const Color(0xFF8D6E63)),
+                                            : Theme.of(context).primaryColor),
                                   ),
                                 ],
                               ),
@@ -667,15 +669,15 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF8D6E63)
+                                        color: Theme.of(context).primaryColor
                                             .withValues(alpha: 0.1),
                                         borderRadius:
                                             BorderRadius.circular(8),
                                       ),
                                       child: Text(t.toString(),
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontSize: 11,
-                                              color: Color(0xFF8D6E63))),
+                                              color: Theme.of(context).primaryColor)),
                                     ))
                                 .toList(),
                           ),
@@ -692,8 +694,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
                 child: TabBar(
                   controller: _tabController,
-                  indicatorColor: const Color(0xFF8D6E63),
-                  labelColor: const Color(0xFF8D6E63),
+                  indicatorColor: Theme.of(context).primaryColor,
+                  labelColor: Theme.of(context).primaryColor,
                   unselectedLabelColor:
                       isDark ? Colors.white54 : Colors.black54,
                   labelStyle: const TextStyle(
@@ -790,8 +792,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               const SizedBox(height: 8),
               TextButton(
                 onPressed: _openCreatePost,
-                child: const Text('發表第一篇貼文',
-                    style: TextStyle(color: Color(0xFF8D6E63))),
+                child: Text('發表第一篇貼文',
+                    style: TextStyle(color: Theme.of(context).primaryColor)),
               ),
             ],
           ],
@@ -801,7 +803,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
 
     return RefreshIndicator(
       onRefresh: _loadData,
-      color: const Color(0xFF8D6E63),
+      color: Theme.of(context).primaryColor,
       child: ListView.builder(
         reverse: true,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -975,7 +977,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   ElevatedButton.icon(
                     onPressed: _isJoining ? null : _joinOrApply,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _requiresApproval ? const Color(0xFFFF9800) : const Color(0xFF8D6E63),
+                      backgroundColor: _requiresApproval ? const Color(0xFFFF9800) : Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 28, vertical: 13),
@@ -1070,14 +1072,14 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.reply_rounded, size: 16, color: Color(0xFF8D6E63)),
+                  Icon(Icons.reply_rounded, size: 16, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       '正在回覆 ${_replyingPost!['author']}：${_replyingPost!['content']}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF8D6E63),
+                        color: Theme.of(context).primaryColor,
                         fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -1086,9 +1088,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   ),
                   GestureDetector(
                     onTap: () => setState(() => _replyingPost = null),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(2.0),
-                      child: Icon(Icons.close_rounded, size: 16, color: Color(0xFF8D6E63)),
+                      child: Icon(Icons.close_rounded, size: 16, color: Theme.of(context).primaryColor),
                     ),
                   ),
                 ],
@@ -1142,7 +1144,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                       )
                     : IconButton(
                         icon: const Icon(Icons.send_rounded),
-                        color: const Color(0xFF8D6E63),
+                        color: Theme.of(context).primaryColor,
                         onPressed: _sendMessage,
                       ),
               ],
@@ -1191,7 +1193,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   Widget _buildChatBubble(Map<String, dynamic> p, bool isDark) {
     final bool isMe = p['userId'] == _currentUserId;
     final Color bubbleColor = isMe
-        ? const Color(0xFF8D6E63)
+        ? Theme.of(context).primaryColor
         : (isDark ? const Color(0xFF2C2C2C) : Colors.white);
     final Color textColor = isMe
         ? Colors.white
@@ -1266,7 +1268,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                   children: [
                                     Container(
                                       width: 3,
-                                      color: isMe ? Colors.white.withValues(alpha: 0.6) : const Color(0xFF8D6E63).withValues(alpha: 0.7),
+                                      color: isMe ? Colors.white.withValues(alpha: 0.6) : Theme.of(context).primaryColor.withValues(alpha: 0.7),
                                     ),
                                     Flexible(
                                       child: Padding(
@@ -1279,7 +1281,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                color: isMe ? Colors.white.withValues(alpha: 0.95) : const Color(0xFF8D6E63),
+                                                color: isMe ? Colors.white.withValues(alpha: 0.95) : Theme.of(context).primaryColor,
                                               ),
                                             ),
                                             const SizedBox(height: 2),
@@ -1430,13 +1432,13 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           padding:
               const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
-            color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text('$count',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF8D6E63),
+                  color: Theme.of(context).primaryColor,
                   fontWeight: FontWeight.bold)),
         ),
       ],
@@ -1573,13 +1575,13 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text('⚙️ 管理員',
+        child: Text('⚙️ 管理員',
             style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF8D6E63),
+                color: Theme.of(context).primaryColor,
                 fontWeight: FontWeight.bold)),
       );
     }
@@ -1591,7 +1593,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       heroTag: 'group_join_fab',
       onPressed: _isJoining ? null : _joinOrApply,
       backgroundColor:
-          _requiresApproval ? const Color(0xFFFF9800) : const Color(0xFF8D6E63),
+          _requiresApproval ? const Color(0xFFFF9800) : Theme.of(context).primaryColor,
       icon: _isJoining
           ? const SizedBox(
               width: 18,

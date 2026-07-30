@@ -18,7 +18,7 @@ extension MainScreenLeaderboardTab on _MainScreenState {
           (b['totalAnswered'] as int).compareTo(a['totalAnswered'] as int));
     }
 
-    final primaryColor = Theme.of(context).primaryColor;
+    final primaryColor = _currentPrimaryColor;
 
     return Container(
       color: _isDarkMode ? Colors.black87 : const Color(0xFFF5F3F0),
@@ -143,7 +143,7 @@ extension MainScreenLeaderboardTab on _MainScreenState {
               fontWeight:
                   isSelected ? FontWeight.bold : FontWeight.normal,
               color: isSelected
-                  ? Theme.of(context).primaryColor
+                  ? _currentPrimaryColor
                   : Colors.white.withValues(alpha: 0.85),
             ),
           ),
@@ -215,7 +215,7 @@ extension MainScreenLeaderboardTab on _MainScreenState {
             margin: const EdgeInsets.only(bottom: 4),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
+              color: _currentPrimaryColor,
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Text('你',
@@ -247,7 +247,7 @@ extension MainScreenLeaderboardTab on _MainScreenState {
                   width: 14,
                   height: 14,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
+                    color: _currentPrimaryColor,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 1.5),
                   ),
@@ -326,12 +326,12 @@ extension MainScreenLeaderboardTab on _MainScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isMe
-            ? (Theme.of(context).primaryColor.withValues(alpha: 0.08))
+            ? (_currentPrimaryColor.withValues(alpha: 0.08))
             : (_isDarkMode ? const Color(0xFF1E1E1E) : Colors.white),
         borderRadius: BorderRadius.circular(16),
         border: isMe
             ? Border.all(
-                color: Theme.of(context).primaryColor.withValues(alpha: 0.4),
+                color: _currentPrimaryColor.withValues(alpha: 0.4),
                 width: 1.5)
             : null,
         boxShadow: [
@@ -352,7 +352,7 @@ extension MainScreenLeaderboardTab on _MainScreenState {
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: rank <= 10
-                      ? Theme.of(context).primaryColor
+                      ? _currentPrimaryColor
                       : Colors.grey.shade400),
               textAlign: TextAlign.center,
             ),
@@ -388,7 +388,7 @@ extension MainScreenLeaderboardTab on _MainScreenState {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 7, vertical: 1),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor,
+                          color: _currentPrimaryColor,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text('你',
@@ -423,7 +423,7 @@ extension MainScreenLeaderboardTab on _MainScreenState {
                     fontWeight: FontWeight.bold,
                     color: user['totalAnswered'] == 0
                         ? Colors.grey.shade400
-                        : Theme.of(context).primaryColor),
+                        : _currentPrimaryColor),
               ),
             ],
           ),

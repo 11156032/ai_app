@@ -305,10 +305,10 @@ class _ReviewPageState extends State<ReviewPage>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('題目詳解 (${widget.questions.length} 題)',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF8D6E63))),
+                        color: Theme.of(context).primaryColor)),
                 Row(
                   children: [
                     Text(
@@ -322,7 +322,7 @@ class _ReviewPageState extends State<ReviewPage>
                     const SizedBox(width: 4),
                     Switch(
                       value: _showOnlyWrong,
-                      activeThumbColor: const Color(0xFF8D6E63),
+                      activeThumbColor: Theme.of(context).primaryColor,
                       onChanged: (val) {
                         setState(() {
                           _showOnlyWrong = val;
@@ -386,7 +386,7 @@ class _ReviewPageState extends State<ReviewPage>
                             fontSize: 16, fontWeight: FontWeight.w600)),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: const Color(0xFF8D6E63),
+                      backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
@@ -407,13 +407,13 @@ class _ReviewPageState extends State<ReviewPage>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF8D6E63), Color(0xFFBCAAA4)],
+          colors: [Theme.of(context).primaryColor, Color(0xFFBCAAA4)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8D6E63).withValues(alpha: 0.25),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -492,7 +492,7 @@ class _ReviewPageState extends State<ReviewPage>
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
             decoration: const BoxDecoration(
                gradient: LinearGradient(
-                 colors: [Color(0xFF8D6E63), Color(0xFFBCAAA4)],
+                 colors: [Theme.of(context).primaryColor, Color(0xFFBCAAA4)],
                  begin: Alignment.topLeft,
                  end: Alignment.bottomRight,
                ),
@@ -536,7 +536,7 @@ class _ReviewPageState extends State<ReviewPage>
                 // ── Summary ──
                 _DiagnosisSection(
                   icon: Icons.summarize_rounded,
-                  iconColor: const Color(0xFF8D6E63),
+                  iconColor: Theme.of(context).primaryColor,
                   bgColor: const Color(0xFFF5F0EB),
                   title: '整體摘要',
                   child: Text(d.summary,
@@ -641,8 +641,8 @@ class _ReviewPageState extends State<ReviewPage>
                   icon: const Icon(Icons.refresh_rounded, size: 16),
                   label: const Text('重新分析'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF8D6E63),
-                    side: const BorderSide(color: Color(0xFF8D6E63)),
+                    foregroundColor: Theme.of(context).primaryColor,
+                    side: const BorderSide(color: Theme.of(context).primaryColor),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
@@ -1073,13 +1073,13 @@ class _ReviewDiagnosisLoadingProgressState
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
-            colors: [Color(0xFF8D6E63), Color(0xFFBCAAA4)],
+            colors: [Theme.of(context).primaryColor, Color(0xFFBCAAA4)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.25),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.25),
               blurRadius: 14,
               offset: const Offset(0, 6),
             ),
