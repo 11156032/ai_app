@@ -2472,6 +2472,9 @@ $strokePrompt
         systemPrompt: customSystemPrompt,
         userInput: text,
         history: historyContext,
+      ).timeout(
+        const Duration(seconds: 45),
+        onTimeout: (sink) => sink.addError(Exception('AI 回應逾時（45s），請稍後再試')),
       );
 
       await for (final chunk in stream) {

@@ -76,7 +76,7 @@ class AiDiagnosisService {
 
   static DateTime? nextAvailableTime;
 
-  /// 呼叫 OpenRouter 免費模型進行 APP 導覽 (使用 HTTP 串流 + 備援模型)
+  /// 呼叫 AI 進行 APP 導覽與對答 (優先使用 OpenRouter 免費用量省成本，超時/失敗再由 Gemini 救援)
   static Stream<AssistantResponseChunk> generateOpenRouterGuideStream({
     required String userInput,
     required List<Map<String, dynamic>> history,
@@ -108,7 +108,7 @@ class AiDiagnosisService {
 - 回答請保持簡明親切、溫馨溫暖，控制在 3-4 句以內，並適當使用合適的表情符號 😊，且絕對不使用任何類似星星的符號（如 ✨、⭐、🌟 等）。
 ''';
 
-    // 1. 組建對話訊息（過濾載入中等暫存狀態）
+    // 1. 組建 OpenRouter 對話訊息
     final messages = <Map<String, String>>[];
     messages.add({'role': 'system', 'content': systemInstruction});
     for (var msg in history.take(6)) {
@@ -123,22 +123,22 @@ class AiDiagnosisService {
     }
     messages.add({'role': 'user', 'content': userInput});
 
-    // 優先使用繁體中文支援最強的免費模型，依穩定度排序（2026-07 更新）
-    // 注意：qwen3-235b-a22b:free / qwen3-32b:free / deepseek-r1-0528:free 已下架或改為付費
+    // 1. 優先嘗試 OpenRouter 免費模型（實測 streaming chunks 有效，依速度排序）
+    // 注意：每個模型 connection timeout 8s + stream timeout 12s，確保整組在外層 45s 內完成
     final fallbackModels = [
       if (customModel != null && customModel.isNotEmpty) customModel,
-      'qwen/qwen3-next-80b-a3b-instruct:free', // 首選：Qwen3 最新旗艦，繁中支援佳
-      'nvidia/nemotron-3-nano-30b-a3b:free', // 備援 1：NVIDIA Nemotron，穩定可用
-      'openai/gpt-oss-20b:free', // 備援 2：OpenAI OSS，多語言穩定
-      'meta-llama/llama-3.3-70b-instruct:free', // 備援 3：Llama 70B 全方位穩定
-      'google/gemma-4-31b-it:free', // 備援 4：Gemma 4 多語言支援
+      'poolside/laguna-s-2.1:free',               // 實測最快：21 chunks，優先試
+      'google/gemma-4-26b-a4b-it:free',           // 實測可用：Google Gemma 4
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // 實測可用，中型
+      'nvidia/nemotron-3-ultra-550b-a55b:free',   // 最後備援，大型但較慢
     ];
+
 
     bool openRouterSucceeded = false;
     Exception? lastError;
 
     for (final model in fallbackModels) {
-      debugPrint('代理人助理：優先嘗試使用 OpenRouter 模型 $model');
+      debugPrint('代理人助理：優先使用 OpenRouter 免費模型 $model 以節省成本');
       try {
         bool hasYielded = false;
         await for (final chunk in _tryOpenRouterModel(
@@ -150,17 +150,17 @@ class AiDiagnosisService {
         }
         if (hasYielded) {
           openRouterSucceeded = true;
-          break; // 成功產出，直接跳出 OpenRouter 循環
+          break; // OpenRouter 免費模型回答成功，直接結束
         }
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
-        debugPrint('OpenRouter 模型 $model 失敗（$e），嘗試下一個...');
+        debugPrint('OpenRouter 模型 $model 失敗/超時（$e），快速切換下一個...');
       }
     }
 
-    if (openRouterSucceeded) return; // 如果 OpenRouter 成功了，就直接結束
+    if (openRouterSucceeded) return;
 
-    // 2. 備援救援機制：若 OpenRouter 免費模型全都失效（例如 429 限流），啟動官方 Gemini 2.5 Flash 進行救援
+    // 2. 備援救援機制：若 OpenRouter 免費模型均無回應或失敗，才調用官方 Gemini 2.5 Flash 救援
     final now = DateTime.now();
     bool useGemini = true;
     if (nextAvailableTime != null && nextAvailableTime!.isAfter(now)) {
@@ -168,7 +168,7 @@ class AiDiagnosisService {
     }
 
     if (useGemini && _kSystemGeminiApiKey.isNotEmpty) {
-      debugPrint('代理人助理：OpenRouter 失敗，啟動官方 Gemini 2.5 Flash 進行救援');
+      debugPrint('代理人助理：OpenRouter 免費模型均失敗，啟動官方 Gemini 2.5 Flash 進行救援');
       try {
         final model = GenerativeModel(
           model: 'gemini-2.5-flash',
@@ -176,7 +176,6 @@ class AiDiagnosisService {
           systemInstruction: Content.system(systemInstruction),
         );
 
-        // 轉換對話歷史為 Gemini Content 格式（過濾載入中等暫存狀態）
         final geminiContents = <Content>[];
         for (var msg in history.take(6)) {
           final isAi = msg['isAI'] == true;
@@ -192,7 +191,10 @@ class AiDiagnosisService {
         }
         geminiContents.add(Content.text(userInput));
 
-        final responseStream = model.generateContentStream(geminiContents);
+        final responseStream = model.generateContentStream(geminiContents).timeout(
+          const Duration(seconds: 20),
+          onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（20s）')),
+        );
         bool hasYielded = false;
         await for (final chunk in responseStream) {
           final text = chunk.text;
@@ -201,9 +203,9 @@ class AiDiagnosisService {
             hasYielded = true;
           }
         }
-        if (hasYielded) return; // 成功產出，結束
+        if (hasYielded) return;
       } catch (e) {
-        debugPrint('官方 Gemini 救援也失敗（$e）');
+        debugPrint('官方 Gemini 救援失敗（$e）');
         lastError = e is Exception ? e : Exception(e.toString());
         if (e.toString().contains('429') ||
             e.toString().contains('RESOURCE_EXHAUSTED')) {
@@ -212,8 +214,8 @@ class AiDiagnosisService {
       }
     }
 
-    // 最終防護線：如果所有模型均失敗，且沒產生過任何 chunk，向上拋出錯誤
-    throw lastError ?? Exception('所有 AI 助理模型（OpenRouter 及 Gemini）均無法使用');
+    // 最終防護線：如果所有模型均失敗，向上拋出錯誤
+    throw lastError ?? Exception('所有 AI 助理模型均無法使用');
   }
 
   /// 內部輔助：向指定模型發送串流請求，每個 chunk 逐一 yield。
@@ -226,23 +228,23 @@ class AiDiagnosisService {
     final request = http.Request('POST', url);
     request.headers.addAll({
       'Authorization': 'Bearer $_kOpenRouterApiKey',
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
       'HTTP-Referer': 'https://hihi-app.local',
       'X-Title': 'HiHi Assistant',
     });
-    request.body = jsonEncode({
+    request.bodyBytes = utf8.encode(jsonEncode({
       'model': model,
       'stream': true,
       'messages': messages,
-      'max_tokens': 768,
-      'temperature': 0.7, // 平衡流暢度與準確度
-    });
+      'max_tokens': 300, // 降低 token 數加速首個 chunk 出現
+      'temperature': 0.7,
+    }));
 
     try {
-      // 加入 15 秒連線 Timeout，防止網路卡住無限等待
+      // 連線 Timeout：8 秒（快速失敗，讓外層可在 45s 內嘗試多個模型）
       final response = await client.send(request).timeout(
-            const Duration(seconds: 15),
-            onTimeout: () => throw Exception('請求逾時（15s），請檢查網路連線'),
+            const Duration(seconds: 8),
+            onTimeout: () => throw Exception('OpenRouter 請求逾時（8s）'),
           );
 
       if (response.statusCode != 200) {
@@ -254,7 +256,10 @@ class AiDiagnosisService {
 
       final byteStream = response.stream
           .transform(utf8.decoder)
-          .transform(const LineSplitter());
+          .transform(const LineSplitter())
+          .timeout(const Duration(seconds: 12), onTimeout: (sink) {
+            sink.addError(Exception('OpenRouter 串流讀取逾時（12s）'));
+          });
 
       await for (final line in byteStream) {
         if (line.startsWith('data: ')) {
@@ -673,7 +678,10 @@ $noteContent
       // 加入使用者本次輸入
       contents.add(Content.text(userInput));
 
-      final contentStream = model.generateContentStream(contents);
+      final contentStream = model.generateContentStream(contents).timeout(
+        const Duration(seconds: 15),
+        onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（15s）')),
+      );
       await for (final chunk in contentStream) {
         final text = chunk.text;
         if (text != null && text.isNotEmpty) {
