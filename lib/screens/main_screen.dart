@@ -1671,6 +1671,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       });
       await _loadData();
       if (!mounted) return;
+      setState(() {
+        _calendarSubTab = 0;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('已新增行程：$title'),
@@ -6383,13 +6386,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           final eventDate = DateTime.tryParse(startStr);
           if (eventDate != null) {
             _syncDate(eventDate, fromCalendar: true);
-            // 計算年份與月份差距，跳轉日曆月視圖 PageController
             final deltaMonths =
                 (eventDate.year - 2020) * 12 + (eventDate.month - 1);
-            final targetPage = deltaMonths;
             if (_calendarPageController.hasClients) {
-              _calendarPageController.jumpToPage(targetPage);
+              _calendarPageController.jumpToPage(deltaMonths);
             }
+          }
+          if (mounted) {
+            setState(() {
+              _calendarSubTab = 0;
+            });
           }
 
           if (mounted) {
@@ -8859,23 +8865,34 @@ $strokePrompt
           ),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 95,
-              child: Text(
-                timeRange,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: isDark ? Colors.white54 : Colors.grey.shade600,
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: 95,
+                maxWidth: 135 * _fontSizeFactor,
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  timeRange,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13 * _fontSizeFactor,
+                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                  ),
                 ),
               ),
             ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 '空閒時間 ($durationStr)',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 14 * _fontSizeFactor,
                   fontWeight: FontWeight.w500,
                   color: isDark ? Colors.white38 : Colors.grey.shade500,
                 ),
@@ -9376,22 +9393,44 @@ $strokePrompt
                   color: Colors.white.withValues(alpha: 0.6),
                   width: 1.5,
                 )),
-            child: Row(children: [
-              SizedBox(
-                  width: 95,
-                  child: Text(event['time'],
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Colors.black87))),
-              Expanded(
-                  child: Text(event['title'],
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: Colors.black87))),
-              const Icon(Icons.edit_rounded, size: 18, color: Colors.black38)
-            ])));
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: 95,
+                    maxWidth: 135 * _fontSizeFactor,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      event['time'],
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14 * _fontSizeFactor,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    event['title'],
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15 * _fontSizeFactor,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.edit_rounded, size: 18, color: Colors.black38)
+              ],
+            )));
   }
 
 

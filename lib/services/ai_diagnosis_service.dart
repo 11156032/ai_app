@@ -74,9 +74,19 @@ class AiDiagnosisService {
     return '';
   }
 
+  static String get _kGroqApiKey {
+    try {
+      final key = dotenv.env['GROQ_API_KEY'];
+      if (key != null && key.isNotEmpty) return key;
+    } catch (_) {}
+    const envKey = String.fromEnvironment('GROQ_API_KEY');
+    if (envKey.isNotEmpty) return envKey;
+    return '';
+  }
+
   static DateTime? nextAvailableTime;
 
-  /// 呼叫 AI 進行 APP 導覽與對答 (優先使用 OpenRouter 免費用量省成本，超時/失敗再由 Gemini 救援)
+  /// 呼叫 AI 進行 APP 導覽與對答 (優先使用 Groq 超高速零成本引擎，失敗退至 OpenRouter / Gemini)
   static Stream<AssistantResponseChunk> generateOpenRouterGuideStream({
     required String userInput,
     required List<Map<String, dynamic>> history,
@@ -86,29 +96,29 @@ class AiDiagnosisService {
     // 系統提示詞：定義導覽員的角色與對答規則
     final systemInstruction = customSystemPrompt ??
         '''
-你是「代理人助理」，這款學習 APP 專屬的親切導覽助理。
+你是「代理人助理」，這款學習 APP 專屬的個人智慧特助。
 
-【你的定位與任務】
-- 你的主業是引導使用者探索本 APP 功能，但你也非常樂意與使用者進行溫暖的日常對話、心情分享、給予讀書鼓勵，或回答簡單的學科知識與小常識。
-- 當使用者問起本 APP 功能以外的話題時，請用輕鬆、口語化的方式給予解答與關懷，並在適當時候提及「如果累了，也可以用本 APP 的筆記本或行程表來規劃學習喔！」。
+【雙重職責與回答原則】
+1. 💡 協助 APP 功能操作：
+   - 當使用者想執行功能（如新增行程、發貼文、測驗診斷、筆記管理、修改設定）或詢問 APP 功能時，請以【條理分明、簡潔點列】的方式引導，並提示具體觸發關鍵字（例如：直接說「新增行程」）。
+2. 💬 日常對問與生活關懷：
+   - 當使用者進行日常寒暄、心情抒發、學科常識問答或讀書鼓勵時，請以【溫暖口語、親切自然】的方式回答（約 2-3 句），可適時結合 APP 功能給予貼心關懷。
 
-【本 APP 支援的功能】
-1. 📅 日曆行程與待辦：管理行程、待辦事項。說「新增行程」或「新增待辦」可啟動引導。
-2. 💬 社群：發佈學習筆記、心情等貼文，並與其他人留言互動。說「發貼文」或「回覆留言」可啟動。
-3. 📚 題庫與 AI 診斷：提供各科測驗，完成後 AI 自動診斷弱項並給建議。
-4. 📓 筆記本：記錄個人筆記，支援 AI 摘要整理功能。
-5. ⚙️ 個人設定：修改暱稱、頭像、個人簡介、主題顏色、字體大小、密碼。
+【本 APP 支援的功能與對應觸發關鍵字】
+1. 📅 日曆行程與待辦：管理個人行程與任務（直接輸入「新增行程」、「新增待辦」、「修改行程」、「修改待辦」）。
+2. 💬 社群交流：發布學習貼文、心得與互動（直接輸入「發貼文」）。
+3. 📚 題庫與 AI 診斷：進行測驗並分析個人弱項（直接輸入「練習題庫」）。
+4. 📓 個人筆記本：紀錄筆記與 AI 摘要整理（直接輸入「查看筆記本」、「新增筆記」、「整理筆記」）。
+5. ⚙️ 個人設定：直接提示精確關鍵字，例如「修改密碼」、「修改暱稱」、「更換頭像」、「修改簡介」、「切換主題」、「字體大小」、「個人檔案」。
 
-【本 APP 目前不支援的功能（請誠實告知使用者）】
-- 提醒/鬧鐘通知功能、連接 Google 日曆或其他外部日曆、記帳或財務管理。
-
-【重要角色規則】
-- 你不是 ChatGPT、Gemini，你是溫暖親切的「代理人助理」。
-- 永遠使用繁體中文（Traditional Chinese）回覆，絕不使用簡體字。
-- 回答請保持簡明親切、溫馨溫暖，控制在 3-4 句以內，並適當使用合適的表情符號 😊，且絕對不使用任何類似星星的符號（如 ✨、⭐、🌟 等）。
+【排版與視覺規範】
+- 語言：永遠使用繁體中文（Traditional Chinese），絕不使用簡體字。
+- 字數控制：文字務必【精簡流暢】（整體控制在 80~120 字以內），避免長篇大論。
+- 條列規範：列舉項目時請使用標準條列（• 或 1. 2.），Emoji 符號僅在重點處適度點綴 1-2 個（嚴禁過度堆疊）。
+- 符號禁忌：絕對不使用任何類似星星的符號（如 ✨、⭐、🌟 等）。
 ''';
 
-    // 1. 組建 OpenRouter 對話訊息
+    // 組建對話訊息
     final messages = <Map<String, String>>[];
     messages.add({'role': 'system', 'content': systemInstruction});
     for (var msg in history.take(6)) {
@@ -123,14 +133,37 @@ class AiDiagnosisService {
     }
     messages.add({'role': 'user', 'content': userInput});
 
-    // 1. 優先嘗試 OpenRouter 免費模型（實測 streaming chunks 有效，依速度排序）
-    // 注意：每個模型 connection timeout 8s + stream timeout 12s，確保整組在外層 45s 內完成
+    // 0. 優先嘗試 Groq (具備雙模型備援：70B 高品質 ➔ 8B Instant 極速備援)
+    if (_kGroqApiKey.isNotEmpty) {
+      final groqModels = [
+        'llama-3.3-70b-versatile', // 旗艦高品質模型
+        'llama-3.1-8b-instant',    // 極速備援模型（幾無併發延遲）
+      ];
+      for (final gModel in groqModels) {
+        debugPrint('代理人助理：啟動 Groq 超高速引擎 ($gModel)...');
+        try {
+          bool hasYielded = false;
+          await for (final chunk in _tryGroqModel(
+            model: gModel,
+            messages: messages,
+          )) {
+            yield AssistantResponseChunk(chunk, 'groq');
+            hasYielded = true;
+          }
+          if (hasYielded) return; // Groq 成功輸出，直接完成
+        } catch (e) {
+          debugPrint('Groq 模型 $gModel 失敗/超時（$e），嘗試下一個 Groq 備援模型...');
+        }
+      }
+    }
+
+    // 1. 優先嘗試 OpenRouter 免費模型（實測 streaming chunks 有效，依速度與文字輸出排序）
     final fallbackModels = [
       if (customModel != null && customModel.isNotEmpty) customModel,
-      'poolside/laguna-s-2.1:free',               // 實測最快：21 chunks，優先試
-      'google/gemma-4-26b-a4b-it:free',           // 實測可用：Google Gemma 4
-      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // 實測可用，中型
-      'nvidia/nemotron-3-ultra-550b-a55b:free',   // 最後備援，大型但較慢
+      'google/gemma-4-26b-a4b-it:free',           // 實測必有文字輸出：Google Gemma 4
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // 實測必有文字輸出
+      'nvidia/nemotron-3-ultra-550b-a55b:free',   // 實測必有文字輸出
+      'poolside/laguna-s-2.1:free',
     ];
 
 
@@ -261,6 +294,7 @@ class AiDiagnosisService {
             sink.addError(Exception('OpenRouter 串流讀取逾時（12s）'));
           });
 
+      int chunkCount = 0;
       await for (final line in byteStream) {
         if (line.startsWith('data: ')) {
           final dataStr = line.substring(6).trim();
@@ -272,14 +306,88 @@ class AiDiagnosisService {
                 json['choices']?[0]?['delta']?['content'] as String?;
             if (content != null && content.isNotEmpty) {
               yield content;
+              chunkCount++;
             }
           } catch (_) {
             // 忽略個別行解析錯誤，不中斷串流
           }
         }
       }
+
+      if (chunkCount == 0) {
+        throw Exception('OpenRouter 模型 $model 回傳 0 個文字區塊');
+      }
     } catch (e) {
       debugPrint('_tryOpenRouterModel ($model) error: $e');
+      rethrow;
+    } finally {
+      client.close();
+    }
+  }
+
+  /// 內部輔助：向 Groq 發送極速串流請求
+  static Stream<String> _tryGroqModel({
+    required String model,
+    required List<Map<String, String>> messages,
+  }) async* {
+    final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
+    final client = http.Client();
+    final request = http.Request('POST', url);
+    request.headers.addAll({
+      'Authorization': 'Bearer $_kGroqApiKey',
+      'Content-Type': 'application/json; charset=utf-8',
+    });
+    request.bodyBytes = utf8.encode(jsonEncode({
+      'model': model,
+      'stream': true,
+      'messages': messages,
+      'max_tokens': 220,
+      'temperature': 0.5,
+    }));
+
+    try {
+      final response = await client.send(request).timeout(
+            const Duration(seconds: 12),
+            onTimeout: () => throw Exception('Groq 請求逾時（12s）'),
+          );
+
+      if (response.statusCode != 200) {
+        final errorBody = await response.stream.bytesToString();
+        throw Exception(
+          'Groq API 錯誤 [${response.statusCode}]: $errorBody',
+        );
+      }
+
+      final byteStream = response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .timeout(const Duration(seconds: 12), onTimeout: (sink) {
+            sink.addError(Exception('Groq 串流讀取逾時（12s）'));
+          });
+
+      int chunkCount = 0;
+      await for (final line in byteStream) {
+        if (line.startsWith('data: ')) {
+          final dataStr = line.substring(6).trim();
+          if (dataStr == '[DONE]') break;
+
+          try {
+            final json = jsonDecode(dataStr);
+            final content =
+                json['choices']?[0]?['delta']?['content'] as String?;
+            if (content != null && content.isNotEmpty) {
+              yield content;
+              chunkCount++;
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (chunkCount == 0) {
+        throw Exception('Groq 模型 $model 回傳 0 個文字區塊');
+      }
+    } catch (e) {
+      debugPrint('_tryGroqModel ($model) error: $e');
       rethrow;
     } finally {
       client.close();
