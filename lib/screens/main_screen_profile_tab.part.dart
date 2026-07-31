@@ -6,53 +6,65 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildPersonalProfileTab(BuildContext context) {
     return Container(
       color: _isDarkMode ? Colors.black87 : const Color(0xFFFAFAFA),
-      child: ListView(
-        controller: _profileScrollController,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-        children: [
-          // 頂部標題與說明
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '個人檔案',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: _isDarkMode
-                        ? Colors.white
-                        : _currentPrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '管理你的帳號安全與個性化體驗',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TabBar(
+              isScrollable: true,
+              labelColor: _isDarkMode ? Colors.white : _currentPrimaryColor,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: _currentPrimaryColor,
+              dividerColor: Colors.transparent,
+              tabAlignment: TabAlignment.start,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              tabs: const [
+                Tab(text: '概覽'),
+                Tab(text: '設定與安全'),
+                Tab(text: '系統協助'),
               ],
             ),
-          ),
-          _buildProfileDashboardHeader(context),
-          const SizedBox(height: 20),
-          _buildPersonalizedDashboard(context),
-          const SizedBox(height: 20),
-          _buildPersonalizationModule(context),
-          const SizedBox(height: 20),
-          _buildBasicInfoModule(context),
-          const SizedBox(height: 16),
-          _buildSecurityModule(context),
-          const SizedBox(height: 16),
-          _buildInteractionModule(context),
-          const SizedBox(height: 16),
-          _buildLearningProgressModule(context),
-          const SizedBox(height: 16),
-          _buildSupportModule(context),
-        ],
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // Tab 1: 概覽與基本資料 + 學習互動
+                  ListView(
+                    controller: _profileScrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+                    children: [
+                      _buildProfileDashboardHeader(context),
+                      const SizedBox(height: 20),
+                      _buildPersonalizedDashboard(context),
+                      const SizedBox(height: 20),
+                      _buildBasicInfoModule(context),
+                      const SizedBox(height: 16),
+                      _buildLearningProgressModule(context),
+                      const SizedBox(height: 16),
+                      _buildInteractionModule(context),
+                    ],
+                  ),
+                  // Tab 2: 偏好設定與安全
+                  ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+                    children: [
+                      _buildPersonalizationModule(context),
+                      const SizedBox(height: 16),
+                      _buildSecurityModule(context),
+                    ],
+                  ),
+                  // Tab 3: 系統與協助
+                  ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+                    children: [
+                      _buildSupportModule(context),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
