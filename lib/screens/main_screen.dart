@@ -5716,7 +5716,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '我很樂意幫您新增待辦事項！\n，請問這個待辦事項的標題是什麼？',
+            'text': '我很樂意幫您新增待辦事項！\n請問這個待辦事項的標題是什麼？',
             'isCard': false
           });
           _scrollToBottom();
@@ -10055,7 +10055,9 @@ $strokePrompt
                       TextField(
                           controller: titleController,
                           decoration: const InputDecoration(labelText: '行程標題')),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+
+                      // 高頻率項目：顏色標籤
                       const Align(
                           alignment: Alignment.centerLeft,
                           child: Text('選擇顏色標籤',
@@ -10080,24 +10082,9 @@ $strokePrompt
                                                   : Colors.transparent,
                                               width: 2)))))
                               .toList()),
-                      SizedBox(height: 15),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('跨日行程',
-                            style: TextStyle(
-                                fontSize: 13, color: Colors.black87)),
-                        value: isMultiDay,
-                        activeThumbColor: Theme.of(context).primaryColor,
-                        onChanged: (val) {
-                          setDialogState(() {
-                            isMultiDay = val;
-                            if (!isMultiDay) {
-                              pickedEndDate = pickedStartDate;
-                            }
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
+
+                      // 高頻率項目：行程日期
                       if (!isMultiDay) ...[
                         const Align(
                             alignment: Alignment.centerLeft,
@@ -10122,7 +10109,7 @@ $strokePrompt
                             }
                           },
                           child: Container(
-                            padding: EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey.shade300),
@@ -10238,6 +10225,45 @@ $strokePrompt
                         ),
                       ],
                       const SizedBox(height: 15),
+
+                      // 高頻率項目：行程時間
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton.icon(
+                                icon: const Icon(Icons.access_time, size: 16),
+                                label: Text(formatTime(pickedStartTime)),
+                                onPressed: () => selectTime(true)),
+                            const Text('~'),
+                            TextButton.icon(
+                                icon: const Icon(Icons.access_time, size: 16),
+                                label: Text(formatTime(pickedEndTime)),
+                                onPressed: () => selectTime(false))
+                          ]),
+                      const SizedBox(height: 16),
+                      const Divider(height: 1),
+                      const SizedBox(height: 8),
+
+                      // 低頻率/進階項目：跨日行程
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('跨日行程',
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.black87)),
+                        value: isMultiDay,
+                        activeThumbColor: Theme.of(context).primaryColor,
+                        onChanged: (val) {
+                          setDialogState(() {
+                            isMultiDay = val;
+                            if (!isMultiDay) {
+                              pickedEndDate = pickedStartDate;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+
+                      // 低頻率/進階項目：重複設定
                       const Align(
                           alignment: Alignment.centerLeft,
                           child: Text('重複設定',
@@ -10396,20 +10422,6 @@ $strokePrompt
                           ),
                         ],
                       ],
-                      const SizedBox(height: 15),
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            TextButton.icon(
-                                icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(formatTime(pickedStartTime)),
-                                onPressed: () => selectTime(true)),
-                            const Text('~'),
-                            TextButton.icon(
-                                icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(formatTime(pickedEndTime)),
-                                onPressed: () => selectTime(false))
-                          ])
                     ]),
                   );
                 }),

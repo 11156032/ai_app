@@ -229,6 +229,7 @@ class MarkdownTextController extends TextEditingController {
       TextStyle lineStyle = style ??
           const TextStyle(fontSize: 15, color: Colors.black87, height: 1.6);
       String content = line;
+      TextSpan? prefixSpan;
 
       // A. 解析標頭: "# " 或 "## "
       if (line.startsWith('# ')) {
@@ -237,82 +238,125 @@ class MarkdownTextController extends TextEditingController {
           fontWeight: FontWeight.bold,
           color: const Color(0xFF3E2723), // 經典暖深褐
         );
-        content = content.substring(2);
+        prefixSpan = const TextSpan(
+          text: '# ',
+          style: TextStyle(fontSize: 0, color: Colors.transparent),
+        );
+        content = line.substring(2);
       } else if (line.startsWith('## ')) {
         lineStyle = lineStyle.copyWith(
           fontSize: 18,
           fontWeight: FontWeight.bold,
           color: const Color(0xFF5D4037),
         );
-        content = content.substring(3);
-      }
-
-      // B. 解析列點: "- " 或 "• "
-      bool isBullet = false;
-      if (line.startsWith('- ')) {
-        isBullet = true;
-        content = content.substring(2);
-      } else if (line.startsWith('• ')) {
-        isBullet = true;
-        content = content.substring(2);
-      }
-
-      // C. 解析行內文字：**粗體** 與 [color=0xFF...]...[/color]
-      final List<TextSpan> inlineSpans = [];
-      int index = 0;
-      while (index < content.length) {
-        // 1. 粗體解析
-        if (content.startsWith('**', index)) {
-          final nextIdx = content.indexOf('**', index + 2);
-          if (nextIdx != -1) {
-            inlineSpans.add(TextSpan(
-              text: content.substring(index + 2, nextIdx),
-              style: lineStyle.copyWith(fontWeight: FontWeight.bold),
-            ));
-            index = nextIdx + 2;
-            continue;
-          }
-        }
-
-        // 2. 顏色解析 [color=0x...]
-        if (content.startsWith('[color=', index)) {
-          final colorEnd = content.indexOf(']', index);
-          if (colorEnd != -1) {
-            final colorHex = content.substring(index + 7, colorEnd);
-            final tagEnd = content.indexOf('[/color]', colorEnd + 1);
-            if (tagEnd != -1) {
-              final colorVal =
-                  int.tryParse(colorHex) ?? Colors.black.toARGB32();
-              inlineSpans.add(TextSpan(
-                text: content.substring(colorEnd + 1, tagEnd),
-                style: lineStyle.copyWith(color: Color(colorVal)),
-              ));
-              index = tagEnd + 8;
-              continue;
-            }
-          }
-        }
-
-        // 3. 一般文字
-        inlineSpans.add(TextSpan(
-          text: content[index],
-          style: lineStyle,
-        ));
-        index++;
-      }
-
-      // 組合列表符號
-      if (isBullet) {
-        spans.add(TextSpan(
-          text: '  •  ',
+        prefixSpan = const TextSpan(
+          text: '## ',
+          style: TextStyle(fontSize: 0, color: Colors.transparent),
+        );
+        content = line.substring(3);
+      } else if (line.startsWith('- ')) {
+        prefixSpan = TextSpan(
+          text: '• ',
           style: lineStyle.copyWith(
             color: Theme.of(context).primaryColor,
             fontWeight: FontWeight.bold,
           ),
-        ));
+        );
+        content = line.substring(2);
+      } else if (line.startsWith('• ')) {
+        prefixSpan = TextSpan(
+          text: '• ',
+          style: lineStyle.copyWith(
+            color: Theme.of(context).primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+        content = line.substring(2);
       }
 
-      spans.addAll(inlineSpans);
+      if (prefixSpan != null) {
+        spans.add(prefixSpan);
+      }
+
+      // C. 解析行內文字：**粗體** 與 [color=0xFF...]...[/color]
+      int index = 0;
+      bool isBold = false;
+      List<Color> colorStack = [];
+
+      while (index < content.length) {
+        int nextBold = content.indexOf('**', index);
+        int nextColor = content.indexOf('[color=', index);
+        int nextColorEnd = content.indexOf('[/color]', index);
+
+        // Find the closest tag
+        int minIndex = content.length;
+        String tagType = '';
+        if (nextBold != -1 && nextBold < minIndex) { minIndex = nextBold; tagType = 'bold'; }
+        if (nextColor != -1 && nextColor < minIndex) { minIndex = nextColor; tagType = 'color'; }
+        if (nextColorEnd != -1 && nextColorEnd < minIndex) { minIndex = nextColorEnd; tagType = 'colorEnd'; }
+
+        if (minIndex > index) {
+          // Process text before the tag
+          String plainText = content.substring(index, minIndex);
+          TextStyle currentStyle = lineStyle;
+          if (isBold) currentStyle = currentStyle.copyWith(fontWeight: FontWeight.bold);
+          if (colorStack.isNotEmpty) currentStyle = currentStyle.copyWith(color: colorStack.last);
+          
+          int plainIndex = 0;
+          while (plainIndex < plainText.length) {
+             int charLength = 1;
+             if (plainIndex < plainText.length - 1) {
+               final code = plainText.codeUnitAt(plainIndex);
+               if (code >= 0xD800 && code <= 0xDBFF) {
+                 charLength = 2;
+               }
+             }
+             spans.add(TextSpan(
+               text: plainText.substring(plainIndex, plainIndex + charLength),
+               style: currentStyle,
+             ));
+             plainIndex += charLength;
+          }
+        }
+
+        if (minIndex == content.length) break;
+
+        // Process the tag itself
+        if (tagType == 'bold') {
+          spans.add(const TextSpan(
+            text: '**',
+            style: TextStyle(fontSize: 0, color: Colors.transparent),
+          ));
+          isBold = !isBold;
+          index = minIndex + 2;
+        } else if (tagType == 'color') {
+          int closeBracket = content.indexOf(']', minIndex);
+          if (closeBracket != -1) {
+            String colorHex = content.substring(minIndex + 7, closeBracket);
+            int colorVal = int.tryParse(colorHex) ?? Colors.black.toARGB32();
+            colorStack.add(Color(Color(colorVal).toARGB32()));
+            spans.add(TextSpan(
+              text: content.substring(minIndex, closeBracket + 1),
+              style: const TextStyle(fontSize: 0, color: Colors.transparent),
+            ));
+            index = closeBracket + 1;
+          } else {
+             // Malformed tag, just treat as text
+             spans.add(TextSpan(
+               text: '[color=',
+               style: lineStyle,
+             ));
+             index = minIndex + 7;
+          }
+        } else if (tagType == 'colorEnd') {
+          if (colorStack.isNotEmpty) colorStack.removeLast();
+          spans.add(const TextSpan(
+            text: '[/color]',
+            style: TextStyle(fontSize: 0, color: Colors.transparent),
+          ));
+          index = minIndex + 8;
+        }
+      }
 
       // 加換行
       if (i < lines.length - 1) {
@@ -1169,12 +1213,23 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     final selection = _contentController.selection;
     if (selection.isValid && !selection.isCollapsed) {
       final selectedText = textVal.substring(selection.start, selection.end);
+      
+      String cleanText = selectedText.replaceAll('**', '');
+      final lines = cleanText.split('\n');
+      final formattedText = lines.map((l) {
+        if (l.trim().isEmpty) return l;
+        if (l.startsWith('# ')) return '# **${l.substring(2)}**';
+        if (l.startsWith('## ')) return '## **${l.substring(3)}**';
+        if (l.startsWith('- ')) return '- **${l.substring(2)}**';
+        return '**$l**';
+      }).join('\n');
+      
       final newText = textVal.replaceRange(
-          selection.start, selection.end, '**$selectedText**');
+          selection.start, selection.end, formattedText);
       _contentController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(
-            offset: selection.start + 2 + selectedText.length + 2),
+            offset: selection.start + formattedText.length),
       );
     } else {
       final start = selection.isValid ? selection.start : textVal.length;
@@ -1194,13 +1249,16 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
 
     int lineStart = textVal.lastIndexOf('\n', start - 1);
     lineStart = lineStart == -1 ? 0 : lineStart + 1;
+    int lineEnd = textVal.indexOf('\n', start);
+    lineEnd = lineEnd == -1 ? textVal.length : lineEnd;
 
-    final currentLine = textVal.substring(lineStart, start);
-    if (currentLine.startsWith('# ')) {
+    final fullLine = textVal.substring(lineStart, lineEnd);
+    if (fullLine.startsWith('# ')) {
       final newText = textVal.replaceRange(lineStart, lineStart + 2, '');
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: start - 2),
+        selection: TextSelection.collapsed(
+            offset: (start - 2).clamp(lineStart, newText.length)),
       );
     } else {
       final newText = textVal.replaceRange(lineStart, lineStart, '# ');
@@ -1219,13 +1277,16 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
 
     int lineStart = textVal.lastIndexOf('\n', start - 1);
     lineStart = lineStart == -1 ? 0 : lineStart + 1;
+    int lineEnd = textVal.indexOf('\n', start);
+    lineEnd = lineEnd == -1 ? textVal.length : lineEnd;
 
-    final currentLine = textVal.substring(lineStart, start);
-    if (currentLine.startsWith('## ')) {
+    final fullLine = textVal.substring(lineStart, lineEnd);
+    if (fullLine.startsWith('## ')) {
       final newText = textVal.replaceRange(lineStart, lineStart + 3, '');
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: start - 3),
+        selection: TextSelection.collapsed(
+            offset: (start - 3).clamp(lineStart, newText.length)),
       );
     } else {
       final newText = textVal.replaceRange(lineStart, lineStart, '## ');
@@ -1244,13 +1305,16 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
 
     int lineStart = textVal.lastIndexOf('\n', start - 1);
     lineStart = lineStart == -1 ? 0 : lineStart + 1;
+    int lineEnd = textVal.indexOf('\n', start);
+    lineEnd = lineEnd == -1 ? textVal.length : lineEnd;
 
-    final currentLine = textVal.substring(lineStart, start);
-    if (currentLine.startsWith('- ')) {
+    final fullLine = textVal.substring(lineStart, lineEnd);
+    if (fullLine.startsWith('- ')) {
       final newText = textVal.replaceRange(lineStart, lineStart + 2, '');
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: start - 2),
+        selection: TextSelection.collapsed(
+            offset: (start - 2).clamp(lineStart, newText.length)),
       );
     } else {
       final newText = textVal.replaceRange(lineStart, lineStart, '- ');
@@ -1282,23 +1346,36 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     final textVal = _contentController.text;
     final selection = _contentController.selection;
     final colorHex = '0x${color.toARGB32().toRadixString(16).toUpperCase()}';
+    final tagPrefix = '[color=$colorHex]';
+    final tagSuffix = '[/color]';
 
     if (selection.isValid && !selection.isCollapsed) {
       final selectedText = textVal.substring(selection.start, selection.end);
-      final newText = textVal.replaceRange(selection.start, selection.end,
-          '[color=$colorHex]$selectedText[/color]');
+      
+      String cleanText = selectedText.replaceAll(RegExp(r'\[/?color(?:=0x[0-9A-Fa-f]{8})?\]', caseSensitive: false), '');
+      final lines = cleanText.split('\n');
+      final formattedText = lines.map((l) {
+        if (l.trim().isEmpty) return l;
+        if (l.startsWith('# ')) return '# $tagPrefix${l.substring(2)}$tagSuffix';
+        if (l.startsWith('## ')) return '## $tagPrefix${l.substring(3)}$tagSuffix';
+        if (l.startsWith('- ')) return '- $tagPrefix${l.substring(2)}$tagSuffix';
+        return '$tagPrefix$l$tagSuffix';
+      }).join('\n');
+      
+      final newText = textVal.replaceRange(
+          selection.start, selection.end, formattedText);
       _contentController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(
-            offset: selection.start + 15 + selectedText.length + 8),
+            offset: selection.start + formattedText.length),
       );
     } else {
       final start = selection.isValid ? selection.start : textVal.length;
       final newText =
-          textVal.replaceRange(start, start, '[color=$colorHex][/color]');
+          textVal.replaceRange(start, start, '$tagPrefix$tagSuffix');
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: start + 15),
+        selection: TextSelection.collapsed(offset: start + tagPrefix.length),
       );
     }
   }
