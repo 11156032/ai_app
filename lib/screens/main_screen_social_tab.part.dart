@@ -44,8 +44,12 @@ extension MainScreenSocialTab on _MainScreenState {
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    _updateState(() => _socialMainTab = 0);
-                    _socialPageController.animateToPage(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                    if (_socialMainTab == 0) {
+                      _scrollToTopSocialFeed();
+                    } else {
+                      _updateState(() => _socialMainTab = 0);
+                      _socialPageController.animateToPage(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                    }
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -207,6 +211,7 @@ extension MainScreenSocialTab on _MainScreenState {
         _buildFilterBar(),
         Expanded(
             child: ListView(
+                controller: _socialFeedScrollController,
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
                 children: [
               if (scheduledPosts.isNotEmpty && _socialFilter == '全部') ...[
@@ -1299,7 +1304,12 @@ extension MainScreenSocialTab on _MainScreenState {
         MaterialPageRoute(
             builder: (_) => CreatePostPage(
                   currentUser: widget.currentUser,
-                  onPosted: _loadData,
+                  onPosted: () async {
+                    await _loadData();
+                    Future.delayed(const Duration(milliseconds: 150), () {
+                      _scrollToTopSocialFeed();
+                    });
+                  },
                 )));
   }
 
@@ -1338,7 +1348,9 @@ extension MainScreenSocialTab on _MainScreenState {
           _showGuestLoginPrompt();
           return;
         }
-        if (p['postType'] == 'note') {
+        final attached = p['attached_data'];
+        final bool isSharedNote = attached != null && attached['shared_type'] == 'note';
+        if (isSharedNote) {
           _showNotePreviewDialog(p);
         } else {
           Navigator.push(
@@ -1912,17 +1924,18 @@ extension MainScreenSocialTab on _MainScreenState {
               child: Center(
                 child: (p['media_blob'] != null)
                     ? Image.memory(p['media_blob'] as Uint8List,
-                        fit: BoxFit.contain, gaplessPlayback: true)
+                        fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high)
                     : (p['media'].toString().startsWith('data:image'))
                         ? Image.memory(
                             base64Decode(p['media'].toString().split(',').last),
                             fit: BoxFit.contain,
-                            gaplessPlayback: true)
+                            gaplessPlayback: true,
+                            filterQuality: FilterQuality.high)
                         : (p['media'].toString().startsWith('http') || kIsWeb)
                             ? Image.network(p['media'] as String,
-                                fit: BoxFit.contain, gaplessPlayback: true)
+                                fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high)
                             : Image.file(File(p['media'] as String),
-                                fit: BoxFit.contain, gaplessPlayback: true),
+                                fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high),
               ),
             ),
             // 頂部關閉按鈕
@@ -1952,11 +1965,11 @@ extension MainScreenSocialTab on _MainScreenState {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.zoom_in_rounded, color: Colors.white70, size: 20),
+                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        p['author'] != null ? '${p['author']} 的動態圖片（雙指可放大）' : '圖片大圖預覽（雙指可放大）',
+                        p['author'] != null ? '✨ ${p['author']} 的 HD 原圖（雙指可放大）' : '✨ HD 原圖大圖預覽（雙指可放大）',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
@@ -1982,28 +1995,68 @@ extension MainScreenSocialTab on _MainScreenState {
       child: Container(
         margin: const EdgeInsets.only(top: 12),
         width: double.infinity,
-        height: 160,
+        height: 180,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: _isDarkMode ? Colors.black26 : Colors.grey.shade50,
           border: Border.all(
               color: _isDarkMode ? Colors.white10 : Colors.grey.shade100),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: (p['media_blob'] != null)
-              ? Image.memory(p['media_blob'] as Uint8List,
-                  fit: BoxFit.cover, gaplessPlayback: true)
-              : (p['media'].toString().startsWith('data:image'))
-                  ? Image.memory(
-                      base64Decode(p['media'].toString().split(',').last),
-                      fit: BoxFit.cover,
-                      gaplessPlayback: true)
-                  : (p['media'].toString().startsWith('http') || kIsWeb)
-                      ? Image.network(p['media'] as String,
-                          fit: BoxFit.cover, gaplessPlayback: true)
-                      : Image.file(File(p['media'] as String),
-                          fit: BoxFit.cover, gaplessPlayback: true),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: (p['media_blob'] != null)
+                    ? Image.memory(p['media_blob'] as Uint8List,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.high)
+                    : (p['media'].toString().startsWith('data:image'))
+                        ? Image.memory(
+                            base64Decode(p['media'].toString().split(',').last),
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                            filterQuality: FilterQuality.high)
+                        : (p['media'].toString().startsWith('http') || kIsWeb)
+                            ? Image.network(p['media'] as String,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                                filterQuality: FilterQuality.high)
+                            : Image.file(File(p['media'] as String),
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                                filterQuality: FilterQuality.high),
+              ),
+            ),
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white24, width: 0.8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome, color: Colors.amber, size: 11),
+                    SizedBox(width: 4),
+                    Text(
+                      'HD 高畫質',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -2054,13 +2107,13 @@ extension MainScreenSocialTab on _MainScreenState {
                         Navigator.pop(ctx);
                         try {
                           final dir = await getTemporaryDirectory();
-                          // Force .txt extension for preview if it's dummy so OpenFilex knows how to open it
-                          final ext = fileName.contains('.') ? '' : '.txt';
-                          final file = File('${dir.path}/$fileName$ext');
+                          final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+                          final ext = safeName.contains('.') ? '' : '.txt';
+                          final file = File('${dir.path}/$safeName$ext');
                           if (p['file_blob'] != null) {
-                            await file.writeAsBytes(p['file_blob'] as Uint8List);
+                            await file.writeAsBytes(p['file_blob'] as Uint8List, flush: true);
                           } else {
-                            await file.writeAsString('這是一個示範用的檔案預覽內容：\n\n$fileName\n\n這是社群分享的文件內容...');
+                            await file.writeAsString('這是一個示範用的檔案預覽內容：\n\n$fileName\n\n這是社群分享的文件內容...', flush: true);
                           }
                           final result = await OpenFilex.open(file.path);
                           if (result.type != ResultType.done && mounted) {
@@ -2075,26 +2128,47 @@ extension MainScreenSocialTab on _MainScreenState {
                       _buildFileActionBtn(ctx, Icons.download_rounded, '下載檔案', () async {
                         Navigator.pop(ctx);
                         try {
-                          Directory? dir;
-                          if (Platform.isAndroid) {
-                            final publicDownload = Directory('/storage/emulated/0/Download');
-                            if (await publicDownload.exists()) {
-                              dir = publicDownload;
+                          if (kIsWeb) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Web 平台不支援下載至本地資料夾')),
+                              );
                             }
+                            return;
                           }
-                          dir ??= await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
 
-                          final ext = fileName.contains('.') ? '' : '.txt';
-                          final file = File('${dir.path}/$fileName$ext');
-                          if (p['file_blob'] != null) {
-                            await file.writeAsBytes(p['file_blob'] as Uint8List);
-                          } else {
-                            await file.writeAsString('這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...');
+                          Directory? dir;
+                          // On Android, writing directly to /storage/emulated/0/Download causes Permission Denied on API 29+
+                          // Try app external/documents storage or downloads directory first
+                          try {
+                            if (Platform.isAndroid) {
+                              dir = await getExternalStorageDirectory();
+                            }
+                          } catch (_) {}
+                          dir ??= await getDownloadsDirectory();
+                          dir ??= await getApplicationDocumentsDirectory();
+
+                          if (!await dir.exists()) {
+                            await dir.create(recursive: true);
                           }
+
+                          final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+                          final ext = safeName.contains('.') ? '' : '.txt';
+                          final file = File('${dir.path}/$safeName$ext');
+
+                          if (p['file_blob'] != null) {
+                            await file.writeAsBytes(p['file_blob'] as Uint8List, flush: true);
+                          } else {
+                            await file.writeAsString(
+                              '這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...',
+                              flush: true,
+                            );
+                          }
+
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('已下載至手機「Downloads (下載)」目錄'),
+                                content: Text('✅ 檔案已成功下載至：${dir.path}'),
                                 behavior: SnackBarBehavior.floating,
                                 backgroundColor: Colors.green.shade600,
                                 duration: const Duration(seconds: 5),
@@ -2107,10 +2181,38 @@ extension MainScreenSocialTab on _MainScreenState {
                             );
                           }
                         } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('下載失敗: $e')),
-                            );
+                          // Fallback to Application Documents directory if the chosen directory failed with permission/write errors
+                          try {
+                            final docsDir = await getApplicationDocumentsDirectory();
+                            final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+                            final ext = safeName.contains('.') ? '' : '.txt';
+                            final file = File('${docsDir.path}/$safeName$ext');
+                            if (p['file_blob'] != null) {
+                              await file.writeAsBytes(p['file_blob'] as Uint8List, flush: true);
+                            } else {
+                              await file.writeAsString('這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...', flush: true);
+                            }
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('✅ 檔案已下載至應用程式目錄'),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: Colors.green.shade600,
+                                  duration: const Duration(seconds: 5),
+                                  action: SnackBarAction(
+                                    label: '開啟檔案',
+                                    textColor: Colors.white,
+                                    onPressed: () => OpenFilex.open(file.path),
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (e2) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('下載失敗: $e2')),
+                              );
+                            }
                           }
                         }
                       }),
@@ -3118,14 +3220,19 @@ extension MainScreenSocialTab on _MainScreenState {
 
   // ── 點擊學習筆記卡片顯示預覽視窗 (Premium Preview) ─────────────────────
   void _showNotePreviewDialog(Map<String, dynamic> p) {
-    final attached = p['attached_data'];
-    if (attached == null) return;
+    final attached = (p['attached_data'] as Map<String, dynamic>?) ?? {};
 
-    final String title = attached['title'] ?? '無標題筆記';
-    final String content = attached['content'] ?? '';
-    final String category = attached['category'] ?? '未分類';
-    final String authorName = p['author'] ?? '未知用戶';
-    final String timeStr = p['time'] ?? '';
+    final String rawTitle = (attached['title'] as String? ?? '').trim();
+    final String rawContent = (attached['content'] as String? ?? '').trim();
+    final String pContent = (p['content'] as String? ?? '').trim();
+
+    final String title = rawTitle.isNotEmpty ? rawTitle : '學習筆記';
+    final String content = rawContent.isNotEmpty ? rawContent : pContent;
+    final String category = (attached['category'] as String? ?? '').isNotEmpty
+        ? (attached['category'] as String)
+        : '筆記';
+    final String authorName = p['author'] as String? ?? '未知用戶';
+    final String timeStr = p['time'] as String? ?? '';
 
     // 解析 strokes
     final List<Stroke> strokes = [];

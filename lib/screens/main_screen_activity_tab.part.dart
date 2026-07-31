@@ -779,7 +779,9 @@ extension MainScreenActivityTab on _MainScreenState {
       _showGuestLoginPrompt();
       return;
     }
-    if (p['postType'] == 'note') {
+    final attached = p['attached_data'];
+    final bool isSharedNote = attached != null && attached['shared_type'] == 'note';
+    if (isSharedNote) {
       _showNotePreviewDialog(p);
     } else {
       Navigator.push(

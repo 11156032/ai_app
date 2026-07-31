@@ -88,6 +88,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _socialFeedLayout = 'card'; // 社群貼文版面：'card' 規格化 / 'list' 新聞式
   int _socialMainTab = 0;
   late PageController _socialPageController; // 0=廣場, 1=群組
+  final ScrollController _socialFeedScrollController = ScrollController();
+
+  void _scrollToTopSocialFeed() {
+    if (_socialFeedScrollController.hasClients) {
+      _socialFeedScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
   int _groupSubTab = 0; // 0=我的群組, 1=探索
   String _exploreGroupSearchQuery = ''; // 探索群組搜尋字串
   // ── 社群動態（Activity Tab）狀態 ──
@@ -1381,7 +1392,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (await _checkUnsavedDiaryChanges()) {
       setState(() => _selectedDate = date);
       _updateDiaryController(date, force: true);
-      if (fromCalendar) {
+      if (fromCalendar && _timelinePageController.hasClients) {
         _timelinePageController
             .jumpToPage(1000 + date.difference(_simulatedToday).inDays);
       }
@@ -8219,9 +8230,7 @@ $strokePrompt
           },
           child: PageView.builder(
             key: ValueKey(_calendarSubTab),
-            controller: PageController(
-              initialPage: 1000 + _selectedDate.difference(_simulatedToday).inDays,
-            ),
+            controller: _timelinePageController,
             onPageChanged: (i) {
               DateTime newDate =
                   _simulatedToday.add(Duration(days: i - 1000));
@@ -10546,9 +10555,9 @@ $strokePrompt
                             final ImagePicker picker = ImagePicker();
                             final XFile? image = await picker.pickImage(
                               source: ImageSource.gallery,
-                              maxWidth: 2048,
-                              maxHeight: 2048,
-                              imageQuality: 95,
+                              maxWidth: 3840,
+                              maxHeight: 3840,
+                              imageQuality: 100,
                             );
                             if (image != null) {
                               final bytes = await image.readAsBytes();
@@ -10803,9 +10812,9 @@ $strokePrompt
                       final ImagePicker picker = ImagePicker();
                       final XFile? image = await picker.pickImage(
                         source: ImageSource.camera,
-                        maxWidth: 2048,
-                        maxHeight: 2048,
-                        imageQuality: 95,
+                        maxWidth: 3840,
+                        maxHeight: 3840,
+                        imageQuality: 100,
                       );
                       if (image != null) {
                         final bytes = await image.readAsBytes();
@@ -12352,12 +12361,26 @@ class _CreatePostPageState extends State<CreatePostPage> {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 2048,
-      maxHeight: 2048,
-      imageQuality: 95,
+      maxWidth: 3840,
+      maxHeight: 3840,
+      imageQuality: 100,
     );
     if (image != null && mounted) {
       setState(() => _selectedImageX = image);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.auto_awesome, color: Colors.amber, size: 18),
+              SizedBox(width: 8),
+              Text('✨ 已啟用 HD 高清原圖畫質優化 (3840p / 100% 無損)'),
+            ],
+          ),
+          backgroundColor: Colors.grey.shade900,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -12689,6 +12712,34 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           width: double.infinity,
                           height: 220,
                           fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
+                        ),
+                      ),
+                      Positioned(
+                        left: 10,
+                        bottom: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.auto_awesome, color: Colors.amber, size: 13),
+                              SizedBox(width: 4),
+                              Text(
+                                '✨ HD 畫質高清強化 (4K原圖)',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       Positioned(
