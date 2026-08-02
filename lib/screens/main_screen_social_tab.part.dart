@@ -1576,6 +1576,8 @@ extension MainScreenSocialTab on _MainScreenState {
             if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
               _buildFileAttachment(p),
             _buildSharedResourceCard(p, index ?? 0, isSocialFeed),
+            if (p['postType'] == 'learning_pack')
+              _buildLearningPackCard(p),
             const SizedBox(height: 12),
             Divider(color: borderCol, height: 1),
             const SizedBox(height: 4),
@@ -1759,6 +1761,8 @@ extension MainScreenSocialTab on _MainScreenState {
                             ),
                           ),
                           _buildSharedResourceCard(p, idx, isSocialFeed),
+                          if (p['postType'] == 'learning_pack')
+                            _buildLearningPackCard(p),
                           const SizedBox(height: 6),
                           Center(
                             child: GestureDetector(
@@ -1908,82 +1912,223 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   void _showImagePreviewDialog(Map<String, dynamic> p) {
+    double rotationDegrees = 0.0;
+    bool showSlider = false;
+    final TransformationController transformController = TransformationController();
+
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.9),
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: EdgeInsets.zero,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // 可手勢縮放/拖曳的全螢幕圖片
-            InteractiveViewer(
-              minScale: 0.8,
-              maxScale: 4.0,
-              child: Center(
-                child: (p['media_blob'] != null)
-                    ? Image.memory(p['media_blob'] as Uint8List,
-                        fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high)
-                    : (p['media'].toString().startsWith('data:image'))
-                        ? Image.memory(
-                            base64Decode(p['media'].toString().split(',').last),
-                            fit: BoxFit.contain,
-                            gaplessPlayback: true,
-                            filterQuality: FilterQuality.high)
-                        : (p['media'].toString().startsWith('http') || kIsWeb)
-                            ? Image.network(p['media'] as String,
-                                fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high)
-                            : Image.file(File(p['media'] as String),
-                                fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high),
-              ),
-            ),
-            // 頂部關閉按鈕
-            Positioned(
-              top: MediaQuery.of(ctx).padding.top + 16,
-              right: 16,
-              child: IconButton(
-                onPressed: () => Navigator.pop(ctx),
-                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black45,
-                  padding: const EdgeInsets.all(8),
+        child: StatefulBuilder(
+          builder: (dialogCtx, setStateDialog) {
+            Widget imgWidget;
+            if (p['media_blob'] != null) {
+              imgWidget = Image.memory(p['media_blob'] as Uint8List,
+                  fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high);
+            } else if (p['media'].toString().startsWith('data:image')) {
+              imgWidget = Image.memory(
+                  base64Decode(p['media'].toString().split(',').last),
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                  filterQuality: FilterQuality.high);
+            } else if (p['media'].toString().startsWith('http') || kIsWeb) {
+              imgWidget = Image.network(p['media'] as String,
+                  fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high);
+            } else {
+              imgWidget = Image.file(File(p['media'] as String),
+                  fit: BoxFit.contain, gaplessPlayback: true, filterQuality: FilterQuality.high);
+            }
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                // 可手勢縮放/拖曳的全螢幕圖片，支援 360 度自由旋轉
+                InteractiveViewer(
+                  transformationController: transformController,
+                  minScale: 0.8,
+                  maxScale: 4.0,
+                  child: Center(
+                    child: Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()
+                        ..rotateZ(rotationDegrees * math.pi / 180.0),
+                      child: imgWidget,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            // 底部發文者資訊與提示
-            Positioned(
-              bottom: MediaQuery.of(ctx).padding.bottom + 20,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        p['author'] != null ? '✨ ${p['author']} 的 HD 原圖（雙指可放大）' : '✨ HD 原圖大圖預覽（雙指可放大）',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                // 頂部左側：360 度旋轉控制工具列
+                Positioned(
+                  top: MediaQuery.of(ctx).padding.top + 16,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 順時針旋轉 90 度按鈕
+                        IconButton(
+                          tooltip: '旋轉 90°',
+                          onPressed: () {
+                            setStateDialog(() {
+                              rotationDegrees = (rotationDegrees + 90.0) % 360.0;
+                            });
+                          },
+                          icon: Icon(
+                            Icons.rotate_right_rounded,
+                            color: rotationDegrees != 0 ? Colors.amber : Colors.white,
+                            size: 22,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        // 切換 360 度自由微調滑軌
+                        IconButton(
+                          tooltip: '360° 自由角度微調',
+                          onPressed: () {
+                            setStateDialog(() {
+                              showSlider = !showSlider;
+                            });
+                          },
+                          icon: Icon(
+                            Icons.tune_rounded,
+                            color: showSlider ? Colors.amber : Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        // 重置角度按鈕
+                        if (rotationDegrees != 0)
+                          IconButton(
+                            tooltip: '重置角度',
+                            onPressed: () {
+                              setStateDialog(() {
+                                rotationDegrees = 0.0;
+                                transformController.value = Matrix4.identity();
+                              });
+                            },
+                            icon: const Icon(
+                              Icons.refresh_rounded,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                // 頂部右側：關閉按鈕
+                Positioned(
+                  top: MediaQuery.of(ctx).padding.top + 16,
+                  right: 16,
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black45,
+                      padding: const EdgeInsets.all(8),
+                    ),
+                  ),
+                ),
+                // 360 度自由微調 Slider 滑軌（點擊微調按鈕後出現）
+                if (showSlider)
+                  Positioned(
+                    bottom: MediaQuery.of(ctx).padding.bottom + 80,
+                    left: 30,
+                    right: 30,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.screen_rotation_rounded, color: Colors.amber, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${rotationDegrees.round()}°',
+                            style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          Expanded(
+                            child: SliderTheme(
+                              data: SliderTheme.of(ctx).copyWith(
+                                activeTrackColor: Colors.amber,
+                                inactiveTrackColor: Colors.white24,
+                                thumbColor: Colors.amber,
+                                overlayColor: Colors.amber.withValues(alpha: 0.2),
+                              ),
+                              child: Slider(
+                                value: rotationDegrees,
+                                min: 0.0,
+                                max: 359.0,
+                                onChanged: (val) {
+                                  setStateDialog(() {
+                                    rotationDegrees = val;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
+                // 底部發文者資訊與提示
+                Positioned(
+                  bottom: MediaQuery.of(ctx).padding.bottom + 20,
+                  left: 20,
+                  right: 20,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            p['author'] != null ? ' ${p['author']} 的 HD 原圖（雙指可放大）' : ' HD 原圖大圖預覽（雙指可放大）',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (rotationDegrees != 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                            ),
+                            child: Text(
+                              '🔄 ${rotationDegrees.round()}°',
+                              style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -2128,91 +2273,98 @@ extension MainScreenSocialTab on _MainScreenState {
                       _buildFileActionBtn(ctx, Icons.download_rounded, '下載檔案', () async {
                         Navigator.pop(ctx);
                         try {
-                          if (kIsWeb) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Web 平台不支援下載至本地資料夾')),
-                              );
-                            }
-                            return;
-                          }
-
-                          Directory? dir;
-                          // On Android, writing directly to /storage/emulated/0/Download causes Permission Denied on API 29+
-                          // Try app external/documents storage or downloads directory first
-                          try {
-                            if (Platform.isAndroid) {
-                              dir = await getExternalStorageDirectory();
-                            }
-                          } catch (_) {}
-                          dir ??= await getDownloadsDirectory();
-                          dir ??= await getApplicationDocumentsDirectory();
-
-                          if (!await dir.exists()) {
-                            await dir.create(recursive: true);
-                          }
-
                           final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
                           final ext = safeName.contains('.') ? '' : '.txt';
-                          final file = File('${dir.path}/$safeName$ext');
+                          final fullName = '$safeName$ext';
 
-                          if (p['file_blob'] != null) {
-                            await file.writeAsBytes(p['file_blob'] as Uint8List, flush: true);
-                          } else {
-                            await file.writeAsString(
-                              '這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...',
-                              flush: true,
-                            );
+                          final Uint8List bytes = p['file_blob'] != null
+                              ? (p['file_blob'] as Uint8List)
+                              : Uint8List.fromList(utf8.encode(
+                                  '這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...',
+                                ));
+
+                          File? savedFile;
+                          String displayLocation = '';
+
+                          // 1. Android: 優先嘗試存入手機公用「下載」資料夾 (/storage/emulated/0/Download)
+                          if (!kIsWeb && Platform.isAndroid) {
+                            try {
+                              final publicDownloadDir = Directory('/storage/emulated/0/Download');
+                              if (await publicDownloadDir.exists()) {
+                                final targetFile = File('${publicDownloadDir.path}/$fullName');
+                                await targetFile.writeAsBytes(bytes, flush: true);
+                                savedFile = targetFile;
+                                displayLocation = '「下載」資料夾 (${targetFile.path})';
+                              }
+                            } catch (_) {
+                              // 若因 Scoped Storage 限制無法直接寫入，將降級為調用系統 Save File 選擇器
+                            }
                           }
 
-                          if (mounted) {
+                          // 2. 若尚未儲存 (如 iOS, Web, Desktop 或 Android 權限受限)，調用系統選擇器
+                          if (savedFile == null) {
+                            try {
+                              final String? selectedPath = await FilePicker.platform.saveFile(
+                                dialogTitle: '請選擇檔案儲存位置',
+                                fileName: fullName,
+                                bytes: bytes,
+                              );
+
+                              if (selectedPath != null) {
+                                final targetFile = File(selectedPath);
+                                if (!await targetFile.exists() || (await targetFile.length()) == 0) {
+                                  await targetFile.writeAsBytes(bytes, flush: true);
+                                }
+                                savedFile = targetFile;
+                                displayLocation = targetFile.path;
+                              }
+                            } catch (_) {}
+                          }
+
+                          // 3. 備用方案: 寫入 App 專用文件目錄
+                          if (savedFile == null && !kIsWeb) {
+                            try {
+                              Directory? docsDir;
+                              try {
+                                docsDir = await getDownloadsDirectory();
+                              } catch (_) {}
+                              docsDir ??= await getApplicationDocumentsDirectory();
+
+                              if (!await docsDir.exists()) {
+                                await docsDir.create(recursive: true);
+                              }
+                              final targetFile = File('${docsDir.path}/$fullName');
+                              await targetFile.writeAsBytes(bytes, flush: true);
+                              savedFile = targetFile;
+                              displayLocation = targetFile.path;
+                            } catch (_) {}
+                          }
+
+                          if (savedFile != null && mounted) {
+                            final filePath = savedFile.path;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('✅ 檔案已成功下載至：${dir.path}'),
+                                content: Text('✅ 檔案已成功儲存至：$displayLocation'),
                                 behavior: SnackBarBehavior.floating,
                                 backgroundColor: Colors.green.shade600,
-                                duration: const Duration(seconds: 5),
+                                duration: const Duration(seconds: 6),
                                 action: SnackBarAction(
                                   label: '開啟檔案',
                                   textColor: Colors.white,
-                                  onPressed: () => OpenFilex.open(file.path),
+                                  onPressed: () => OpenFilex.open(filePath),
                                 ),
                               ),
                             );
+                          } else if (mounted && savedFile == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('下載已取消或無法儲存')),
+                            );
                           }
                         } catch (e) {
-                          // Fallback to Application Documents directory if the chosen directory failed with permission/write errors
-                          try {
-                            final docsDir = await getApplicationDocumentsDirectory();
-                            final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-                            final ext = safeName.contains('.') ? '' : '.txt';
-                            final file = File('${docsDir.path}/$safeName$ext');
-                            if (p['file_blob'] != null) {
-                              await file.writeAsBytes(p['file_blob'] as Uint8List, flush: true);
-                            } else {
-                              await file.writeAsString('這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...', flush: true);
-                            }
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('✅ 檔案已下載至應用程式目錄'),
-                                  behavior: SnackBarBehavior.floating,
-                                  backgroundColor: Colors.green.shade600,
-                                  duration: const Duration(seconds: 5),
-                                  action: SnackBarAction(
-                                    label: '開啟檔案',
-                                    textColor: Colors.white,
-                                    onPressed: () => OpenFilex.open(file.path),
-                                  ),
-                                ),
-                              );
-                            }
-                          } catch (e2) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('下載失敗: $e2')),
-                              );
-                            }
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('下載失敗: $e')),
+                            );
                           }
                         }
                       }),
@@ -3052,6 +3204,197 @@ extension MainScreenSocialTab on _MainScreenState {
     }
 
     return const SizedBox.shrink();
+  }
+
+  // ── 學習 Pack 資源預覽與匯入 ───────────────────────────────────────
+  Widget _buildLearningPackCard(Map<String, dynamic> p) {
+    final attached = p['attached_data'];
+    if (attached == null) return const SizedBox.shrink();
+
+    final String title = attached['pack_title'] ?? '無標題學習 Pack';
+    final String desc = attached['pack_description'] ?? '';
+    final List events = attached['calendar_events'] ?? [];
+    final List papers = attached['user_papers'] ?? [];
+
+    final bool isDark = _isDarkMode;
+    final cardBg = isDark ? Colors.orange.withValues(alpha: 0.1) : Colors.orange.shade50;
+    final borderCol = isDark ? Colors.orange.withValues(alpha: 0.3) : Colors.orange.shade200;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderCol, width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.inventory_2_rounded, color: Colors.orange.shade700, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: isDark ? Colors.orange.shade300 : Colors.orange.shade900),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade700,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '學習 Pack',
+                  style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          if (desc.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              desc,
+              style: TextStyle(fontSize: 13, color: isDark ? Colors.orange.shade100 : Colors.orange.shade800),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildPackTag('📅 ${events.length} 個排程'),
+              const SizedBox(width: 8),
+              _buildPackTag('📝 ${papers.length} 套試卷'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _importLearningPack(attached),
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: const Text('一鍵導入我的日曆行程', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade600,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPackTag(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.white10 : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _isDarkMode ? Colors.orange.shade200 : Colors.orange.shade800),
+      ),
+    );
+  }
+
+  Future<void> _importLearningPack(Map<String, dynamic> attached) async {
+    final now = DateTime.now();
+    final startDate = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 365 * 5)),
+      helpText: '請選擇計畫的起始日期',
+      cancelText: '取消',
+      confirmText: '開始匯入',
+    );
+
+    if (startDate == null || !mounted) return;
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final userId = widget.currentUser['id'];
+      
+      int importedEvents = 0;
+      int importedPapers = 0;
+
+      // 匯入 Calendar Events
+      final events = attached['calendar_events'] as List? ?? [];
+      for (var e in events) {
+        final int offset = e['day_offset'] as int? ?? 0;
+        final targetDate = startDate.add(Duration(days: offset));
+        
+        DateTime startTime = DateTime(
+          targetDate.year, targetDate.month, targetDate.day,
+          e['start_hour'] as int? ?? 9,
+          e['start_minute'] as int? ?? 0,
+        );
+        DateTime endTime = startTime.add(Duration(minutes: e['end_time_offset_minutes'] as int? ?? 60));
+
+        await db.insert('calendar_events', {
+          'user_id': userId,
+          'title': e['title'] ?? '無標題',
+          'description': e['description'] ?? '',
+          'is_all_day': e['is_all_day'] ?? 0,
+          'start_time': startTime.toIso8601String(),
+          'end_time': endTime.toIso8601String(),
+          'location': e['location'] ?? '',
+          'color': e['color'] ?? 'bg-blue-400',
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        importedEvents++;
+      }
+
+      // 匯入 Questions 和 User Papers
+      final papers = attached['user_papers'] as List? ?? [];
+      for (var p in papers) {
+        final qs = p['questions'] as List? ?? [];
+        List<int> newQuestionIds = [];
+        for (var q in qs) {
+          final qData = Map<String, dynamic>.from(q as Map);
+          qData['user_id'] = userId;
+          qData['created_at'] = DateTime.now().toIso8601String();
+          final qId = await db.insert('questions', qData);
+          newQuestionIds.add(qId);
+        }
+
+        await db.insert('user_papers', {
+          'user_id': userId,
+          'name': p['name'] ?? '無標題試卷',
+          'question_ids': jsonEncode(newQuestionIds),
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        importedPapers++;
+      }
+
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ 成功匯入 $importedEvents 個排程與 $importedPapers 套試卷！'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('匯入失敗: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   // ── 一鍵匯入筆記邏輯 ──────────────────────────────────────────────

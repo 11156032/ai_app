@@ -25,6 +25,7 @@ import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
 import 'tabs/group_detail_page.dart';
 import 'tabs/create_group_dialog.dart';
+import 'create_learning_pack_dialog.dart';
 import 'about_us_screen.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
@@ -45,6 +46,7 @@ const Map<String, String?> kSocialFilterMap = {
   '📝 學習筆記': 'note',
   '💭 心情文章': 'mood',
   '📄 分享資料': 'doc',
+  '📦 學習 Pack': 'learning_pack',
 };
 
 const Map<String, String> kPostTypeLabel = {
@@ -12368,6 +12370,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   String? _postType;
   bool _isSubmitting = false;
   DateTime? _scheduledAt; // 定時發佈時間
+  Map<String, dynamic>? _learningPackData; // 學習 Pack 的資料
 
   void _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -12385,7 +12388,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             children: [
               Icon(Icons.auto_awesome, color: Colors.amber, size: 18),
               SizedBox(width: 8),
-              Text('✨ 已啟用 HD 高清原圖畫質優化 (3840p / 100% 無損)'),
+              Text(' 已啟用 HD 高清原圖畫質優化 (3840p / 100% 無損)'),
             ],
           ),
           backgroundColor: Colors.grey.shade900,
@@ -12531,6 +12534,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
         attachedMap['scheduled_at'] =
             '${_scheduledAt!.year}-${_scheduledAt!.month.toString().padLeft(2, '0')}-${_scheduledAt!.day.toString().padLeft(2, '0')} ${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}';
       }
+      
+      if (_postType == 'learning_pack' && _learningPackData != null) {
+        attachedMap.addAll(_learningPackData!);
+      }
 
       final newId = await db.insert('posts', {
         'user_id': userId,
@@ -12578,7 +12585,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
         ? '寫下你的學習筆記，記錄每一次成長...'
         : _postType == 'mood'
             ? '今天心情怎麼樣呢？說出來和大家分享吧！'
-            : '有什麼想和大家說的嗎？';
+            : _postType == 'learning_pack'
+                ? '為你的學習 Pack 寫點介紹，讓大家知道這個 Pack 有多棒！'
+                : '有什麼想和大家說的嗎？';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAF8F6),
@@ -12696,8 +12705,55 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       _buildTypeChip('📄 分享資料', 'doc',
                           selectedColor: const Color(0xFF2196F3),
                           bgColor: const Color(0xFFE3F2FD)),
+                      const SizedBox(width: 8),
+                      _buildTypeChip('📦 學習 Pack', 'learning_pack',
+                          selectedColor: const Color(0xFFFF9800),
+                          bgColor: const Color(0xFFFFF3E0)),
                     ]),
                   ),
+                  if (_postType == 'learning_pack') ...[
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () async {
+                        final result = await showDialog<Map<String, dynamic>>(
+                          context: context,
+                          builder: (ctx) => CreateLearningPackDialog(currentUser: widget.currentUser),
+                        );
+                        if (result != null && mounted) {
+                          setState(() {
+                            _learningPackData = result;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已設定學習 Pack！')));
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: _learningPackData != null ? Colors.orange.shade50 : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _learningPackData != null ? Colors.orange : Colors.grey.shade300)
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.inventory_2_outlined, color: _learningPackData != null ? Colors.orange : Colors.grey.shade600),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _learningPackData != null 
+                                  ? '已打包: ${_learningPackData!['calendar_events'].length} 個排程, ${_learningPackData!['user_papers'].length} 套試卷' 
+                                  : '點擊設定你要打包的排程與試卷',
+                                style: TextStyle(
+                                  color: _learningPackData != null ? Colors.orange.shade800 : Colors.black87,
+                                  fontWeight: FontWeight.w500
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.chevron_right, color: Colors.grey.shade400)
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   // 文字輸入區
                   TextField(
@@ -12743,7 +12799,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                               Icon(Icons.auto_awesome, color: Colors.amber, size: 13),
                               SizedBox(width: 4),
                               Text(
-                                '✨ HD 畫質高清強化 (4K原圖)',
+                                ' HD 畫質高清強化 (4K原圖)',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
@@ -13547,9 +13603,107 @@ class _PostReplyPageState extends State<PostReplyPage> {
                       height: 180, width: double.infinity, fit: BoxFit.cover),
             ),
           ],
+          _buildPostAttachmentPreview(widget.originalPost),
         ],
       ),
     );
+  }
+
+  Widget _buildPostAttachmentPreview(Map<String, dynamic> p) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // 檔案附件
+    if (p['fileName'] != null && p['fileName'].toString().isNotEmpty) {
+      final fileName = p['fileName'] as String;
+      return Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white10 : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.insert_drive_file, color: Theme.of(context).primaryColor, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text('分享文件: $fileName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+          ],
+        ),
+      );
+    }
+
+    // 學習 Pack
+    if (p['postType'] == 'learning_pack') {
+      final attached = p['attached_data'];
+      if (attached != null) {
+        final title = attached['pack_title'] ?? '無標題學習 Pack';
+        return Container(
+          margin: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.orange.withValues(alpha: 0.1) : Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isDark ? Colors.orange.withValues(alpha: 0.3) : Colors.orange.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.inventory_2_rounded, color: Colors.orange.shade700, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.orange.shade300 : Colors.orange.shade900),
+                ),
+              ),
+              const Text('請至動態牆匯入', style: TextStyle(fontSize: 11, color: Colors.grey)),
+            ],
+          ),
+        );
+      }
+    }
+
+    // 筆記或題目 (Shared Resource)
+    final attached = p['attached_data'];
+    if (attached != null && attached['shared_type'] != null) {
+      final sharedType = attached['shared_type'];
+      if (sharedType == 'note') {
+        final title = attached['title'] ?? '無標題筆記';
+        return Container(
+          margin: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white10 : Theme.of(context).primaryColor.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.sticky_note_2_outlined, color: Theme.of(context).primaryColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text('分享筆記: $title', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).primaryColor))),
+            ],
+          ),
+        );
+      } else if (sharedType == 'question') {
+        final subject = attached['subject'] ?? '一般';
+        return Container(
+          margin: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white10 : Theme.of(context).primaryColor.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.help_outline_rounded, color: Theme.of(context).primaryColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text('分享題目: [$subject]', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).primaryColor))),
+            ],
+          ),
+        );
+      }
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildCommentTree(
