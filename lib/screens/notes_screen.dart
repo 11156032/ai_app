@@ -2376,16 +2376,29 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: isDone ? 1.0 : null,
+              minHeight: 3,
+              backgroundColor: Colors.white10,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDone ? Colors.green.shade400 : Colors.blue.shade400
+              ),
+            ),
+          ),
+          if (steps.isNotEmpty) const SizedBox(height: 10),
           ...steps.map((step) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 2),
+              padding: const EdgeInsets.only(bottom: 4),
               child: Text(
                 step.toString(),
                 style: const TextStyle(
                   color: Colors.greenAccent,
                   fontSize: 9.5,
                   fontFamily: 'monospace',
+                  height: 1.3,
                 ),
               ),
             );

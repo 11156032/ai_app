@@ -5151,40 +5151,53 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(color: const Color(0xFFCE93D8), width: 0.5),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        isDone ? Icons.check_circle_outline_rounded : Icons.sync_rounded,
-                                        size: 16,
-                                        color: isDone ? Colors.green : const Color(0xFF9C27B0),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        isDone ? '個人化 RAG 檢索完成' : '啟動「AI 鏡像分身」個人化 RAG 檢索...',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                          color: isDone ? Colors.green.shade700 : const Color(0xFF7B1FA2),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          isDone ? Icons.check_circle_outline_rounded : Icons.sync_rounded,
+                                          size: 16,
+                                          color: isDone ? Colors.green : const Color(0xFF9C27B0),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          isDone ? '個人化 RAG 檢索完成' : '啟動「AI 鏡像分身」個人化 RAG 檢索...',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: isDone ? Colors.green.shade700 : const Color(0xFF7B1FA2),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: isDone ? 1.0 : null,
+                                        minHeight: 4,
+                                        backgroundColor: isDark ? Colors.white10 : Colors.black12,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          isDone ? Colors.green.shade400 : const Color(0xFFBA68C8)
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ...steps.map((step) => Padding(
-                                    padding: const EdgeInsets.only(left: 24, bottom: 4),
-                                    child: Text(
-                                      step,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
-                                      ),
                                     ),
-                                  )),
-                                ],
-                              ),
+                                    if (steps.isNotEmpty) const SizedBox(height: 10),
+                                    ...steps.map((step) => Padding(
+                                      padding: const EdgeInsets.only(left: 2, bottom: 6),
+                                      child: Text(
+                                        step,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    )),
+                                  ],
+                                ),
                             );
                           }
 
@@ -12715,15 +12728,17 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     const SizedBox(height: 12),
                     GestureDetector(
                       onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
                         final result = await showDialog<Map<String, dynamic>>(
                           context: context,
                           builder: (ctx) => CreateLearningPackDialog(currentUser: widget.currentUser),
                         );
-                        if (result != null && mounted) {
+                        if (!mounted) return;
+                        if (result != null) {
                           setState(() {
                             _learningPackData = result;
                           });
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已設定學習 Pack！')));
+                          messenger.showSnackBar(const SnackBar(content: Text('已設定學習 Pack！')));
                         }
                       },
                       child: Container(

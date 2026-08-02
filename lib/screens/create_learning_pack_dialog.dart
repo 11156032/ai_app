@@ -16,7 +16,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
   
   List<Map<String, dynamic>> _allPapers = [];
-  Set<int> _selectedPaperIds = {};
+  final Set<int> _selectedPaperIds = {};
   int _selectedEventCount = 0;
 
   final TextEditingController _titleController = TextEditingController();
