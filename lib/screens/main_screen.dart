@@ -16,6 +16,7 @@ import '../services/ai_intent_service.dart';
 import 'question_list_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../services/ai_diagnosis_service.dart';
 import 'notes_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -144,11 +145,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   double _todayStudyHours = 0.0;
   int _todayCompletedQuestions = 0;
   int _streakDays = 0;
-  // 本週每日正確率 (0.0~100.0)，-1 代表當天無作答
-  List<double> _weeklyAccuracyList = [-1, -1, -1, -1, -1, -1, -1];
-  double _weeklyAvgAccuracy = -1; // 本週平均正確率，-1 代表無資料
+  List<Map<String, dynamic>> _weeklyMatrixData = []; // 知識掌握度矩陣資料
   int _totalQuestionsAnswered = 0;
-  int _selectedBarIndex = DateTime.now().weekday - 1;
   String _latestQuizScore = '暫無測驗紀錄';
   String _appVersion = 'v1.3.0';
 
@@ -253,9 +251,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// 安全更新 UI 狀態（避免 extension 呼叫 protected member 警告）
   Color get _currentPrimaryColor {
-    if (_themeColorIdx == 1) return const Color(0xFF6B8A96);
-    if (_themeColorIdx == 2) return const Color(0xFF8AA682);
-    return const Color(0xFF8D6E63);
+    if (_themeColorIdx == 1) return const Color(0xFF6B8A96); // 孔雀藍
+    if (_themeColorIdx == 2) return const Color(0xFF8AA682); // 森林綠
+    if (_themeColorIdx == 3) return const Color(0xFFB57B94); // 暮櫻紫 (粉紫)
+    if (_themeColorIdx == 4) return const Color(0xFFC27D66); // 琥珀橙
+    return const Color(0xFF8D6E63); // 經典暖棕 (預設)
   }
 
   /// 安全更新 UI 狀態（避免 extension 呼叫 protected member 警告）
@@ -900,38 +900,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         latestQuizScore = '最近一次：$correct/$total 題（$pct 分）';
       }
 
-      // 6. 本週每日正確率統計
-      final weeklyAccRows = await db.rawQuery('''
-        SELECT
-          strftime('%w', timestamp) as dow,
-          SUM(correct) as sumCorrect,
-          SUM(total) as sumTotal
-        FROM quiz_results
-        WHERE user_id = ? AND total > 0
+      // 6.5 知識掌握度矩陣資料（本週測驗單筆紀錄）
+      final matrixRows = await db.rawQuery('''
+        SELECT correct, total, duration_seconds 
+        FROM quiz_results 
+        WHERE user_id = ? AND total > 0 
           AND timestamp >= ?
-        GROUP BY strftime('%w', timestamp)
       ''', [currentUserId, monday.toIso8601String().substring(0, 10)]);
 
-      List<double> weeklyAccuracyList = List.filled(7, -1);
-      for (var row in weeklyAccRows) {
-        // SQLite %w: 0=Sunday,1=Mon,...,6=Sat → 轉為 Mon=0,...,Sun=6
-        int dow = int.tryParse(row['dow'].toString()) ?? -1;
-        int dayIdx = (dow == 0) ? 6 : dow - 1; // 0=Mon,6=Sun
-        final int sumCorrect = (row['sumCorrect'] as num?)?.toInt() ?? 0;
-        final int sumTotal = (row['sumTotal'] as num?)?.toInt() ?? 0;
-        if (dayIdx >= 0 && dayIdx < 7 && sumTotal > 0) {
-          weeklyAccuracyList[dayIdx] =
-              (sumCorrect / sumTotal * 100).roundToDouble();
+      List<Map<String, dynamic>> weeklyMatrixData = [];
+      for (var row in matrixRows) {
+        final int cor = (row['correct'] as num?)?.toInt() ?? 0;
+        final int tot = (row['total'] as num?)?.toInt() ?? 0;
+        final int dur = (row['duration_seconds'] as num?)?.toInt() ?? 0;
+        
+        if (tot > 0) {
+          final double acc = (cor / tot) * 100.0;
+          final double avgTime = dur / tot;
+          weeklyMatrixData.add({
+            'accuracy': acc,
+            'avgTime': avgTime,
+            'total': tot,
+            'duration': dur,
+          });
         }
-      }
-
-      // 本週平均正確率
-      final validAcc = weeklyAccuracyList.where((v) => v >= 0).toList();
-      double weeklyAvgAccuracy = validAcc.isEmpty
-          ? -1
-          : validAcc.reduce((a, b) => a + b) / validAcc.length;
-      if (weeklyAvgAccuracy >= 0) {
-        weeklyAvgAccuracy = double.parse(weeklyAvgAccuracy.toStringAsFixed(1));
       }
 
       // 7. 排行榜資料（所有使用者的累積正確率與答題數）
@@ -1001,8 +993,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _todayStudyHours = todayStudyHours;
           _todayCompletedQuestions = todayCompletedQuestions;
           _streakDays = streakDays;
-          _weeklyAccuracyList = weeklyAccuracyList;
-          _weeklyAvgAccuracy = weeklyAvgAccuracy;
+          _weeklyMatrixData = weeklyMatrixData;
           _totalQuestionsAnswered = totalQuestionsAnswered;
           _latestQuizScore = latestQuizScore;
           _leaderboardList = leaderboardList;
@@ -1121,6 +1112,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         onEnter: () {
           _socialFilter = '全部';
           _socialAuthorFilter = '';
+          final effectivePosts = _getEffectiveSocialPosts();
+          for (var post in effectivePosts) {
+            if (post['attached_data'] != null &&
+                post['attached_data']['shared_type'] == 'note') {
+              post['_isExpanded'] = true;
+              break;
+            }
+          }
+          if (_socialFeedScrollController.hasClients) {
+            _socialFeedScrollController.jumpTo(0.0);
+          }
           final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
             Navigator.pop(context); // 關閉任何可能打開的彈窗
@@ -2330,7 +2332,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         ? const Color(0xFF6B8A96) // 孔雀藍 (霧霾藍)
         : (_themeColorIdx == 2
             ? const Color(0xFF8AA682) // 森林綠 (鼠尾草綠)
-            : const Color(0xFF8D6E63)); // 經典暖棕 (預設)
+            : (_themeColorIdx == 3
+                ? const Color(0xFFB57B94) // 暮櫻紫 (粉紫)
+                : (_themeColorIdx == 4
+                    ? const Color(0xFFC27D66) // 琥珀橙 (暖砂橘)
+                    : const Color(0xFF8D6E63)))); // 經典暖棕 (預設)
 
     return Theme(
       data: baseTheme.copyWith(
@@ -11073,6 +11079,8 @@ $strokePrompt
           _buildThemeOption(ctx, '經典暖棕 (預設)', 0, const Color(0xFF8D6E63)),
           _buildThemeOption(ctx, '孔雀藍', 1, const Color(0xFF6B8A96)),
           _buildThemeOption(ctx, '森林綠', 2, const Color(0xFF8AA682)),
+          _buildThemeOption(ctx, '暮櫻紫', 3, const Color(0xFFB57B94)),
+          _buildThemeOption(ctx, '琥珀橙', 4, const Color(0xFFC27D66)),
         ],
       ),
     );
@@ -12814,7 +12822,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                               Icon(Icons.auto_awesome, color: Colors.amber, size: 13),
                               SizedBox(width: 4),
                               Text(
-                                ' HD 畫質高清強化 (4K原圖)',
+                                ' HD 畫質高清強化 ',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,

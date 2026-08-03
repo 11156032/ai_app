@@ -154,6 +154,46 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   Widget _buildPersonalizedDashboard(BuildContext context) {
+    bool isFlipped = false;
+    
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              isFlipped = !isFlipped;
+            });
+          },
+          child: TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: isFlipped ? 1 : 0),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeOutBack,
+            builder: (context, double value, child) {
+              bool showBack = value > 0.5;
+              double angle = value * math.pi;
+
+              Widget content = showBack ? _buildDashboardBack() : _buildDashboardFront();
+
+              return Transform(
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001) // 透視效果
+                  ..rotateX(angle), // 沿 X 軸翻轉 (上下)
+                alignment: Alignment.center,
+                child: showBack
+                    ? Transform(
+                        transform: Matrix4.identity()..rotateX(math.pi),
+                        alignment: Alignment.center,
+                        child: content)
+                    : content,
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDashboardFront() {
     final primaryColor = _currentPrimaryColor;
     return Container(
       padding: const EdgeInsets.all(20),
@@ -175,10 +215,23 @@ extension MainScreenProfileTab on _MainScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '今日學習摘要',
-            style: TextStyle(
-                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '今日學習摘要',
+                style: TextStyle(
+                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text('點擊翻轉', style: TextStyle(color: Colors.white, fontSize: 10)),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           Row(
@@ -190,6 +243,75 @@ extension MainScreenProfileTab on _MainScreenState {
                   '$_todayCompletedQuestions 題'),
               _buildDashboardItem(
                   Icons.local_fire_department, '連續天數', '$_streakDays 天'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardBack() {
+    final baseColor = _currentPrimaryColor;
+    final primaryColor = HSLColor.fromColor(baseColor)
+        .withHue((HSLColor.fromColor(baseColor).hue + 25) % 360)
+        .toColor(); 
+    
+    int totalQuestions = 0;
+    int totalSeconds = 0;
+    for (var d in _weeklyMatrixData) {
+      totalQuestions += (d['total'] as num?)?.toInt() ?? 0;
+      totalSeconds += (d['duration'] as num?)?.toInt() ?? 0;
+    }
+    double weeklyHours = totalSeconds / 3600.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primaryColor, primaryColor.withValues(alpha: 0.7)],
+          begin: Alignment.bottomRight,
+          end: Alignment.topLeft,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '本週學習數據',
+                style: TextStyle(
+                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text('點擊翻轉', style: TextStyle(color: Colors.white, fontSize: 10)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildDashboardItem(Icons.timer_outlined, '本週時數',
+                  '${weeklyHours.toStringAsFixed(1)}h'),
+              _buildDashboardItem(Icons.library_books_outlined, '本週題目',
+                  '$totalQuestions 題'),
+              _buildDashboardItem(
+                  Icons.bar_chart, '總題數', '$_totalQuestionsAnswered 題'),
             ],
           ),
         ],
@@ -301,7 +423,11 @@ extension MainScreenProfileTab on _MainScreenState {
                 ? '孔雀藍'
                 : _themeColorIdx == 2
                     ? '森林綠'
-                    : '經典暖棕',
+                    : _themeColorIdx == 3
+                        ? '暮櫻紫'
+                        : _themeColorIdx == 4
+                            ? '琥珀橙'
+                            : '經典暖棕',
             onTap: _showThemeColorDialog,
           ),
           const Divider(height: 24),
@@ -448,178 +574,218 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   Widget _buildLearningProgressModule(BuildContext context) {
-    final hasData = _weeklyAccuracyList.any((v) => v >= 0);
+    final hasData = _weeklyMatrixData.isNotEmpty;
+    bool hasBlindSpot = false;
+    for (var d in _weeklyMatrixData) {
+      double acc = (d['accuracy'] as num).toDouble();
+      double time = (d['avgTime'] as num).toDouble();
+      if (acc < 60 && time > 15) {
+        hasBlindSpot = true;
+        break;
+      }
+    }
+
     return _buildModuleContainer(
       context: context,
-      title: '學習歷程（本週測驗正確率）',
+      title: '學習歷程（知識掌握度矩陣）',
       child: Column(
         children: [
           const SizedBox(height: 10),
-          _buildSimpleChart(context),
+          _buildMatrixChart(context),
           const SizedBox(height: 16),
           hasData
-              ? Text('本週平均正確率：${_weeklyAvgAccuracy.toStringAsFixed(1)}%',
+              ? Text('本週共 ${_weeklyMatrixData.length} 筆測驗紀錄',
                   style: const TextStyle(color: Colors.grey, fontSize: 13))
               : const Text('本週尚無作答紀錄',
                   style: TextStyle(color: Colors.grey, fontSize: 13)),
+          if (hasBlindSpot) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '偵測到嚴重盲點！建議加強複習。',
+                      style: TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      _showAISnackbar('為您生成盲點專屬筆記與補強題目中...', Icons.auto_awesome);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      minimumSize: const Size(0, 32),
+                    ),
+                    child: const Text('AI 補強', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          ]
         ],
       ),
     );
   }
 
-  Widget _buildSimpleChart(BuildContext context) {
-    final List<String> days = ['一', '二', '三', '四', '五', '六', '日'];
-    const double chartMaxHeight = 100.0;
+  void _showAISnackbar(String message, IconData icon) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Text(message),
+          ],
+        ),
+        backgroundColor: _currentPrimaryColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Widget _buildMatrixChart(BuildContext context) {
+    if (_weeklyMatrixData.isEmpty) {
+      return Container(
+        height: 180,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text('暫無資料', style: TextStyle(color: Colors.grey)),
+      );
+    }
+
+    // 計算 X 軸最大值 (至少 30 秒)
+    double maxX = 30;
+    for (var d in _weeklyMatrixData) {
+      double time = (d['avgTime'] as num).toDouble();
+      if (time > maxX) maxX = time + 5;
+    }
 
     return Column(
       children: [
-        Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            // 基準參考虛線 (60% 正確率)
-            Positioned(
-              bottom: 0.6 * chartMaxHeight,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 1,
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color:
-                          _currentPrimaryColor.withValues(alpha: 0.2),
-                      width: 1,
-                      style: BorderStyle.solid,
-                    ),
+        SizedBox(
+          height: 180,
+          child: ScatterChart(
+            ScatterChartData(
+              scatterSpots: _weeklyMatrixData.map((d) {
+                double acc = (d['accuracy'] as num).toDouble();
+                double time = (d['avgTime'] as num).toDouble();
+                Color color;
+                if (acc >= 60 && time <= 15) {
+                  color = Colors.blue; // 熟練度高
+                } else if (acc >= 60 && time > 15) {
+                  color = Colors.amber; // 猶豫期
+                } else if (acc < 60 && time > 15) {
+                  color = Colors.red; // 嚴重盲點
+                } else {
+                  color = Colors.grey; // 粗心
+                }
+
+                return ScatterSpot(
+                  time,
+                  acc,
+                  dotPainter: FlDotCirclePainter(
+                    color: color,
+                    radius: 6,
+                    strokeWidth: 1.5,
+                    strokeColor: Colors.white,
                   ),
+                );
+              }).toList(),
+              minX: 0,
+              maxX: maxX,
+              minY: 0,
+              maxY: 100,
+              borderData: FlBorderData(show: false),
+              gridData: FlGridData(
+                show: true,
+                drawHorizontalLine: true,
+                drawVerticalLine: true,
+                horizontalInterval: 20,
+                verticalInterval: 5,
+                getDrawingHorizontalLine: (value) {
+                  if (value == 60) {
+                    return FlLine(color: Colors.blue.withValues(alpha: 0.5), strokeWidth: 2, dashArray: [5, 5]);
+                  }
+                  return FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1);
+                },
+                getDrawingVerticalLine: (value) {
+                  if (value == 15) {
+                    return FlLine(color: Colors.blue.withValues(alpha: 0.5), strokeWidth: 2, dashArray: [5, 5]);
+                  }
+                  return FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1);
+                },
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(
+                  axisNameWidget: const Text('平均作答時間(秒)', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  axisNameSize: 16,
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 24,
+                    interval: 10,
+                    getTitlesWidget: (value, meta) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text('${value.toInt()}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      );
+                    },
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  axisNameWidget: const Text('正確率(%)', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  axisNameSize: 16,
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval: 20,
+                    getTitlesWidget: (value, meta) {
+                      return Text('${value.toInt()}', style: const TextStyle(fontSize: 10, color: Colors.grey));
+                    },
+                  ),
+                ),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              scatterTouchData: ScatterTouchData(
+                enabled: true,
+                touchTooltipData: ScatterTouchTooltipData(
+                  getTooltipItems: (ScatterSpot touchedBarSpot) {
+                    return ScatterTooltipItem(
+                      '正確率: ${touchedBarSpot.y.toInt()}%\n時間: ${touchedBarSpot.x.toStringAsFixed(1)}s',
+                      textStyle: const TextStyle(color: Colors.white, fontSize: 11),
+                    );
+                  },
                 ),
               ),
             ),
-
-            // 柱狀圖列
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(7, (i) {
-                final double acc = _weeklyAccuracyList[i]; // -1 代表無資料
-                final bool hasData = acc >= 0;
-                final double barHeight =
-                    hasData ? (acc / 100.0) * chartMaxHeight : 4.0;
-                final bool isToday = (i == DateTime.now().weekday - 1);
-                final bool isSelected = (_selectedBarIndex == i);
-
-                // 顯示顏色：綠色=高正確率, 黃色=中, 紅=低
-                Color barColor;
-                if (!hasData) {
-                  barColor = Colors.grey.shade200;
-                } else if (acc >= 80) {
-                  barColor = const Color(0xFF66BB6A); // 綠
-                } else if (acc >= 60) {
-                  barColor = const Color(0xFFFFCA28); // 黃
-                } else {
-                  barColor = const Color(0xFFEF5350); // 紅
-                }
-
-                return GestureDetector(
-                  onTap: () {
-                    _update(() {
-                      _selectedBarIndex = i;
-                    });
-                  },
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // 點擊顯示的正確率 Tooltip
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 200),
-                        opacity: isSelected ? 1.0 : 0.0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          margin: const EdgeInsets.only(bottom: 4),
-                          decoration: BoxDecoration(
-                            color: hasData ? barColor : Colors.grey.shade400,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            hasData ? '${acc.toInt()}%' : '--',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-
-                      // 柱狀圖本體
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: 14,
-                        height: barHeight < 4 ? 4 : barHeight,
-                        decoration: BoxDecoration(
-                          gradient: isToday && hasData
-                              ? LinearGradient(
-                                  colors: [
-                                    barColor,
-                                    barColor.withValues(alpha: 0.6)
-                                  ],
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                )
-                              : LinearGradient(
-                                  colors: hasData
-                                      ? [
-                                          barColor,
-                                          barColor.withValues(alpha: 0.7)
-                                        ]
-                                      : [
-                                          Colors.grey.shade200,
-                                          Colors.grey.shade300
-                                        ],
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                ),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: isToday && hasData
-                              ? [
-                                  BoxShadow(
-                                    color: barColor.withValues(alpha: 0.35),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ]
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        days[i],
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight:
-                              isToday ? FontWeight.bold : FontWeight.normal,
-                          color: isToday
-                              ? _currentPrimaryColor
-                              : Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ),
-          ],
+          ),
         ),
         // 圖例
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
           children: [
-            _buildLegendDot(const Color(0xFF66BB6A), '≥ 80%'),
-            const SizedBox(width: 12),
-            _buildLegendDot(const Color(0xFFFFCA28), '60~79%'),
-            const SizedBox(width: 12),
-            _buildLegendDot(const Color(0xFFEF5350), '< 60%'),
+            _buildLegendDot(Colors.blue, '熟練度高 (藍)'),
+            _buildLegendDot(Colors.amber, '猶豫期 (黃)'),
+            _buildLegendDot(Colors.grey, '粗心 (灰)'),
+            _buildLegendDot(Colors.red, '嚴重盲點 (紅)'),
           ],
         ),
       ],
@@ -1049,7 +1215,7 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildSocialFeedLayoutOption(
       BuildContext dialogContext, String mode, String title, String subtitle) {
     bool isSelected = (_socialFeedLayout == mode);
-    Widget previewWidget = _buildSocialFeedLayoutPreview(mode);
+    Widget previewWidget = _buildSocialFeedLayoutPreview(mode, isSelected);
 
     return InkWell(
       onTap: () async {
@@ -1118,21 +1284,25 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  Widget _buildSocialFeedLayoutPreview(String mode) {
+  Widget _buildSocialFeedLayoutPreview(String mode, bool isSelected) {
     bool isDark = _isDarkMode;
     Color cellBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
     Color textCol = isDark ? Colors.white54 : Colors.black54;
     Color borderCol = isDark ? Colors.white12 : Colors.grey.shade200;
     Color primary = _currentPrimaryColor;
+    
+    Color imageBgCol = isSelected ? primary.withValues(alpha: 0.15) : textCol.withValues(alpha: 0.1);
+    Color imageIconCol = isSelected ? primary.withValues(alpha: 0.7) : Colors.grey;
+    Color titleCol = isSelected ? primary : (isDark ? Colors.white : Colors.black87);
 
     if (mode == 'card') {
       return Container(
         width: 260,
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: cellBg,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderCol),
+          border: Border.all(color: isSelected ? primary.withValues(alpha: 0.5) : borderCol),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1140,38 +1310,48 @@ extension MainScreenProfileTab on _MainScreenState {
             Row(
               children: [
                 CircleAvatar(
-                  radius: 8,
-                  backgroundColor: primary.withValues(alpha: 0.3),
-                  child:
-                      Text('A', style: TextStyle(fontSize: 6, color: primary)),
+                  radius: 10,
+                  backgroundColor: primary.withValues(alpha: 0.2),
+                  child: Text('A', style: TextStyle(fontSize: 10, color: primary, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 6),
-                Container(
-                    width: 30,
-                    height: 6,
-                    color: textCol.withValues(alpha: 0.3)),
+                Text('Aden', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: titleCol)),
+                const SizedBox(width: 6),
+                Text('2 小時前', style: TextStyle(fontSize: 9, color: textCol.withValues(alpha: 0.6))),
                 const Spacer(),
-                Container(
-                    width: 20,
-                    height: 6,
-                    color: textCol.withValues(alpha: 0.15)),
+                Icon(Icons.more_horiz, size: 14, color: textCol.withValues(alpha: 0.6)),
               ],
             ),
-            const SizedBox(height: 6),
-            Container(
-                width: 200, height: 6, color: textCol.withValues(alpha: 0.4)),
-            const SizedBox(height: 3),
-            Container(
-                width: 140, height: 6, color: textCol.withValues(alpha: 0.4)),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
+            Text(
+              '打包測試\n這是一段用來展示卡片排版的模擬文字內容。',
+              style: TextStyle(fontSize: 11, height: 1.4, color: textCol),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              height: 36,
+              height: 60,
               decoration: BoxDecoration(
-                color: textCol.withValues(alpha: 0.1),
+                color: imageBgCol,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.image, size: 16, color: Colors.grey),
+              child: Icon(Icons.image, size: 24, color: imageIconCol),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.favorite_border, size: 12, color: textCol.withValues(alpha: 0.6)),
+                const SizedBox(width: 4),
+                Text('12', style: TextStyle(fontSize: 9, color: textCol.withValues(alpha: 0.6))),
+                const SizedBox(width: 12),
+                Icon(Icons.mode_comment_outlined, size: 12, color: textCol.withValues(alpha: 0.6)),
+                const SizedBox(width: 4),
+                Text('3', style: TextStyle(fontSize: 9, color: textCol.withValues(alpha: 0.6))),
+                const Spacer(),
+                Icon(Icons.bookmark_border, size: 12, color: textCol.withValues(alpha: 0.6)),
+              ],
             ),
           ],
         ),
@@ -1180,11 +1360,11 @@ extension MainScreenProfileTab on _MainScreenState {
       // mode == 'list'
       return Container(
         width: 260,
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: cellBg,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderCol),
+          border: Border.all(color: isSelected ? primary.withValues(alpha: 0.5) : borderCol),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1197,44 +1377,46 @@ extension MainScreenProfileTab on _MainScreenState {
                     children: [
                       CircleAvatar(
                         radius: 8,
-                        backgroundColor: primary.withValues(alpha: 0.3),
-                        child: Text('A',
-                            style: TextStyle(fontSize: 6, color: primary)),
+                        backgroundColor: primary.withValues(alpha: 0.2),
+                        child: Text('A', style: TextStyle(fontSize: 8, color: primary, fontWeight: FontWeight.bold)),
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                          width: 30,
-                          height: 6,
-                          color: textCol.withValues(alpha: 0.3)),
+                      const SizedBox(width: 4),
+                      Text('Aden', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: titleCol)),
+                      const SizedBox(width: 4),
+                      Text('2 小時前', style: TextStyle(fontSize: 8, color: textCol.withValues(alpha: 0.6))),
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '國小生複習計畫\n今天幫小朋友整理的重點，大家可以參考看看！',
+                    style: TextStyle(fontSize: 10, height: 1.4, color: textCol),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 6),
-                  Container(
-                      width: 130,
-                      height: 6,
-                      color: textCol.withValues(alpha: 0.4)),
-                  const SizedBox(height: 3),
-                  Container(
-                      width: 100,
-                      height: 6,
-                      color: textCol.withValues(alpha: 0.3)),
-                  const SizedBox(height: 6),
-                  Container(
-                      width: 50,
-                      height: 6,
-                      color: textCol.withValues(alpha: 0.15)),
+                  Row(
+                    children: [
+                      Icon(Icons.favorite_border, size: 10, color: textCol.withValues(alpha: 0.6)),
+                      const SizedBox(width: 4),
+                      Text('12', style: TextStyle(fontSize: 8, color: textCol.withValues(alpha: 0.6))),
+                      const SizedBox(width: 8),
+                      Icon(Icons.mode_comment_outlined, size: 10, color: textCol.withValues(alpha: 0.6)),
+                      const SizedBox(width: 4),
+                      Text('3', style: TextStyle(fontSize: 8, color: textCol.withValues(alpha: 0.6))),
+                    ],
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
             Container(
-              width: 36,
-              height: 36,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: textCol.withValues(alpha: 0.1),
+                color: imageBgCol,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.image, size: 14, color: Colors.grey),
+              child: Icon(Icons.image, size: 20, color: imageIconCol),
             ),
           ],
         ),

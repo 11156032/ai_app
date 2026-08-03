@@ -182,12 +182,21 @@ extension MainScreenSocialTab on _MainScreenState {
   };
 
   List<Map<String, dynamic>> _getEffectiveSocialPosts() {
-    final bool hasNotePost = socialPosts.any((p) =>
+    final int noteIdx = socialPosts.indexWhere((p) =>
         p['attached_data'] != null &&
         p['attached_data']['shared_type'] == 'note');
 
-    if ((_tourOverlayEntry != null || _isTourActive) && !hasNotePost) {
-      return [_tourDemoNotePost, ...socialPosts];
+    if (_tourOverlayEntry != null || _isTourActive) {
+      if (noteIdx == -1) {
+        _tourDemoNotePost['_isExpanded'] = true;
+        return [_tourDemoNotePost, ...socialPosts];
+      } else {
+        final targetPost = socialPosts[noteIdx];
+        targetPost['_isExpanded'] = true;
+        final listCopy = List<Map<String, dynamic>>.from(socialPosts);
+        listCopy.removeAt(noteIdx);
+        return [targetPost, ...listCopy];
+      }
     }
     return socialPosts;
   }
@@ -1607,15 +1616,10 @@ extension MainScreenSocialTab on _MainScreenState {
           bottom: BorderSide(color: borderCol, width: 1),
         ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Content Left
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Author row
+          // Author row
                 Row(
                   children: [
                     GestureDetector(
@@ -1671,19 +1675,49 @@ extension MainScreenSocialTab on _MainScreenState {
                         ),
                       ),
                     ],
+                    if (p['userId'].toString() ==
+                        widget.currentUser['id'].toString()) ...[
+                      const Spacer(),
+                      PopupMenuButton<String>(
+                        padding: EdgeInsets.zero,
+                        iconSize: 18,
+                        icon: Icon(Icons.more_horiz,
+                            color: isDark ? Colors.white38 : Colors.grey),
+                        onSelected: (val) {
+                          if (val == 'edit') _editPost(p);
+                          if (val == 'delete') _deletePost(p);
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(value: 'edit', child: Text('編輯貼文')),
+                          const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('刪除貼文',
+                                  style: TextStyle(color: Colors.red))),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 8),
-                StatefulBuilder(
-                  builder: (context, setStateText) {
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          StatefulBuilder(
+                            builder: (context, setStateText) {
                     final attached = p['attached_data'];
                     final String content = p['content'] ?? '';
                     final bool isExpanded = p['_isExpanded'] as bool? ?? false;
                     final bool hasAttachment =
                         attached != null && attached['shared_type'] != null;
+                    final bool hasFile = p['fileName'] != null && p['fileName'].toString().isNotEmpty;
+                    final bool hasLearningPack = p['postType'] == 'learning_pack';
                     final bool isLongText = content.length > 80 ||
                         '\n'.allMatches(content).length >= 2 ||
-                        hasAttachment;
+                        hasAttachment || hasFile || hasLearningPack;
 
                     if (!isExpanded) {
                       return Column(
@@ -1715,6 +1749,34 @@ extension MainScreenSocialTab on _MainScreenState {
                             },
                             child: _buildSharedResourceCardMini(p),
                           ),
+                          if (hasFile)
+                            GestureDetector(
+                              onTap: () => setStateText(() => p['_isExpanded'] = true),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.attach_file_rounded, size: 14, color: _currentPrimaryColor),
+                                    const SizedBox(width: 4),
+                                    Text('附加檔案 (點擊展開)', style: TextStyle(fontSize: 12, color: _currentPrimaryColor, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (hasLearningPack)
+                            GestureDetector(
+                              onTap: () => setStateText(() => p['_isExpanded'] = true),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.inventory_2_outlined, size: 14, color: _currentPrimaryColor),
+                                    const SizedBox(width: 4),
+                                    Text('學習 Pack (點擊展開)', style: TextStyle(fontSize: 12, color: _currentPrimaryColor, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
                           if (isLongText) ...[
                             const SizedBox(height: 6),
                             Center(
@@ -1761,6 +1823,8 @@ extension MainScreenSocialTab on _MainScreenState {
                             ),
                           ),
                           _buildSharedResourceCard(p, idx, isSocialFeed),
+                          if (p['fileName'] != null && p['fileName'].toString().isNotEmpty)
+                            _buildFileAttachment(p),
                           if (p['postType'] == 'learning_pack')
                             _buildLearningPackCard(p),
                           const SizedBox(height: 6),
@@ -1797,15 +1861,12 @@ extension MainScreenSocialTab on _MainScreenState {
                     }
                   },
                 ),
-                const SizedBox(height: 8),
-                // Actions row
-                _buildPostActionsMini(p),
-              ],
-            ),
-          ),
-          // Thumbnail Right
-          if (hasMedia) ...[
-            const SizedBox(width: 12),
+                        ],
+                      ),
+                    ),
+                    // Thumbnail Right
+                    if (hasMedia) ...[
+                      const SizedBox(width: 12),
             GestureDetector(
               onTap: () => _showImagePreviewDialog(p),
               child: Container(
@@ -1833,7 +1894,12 @@ extension MainScreenSocialTab on _MainScreenState {
                 ),
               ),
             ),
-          ],
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Actions row
+                _buildPostActionsMini(p),
         ],
       ),
     );

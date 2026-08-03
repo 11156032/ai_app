@@ -42,7 +42,16 @@ class _AboutUsScreenState extends State<AboutUsScreen>
           ..forward();
 
     _typewriterController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 2800));
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 3200))
+          ..addListener(() {
+            if (_typewriterController.isAnimating &&
+                _scrollController.hasClients) {
+              final maxScroll = _scrollController.position.maxScrollExtent;
+              if (_scrollController.offset < maxScroll) {
+                _scrollController.jumpTo(maxScroll);
+              }
+            }
+          });
 
     _shimmerController =
         AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))
