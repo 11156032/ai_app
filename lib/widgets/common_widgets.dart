@@ -37,24 +37,30 @@ Widget buildAvatar({
           height: radius * 2,
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => const Icon(Icons.person),
+          errorBuilder: (_, __, ___) => _buildFallbackAvatar(colorIdx, initial, radius, usePreset: usePreset),
         ),
       ),
     );
   }
-  if (usePreset) {
-    final preset = kPresetAvatars[colorIdx % kPresetAvatars.length];
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: preset['color'] as Color,
-      child: Text(preset['emoji'] as String,
-          style: TextStyle(fontSize: radius * 0.95)),
-    );
-  }
+  return _buildFallbackAvatar(colorIdx, initial, radius, usePreset: usePreset);
+}
+
+Widget _buildFallbackAvatar(int colorIdx, String initial, double radius, {bool usePreset = false}) {
+  final preset = kPresetAvatars[colorIdx.abs() % kPresetAvatars.length];
+  final bool hasValidInitial = initial.isNotEmpty && initial != '我' && initial != '?';
+  final bool showEmoji = usePreset || !hasValidInitial;
+
   return CircleAvatar(
     radius: radius,
-    backgroundColor: const Color(0xFFBDBDBD),
-    child: Icon(Icons.person, color: Colors.white, size: radius),
+    backgroundColor: preset['color'] as Color,
+    child: Text(
+      showEmoji ? (preset['emoji'] as String) : initial,
+      style: TextStyle(
+        fontSize: radius * (showEmoji ? 0.9 : 0.85),
+        fontWeight: FontWeight.bold,
+        color: showEmoji ? null : Colors.black87,
+      ),
+    ),
   );
 }
 

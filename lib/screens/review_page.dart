@@ -760,7 +760,7 @@ class _ReviewPageState extends State<ReviewPage>
                       try {
                         final db = await DatabaseHelper.instance.database;
                         final nextVal = isFav ? 0 : 1;
-                        await db.update('questions', {'bookmarked': nextVal},
+                        await db.update('questions', <String, Object?>{'bookmarked': nextVal},
                             where: 'id = ?', whereArgs: [qid]);
                         setState(() {
                           if (isFav) {

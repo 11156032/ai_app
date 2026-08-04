@@ -172,6 +172,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           currentUser: widget.currentUser,
           isPaper: isPaperMode,
           saveResult: saveResult,
+          subject: widget.subject ?? widget.title,
+          paperId: widget.paperId,
         ),
       ),
     );
@@ -684,7 +686,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   try {
                     final db = await DatabaseHelper.instance.database;
                     final nextVal = question['isFavorite'] == true ? 0 : 1;
-                    await db.update('questions', {'bookmarked': nextVal}, where: 'id = ?', whereArgs: [question['id']]);
+                    await db.update('questions', <String, Object?>{'bookmarked': nextVal}, where: 'id = ?', whereArgs: [question['id']]);
                     setState(() {
                       question['isFavorite'] = nextVal == 1;
                     });
@@ -1076,7 +1078,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   try {
                     final db = await DatabaseHelper.instance.database;
                     final nextVal = question['isFavorite'] == true ? 0 : 1;
-                    await db.update('questions', {'bookmarked': nextVal}, where: 'id = ?', whereArgs: [question['id']]);
+                    await db.update('questions', <String, Object?>{'bookmarked': nextVal}, where: 'id = ?', whereArgs: [question['id']]);
                     setState(() {
                       question['isFavorite'] = nextVal == 1;
                     });

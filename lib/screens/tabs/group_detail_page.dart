@@ -1021,7 +1021,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           'content': _replyingPost!['content'],
         };
       }
-      await db.insert('posts', {
+      await db.insert('posts', <String, Object?>{
         'group_id': _group['id'],
         'user_id': _currentUserId,
         'content': text,
@@ -1096,12 +1096,18 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 ],
               ),
             ),
-          Padding(
+          AnimatedPadding(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
             padding: EdgeInsets.only(
               left: 12,
               right: 12,
               top: 8,
-              bottom: 8 + MediaQuery.of(context).padding.bottom,
+              bottom: 8 +
+                  MediaQuery.of(context).viewInsets.bottom +
+                  (MediaQuery.of(context).viewInsets.bottom > 0
+                      ? 4
+                      : MediaQuery.of(context).padding.bottom),
             ),
             child: Row(
               children: [
@@ -1127,6 +1133,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                       style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                       maxLines: null,
                       keyboardType: TextInputType.multiline,
+                      scrollPadding: const EdgeInsets.only(bottom: 120),
                       decoration: const InputDecoration(
                         hintText: '輸入訊息...',
                         border: InputBorder.none,
@@ -1173,7 +1180,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           whereArgs: [postId, _currentUserId]);
       await db.execute('UPDATE posts SET likes = MAX(0, likes - 1) WHERE id = ?', [postId]);
     } else {
-      await db.insert('post_likes', {'post_id': postId, 'user_id': _currentUserId});
+      await db.insert('post_likes', <String, Object?>{'post_id': postId, 'user_id': _currentUserId});
       await db.execute('UPDATE posts SET likes = likes + 1 WHERE id = ?', [postId]);
     }
   }

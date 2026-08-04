@@ -1084,7 +1084,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         final strokesJson =
             jsonEncode(_strokes.map((s) => s.toJson()).toList());
         final db = await DatabaseHelper.instance.database;
-        await db.insert('posts', {
+        await db.insert('posts', <String, Object?>{
           'user_id': widget.note.userId,
           'content':
               '我分享了我的學習筆記《${widget.note.title.isEmpty ? "無標題筆記" : widget.note.title}》，歡迎點擊一鍵匯入！ 📝',

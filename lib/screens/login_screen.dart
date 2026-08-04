@@ -1226,9 +1226,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   try {
                     final db = await DatabaseHelper.instance.database;
-                    await db.update(
-                      'users',
-                      {'hashed_password': newPass},
+                    await db.update('users', <String, Object?>{'hashed_password': newPass},
                       where: 'email = ?',
                       whereArgs: [targetEmail],
                     );
@@ -1431,7 +1429,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             );
             if (shouldRestore == true) {
-              await db.update('users', {'deleted_at': null},
+              await db.update('users', <String, Object?>{'deleted_at': null},
                   where: 'id = ?', whereArgs: [userMap['id']]);
               userMap['deleted_at'] = null;
             } else {
@@ -1497,7 +1495,7 @@ class _LoginScreenState extends State<LoginScreen> {
           }
 
           String newId = 'u_${DateTime.now().millisecondsSinceEpoch}';
-          await db.insert('users', {
+          await db.insert('users', <String, Object?>{
             'id': newId,
             'username': inputUsername,
             'email': inputEmail,
@@ -1584,7 +1582,7 @@ class _LoginScreenState extends State<LoginScreen> {
         userMap = Map<String, dynamic>.from(res.first);
         // 如果存在但尚未標記為 google 登入，則更新為 google 登入
         if (userMap['is_google'] != 1) {
-          await db.update('users', {'is_google': 1},
+          await db.update('users', <String, Object?>{'is_google': 1},
               where: 'id = ?', whereArgs: [userMap['id']]);
           userMap['is_google'] = 1;
         }
@@ -1608,7 +1606,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
           if (shouldRestore == true) {
-            await db.update('users', {'deleted_at': null},
+            await db.update('users', <String, Object?>{'deleted_at': null},
                 where: 'id = ?', whereArgs: [userMap['id']]);
             userMap['deleted_at'] = null;
           } else {
@@ -2206,9 +2204,7 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
     try {
       final db = await DatabaseHelper.instance.database;
       // 方案一：僅將 is_google 設為 0
-      await db.update(
-        'users',
-        {'is_google': 0},
+      await db.update('users', <String, Object?>{'is_google': 0},
         where: 'email = ?',
         whereArgs: [email],
       );

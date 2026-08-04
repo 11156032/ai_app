@@ -166,7 +166,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       } else {
         final db = await DatabaseHelper.instance.database;
         final placeholders = List.filled(_selected.length, '?').join(',');
-        await db.update('questions', {'bookmarked': 0},
+        await db.update('questions', <String, Object?>{'bookmarked': 0},
             where: 'id IN ($placeholders)', whereArgs: _selected.toList());
       }
       await loadWrongQuestions();
@@ -472,7 +472,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   //       final snippet = row['text']?.toString() ?? '';
   //       final summary = snippet.length > 30 ? '${snippet.substring(0, 30)}...' : snippet;
   //
-  //       await db.insert('posts', {
+  //       await db.insert('posts', <String, Object?>{
   //         'user_id': uid,
   //         'content': '我分享了一道《${row['subject'] ?? "學科"}》題目，快來挑戰看看！ 📄\n題目：「$summary」',
   //         'type': 'doc',
@@ -544,7 +544,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
         await DatabaseHelper.instance.deleteWrongQuestionsBulk(ids);
       } else {
         final db = await DatabaseHelper.instance.database;
-        await db.update('questions', {'bookmarked': 0},
+        await db.update('questions', <String, Object?>{'bookmarked': 0},
             where: 'bookmarked = 1');
       }
       await loadWrongQuestions();
@@ -875,8 +875,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                       r['bookmarked'] == true;
                                               final nextVal = isFav ? 0 : 1;
 
-                                              await db.update('questions',
-                                                  {'bookmarked': nextVal},
+                                              await db.update('questions', <String, Object?>{'bookmarked': nextVal},
                                                   where: 'id = ?',
                                                   whereArgs: [qid]);
 
@@ -897,9 +896,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                       textColor: Colors.amber,
                                                       onPressed: () async {
                                                         try {
-                                                          await db.update(
-                                                              'questions',
-                                                              {'bookmarked': 1},
+                                                          await db.update('questions', <String, Object?>{'bookmarked': 1},
                                                               where: 'id = ?',
                                                               whereArgs: [qid]);
                                                           setState(() {
@@ -1140,8 +1137,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                               } else {
                                                 final db = await DatabaseHelper
                                                     .instance.database;
-                                                await db.update('questions',
-                                                    {'bookmarked': 0},
+                                                await db.update('questions', <String, Object?>{'bookmarked': 0},
                                                     where: 'id = ?',
                                                     whereArgs: [qid]);
                                                 setState(() {
@@ -1160,9 +1156,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                       textColor: Colors.amber,
                                                       onPressed: () async {
                                                         try {
-                                                          await db.update(
-                                                              'questions',
-                                                              {'bookmarked': 1},
+                                                          await db.update('questions', <String, Object?>{'bookmarked': 1},
                                                               where: 'id = ?',
                                                               whereArgs: [qid]);
                                                           setState(() {

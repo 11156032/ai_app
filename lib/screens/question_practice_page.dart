@@ -12,6 +12,8 @@ class QuestionPracticePage extends StatefulWidget {
   final Map<String, dynamic>? currentUser;
   final bool isPaper;
   final bool saveResult;
+  final String? subject;
+  final int? paperId;
 
   const QuestionPracticePage({
     super.key,
@@ -21,6 +23,8 @@ class QuestionPracticePage extends StatefulWidget {
     this.currentUser,
     this.isPaper = false,
     this.saveResult = false,
+    this.subject,
+    this.paperId,
   });
 
   @override
@@ -636,12 +640,14 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
       final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u1';
       try {
         final db = await DatabaseHelper.instance.database;
-        await db.insert('quiz_results', {
+        await db.insert('quiz_results', <String, Object?>{
           'user_id': uid.toString(),
           'total': total,
           'correct': correct,
           'wrong_question_ids': jsonEncode(wrongIds),
           'duration_seconds': 0,
+          'subject': widget.subject ?? widget.title,
+          'paper_id': widget.paperId,
           'timestamp': DateTime.now().toIso8601String(),
         });
         debugPrint('Saved paper quiz result to history.');

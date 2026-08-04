@@ -719,9 +719,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 // 自動發佈邏輯
                 attached.remove('scheduled_at');
                 String nowStr = now.toIso8601String();
-                await db.update(
-                    'posts',
-                    {
+                await db.update('posts', <String, Object?>{
                       'attached_data': jsonEncode(attached),
                       'created_at': nowStr,
                     },
@@ -902,10 +900,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       // 6.5 知識掌握度矩陣資料（本週測驗單筆紀錄）
       final matrixRows = await db.rawQuery('''
-        SELECT correct, total, duration_seconds 
+        SELECT correct, total, duration_seconds, subject, paper_id, wrong_question_ids, timestamp 
         FROM quiz_results 
         WHERE user_id = ? AND total > 0 
           AND timestamp >= ?
+        ORDER BY timestamp DESC
       ''', [currentUserId, monday.toIso8601String().substring(0, 10)]);
 
       List<Map<String, dynamic>> weeklyMatrixData = [];
@@ -913,6 +912,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final int cor = (row['correct'] as num?)?.toInt() ?? 0;
         final int tot = (row['total'] as num?)?.toInt() ?? 0;
         final int dur = (row['duration_seconds'] as num?)?.toInt() ?? 0;
+        final String subj = (row['subject'] as String?) ?? '一般練習';
+        final int? paperId = row['paper_id'] as int?;
+        final String wrongIdsStr = (row['wrong_question_ids'] as String?) ?? '[]';
+        final String timeStr = (row['timestamp'] as String?) ?? '';
         
         if (tot > 0) {
           final double acc = (cor / tot) * 100.0;
@@ -921,7 +924,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             'accuracy': acc,
             'avgTime': avgTime,
             'total': tot,
+            'correct': cor,
             'duration': dur,
+            'subject': subj.isNotEmpty ? subj : '綜合測驗',
+            'paper_id': paperId,
+            'wrong_question_ids': wrongIdsStr,
+            'timestamp': timeStr,
           });
         }
       }
@@ -1038,7 +1046,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (seconds < 5) return;
     try {
       final db = await DatabaseHelper.instance.database;
-      await db.insert('quiz_results', {
+      await db.insert('quiz_results', <String, Object?>{
         'user_id': widget.currentUser['id'],
         'total': 0,
         'correct': 0,
@@ -1366,9 +1374,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       );
 
       if (existing.isNotEmpty) {
-        await db.update(
-          'diaries',
-          {
+        await db.update('diaries', <String, Object?>{
             'content': content,
             'updated_at': DateTime.now().toIso8601String(),
           },
@@ -1376,7 +1382,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           whereArgs: [int.parse(existing['id'].toString())],
         );
       } else {
-        await db.insert('diaries', {
+        await db.insert('diaries', <String, Object?>{
           'user_id': currentUserId,
           'date': dateKey,
           'content': content,
@@ -1542,9 +1548,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   newAttached = '{"scheduled_at": "$currentTime"}';
                 }
                 final spId = int.tryParse(sp['id'].toString()) ?? sp['id'];
-                await db.update(
-                    'posts',
-                    {
+                await db.update('posts', <String, Object?>{
                       'content': newContent,
                       'attached_data': newAttached,
                     },
@@ -1581,7 +1585,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       attached = '{"scheduled_at": "${pData['time']}"}';
     }
 
-    await db.insert('posts', {
+    await db.insert('posts', <String, Object?>{
       'user_id': widget.currentUser['id'],
       'content': pData['content'],
       'type': tType,
@@ -1609,7 +1613,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       typeKey = 'doc';
     }
 
-    await db.insert('posts', {
+    await db.insert('posts', <String, Object?>{
       'user_id': userId,
       'content': data['content'],
       'type': typeKey,
@@ -1646,7 +1650,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         );
       }
     } else {
-      await db.insert('post_bookmarks', {
+      await db.insert('post_bookmarks', <String, Object?>{
         'post_id': postId,
         'user_id': userId,
       });
@@ -1674,7 +1678,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       String endKey = eDate.toString().split(' ')[0];
       String startStr = "$startKey ${timeRange.split('~')[0]}:00";
       String endStr = "$endKey ${timeRange.split('~')[1]}:00";
-      await db.insert('calendar_events', {
+      await db.insert('calendar_events', <String, Object?>{
         'user_id': widget.currentUser['id'],
         'title': title,
         'start_time': startStr,
@@ -1719,9 +1723,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       String endKey = eDate.toString().split(' ')[0];
       String startStr = "$startKey ${timeRange.split('~')[0]}:00";
       String endStr = "$endKey ${timeRange.split('~')[1]}:00";
-      await db.update(
-          'calendar_events',
-          {
+      await db.update('calendar_events', <String, Object?>{
             'title': title,
             'start_time': startStr,
             'end_time': endStr,
@@ -1770,7 +1772,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         now.minute,
         now.second,
       );
-      await db.insert('todos', {
+      await db.insert('todos', <String, Object?>{
         'user_id': widget.currentUser['id'],
         'text': title,
         'done': 0,
@@ -1810,7 +1812,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void _editTodo(String id, String newText) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      await db.update('todos', {'text': newText}, where: 'id = ?', whereArgs: [int.parse(id)]);
+      await db.update('todos', <String, Object?>{'text': newText}, where: 'id = ?', whereArgs: [int.parse(id)]);
       await _loadData();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1834,9 +1836,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       );
 
       if (existing.isNotEmpty) {
-        await db.update(
-          'diaries',
-          {
+        await db.update('diaries', <String, Object?>{
             'content': content,
             'updated_at': DateTime.now().toIso8601String(),
           },
@@ -1844,7 +1844,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           whereArgs: [int.parse(existing['id'].toString())],
         );
       } else {
-        await db.insert('diaries', {
+        await db.insert('diaries', <String, Object?>{
           'user_id': currentUserId,
           'date': dateKey,
           'content': content,
@@ -2151,7 +2151,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       String endTimeDb = "$dateStr ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')}:00";
 
       // Insert new schedule event
-      await db.insert('calendar_events', {
+      await db.insert('calendar_events', <String, Object?>{
         'user_id': currentUserId,
         'title': title,
         'start_time': startTimeDb,
@@ -2161,7 +2161,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       // Complete to-do if requested
       if (todoIdToComplete != null) {
-        await db.update('todos', {
+        await db.update('todos', <String, Object?>{
           'done': 1,
           'done_at': DateTime.now().toIso8601String(),
         }, where: 'id = ?', whereArgs: [int.parse(todoIdToComplete)]);
@@ -6405,7 +6405,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           if (startStr.length <= 16) startStr = "$startStr:00";
           if (endStr.length <= 16) endStr = "$endStr:00";
 
-          await db.insert('calendar_events', {
+          await db.insert('calendar_events', <String, Object?>{
             'user_id': widget.currentUser['id'],
             'title': _aiFlowData['title'] ?? '無標題行程',
             'start_time': startStr,
@@ -6669,7 +6669,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       Future.delayed(const Duration(milliseconds: 500), () async {
         try {
           final db = await DatabaseHelper.instance.database;
-          await db.insert('todos', {
+          await db.insert('todos', <String, Object?>{
             'user_id': widget.currentUser['id'],
             'text': _aiFlowData['title'] ?? '無標題待辦',
             'done': 0,
@@ -6871,7 +6871,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       Future.delayed(const Duration(milliseconds: 400), () async {
         try {
           final db = await DatabaseHelper.instance.database;
-          await db.update('todos', {'text': newTitle},
+          await db.update('todos', <String, Object?>{'text': newTitle},
               where: 'id = ?', whereArgs: [todoId]);
           await _loadData();
           if (mounted) {
@@ -9248,9 +9248,7 @@ $strokePrompt
             doneDateTime = DateTime(targetDate.year, targetDate.month, targetDate.day, doneDateTime.hour, doneDateTime.minute, doneDateTime.second);
           }
           String? doneAt = newDone ? doneDateTime.toIso8601String() : null;
-          await db.update(
-            'todos',
-            {'done': newDone ? 1 : 0, 'done_at': doneAt},
+          await db.update('todos', <String, Object?>{'done': newDone ? 1 : 0, 'done_at': doneAt},
             where: 'id = ?',
             whereArgs: [int.parse(item['id'])],
           );
@@ -10751,17 +10749,19 @@ $strokePrompt
   Future<void> _saveAvatar({required int colorIdx, Uint8List? blob}) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'users',
-        {'avatar_color': colorIdx, 'avatar_blob': blob, 'avatar_selected': 1},
+      await db.update('users', <String, Object?>{'avatar_color': colorIdx, 'avatar_blob': blob, 'avatar_selected': 1},
         where: 'id = ?',
         whereArgs: [widget.currentUser['id']],
       );
+      _globalBlobCache.remove('user_${widget.currentUser['id']}');
       if (mounted) {
         setState(() {
           _userAvatarColor = colorIdx;
           _userAvatarBlob = blob;
           _userAvatarSelected = true;
+          widget.currentUser['avatar_color'] = colorIdx;
+          widget.currentUser['avatar_blob'] = blob;
+          widget.currentUser['avatar_selected'] = 1;
         });
         // 重新載入資料，讓社群貼文的頭像也同步更新
         await _loadData();
@@ -10854,6 +10854,7 @@ $strokePrompt
                         await _saveAvatar(
                             colorIdx: _userAvatarColor, blob: bytes);
                         if (mounted) {
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
                           ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('頭像已更新')));
                         }
@@ -10903,6 +10904,7 @@ $strokePrompt
                             Navigator.pop(ctx);
                             await _saveAvatar(colorIdx: i, blob: null);
                             if (mounted) {
+                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
                               ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('頭像已更新')));
                             }
@@ -10992,9 +10994,7 @@ $strokePrompt
 
   Future<void> _updateBio(String newBio) async {
     final db = await DatabaseHelper.instance.database;
-    await db.update(
-      'users',
-      {'bio': newBio},
+    await db.update('users', <String, Object?>{'bio': newBio},
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],
     );
@@ -11113,9 +11113,7 @@ $strokePrompt
 
   Future<void> _updatePersonalization() async {
     final db = await DatabaseHelper.instance.database;
-    await db.update(
-      'users',
-      {
+    await db.update('users', <String, Object?>{
         'font_size_factor': _fontSizeFactor,
         'theme_color_idx': _themeColorIdx,
         'is_dark_mode': _isDarkMode ? 1 : 0,
@@ -11168,9 +11166,7 @@ $strokePrompt
   Future<void> _updateNickname(String newName) async {
     final db = await DatabaseHelper.instance.database;
     final nowStr = DateTime.now().toIso8601String();
-    await db.update(
-      'users',
-      {
+    await db.update('users', <String, Object?>{
         'display_name': newName,
         'username': newName, // 同步更新帳號，確保登入時可用新名稱
         'nickname_updated_at': nowStr
@@ -11200,7 +11196,7 @@ $strokePrompt
                 final messenger = ScaffoldMessenger.of(context);
                 final navigator = Navigator.of(ctx);
                 final db = await DatabaseHelper.instance.database;
-                await db.update('users', {'is_email_verified': 1},
+                await db.update('users', <String, Object?>{'is_email_verified': 1},
                     where: 'id = ?', whereArgs: [widget.currentUser['id']]);
                 await _loadData();
                 navigator.pop();
@@ -11229,9 +11225,7 @@ $strokePrompt
             onPressed: () async {
               Navigator.pop(ctx);
               final db = await DatabaseHelper.instance.database;
-              await db.update(
-                'users',
-                {'deleted_at': DateTime.now().toIso8601String()},
+              await db.update('users', <String, Object?>{'deleted_at': DateTime.now().toIso8601String()},
                 where: 'id = ?',
                 whereArgs: [widget.currentUser['id']],
               );
@@ -12393,6 +12387,38 @@ class _CreatePostPageState extends State<CreatePostPage> {
   DateTime? _scheduledAt; // 定時發佈時間
   Map<String, dynamic>? _learningPackData; // 學習 Pack 的資料
 
+  Uint8List? _userAvatarBlob;
+  int? _userAvatarColor;
+  int _userAvatarSelected = 0;
+  bool _isLoadingUserAvatar = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserAvatar();
+  }
+
+  Future<void> _loadUserAvatar() async {
+    try {
+      final userId = widget.currentUser['id'];
+      final db = await DatabaseHelper.instance.database;
+      final u = await db.query('users', where: 'id = ?', whereArgs: [userId]);
+      if (u.isNotEmpty && mounted) {
+        setState(() {
+          _userAvatarBlob = u.first['avatar_blob'] as Uint8List?;
+          _userAvatarColor = u.first['avatar_color'] as int?;
+          _userAvatarSelected = (u.first['avatar_selected'] as int?) ?? 0;
+          _isLoadingUserAvatar = false;
+          widget.currentUser['avatar_blob'] = _userAvatarBlob;
+          widget.currentUser['avatar_color'] = _userAvatarColor;
+          widget.currentUser['avatar_selected'] = _userAvatarSelected;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user avatar in CreatePostPage: $e');
+    }
+  }
+
   void _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
@@ -12560,7 +12586,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         attachedMap.addAll(_learningPackData!);
       }
 
-      final newId = await db.insert('posts', {
+      final newId = await db.insert('posts', <String, Object?>{
         'user_id': userId,
         'content': _contentController.text,
         'type': _postType ?? (blobData != null ? 'image' : 'text'),
@@ -12579,12 +12605,27 @@ class _CreatePostPageState extends State<CreatePostPage> {
       if (mounted) Navigator.pop(context);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:
-              Text(_scheduledAt != null ? '⏰ 已設定排程，將於指定時間發佈！' : '🎉 貼文發佈成功！'),
-          backgroundColor: Theme.of(context).primaryColor,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _scheduledAt != null ? '⏰ 已設定排程，將於指定時間發佈！' : '🎉 貼文發佈成功！',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 2),
         ));
       }
     } catch (e) {
@@ -12669,7 +12710,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           // ── 主要編輯區 ──
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -12678,11 +12719,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       buildAvatar(
-                        blob: widget.currentUser['avatar_blob'] as Uint8List?,
-                        colorIdx: (widget.currentUser['avatar_color'] as int?) ?? getAvatarColorIdx(displayName),
-                        initial: displayName.substring(0, 1),
+                        blob: _isLoadingUserAvatar
+                            ? (widget.currentUser['avatar_blob'] as Uint8List?)
+                            : _userAvatarBlob,
+                        colorIdx: (_isLoadingUserAvatar
+                                ? (widget.currentUser['avatar_color'] as int?)
+                                : _userAvatarColor) ??
+                            getAvatarColorIdx(displayName),
+                        initial: displayName.isNotEmpty ? displayName.substring(0, 1) : '我',
                         radius: 20,
-                        usePreset: (widget.currentUser['avatar_selected'] as int? ?? 0) == 1 && widget.currentUser['avatar_blob'] == null,
+                        usePreset: ((_isLoadingUserAvatar
+                                    ? (widget.currentUser['avatar_selected'] as int? ?? 0)
+                                    : _userAvatarSelected) ==
+                                1) &&
+                            (_isLoadingUserAvatar
+                                    ? widget.currentUser['avatar_blob']
+                                    : _userAvatarBlob) ==
+                                null,
                       ),
                       const SizedBox(width: 12),
                       Column(
@@ -12781,8 +12834,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   // 文字輸入區
                   TextField(
                     controller: _contentController,
+                    minLines: 6,
                     maxLines: null,
-                    autofocus: true,
+                    autofocus: false,
+                    scrollPadding: const EdgeInsets.all(20),
                     style: const TextStyle(
                         fontSize: 17, height: 1.55, color: Colors.black87),
                     decoration: InputDecoration(
@@ -13158,7 +13213,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
     final db = await DatabaseHelper.instance.database;
     final userId = widget.currentUser['id'];
 
-    final newId = await db.insert('comments', {
+    final newId = await db.insert('comments', <String, Object?>{
       'post_id': widget.originalPost['id'],
       'user_id': userId,
       'text': _commentController.text,
@@ -13240,7 +13295,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
     if (newText != null && newText.isNotEmpty && newText != currentText) {
       final db = await DatabaseHelper.instance.database;
-      await db.update('comments', {'text': newText},
+      await db.update('comments', <String, Object?>{'text': newText},
           where: 'id = ?', whereArgs: [commentId]);
       _loadComments();
     }
@@ -14069,6 +14124,7 @@ class _ReplyInputBarState extends State<_ReplyInputBar> {
                 controller: widget.controller,
                 focusNode: _focus,
                 maxLines: null,
+                scrollPadding: const EdgeInsets.only(bottom: 200),
                 style: TextStyle(
                     fontSize: 14,
                     color: widget.isDark ? Colors.white : Colors.black87),

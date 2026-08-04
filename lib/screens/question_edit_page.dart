@@ -100,7 +100,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     if (existing.isNotEmpty) {
       return int.tryParse(existing.first['id'].toString());
     }
-    return db.insert('tags', {'name': tagName});
+    return db.insert('tags', <String, Object?>{'name': tagName});
   }
 
   Future<void> _syncChapterTag(dynamic db, int questionId) async {
@@ -110,7 +110,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
 
     final tagId = await _ensureTagId(DatabaseHelper.instance, chapter);
     if (tagId == null) return;
-    await db.insert('question_tag_map', {
+    await db.insert('question_tag_map', <String, Object?>{
       'question_id': questionId,
       'tag_id': tagId,
     });

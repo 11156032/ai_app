@@ -1292,8 +1292,7 @@ extension MainScreenSocialTab on _MainScreenState {
   Future<void> _publishNow(Map<String, dynamic> sp) async {
     final db = await DatabaseHelper.instance.database;
     final spId = int.tryParse(sp['id'].toString()) ?? sp['id'];
-    await db.update('posts',
-        {'attached_data': '{}', 'created_at': DateTime.now().toIso8601String()},
+    await db.update('posts', <String, Object?>{'attached_data': '{}', 'created_at': DateTime.now().toIso8601String()},
         where: 'id = ?', whereArgs: [spId]);
     await _loadData();
     if (mounted) {
@@ -3409,7 +3408,7 @@ extension MainScreenSocialTab on _MainScreenState {
         );
         DateTime endTime = startTime.add(Duration(minutes: e['end_time_offset_minutes'] as int? ?? 60));
 
-        await db.insert('calendar_events', {
+        await db.insert('calendar_events', <String, Object?>{
           'user_id': userId,
           'title': e['title'] ?? '無標題',
           'description': e['description'] ?? '',
@@ -3437,7 +3436,7 @@ extension MainScreenSocialTab on _MainScreenState {
           newQuestionIds.add(qId);
         }
 
-        await db.insert('user_papers', {
+        await db.insert('user_papers', <String, Object?>{
           'user_id': userId,
           'name': p['name'] ?? '無標題試卷',
           'question_ids': jsonEncode(newQuestionIds),
@@ -3591,7 +3590,7 @@ extension MainScreenSocialTab on _MainScreenState {
       final String subject = attached['subject'] ?? '一般';
       final String difficulty = attached['difficulty'] ?? '中';
 
-      await db.insert('questions', {
+      await db.insert('questions', <String, Object?>{
         'user_id': widget.currentUser['id'],
         'text': text,
         'options': jsonEncode(options),
