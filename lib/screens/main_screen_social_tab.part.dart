@@ -2162,7 +2162,7 @@ extension MainScreenSocialTab on _MainScreenState {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            p['author'] != null ? ' ${p['author']} 的 HD 原圖（雙指可放大）' : ' HD 原圖大圖預覽（雙指可放大）',
+                            p['author'] != null ? ' ${p['author']} 的圖片（雙指可放大）' : ' 圖片預覽（雙指可放大）',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,
@@ -2200,12 +2200,31 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   Widget _buildPostMediaPremium(Map<String, dynamic> p) {
+    Map<String, dynamic> attachedData = {};
+    try {
+      if (p['attached_data'] != null) {
+        if (p['attached_data'] is Map) {
+          attachedData = Map<String, dynamic>.from(p['attached_data'] as Map);
+        } else if (p['attached_data'] is String &&
+            (p['attached_data'] as String).isNotEmpty) {
+          attachedData =
+              jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
+        }
+      }
+    } catch (_) {}
+
+    final double alignX =
+        (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
+    final double alignY =
+        (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
+    final Alignment imgAlignment = Alignment(alignX, alignY);
+
     return GestureDetector(
       onTap: () => _showImagePreviewDialog(p),
       child: Container(
         margin: const EdgeInsets.only(top: 12),
         width: double.infinity,
-        constraints: const BoxConstraints(maxHeight: 360, minHeight: 140),
+        constraints: const BoxConstraints(maxHeight: 260, minHeight: 150),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: _isDarkMode ? Colors.black45 : Colors.grey.shade100,
@@ -2219,22 +2238,26 @@ extension MainScreenSocialTab on _MainScreenState {
               borderRadius: BorderRadius.circular(12),
               child: (p['media_blob'] != null)
                   ? Image.memory(p['media_blob'] as Uint8List,
-                      fit: BoxFit.contain,
+                      fit: BoxFit.cover,
+                      alignment: imgAlignment,
                       gaplessPlayback: true,
                       filterQuality: FilterQuality.high)
                   : (p['media'].toString().startsWith('data:image'))
                       ? Image.memory(
                           base64Decode(p['media'].toString().split(',').last),
-                          fit: BoxFit.contain,
+                          fit: BoxFit.cover,
+                          alignment: imgAlignment,
                           gaplessPlayback: true,
                           filterQuality: FilterQuality.high)
                       : (p['media'].toString().startsWith('http') || kIsWeb)
                           ? Image.network(p['media'] as String,
-                              fit: BoxFit.contain,
+                              fit: BoxFit.cover,
+                              alignment: imgAlignment,
                               gaplessPlayback: true,
                               filterQuality: FilterQuality.high)
                           : Image.file(File(p['media'] as String),
-                              fit: BoxFit.contain,
+                              fit: BoxFit.cover,
+                              alignment: imgAlignment,
                               gaplessPlayback: true,
                               filterQuality: FilterQuality.high),
             ),
@@ -2254,7 +2277,7 @@ extension MainScreenSocialTab on _MainScreenState {
                     Icon(Icons.zoom_in, color: Colors.white, size: 11),
                     SizedBox(width: 4),
                     Text(
-                      '點擊可查看無損全圖範疇',
+                      '點擊可查看全圖',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 10,
@@ -2265,33 +2288,7 @@ extension MainScreenSocialTab on _MainScreenState {
                 ),
               ),
             ),
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24, width: 0.8),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.auto_awesome, color: Colors.amber, size: 11),
-                    SizedBox(width: 4),
-                    Text(
-                      'HD 高畫質',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+
           ],
         ),
       ),

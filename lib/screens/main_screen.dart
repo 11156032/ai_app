@@ -12419,6 +12419,8 @@ class CreatePostPage extends StatefulWidget {
 class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _contentController = TextEditingController();
   XFile? _selectedImageX;
+  double _imgAlignX = 0.0;
+  double _imgAlignY = 0.0;
   String? _selectedFileName;
   Uint8List? _selectedFileBytes;
   String? _postType;
@@ -12625,6 +12627,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
       // 建立 attached_data
       final Map<String, dynamic> attachedMap = {};
+      if (_selectedImageX != null) {
+        attachedMap['img_align_x'] = _imgAlignX;
+        attachedMap['img_align_y'] = _imgAlignY;
+      }
       if (_selectedFileName != null) {
         attachedMap['file_name'] = _selectedFileName;
       }
@@ -12944,7 +12950,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                             borderRadius: BorderRadius.circular(14),
                             child: Image.file(
                               File(_selectedImageX!.path),
-                              fit: BoxFit.contain,
+                              fit: BoxFit.cover,
+                              alignment: Alignment(_imgAlignX, _imgAlignY),
                               filterQuality: FilterQuality.high,
                             ),
                           ),
@@ -12952,27 +12959,47 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         Positioned(
                           left: 10,
                           bottom: 10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.auto_awesome, color: Colors.amber, size: 13),
-                                SizedBox(width: 4),
-                                Text(
-                                  ' HD 全圖無損載入 ',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                          child: GestureDetector(
+                            onTap: () async {
+                              final bytes = await _selectedImageX!.readAsBytes();
+                              if (!context.mounted) return;
+                              final Offset? offset = await showDialog<Offset>(
+                                context: context,
+                                builder: (_) => ImageFocalPointDialog(
+                                  rawBytes: bytes,
+                                  initialAlignX: _imgAlignX,
+                                  initialAlignY: _imgAlignY,
                                 ),
-                              ],
+                              );
+                              if (offset != null && mounted) {
+                                setState(() {
+                                  _imgAlignX = offset.dx;
+                                  _imgAlignY = offset.dy;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.75),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.6)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.center_focus_strong, color: Color(0xFF7C6AFF), size: 14),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    '🎯 點擊微調社群顯示焦點',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -15651,4 +15678,152 @@ class _DetectItem {
   final double score;
   final String desc;
   const _DetectItem(this.name, this.score, this.desc);
+}
+
+// ─── 社群貼文圖片視圖焦點 (Alignment) 選擇器對話框 ──────────────────────────────────
+class ImageFocalPointDialog extends StatefulWidget {
+  final Uint8List rawBytes;
+  final double initialAlignX;
+  final double initialAlignY;
+
+  const ImageFocalPointDialog({
+    super.key,
+    required this.rawBytes,
+    this.initialAlignX = 0.0,
+    this.initialAlignY = 0.0,
+  });
+
+  @override
+  State<ImageFocalPointDialog> createState() => _ImageFocalPointDialogState();
+}
+
+class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
+  late double _alignX;
+  late double _alignY;
+
+  @override
+  void initState() {
+    super.initState();
+    _alignX = widget.initialAlignX;
+    _alignY = widget.initialAlignY;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Alignment currentAlignment = Alignment(_alignX, _alignY);
+
+    return Dialog(
+      backgroundColor: const Color(0xFF14141F),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.center_focus_strong, color: Color(0xFF7C6AFF), size: 22),
+                const SizedBox(width: 8),
+                const Text(
+                  '調整社群視圖顯示焦點',
+                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '在預覽框手動拖曳對齊方位，決定貼文在社群動態牆的最佳展示焦點',
+              style: TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onPanUpdate: (details) {
+                const double sens = 0.006;
+                setState(() {
+                  _alignX = (_alignX + details.delta.dx * sens).clamp(-1.0, 1.0);
+                  _alignY = (_alignY + details.delta.dy * sens).clamp(-1.0, 1.0);
+                });
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    border: Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.5), width: 1.5),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Image.memory(
+                          widget.rawBytes,
+                          fit: BoxFit.cover,
+                          alignment: currentAlignment,
+                        ),
+                      ),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.touch_app, color: Colors.white70, size: 14),
+                              SizedBox(width: 4),
+                              Text('按住並滑動可手動微調焦點', style: TextStyle(color: Colors.white, fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white60,
+                      side: const BorderSide(color: Colors.white24),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('取消'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context, Offset(_alignX, _alignY)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C6AFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('套用顯示焦點', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 }
