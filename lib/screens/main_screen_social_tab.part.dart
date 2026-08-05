@@ -2205,38 +2205,64 @@ extension MainScreenSocialTab on _MainScreenState {
       child: Container(
         margin: const EdgeInsets.only(top: 12),
         width: double.infinity,
-        height: 180,
+        constraints: const BoxConstraints(maxHeight: 360, minHeight: 140),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: _isDarkMode ? Colors.black26 : Colors.grey.shade50,
+          color: _isDarkMode ? Colors.black45 : Colors.grey.shade100,
           border: Border.all(
-              color: _isDarkMode ? Colors.white10 : Colors.grey.shade100),
+              color: _isDarkMode ? Colors.white10 : Colors.grey.shade200),
         ),
         child: Stack(
+          alignment: Alignment.center,
           children: [
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: (p['media_blob'] != null)
-                    ? Image.memory(p['media_blob'] as Uint8List,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.high)
-                    : (p['media'].toString().startsWith('data:image'))
-                        ? Image.memory(
-                            base64Decode(p['media'].toString().split(',').last),
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                            filterQuality: FilterQuality.high)
-                        : (p['media'].toString().startsWith('http') || kIsWeb)
-                            ? Image.network(p['media'] as String,
-                                fit: BoxFit.cover,
-                                gaplessPlayback: true,
-                                filterQuality: FilterQuality.high)
-                            : Image.file(File(p['media'] as String),
-                                fit: BoxFit.cover,
-                                gaplessPlayback: true,
-                                filterQuality: FilterQuality.high),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: (p['media_blob'] != null)
+                  ? Image.memory(p['media_blob'] as Uint8List,
+                      fit: BoxFit.contain,
+                      gaplessPlayback: true,
+                      filterQuality: FilterQuality.high)
+                  : (p['media'].toString().startsWith('data:image'))
+                      ? Image.memory(
+                          base64Decode(p['media'].toString().split(',').last),
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
+                          filterQuality: FilterQuality.high)
+                      : (p['media'].toString().startsWith('http') || kIsWeb)
+                          ? Image.network(p['media'] as String,
+                              fit: BoxFit.contain,
+                              gaplessPlayback: true,
+                              filterQuality: FilterQuality.high)
+                          : Image.file(File(p['media'] as String),
+                              fit: BoxFit.contain,
+                              gaplessPlayback: true,
+                              filterQuality: FilterQuality.high),
+            ),
+            Positioned(
+              left: 8,
+              bottom: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white24, width: 0.8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.zoom_in, color: Colors.white, size: 11),
+                    SizedBox(width: 4),
+                    Text(
+                      '點擊可查看無損全圖範疇',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Positioned(
@@ -2320,14 +2346,10 @@ extension MainScreenSocialTab on _MainScreenState {
                           final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
                           final ext = safeName.contains('.') ? '' : '.txt';
                           final file = File('${dir.path}/$safeName$ext');
-                          if (p['file_blob'] != null) {
-                            await file.writeAsBytes(p['file_blob'] as Uint8List, flush: true);
-                          } else {
-                            await file.writeAsString('這是一個示範用的檔案預覽內容：\n\n$fileName\n\n這是社群分享的文件內容...', flush: true);
-                          }
-                          final result = await OpenFilex.open(file.path);
-                          if (result.type != ResultType.done && mounted) {
-                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('預覽失敗: ${result.message}')));
+                          final Uint8List bytes = _getEffectiveFileBytes(fileName, p['file_blob'] as Uint8List?);
+                          await file.writeAsBytes(bytes, flush: true);
+                          if (mounted) {
+                            await _openFileWithFeedback(context, file.path);
                           }
                         } catch (e) {
                            if (mounted) {
@@ -2342,44 +2364,23 @@ extension MainScreenSocialTab on _MainScreenState {
                           final ext = safeName.contains('.') ? '' : '.txt';
                           final fullName = '$safeName$ext';
 
-                          final Uint8List bytes = p['file_blob'] != null
-                              ? (p['file_blob'] as Uint8List)
-                              : Uint8List.fromList(utf8.encode(
-                                  '這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...',
-                                ));
+                          final Uint8List bytes = _getEffectiveFileBytes(fileName, p['file_blob'] as Uint8List?);
 
                           File? savedFile;
                           String displayLocation = '';
 
-                          // 1. Android: 優先嘗試存入手機公用「下載」資料夾 (/storage/emulated/0/Download)
-                          if (!kIsWeb && Platform.isAndroid) {
+                          // 1. 嘗試使用 FilePicker (Android 11+)
+                          if (!kIsWeb) {
                             try {
-                              final publicDownloadDir = Directory('/storage/emulated/0/Download');
-                              if (await publicDownloadDir.exists()) {
-                                final targetFile = File('${publicDownloadDir.path}/$fullName');
-                                await targetFile.writeAsBytes(bytes, flush: true);
-                                savedFile = targetFile;
-                                displayLocation = '「下載」資料夾 (${targetFile.path})';
-                              }
-                            } catch (_) {
-                              // 若因 Scoped Storage 限制無法直接寫入，將降級為調用系統 Save File 選擇器
-                            }
-                          }
-
-                          // 2. 若尚未儲存 (如 iOS, Web, Desktop 或 Android 權限受限)，調用系統選擇器
-                          if (savedFile == null) {
-                            try {
-                              final String? selectedPath = await FilePicker.platform.saveFile(
-                                dialogTitle: '請選擇檔案儲存位置',
+                              String? result = await FilePicker.platform.saveFile(
+                                dialogTitle: '請選擇儲存位置',
                                 fileName: fullName,
-                                bytes: bytes,
+                                type: FileType.any,
                               );
 
-                              if (selectedPath != null) {
-                                final targetFile = File(selectedPath);
-                                if (!await targetFile.exists() || (await targetFile.length()) == 0) {
-                                  await targetFile.writeAsBytes(bytes, flush: true);
-                                }
+                              if (result != null) {
+                                final targetFile = File(result);
+                                await targetFile.writeAsBytes(bytes, flush: true);
                                 savedFile = targetFile;
                                 displayLocation = targetFile.path;
                               }
@@ -2508,6 +2509,89 @@ extension MainScreenSocialTab on _MainScreenState {
         ),
       ),
     );
+  }
+
+  Uint8List _getEffectiveFileBytes(String fileName, Uint8List? fileBlob) {
+    if (fileBlob != null && fileBlob.isNotEmpty) {
+      return fileBlob;
+    }
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) {
+      final pdfContent = '''%PDF-1.4
+1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj
+2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj
+3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 4 0 R>>>> /Contents 5 0 R>> endobj
+4 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj
+5 0 obj <</Length 120>> stream
+BT
+/F1 16 Tf
+50 720 Td
+(Community Document Preview) Tj
+0 -25 Td
+(File: $fileName) Tj
+0 -25 Td
+(Downloaded: ${DateTime.now().toString().split('.').first}) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+00000000115 00000 n 
+00000000244 00000 n 
+00000000312 00000 n 
+trailer <</Size 6 /Root 1 0 R>>
+startxref
+484
+%%EOF''';
+      return Uint8List.fromList(utf8.encode(pdfContent));
+    } else if (lower.endsWith('.doc') || lower.endsWith('.docx')) {
+      final rtfContent = '{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Arial;}}\\f0\\fs24 \\b 社群文件預覽\\b0\\par\\par 檔名：$fileName\\par 下載時間：${DateTime.now()}\\par\\par 這是社群分享的文件內容示範。}';
+      return Uint8List.fromList(utf8.encode(rtfContent));
+    } else {
+      final txtContent = '這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...';
+      return Uint8List.fromList(utf8.encode(txtContent));
+    }
+  }
+
+  Future<void> _openFileWithFeedback(BuildContext context, String filePath) async {
+    try {
+      final result = await OpenFilex.open(filePath);
+      if (result.type != ResultType.done && context.mounted) {
+        String msg = '無法開啟檔案';
+        if (result.type == ResultType.noAppToOpen) {
+          msg = '手機未安裝可開啟此格式的應用程式 (例如 PDF 閱讀器或 Word)';
+        } else if (result.type == ResultType.fileNotFound) {
+          msg = '找不到檔案，請嘗試重新下載';
+        } else if (result.type == ResultType.permissionDenied) {
+          msg = '缺少存取權限，無法開啟檔案';
+        } else if (result.message.isNotEmpty) {
+          msg = '開啟失敗: ${result.message}';
+        }
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.orange.shade800,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('開啟檔案失敗: $e'),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildPostActions(Map<String, dynamic> p) {
@@ -3273,8 +3357,13 @@ extension MainScreenSocialTab on _MainScreenState {
 
   // ── 學習 Pack 資源預覽與匯入 ───────────────────────────────────────
   Widget _buildLearningPackCard(Map<String, dynamic> p) {
-    final attached = p['attached_data'];
-    if (attached == null) return const SizedBox.shrink();
+    var attached = p['attached_data'];
+    if (attached is String) {
+      try {
+        attached = jsonDecode(attached);
+      } catch (_) {}
+    }
+    if (attached == null || attached is! Map) return const SizedBox.shrink();
 
     final String title = attached['pack_title'] ?? '無標題學習 Pack';
     final String desc = attached['pack_description'] ?? '';

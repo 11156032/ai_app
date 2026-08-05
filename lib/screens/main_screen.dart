@@ -30,6 +30,7 @@ import 'create_learning_pack_dialog.dart';
 import 'about_us_screen.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import '../utils/image_enhancer.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -919,7 +920,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         
         if (tot > 0) {
           final double acc = (cor / tot) * 100.0;
-          final double avgTime = dur / tot;
+          // 若為舊筆紀錄 (dur == 0)，估算預設 12.0 秒/題，否則計算精確平均時間
+          final double avgTime = dur > 0 ? (dur / tot) : 12.0;
           weeklyMatrixData.add({
             'accuracy': acc,
             'avgTime': avgTime,
@@ -10731,11 +10733,20 @@ $strokePrompt
         withData: true,
       );
       if (result != null && result.files.single.bytes != null) {
-        await _saveAvatar(
-            blob: result.files.single.bytes!, colorIdx: _userAvatarColor);
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('頭像已更新')));
+        if (!mounted) return;
+        final Uint8List? croppedBytes = await showDialog<Uint8List>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AvatarCropDialog(rawBytes: result.files.single.bytes!),
+        );
+
+        if (croppedBytes != null) {
+          await _saveAvatar(
+              blob: croppedBytes, colorIdx: _userAvatarColor);
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('頭像可視範圍已更新並儲存')));
+          }
         }
       }
     } catch (e) {
@@ -11346,74 +11357,102 @@ $strokePrompt
         final typeName = typeNameMap[postType] ?? '一般';
         final primaryColor = Theme.of(context).primaryColor;
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2)),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(icon, size: 12, color: primaryColor),
-                        const SizedBox(width: 4),
-                        Text(typeName,
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: primaryColor,
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.pop(ctx);
+              _changePage(3, '社群動態');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostReplyPage(
+                    originalPost: post,
+                    currentUser: widget.currentUser,
                   ),
-                  const Spacer(),
-                  Text(post['time'] as String? ?? '',
-                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ),
+              ).then((_) => _loadData());
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2)),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                post['content'] as String? ?? '',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14, height: 1.5),
-              ),
-              const SizedBox(height: 10),
-              Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.favorite_border,
-                      size: 14, color: Colors.grey.shade400),
-                  const SizedBox(width: 4),
-                  Text('${post['likes'] ?? 0}',
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                  const SizedBox(width: 16),
-                  Icon(Icons.chat_bubble_outline,
-                      size: 14, color: Colors.grey.shade400),
-                  const SizedBox(width: 4),
-                  Text('${post['replies'] ?? 0}',
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  Row(
+                    children: [
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(icon, size: 12, color: primaryColor),
+                            const SizedBox(width: 4),
+                            Text(typeName,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: primaryColor,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(post['time'] as String? ?? '',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    post['content'] as String? ?? '',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, height: 1.5),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(Icons.favorite_border,
+                          size: 14, color: Colors.grey.shade400),
+                      const SizedBox(width: 4),
+                      Text('${post['likes'] ?? 0}',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                      const SizedBox(width: 16),
+                      Icon(Icons.chat_bubble_outline,
+                          size: 14, color: Colors.grey.shade400),
+                      const SizedBox(width: 4),
+                      Text('${post['replies'] ?? 0}',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                      const Spacer(),
+                      Text('前往貼文',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: primaryColor,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 2),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          size: 11, color: primaryColor),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         );
       },
@@ -12428,21 +12467,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
       imageQuality: 100,
     );
     if (image != null && mounted) {
-      setState(() => _selectedImageX = image);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.auto_awesome, color: Colors.amber, size: 18),
-              SizedBox(width: 8),
-              Text(' 已啟用 HD 高清原圖畫質優化 (3840p / 100% 無損)'),
-            ],
-          ),
-          backgroundColor: Colors.grey.shade900,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
+      final Uint8List rawBytes = await image.readAsBytes();
+      if (!mounted) return;
+      // 啟動畫質掃描與修復底部面板
+      final XFile? result = await showModalBottomSheet<XFile>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => ImageQualityEnhanceSheet(
+          rawBytes: rawBytes,
+          originalXFile: image,
         ),
       );
+      if (result != null && mounted) {
+        setState(() => _selectedImageX = result);
+      }
     }
   }
 
@@ -12468,26 +12507,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
               const Divider(),
               ListTile(
                 leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE8F5E9),
-                    child: Icon(Icons.sticky_note_2_outlined,
-                        color: Colors.green)),
-                title: const Text('學習筆記 (.txt)'),
-                subtitle: const Text('上傳純文字筆記'),
+                    backgroundColor: Color(0xFFEDE7F6),
+                    child: Icon(Icons.folder_open_outlined,
+                        color: Colors.deepPurple)),
+                title: const Text('所有支援文件 (.pdf, .doc, .docx, .txt)'),
+                subtitle: const Text('允許選取上述所有支援格式'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickFileWithType(['txt']);
-                },
-              ),
-              ListTile(
-                leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE3F2FD),
-                    child:
-                        Icon(Icons.description_outlined, color: Colors.blue)),
-                title: const Text('Word 文件 (.doc / .docx)'),
-                subtitle: const Text('上傳 Word 格式報告'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickFileWithType(['doc', 'docx']);
+                  _pickFileWithType(['pdf', 'doc', 'docx', 'txt']);
                 },
               ),
               ListTile(
@@ -12496,10 +12523,34 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     child:
                         Icon(Icons.picture_as_pdf_outlined, color: Colors.red)),
                 title: const Text('PDF 文件 (.pdf)'),
-                subtitle: const Text('上傳 PDF 格式檔案'),
+                subtitle: const Text('僅選取 PDF 格式檔案'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickFileWithType(['pdf']);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE3F2FD),
+                    child:
+                        Icon(Icons.description_outlined, color: Colors.blue)),
+                title: const Text('Word 文件 (.doc / .docx)'),
+                subtitle: const Text('僅選取 Word 格式報告'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFileWithType(['doc', 'docx']);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE8F5E9),
+                    child: Icon(Icons.sticky_note_2_outlined,
+                        color: Colors.green)),
+                title: const Text('學習筆記 (.txt)'),
+                subtitle: const Text('僅選取純文字筆記'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFileWithType(['txt']);
                 },
               ),
               const SizedBox(height: 8),
@@ -12604,6 +12655,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       widget.onPosted();
       if (mounted) Navigator.pop(context);
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(
             children: [
@@ -12623,9 +12675,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
           backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          duration: const Duration(seconds: 2),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 2),
         ));
       }
     } catch (e) {
@@ -12792,7 +12844,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         final messenger = ScaffoldMessenger.of(context);
                         final result = await showDialog<Map<String, dynamic>>(
                           context: context,
-                          builder: (ctx) => CreateLearningPackDialog(currentUser: widget.currentUser),
+                          builder: (ctx) => CreateLearningPackDialog(
+                            currentUser: widget.currentUser,
+                            initialData: _learningPackData,
+                          ),
                         );
                         if (!mounted) return;
                         if (result != null) {
@@ -12814,14 +12869,38 @@ class _CreatePostPageState extends State<CreatePostPage> {
                             Icon(Icons.inventory_2_outlined, color: _learningPackData != null ? Colors.orange : Colors.grey.shade600),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                _learningPackData != null 
-                                  ? '已打包: ${_learningPackData!['calendar_events'].length} 個排程, ${_learningPackData!['user_papers'].length} 套試卷' 
-                                  : '點擊設定你要打包的排程與試卷',
-                                style: TextStyle(
-                                  color: _learningPackData != null ? Colors.orange.shade800 : Colors.black87,
-                                  fontWeight: FontWeight.w500
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _learningPackData != null 
+                                      ? ((_learningPackData!['pack_title'] as String? ?? '').isNotEmpty 
+                                          ? _learningPackData!['pack_title'] 
+                                          : '已打包 Learning Pack')
+                                      : '點擊設定你要打包的排程與試卷',
+                                    style: TextStyle(
+                                      color: _learningPackData != null ? Colors.orange.shade900 : Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  if (_learningPackData != null) ...[
+                                    if ((_learningPackData!['pack_description'] as String? ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _learningPackData!['pack_description'],
+                                        style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '包含: ${_learningPackData!['calendar_events']?.length ?? 0} 個排程, ${_learningPackData!['user_papers']?.length ?? 0} 套試卷 (點擊可重新編輯)',
+                                      style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             Icon(Icons.chevron_right, color: Colors.grey.shade400)
@@ -12850,44 +12929,53 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   const SizedBox(height: 12),
                   // 已選圖片預覽
                   if (_selectedImageX != null) ...[
-                    Stack(children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.file(
-                          File(_selectedImageX!.path),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
                           width: double.infinity,
-                          height: 220,
-                          fit: BoxFit.cover,
-                          filterQuality: FilterQuality.high,
-                        ),
-                      ),
-                      Positioned(
-                        left: 10,
-                        bottom: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          constraints: const BoxConstraints(maxHeight: 260, minHeight: 140),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.7),
+                            color: Colors.black.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white24),
+                            border: Border.all(color: Colors.grey.shade300),
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.auto_awesome, color: Colors.amber, size: 13),
-                              SizedBox(width: 4),
-                              Text(
-                                ' HD 畫質高清強化 ',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.file(
+                              File(_selectedImageX!.path),
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                            ),
                           ),
                         ),
-                      ),
+                        Positioned(
+                          left: 10,
+                          bottom: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome, color: Colors.amber, size: 13),
+                                SizedBox(width: 4),
+                                Text(
+                                  ' HD 全圖無損載入 ',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       Positioned(
                         right: 8,
                         top: 8,
@@ -13018,6 +13106,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       color: Colors.blue,
                       onTap: _isSubmitting ? null : _showFileTypeSheet,
                     ),
+
                     // 定時發布
                     _buildToolBtn(
                       icon: Icons.schedule,
@@ -13712,9 +13801,17 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
     // 學習 Pack
     if (p['postType'] == 'learning_pack') {
-      final attached = p['attached_data'];
-      if (attached != null) {
-        final title = attached['pack_title'] ?? '無標題學習 Pack';
+      var attached = p['attached_data'];
+      if (attached is String) {
+        try {
+          attached = jsonDecode(attached);
+        } catch (_) {}
+      }
+      if (attached != null && attached is Map) {
+        final title = (attached['pack_title'] as String? ?? '').isNotEmpty
+            ? attached['pack_title']
+            : '無標題學習 Pack';
+        final desc = attached['pack_description'] as String? ?? '';
         return Container(
           margin: const EdgeInsets.only(top: 10),
           padding: const EdgeInsets.all(12),
@@ -13723,17 +13820,29 @@ class _PostReplyPageState extends State<PostReplyPage> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: isDark ? Colors.orange.withValues(alpha: 0.3) : Colors.orange.shade200),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.inventory_2_rounded, color: Colors.orange.shade700, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.orange.shade300 : Colors.orange.shade900),
-                ),
+              Row(
+                children: [
+                  Icon(Icons.inventory_2_rounded, color: Colors.orange.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.orange.shade300 : Colors.orange.shade900),
+                    ),
+                  ),
+                  const Text('請至動態牆匯入', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
               ),
-              const Text('請至動態牆匯入', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              if (desc.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  desc,
+                  style: TextStyle(fontSize: 12, color: isDark ? Colors.orange.shade200 : Colors.orange.shade800),
+                ),
+              ],
             ],
           ),
         );
@@ -15011,4 +15120,535 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
       ),
     );
   }
+}
+
+// ─── 個人頭像裁切範圍選擇器對話框 ──────────────────────────────────────
+class AvatarCropDialog extends StatefulWidget {
+  final Uint8List rawBytes;
+  const AvatarCropDialog({super.key, required this.rawBytes});
+
+  @override
+  State<AvatarCropDialog> createState() => _AvatarCropDialogState();
+}
+
+class _AvatarCropDialogState extends State<AvatarCropDialog> {
+  double _zoom = 1.0;
+  double _offsetX = 0.0;
+  double _offsetY = 0.0;
+  bool _isProcessing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '調整頭像可視範圍',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '拖曳滑桿或調整縮放與位置，確定最佳發布預覽範圍',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            // 裁切預覽圓框區
+            Center(
+              child: ClipOval(
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  color: Colors.black12,
+                  child: Transform.translate(
+                    offset: Offset(_offsetX, _offsetY),
+                    child: Transform.scale(
+                      scale: _zoom,
+                      child: Image.memory(
+                        widget.rawBytes,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // 縮放控制
+            Row(
+              children: [
+                const Icon(Icons.zoom_out, size: 18, color: Colors.grey),
+                Expanded(
+                  child: Slider(
+                    value: _zoom,
+                    min: 1.0,
+                    max: 2.5,
+                    divisions: 15,
+                    label: '${_zoom.toStringAsFixed(1)}x',
+                    onChanged: (val) => setState(() => _zoom = val),
+                  ),
+                ),
+                const Icon(Icons.zoom_in, size: 18, color: Colors.grey),
+              ],
+            ),
+            // 水平位置控制
+            Row(
+              children: [
+                const Text('左右', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: _offsetX,
+                    min: -60.0,
+                    max: 60.0,
+                    onChanged: (val) => setState(() => _offsetX = val),
+                  ),
+                ),
+              ],
+            ),
+            // 垂直位置控制
+            Row(
+              children: [
+                const Text('上下', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: _offsetY,
+                    min: -60.0,
+                    max: 60.0,
+                    onChanged: (val) => setState(() => _offsetY = val),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _isProcessing ? null : _cropAndFinish,
+                  child: _isProcessing
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Text('套用頭像範圍'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _cropAndFinish() async {
+    setState(() => _isProcessing = true);
+    try {
+      final codec = await instantiateImageCodec(widget.rawBytes);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      const canvasSize = 256.0;
+
+      // 畫白底
+      canvas.drawRect(
+        const Rect.fromLTWH(0, 0, canvasSize, canvasSize),
+        Paint()..color = Colors.white,
+      );
+
+      // 計算轉換
+      final double srcW = image.width.toDouble();
+      final double srcH = image.height.toDouble();
+      final double scale = (canvasSize / math.min(srcW, srcH)) * _zoom;
+
+      final double dx = (canvasSize - srcW * scale) / 2 + _offsetX * 2;
+      final double dy = (canvasSize - srcH * scale) / 2 + _offsetY * 2;
+
+      canvas.save();
+      canvas.translate(dx, dy);
+      canvas.scale(scale);
+      canvas.drawImage(
+          image, Offset.zero, Paint()..filterQuality = FilterQuality.high);
+      canvas.restore();
+
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(256, 256);
+      final byteData = await img.toByteData(format: ImageByteFormat.png);
+
+      if (mounted) {
+        Navigator.pop(context, byteData?.buffer.asUint8List());
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context, widget.rawBytes);
+      }
+    }
+  }
+}
+
+// ─── 社群貼文圖片 AI 畫質掃描修復底部面板 ──────────────────────────────────
+class ImageQualityEnhanceSheet extends StatefulWidget {
+  final Uint8List rawBytes;
+  final XFile originalXFile;
+
+  const ImageQualityEnhanceSheet({
+    super.key,
+    required this.rawBytes,
+    required this.originalXFile,
+  });
+
+  @override
+  State<ImageQualityEnhanceSheet> createState() => _ImageQualityEnhanceSheetState();
+}
+
+class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
+    with TickerProviderStateMixin {
+  _ScanPhase _phase = _ScanPhase.scanning;
+
+  late AnimationController _scanLineCtrl;
+  late Animation<double> _scanLineAnim;
+  late AnimationController _flashCtrl;
+  late Animation<double> _flashAnim;
+
+  ImageQualityReport? _report;
+  Uint8List? _enhancedBytes;
+  final List<_DetectItem> _detectedItems = [];
+  int _visibleItemCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scanLineCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
+    _scanLineAnim = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _scanLineCtrl, curve: Curves.easeInOut),
+    );
+    _flashCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _flashAnim = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _flashCtrl, curve: Curves.easeOut),
+    );
+    _startScan();
+  }
+
+  @override
+  void dispose() {
+    _scanLineCtrl.dispose();
+    _flashCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startScan() async {
+    _scanLineCtrl.repeat();
+    final report = await ImageEnhancer.analyzeQuality(widget.rawBytes);
+    _scanLineCtrl.stop();
+
+    final items = [
+      _DetectItem('銳利度', report.sharpnessScore, report.isBlurry ? '偵測到模糊' : '清晰'),
+      _DetectItem('亮度', report.brightnessScore, report.isDark ? '偵測到偏暗' : report.isOverExposed ? '偵測到過曝' : '正常'),
+      _DetectItem('對比度', report.contrastScore, report.isLowContrast ? '偵測到低對比' : '正常'),
+    ];
+
+    for (int i = 0; i < items.length; i++) {
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (!mounted) return;
+      setState(() {
+        _detectedItems.add(items[i]);
+        _visibleItemCount = _detectedItems.length;
+      });
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    if (!report.needsRepair) {
+      setState(() => _report = report);
+      Navigator.pop(context, widget.originalXFile);
+      return;
+    }
+
+    setState(() { _report = report; _phase = _ScanPhase.repairing; });
+
+    final enhanced = await ImageEnhancer.enhanceImage(widget.rawBytes, report);
+    if (!mounted) return;
+
+    _flashCtrl.forward();
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    setState(() { _enhancedBytes = enhanced; _phase = _ScanPhase.done; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F0F1A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+          ),
+          Row(
+            children: [
+              const Icon(Icons.auto_fix_high, color: Color(0xFF7C6AFF), size: 22),
+              const SizedBox(width: 8),
+              Text(
+                _phase == _ScanPhase.scanning ? 'AI 畫質掃描中...'
+                    : _phase == _ScanPhase.repairing ? 'AI 自動修復中...'
+                    : '✨ 修復完成',
+                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 200,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    child: Image.memory(
+                      (_phase == _ScanPhase.done && _enhancedBytes != null)
+                          ? _enhancedBytes! : widget.rawBytes,
+                      key: ValueKey(_phase),
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
+                  if (_phase == _ScanPhase.scanning)
+                    AnimatedBuilder(
+                      animation: _scanLineAnim,
+                      builder: (_, __) {
+                        final top = (_scanLineAnim.value * 200).clamp(0.0, 197.0);
+                        return Stack(
+                          children: [
+                            Positioned(
+                              top: top,
+                              left: 0, right: 0,
+                              child: Container(
+                                height: 3,
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(colors: [
+                                    Colors.transparent,
+                                    Color(0xFF7C6AFF),
+                                    Color(0xFF00E5FF),
+                                    Color(0xFF7C6AFF),
+                                    Colors.transparent,
+                                  ]),
+                                  boxShadow: [BoxShadow(color: Color(0x887C6AFF), blurRadius: 12, spreadRadius: 4)],
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: top + 3,
+                              left: 0, right: 0,
+                              child: Container(
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [const Color(0xFF7C6AFF).withValues(alpha: 0.15), Colors.transparent],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  AnimatedBuilder(
+                    animation: _flashAnim,
+                    builder: (_, __) => Opacity(
+                      opacity: (_phase == _ScanPhase.repairing ? 0.5 * (1 - _flashAnim.value) : 0.0).clamp(0.0, 1.0),
+                      child: Container(color: const Color(0xFF7C6AFF)),
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.45)],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 10, bottom: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_phase != _ScanPhase.done)
+                            const SizedBox(
+                              width: 10, height: 10,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                valueColor: AlwaysStoppedAnimation(Color(0xFF7C6AFF)),
+                              ),
+                            )
+                          else
+                            const Icon(Icons.auto_fix_high, color: Color(0xFF7C6AFF), size: 12),
+                          const SizedBox(width: 6),
+                          Text(
+                            _phase == _ScanPhase.scanning ? '掃描中...'
+                                : _phase == _ScanPhase.repairing ? '修復中...'
+                                : '已修復',
+                            style: const TextStyle(color: Colors.white, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          ..._detectedItems.take(_visibleItemCount).map((item) => _buildDetectRow(item)),
+          if (_phase == _ScanPhase.done && _report != null) ...[
+            const SizedBox(height: 12),
+            _buildScoreBar(_report!),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, widget.originalXFile),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white60,
+                      side: const BorderSide(color: Colors.white24),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('保留原圖'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final enhanced = _enhancedBytes;
+                      if (enhanced != null) {
+                        Navigator.pop(context, XFile.fromData(enhanced, name: 'ai_enhanced.png'));
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C6AFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.auto_fix_high, size: 16),
+                        SizedBox(width: 6),
+                        Text('套用 AI 修復', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_phase != _ScanPhase.done) const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetectRow(_DetectItem item) {
+    final hasIssue = item.desc != '清晰' && item.desc != '正常';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(
+            hasIssue ? Icons.warning_amber_rounded : Icons.check_circle,
+            size: 16,
+            color: hasIssue ? Colors.amber : Colors.greenAccent,
+          ),
+          const SizedBox(width: 8),
+          Text(item.name, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          const Spacer(),
+          Text(item.desc,
+              style: TextStyle(
+                color: hasIssue ? Colors.amber : Colors.greenAccent,
+                fontSize: 12, fontWeight: FontWeight.w600,
+              )),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 80,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: item.score / 100,
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation(
+                    hasIssue ? Colors.amber : const Color(0xFF7C6AFF)),
+                minHeight: 6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScoreBar(ImageQualityReport report) {
+    final score = report.overallScore.round();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.stars_rounded, color: Color(0xFF7C6AFF), size: 20),
+          const SizedBox(width: 10),
+          const Text('修復後品質評分', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const Spacer(),
+          Text('$score / 100',
+              style: const TextStyle(color: Color(0xFF7C6AFF), fontSize: 18, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+}
+
+enum _ScanPhase { scanning, repairing, done }
+
+class _DetectItem {
+  final String name;
+  final double score;
+  final String desc;
+  const _DetectItem(this.name, this.score, this.desc);
 }

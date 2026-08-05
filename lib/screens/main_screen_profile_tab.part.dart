@@ -1,4 +1,4 @@
-﻿part of 'main_screen.dart';
+part of 'main_screen.dart';
 
 // ignore: library_private_types_in_public_api
 extension MainScreenProfileTab on _MainScreenState {
@@ -693,123 +693,211 @@ extension MainScreenProfileTab on _MainScreenState {
     }
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 190,
-          child: ScatterChart(
-            ScatterChartData(
-              scatterSpots: _weeklyMatrixData.asMap().entries.map((e) {
-                final d = e.value;
-                double acc = (d['accuracy'] as num).toDouble();
-                double time = (d['avgTime'] as num).toDouble();
-                Color color;
-                if (acc >= 60 && time <= 15) {
-                  color = Colors.blue; // 熟練度高
-                } else if (acc >= 60 && time > 15) {
-                  color = Colors.amber.shade700; // 猶豫期
-                } else if (acc < 60 && time > 15) {
-                  color = Colors.red; // 嚴重盲點
-                } else {
-                  color = Colors.grey.shade600; // 粗心
-                }
-
-                return ScatterSpot(
-                  time,
-                  acc,
-                  dotPainter: FlDotCirclePainter(
-                    color: color,
-                    radius: 9,
-                    strokeWidth: 2.5,
-                    strokeColor: _isDarkMode ? Colors.white : Colors.white,
-                  ),
-                );
-              }).toList(),
-              minX: 0,
-              maxX: maxX,
-              minY: 0,
-              maxY: 100,
-              borderData: FlBorderData(show: false),
-              gridData: FlGridData(
-                show: true,
-                drawHorizontalLine: true,
-                drawVerticalLine: true,
-                horizontalInterval: 20,
-                verticalInterval: 5,
-                getDrawingHorizontalLine: (value) {
-                  if (value == 60) {
-                    return FlLine(color: Colors.blue.withValues(alpha: 0.65), strokeWidth: 2, dashArray: [5, 5]);
-                  }
-                  return FlLine(color: _isDarkMode ? Colors.grey.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.25), strokeWidth: 1);
-                },
-                getDrawingVerticalLine: (value) {
-                  if (value == 15) {
-                    return FlLine(color: Colors.blue.withValues(alpha: 0.65), strokeWidth: 2, dashArray: [5, 5]);
-                  }
-                  return FlLine(color: _isDarkMode ? Colors.grey.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.25), strokeWidth: 1);
-                },
-              ),
-              titlesData: FlTitlesData(
-                show: true,
-                bottomTitles: AxisTitles(
-                  axisNameWidget: Text('平均作答時間(秒)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade800)),
-                  axisNameSize: 20,
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 22,
-                    interval: 10,
-                    getTitlesWidget: (value, meta) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text('${value.toInt()}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade800)),
-                      );
-                    },
-                  ),
-                ),
-                leftTitles: AxisTitles(
-                  axisNameWidget: Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text('正確率(%)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade800)),
-                  ),
-                  axisNameSize: 20,
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 32,
-                    interval: 20,
-                    getTitlesWidget: (value, meta) {
-                      return Text('${value.toInt()}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade800));
-                    },
-                  ),
-                ),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-              scatterTouchData: ScatterTouchData(
-                enabled: true,
-                touchSpotThreshold: 35.0,
-                touchCallback: (FlTouchEvent event, ScatterTouchResponse? touchResponse) {
-                  if (touchResponse != null &&
-                      touchResponse.touchedSpot != null &&
-                      event is FlTapUpEvent) {
-                    final spotIndex = touchResponse.touchedSpot!.spotIndex;
-                    if (spotIndex >= 0 && spotIndex < _weeklyMatrixData.length) {
-                      _showQuizDetailSheet(context, _weeklyMatrixData[spotIndex]);
-                    }
-                  }
-                },
-                touchTooltipData: ScatterTouchTooltipData(
-                  getTooltipColor: (_) => _isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFF212121),
-                  getTooltipItems: (ScatterSpot touchedBarSpot) {
-                    return ScatterTooltipItem(
-                      '正確率: ${touchedBarSpot.y.toInt()}%\n平均耗時: ${touchedBarSpot.x.toStringAsFixed(1)}s\n(點擊開啟診斷詳情)',
-                      textStyle: const TextStyle(color: Colors.white, fontSize: 11, height: 1.35, fontWeight: FontWeight.w500),
-                    );
-                  },
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── 左側 Y 軸標籤（中文直書）
+            SizedBox(
+              width: 26,
+              height: 190,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_upward_rounded, size: 11,
+                        color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700),
+                    const SizedBox(height: 3),
+                    Text('正', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, height: 1.25, color: _isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800)),
+                    Text('確', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, height: 1.25, color: _isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800)),
+                    Text('率', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, height: 1.25, color: _isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800)),
+                    const SizedBox(height: 3),
+                    Text(
+                      '(%)',
+                      softWrap: false,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+            // ── 散點圖
+            Expanded(
+              child: SizedBox(
+                height: 190,
+                child: ScatterChart(
+                  ScatterChartData(
+                    scatterSpots: _weeklyMatrixData.asMap().entries.map((e) {
+                      final d = e.value;
+                      double acc = (d['accuracy'] as num).toDouble();
+                      double time = (d['avgTime'] as num).toDouble();
+                      Color color;
+                      if (acc >= 60 && time <= 15) {
+                        color = Colors.blue;
+                      } else if (acc >= 60 && time > 15) {
+                        color = Colors.amber.shade700;
+                      } else if (acc < 60 && time > 15) {
+                        color = Colors.red;
+                      } else {
+                        color = Colors.grey.shade600;
+                      }
+                      return ScatterSpot(
+                        time,
+                        acc,
+                        dotPainter: FlDotCirclePainter(
+                          color: color,
+                          radius: 9,
+                          strokeWidth: 2.5,
+                          strokeColor: Colors.white,
+                        ),
+                      );
+                    }).toList(),
+                    minX: 0,
+                    maxX: maxX,
+                    minY: 0,
+                    maxY: 100,
+                    borderData: FlBorderData(show: false),
+                    gridData: FlGridData(
+                      show: true,
+                      drawHorizontalLine: true,
+                      drawVerticalLine: true,
+                      horizontalInterval: 20,
+                      verticalInterval: 5,
+                      getDrawingHorizontalLine: (value) {
+                        if (value == 60) {
+                          return FlLine(
+                              color: Colors.blue.withValues(alpha: 0.65),
+                              strokeWidth: 2,
+                              dashArray: [5, 5]);
+                        }
+                        return FlLine(
+                            color: _isDarkMode
+                                ? Colors.grey.withValues(alpha: 0.15)
+                                : Colors.grey.withValues(alpha: 0.25),
+                            strokeWidth: 1);
+                      },
+                      getDrawingVerticalLine: (value) {
+                        if (value == 15) {
+                          return FlLine(
+                              color: Colors.blue.withValues(alpha: 0.65),
+                              strokeWidth: 2,
+                              dashArray: [5, 5]);
+                        }
+                        return FlLine(
+                            color: _isDarkMode
+                                ? Colors.grey.withValues(alpha: 0.15)
+                                : Colors.grey.withValues(alpha: 0.25),
+                            strokeWidth: 1);
+                      },
+                    ),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 22,
+                          interval: 10,
+                          getTitlesWidget: (value, meta) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                '${value.toInt()}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: _isDarkMode
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade800,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 28,
+                          interval: 20,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              '${value.toInt()}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _isDarkMode
+                                    ? Colors.grey.shade400
+                                    : Colors.grey.shade800,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    ),
+                    scatterTouchData: ScatterTouchData(
+                      enabled: true,
+                      touchSpotThreshold: 35.0,
+                      touchCallback: (FlTouchEvent event, ScatterTouchResponse? touchResponse) {
+                        if (touchResponse != null &&
+                            touchResponse.touchedSpot != null &&
+                            event is FlTapUpEvent) {
+                          final spotIndex = touchResponse.touchedSpot!.spotIndex;
+                          if (spotIndex >= 0 && spotIndex < _weeklyMatrixData.length) {
+                            _showQuizDetailSheet(context, _weeklyMatrixData[spotIndex]);
+                          }
+                        }
+                      },
+                      touchTooltipData: ScatterTouchTooltipData(
+                        getTooltipColor: (_) =>
+                            _isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFF212121),
+                        getTooltipItems: (ScatterSpot touchedBarSpot) {
+                          return ScatterTooltipItem(
+                            '正確率: ${touchedBarSpot.y.toInt()}%\n平均耗時: ${touchedBarSpot.x.toStringAsFixed(1)}s\n(點擊開啟診斷詳情)',
+                            textStyle: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                height: 1.35,
+                                fontWeight: FontWeight.w500),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        // ── 下方 X 軸標籤
+        Padding(
+          padding: const EdgeInsets.only(left: 20, top: 4),
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '平均作答時間 (秒)',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: _isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(Icons.arrow_forward_rounded, size: 11,
+                    color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700),
+              ],
+            ),
           ),
         ),
-        // 圖例
+        // ── 圖例
         const SizedBox(height: 12),
         Wrap(
           spacing: 12,
@@ -858,172 +946,186 @@ extension MainScreenProfileTab on _MainScreenState {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: _isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.analytics_rounded, color: statusColor, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        subject,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : Colors.black87),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+            decoration: BoxDecoration(
+              color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      Text(
-                        '測驗時間：$timeStr',
-                        style: TextStyle(fontSize: 12, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.analytics_rounded, color: statusColor, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              subject,
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : Colors.black87),
+                            ),
+                            Text(
+                              '測驗時間：$timeStr',
+                              style: TextStyle(fontSize: 12, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(14),
+                  const SizedBox(height: 16),
+                  Divider(color: _isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                  const SizedBox(height: 12),
+
+                  // 數據列
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildSheetStat('正確率', '${acc.toInt()}%', statusColor),
+                      _buildSheetStat('答對/總數', '$correct / $total 題', _isDarkMode ? Colors.white : Colors.black87),
+                      _buildSheetStat('平均時間', '${avgTime.toStringAsFixed(1)} 秒/題', _isDarkMode ? Colors.white : Colors.black87),
+                    ],
                   ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Divider(color: _isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-            const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-            // 數據列
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildSheetStat('正確率', '${acc.toInt()}%', statusColor),
-                _buildSheetStat('答對/總數', '$correct / $total 題', _isDarkMode ? Colors.white : Colors.black87),
-                _buildSheetStat('平均時間', '${avgTime.toStringAsFixed(1)} 秒/題', _isDarkMode ? Colors.white : Colors.black87),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // 診斷說明卡片
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: _isDarkMode ? 0.18 : 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-              ),
-              child: Text(
-                statusDesc,
-                style: TextStyle(fontSize: 13, color: _isDarkMode ? Colors.grey.shade200 : Colors.black87, height: 1.4),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // 行動按鈕
-            Column(
-              children: [
-                if (acc < 60 || avgTime > 15) ...[
-                  SizedBox(
+                  // 診斷說明卡片
+                  Container(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.calendar_today_rounded, size: 16),
-                      label: Text('排入複習行程 ($subject)'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: statusColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: _isDarkMode ? 0.18 : 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      statusDesc,
+                      style: TextStyle(fontSize: 13, color: _isDarkMode ? Colors.grey.shade200 : Colors.black87, height: 1.4),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 行動按鈕
+                  Column(
+                    children: [
+                      if (acc < 60 || avgTime > 15) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                            label: Text('排入複習行程 ($subject)'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: statusColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () async {
+                              final pickedTime = await showTimePicker(
+                                context: context,
+                                initialTime: const TimeOfDay(hour: 18, minute: 0),
+                                helpText: '選擇複習行程時間',
+                                cancelText: '取消',
+                                confirmText: '確定',
+                              );
+                              if (pickedTime != null && context.mounted) {
+                                Navigator.pop(ctx);
+                                final db = await DatabaseHelper.instance.database;
+                                final now = DateTime.now();
+                                final dateKey = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+                                final startHr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+                                final endHour = (pickedTime.hour + 1) % 24;
+                                final endHr = "${endHour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+
+                                final startStr = "$dateKey $startHr";
+                                final endStr = "$dateKey $endHr";
+
+                                await db.insert('calendar_events', <String, Object?>{
+                                  'user_id': widget.currentUser['id'],
+                                  'title': '複習：$subject',
+                                  'start_time': startStr,
+                                  'end_time': endStr,
+                                  'color': '0xFFE53935',
+                                });
+                                await _loadData();
+                                final timeString = '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}';
+                                _showAISnackbar('已將「複習：$subject」排入今日 $timeString 行程！', Icons.event_available);
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.auto_awesome, size: 16),
+                          label: const Text('一鍵 AI 生成專屬補強教材'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _currentPrimaryColor,
+                            side: BorderSide(color: _currentPrimaryColor),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showAISnackbar('已呼叫 AI 為您針對 $subject 產生盲點特訓專題！', Icons.auto_awesome);
+                          },
+                        ),
                       ),
-                      onPressed: () async {
-                        final pickedTime = await showTimePicker(
-                          context: context,
-                          initialTime: const TimeOfDay(hour: 18, minute: 0),
-                          helpText: '選擇複習行程時間',
-                          cancelText: '取消',
-                          confirmText: '確定',
-                        );
-                        if (pickedTime != null && context.mounted) {
-                          Navigator.pop(ctx);
-                          final db = await DatabaseHelper.instance.database;
-                          final now = DateTime.now();
-                          final dateKey = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-                          final startHr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
-                          final endHour = (pickedTime.hour + 1) % 24;
-                          final endHr = "${endHour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
-
-                          final startStr = "$dateKey $startHr";
-                          final endStr = "$dateKey $endHr";
-
-                          await db.insert('calendar_events', <String, Object?>{
-                            'user_id': widget.currentUser['id'],
-                            'title': '複習：$subject',
-                            'start_time': startStr,
-                            'end_time': endStr,
-                            'color': '0xFFE53935',
-                          });
-                          await _loadData();
-                          final timeString = '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}';
-                          _showAISnackbar('已將「複習：$subject」排入今日 $timeString 行程！', Icons.event_available);
-                        }
-                      },
-                    ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
-                  const SizedBox(height: 10),
                 ],
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.auto_awesome, size: 16),
-                    label: const Text('一鍵 AI 生成專屬補強教材'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _currentPrimaryColor,
-                      side: BorderSide(color: _currentPrimaryColor),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _showAISnackbar('已呼叫 AI 為您針對 $subject 產生盲點特訓專題！', Icons.auto_awesome);
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -33,6 +33,7 @@ class QuestionPracticePage extends StatefulWidget {
 
 class _QuestionPracticePageState extends State<QuestionPracticePage> {
   late int _currentIndex;
+  late final DateTime _practiceStartTime;
   final Map<int, int> _selectedAnswers = {};
   final Set<int> _revealed = {};
   final Set<int> _marked = {};
@@ -42,6 +43,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
   @override
   void initState() {
     super.initState();
+    _practiceStartTime = DateTime.now();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _currentIndex = widget.questions.isEmpty
         ? 0
@@ -596,21 +598,45 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
 
   Future<void> _submitPaper() async {
     final unanswered = widget.questions.length - _selectedAnswers.length;
-    final String contentText = unanswered > 0
-        ? '您還有 $unanswered 題尚未作答，確定要結束作答並直接交卷嗎？'
-        : '確定要交卷並查看檢討報告嗎？';
+    final flaggedCount = _flagged.length;
+
+    String contentText;
+    if (unanswered > 0 && flaggedCount > 0) {
+      contentText = '您還有 $unanswered 題尚未作答，且尚有 $flaggedCount 題已標記的題目，確定要結束作答並直接交卷嗎？';
+    } else if (unanswered > 0) {
+      contentText = '您還有 $unanswered 題尚未作答，確定要結束作答並直接交卷嗎？';
+    } else if (flaggedCount > 0) {
+      contentText = '您尚有 $flaggedCount 題標記的題目，確定要交卷並查看檢討報告嗎？';
+    } else {
+      contentText = '確定要交卷並查看檢討報告嗎？';
+    }
 
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('確認交卷'),
-        content: Text(contentText),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.assignment_turned_in_rounded, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('確認交卷'),
+          ],
+        ),
+        content: Text(
+          contentText,
+          style: const TextStyle(fontSize: 14, height: 1.5),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('繼續作答'),
+            child: const Text('繼續作答', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('確認交卷'),
           ),
@@ -638,6 +664,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
 
     if (widget.saveResult && widget.currentUser != null) {
       final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u1';
+      final int durationSeconds = DateTime.now().difference(_practiceStartTime).inSeconds.clamp(1, 86400);
       try {
         final db = await DatabaseHelper.instance.database;
         await db.insert('quiz_results', <String, Object?>{
@@ -645,7 +672,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
           'total': total,
           'correct': correct,
           'wrong_question_ids': jsonEncode(wrongIds),
-          'duration_seconds': 0,
+          'duration_seconds': durationSeconds,
           'subject': widget.subject ?? widget.title,
           'paper_id': widget.paperId,
           'timestamp': DateTime.now().toIso8601String(),

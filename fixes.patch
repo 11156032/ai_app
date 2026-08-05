@@ -1,0 +1,514 @@
+diff --git a/lib/screens/main_screen_social_tab.part.dart b/broken_social.dart
+index f3cca81..a67689b 100644
+--- a/lib/screens/main_screen_social_tab.part.dart
++++ b/broken_social.dart
+@@ -2320,14 +2320,10 @@ extension MainScreenSocialTab on _MainScreenState {
+                           final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+                           final ext = safeName.contains('.') ? '' : '.txt';
+                           final file = File('${dir.path}/$safeName$ext');
+-                          if (p['file_blob'] != null) {
+-                            await file.writeAsBytes(p['file_blob'] as Uint8List, flush: true);
+-                          } else {
+-                            await file.writeAsString('這是一個示範用的檔案預覽內容：\n\n$fileName\n\n這是社群分享的文件內容...', flush: true);
+-                          }
+-                          final result = await OpenFilex.open(file.path);
+-                          if (result.type != ResultType.done && mounted) {
+-                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('預覽失敗: ${result.message}')));
++                          final Uint8List bytes = _getEffectiveFileBytes(fileName, p['file_blob'] as Uint8List?);
++                          await file.writeAsBytes(bytes, flush: true);
++                          if (mounted) {
++                            await _openFileWithFeedback(context, file.path);
+                           }
+                         } catch (e) {
+                            if (mounted) {
+@@ -2342,11 +2338,7 @@ extension MainScreenSocialTab on _MainScreenState {
+                           final ext = safeName.contains('.') ? '' : '.txt';
+                           final fullName = '$safeName$ext';
+ 
+-                          final Uint8List bytes = p['file_blob'] != null
+-                              ? (p['file_blob'] as Uint8List)
+-                              : Uint8List.fromList(utf8.encode(
+-                                  '這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...',
+-                                ));
++                          final Uint8List bytes = _getEffectiveFileBytes(fileName, p['file_blob'] as Uint8List?);
+ 
+                           File? savedFile;
+                           String displayLocation = '';
+@@ -2407,28 +2399,42 @@ extension MainScreenSocialTab on _MainScreenState {
+ 
+                           if (savedFile != null && mounted) {
+                             final filePath = savedFile.path;
++                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               SnackBar(
+                                 content: Text('✅ 檔案已成功儲存至：$displayLocation'),
+                                 behavior: SnackBarBehavior.floating,
+                                 backgroundColor: Colors.green.shade600,
+-                                duration: const Duration(seconds: 6),
++                                duration: const Duration(seconds: 3),
+                                 action: SnackBarAction(
+                                   label: '開啟檔案',
+                                   textColor: Colors.white,
+-                                  onPressed: () => OpenFilex.open(filePath),
++                                  onPressed: () {
++                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
++                                    _openFileWithFeedback(context, filePath);
++                                  },
+                                 ),
+                               ),
+                             );
+                           } else if (mounted && savedFile == null) {
++                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                             ScaffoldMessenger.of(context).showSnackBar(
+-                              const SnackBar(content: Text('下載已取消或無法儲存')),
++                              const SnackBar(
++                                content: Text('下載已取消或無法儲存'),
++                                duration: Duration(seconds: 2),
++                                behavior: SnackBarBehavior.floating,
++                              ),
+                             );
+                           }
+                         } catch (e) {
+                           if (mounted) {
++                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                             ScaffoldMessenger.of(context).showSnackBar(
+-                              SnackBar(content: Text('下載失敗: $e')),
++                              SnackBar(
++                                content: Text('下載失敗: $e'),
++                                duration: const Duration(seconds: 3),
++                                behavior: SnackBarBehavior.floating,
++                              ),
+                             );
+                           }
+                         }
+@@ -2510,6 +2516,89 @@ extension MainScreenSocialTab on _MainScreenState {
+     );
+   }
+ 
++  Uint8List _getEffectiveFileBytes(String fileName, Uint8List? fileBlob) {
++    if (fileBlob != null && fileBlob.isNotEmpty) {
++      return fileBlob;
++    }
++    final lower = fileName.toLowerCase();
++    if (lower.endsWith('.pdf')) {
++      final pdfContent = '''%PDF-1.4
++1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj
++2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj
++3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 4 0 R>>>> /Contents 5 0 R>> endobj
++4 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj
++5 0 obj <</Length 120>> stream
++BT
++/F1 16 Tf
++50 720 Td
++(Community Document Preview) Tj
++0 -25 Td
++(File: $fileName) Tj
++0 -25 Td
++(Downloaded: ${DateTime.now().toString().split('.').first}) Tj
++ET
++endstream
++endobj
++xref
++0 6
++0000000000 65535 f 
++0000000009 00000 n 
++0000000058 00000 n 
++00000000115 00000 n 
++00000000244 00000 n 
++00000000312 00000 n 
++trailer <</Size 6 /Root 1 0 R>>
++startxref
++484
++%%EOF''';
++      return Uint8List.fromList(utf8.encode(pdfContent));
++    } else if (lower.endsWith('.doc') || lower.endsWith('.docx')) {
++      final rtfContent = '{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Arial;}}\\f0\\fs24 \\b 社群文件預覽\\b0\\par\\par 檔名：$fileName\\par 下載時間：${DateTime.now()}\\par\\par 這是社群分享的文件內容示範。}';
++      return Uint8List.fromList(utf8.encode(rtfContent));
++    } else {
++      final txtContent = '這是一個示範用的檔案內容：\n\n檔名：$fileName\n下載時間：${DateTime.now()}\n\n這是社群分享的文件內容...';
++      return Uint8List.fromList(utf8.encode(txtContent));
++    }
++  }
++
++  Future<void> _openFileWithFeedback(BuildContext context, String filePath) async {
++    try {
++      final result = await OpenFilex.open(filePath);
++      if (result.type != ResultType.done && context.mounted) {
++        String msg = '無法開啟檔案';
++        if (result.type == ResultType.noAppToOpen) {
++          msg = '手機未安裝可開啟此格式的應用程式 (例如 PDF 閱讀器或 Word)';
++        } else if (result.type == ResultType.fileNotFound) {
++          msg = '找不到檔案，請嘗試重新下載';
++        } else if (result.type == ResultType.permissionDenied) {
++          msg = '缺少存取權限，無法開啟檔案';
++        } else if (result.message.isNotEmpty) {
++          msg = '開啟失敗: ${result.message}';
++        }
++        ScaffoldMessenger.of(context).hideCurrentSnackBar();
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(
++            content: Text(msg),
++            duration: const Duration(seconds: 3),
++            backgroundColor: Colors.orange.shade800,
++            behavior: SnackBarBehavior.floating,
++          ),
++        );
++      }
++    } catch (e) {
++      if (context.mounted) {
++        ScaffoldMessenger.of(context).hideCurrentSnackBar();
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(
++            content: Text('開啟檔案失敗: $e'),
++            duration: const Duration(seconds: 3),
++            behavior: SnackBarBehavior.floating,
++          ),
++        );
++      }
++    }
++  }
++
+   Widget _buildPostActions(Map<String, dynamic> p) {
+     final bool isGuest = widget.currentUser['id'] == 'u4';
+     return Row(children: [
+@@ -3273,8 +3362,13 @@ extension MainScreenSocialTab on _MainScreenState {
+ 
+   // ── 學習 Pack 資源預覽與匯入 ───────────────────────────────────────
+   Widget _buildLearningPackCard(Map<String, dynamic> p) {
+-    final attached = p['attached_data'];
+-    if (attached == null) return const SizedBox.shrink();
++    var attached = p['attached_data'];
++    if (attached is String) {
++      try {
++        attached = jsonDecode(attached);
++      } catch (_) {}
++    }
++    if (attached == null || attached is! Map) return const SizedBox.shrink();
+ 
+     final String title = attached['pack_title'] ?? '無標題學習 Pack';
+     final String desc = attached['pack_description'] ?? '';
+@@ -3314,149 +3408,22 @@ extension MainScreenSocialTab on _MainScreenState {
+                 decoration: BoxDecoration(
+                   color: Colors.orange.shade700,
+                   borderRadius: BorderRadius.circular(6),
+-                ),
+-                child: const Text(
+-                  '學習 Pack',
+-                  style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+-                ),
+-              ),
+-            ],
+-          ),
+-          if (desc.isNotEmpty) ...[
+-            const SizedBox(height: 8),
+-            Text(
+-              desc,
+-              style: TextStyle(fontSize: 13, color: isDark ? Colors.orange.shade100 : Colors.orange.shade800),
+-            ),
+-          ],
+-          const SizedBox(height: 12),
+-          Row(
+-            children: [
+-              _buildPackTag('📅 ${events.length} 個排程'),
+-              const SizedBox(width: 8),
+-              _buildPackTag('📝 ${papers.length} 套試卷'),
+-            ],
+-          ),
+-          const SizedBox(height: 12),
+-          SizedBox(
+-            width: double.infinity,
+-            child: ElevatedButton.icon(
+-              onPressed: () => _importLearningPack(attached),
+-              icon: const Icon(Icons.download_rounded, size: 18),
+-              label: const Text('一鍵導入我的日曆行程', style: TextStyle(fontWeight: FontWeight.bold)),
+-              style: ElevatedButton.styleFrom(
+-                backgroundColor: Colors.orange.shade600,
+-                foregroundColor: Colors.white,
+-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+-              ),
+-            ),
+-          )
+-        ],
+-      ),
+-    );
+-  }
+-
+-  Widget _buildPackTag(String text) {
+-    return Container(
+-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+-      decoration: BoxDecoration(
+-        color: _isDarkMode ? Colors.white10 : Colors.white,
+-        borderRadius: BorderRadius.circular(20),
+-        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+-      ),
+-      child: Text(
+-        text,
+-        style: TextStyle(
+-            fontSize: 12,
+-            fontWeight: FontWeight.w600,
+-            color: _isDarkMode ? Colors.orange.shade200 : Colors.orange.shade800),
+-      ),
+-    );
+-  }
+-
+-  Future<void> _importLearningPack(Map<String, dynamic> attached) async {
+-    final now = DateTime.now();
+-    final startDate = await showDatePicker(
+-      context: context,
+-      initialDate: now,
+-      firstDate: now.subtract(const Duration(days: 365)),
+-      lastDate: now.add(const Duration(days: 365 * 5)),
+-      helpText: '請選擇計畫的起始日期',
+-      cancelText: '取消',
+-      confirmText: '開始匯入',
+-    );
+-
+-    if (startDate == null || !mounted) return;
+-
+-    try {
+-      final db = await DatabaseHelper.instance.database;
+-      final userId = widget.currentUser['id'];
+-      
+-      int importedEvents = 0;
+-      int importedPapers = 0;
+-
+-      // 匯入 Calendar Events
+-      final events = attached['calendar_events'] as List? ?? [];
+-      for (var e in events) {
+-        final int offset = e['day_offset'] as int? ?? 0;
+-        final targetDate = startDate.add(Duration(days: offset));
+-        
+-        DateTime startTime = DateTime(
+-          targetDate.year, targetDate.month, targetDate.day,
+-          e['start_hour'] as int? ?? 9,
+-          e['start_minute'] as int? ?? 0,
+-        );
+-        DateTime endTime = startTime.add(Duration(minutes: e['end_time_offset_minutes'] as int? ?? 60));
+-
+-        await db.insert('calendar_events', <String, Object?>{
+-          'user_id': userId,
+-          'title': e['title'] ?? '無標題',
+-          'description': e['description'] ?? '',
+-          'is_all_day': e['is_all_day'] ?? 0,
+-          'start_time': startTime.toIso8601String(),
+-          'end_time': endTime.toIso8601String(),
+-          'location': e['location'] ?? '',
+-          'color': e['color'] ?? 'bg-blue-400',
+-          'created_at': DateTime.now().toIso8601String(),
+-          'updated_at': DateTime.now().toIso8601String(),
+-        });
+-        importedEvents++;
+-      }
+-
+-      // 匯入 Questions 和 User Papers
+-      final papers = attached['user_papers'] as List? ?? [];
+-      for (var p in papers) {
+-        final qs = p['questions'] as List? ?? [];
+-        List<int> newQuestionIds = [];
+-        for (var q in qs) {
+-          final qData = Map<String, dynamic>.from(q as Map);
+-          qData['user_id'] = userId;
+-          qData['created_at'] = DateTime.now().toIso8601String();
+-          final qId = await db.insert('questions', qData);
+-          newQuestionIds.add(qId);
+-        }
+-
+-        await db.insert('user_papers', <String, Object?>{
+-          'user_id': userId,
+-          'name': p['name'] ?? '無標題試卷',
+-          'question_ids': jsonEncode(newQuestionIds),
+-          'created_at': DateTime.now().toIso8601String(),
+-        });
+-        importedPapers++;
+-      }
+-
+-      await _loadData();
++                    await _loadData();
+       if (mounted) {
++        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+           content: Text('✅ 成功匯入 $importedEvents 個排程與 $importedPapers 套試卷！'),
+           backgroundColor: Colors.green,
++          duration: const Duration(seconds: 2),
+         ));
+       }
+     } catch (e) {
+       if (mounted) {
++        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+           content: Text('匯入失敗: $e'),
+           backgroundColor: Colors.red,
++          duration: const Duration(seconds: 2),
+         ));
+       }
+     }
+@@ -3504,6 +3471,169 @@ extension MainScreenSocialTab on _MainScreenState {
+       // 匯入至 NotesDatabase 運行時列表中
+       NotesDatabase.notes.insert(0, newNote);
+ 
++      ScaffoldMessenger.of(context).hideCurrentSnackBar();
++      ScaffoldMessenger.of(context).showSnackBar(
++        SnackBar(
++          content: const Text('🎉 筆記已成功匯入您的筆記本！'),
++          backgroundColor: _currentPrimaryColor,
++          duration: const Duration(seconds: 2),
++        ),
++      );
++    } catch (e) {
++      ScaffoldMessenger.of(context).hideCurrentSnackBar();
++      ScaffoldMessenger.of(context).showSnackBar(
++        const SnackBar(
++          content: Text('匯入失敗'),
++          backgroundColor: Colors.redAccent,
++          duration: Duration(seconds: 2),
++        ),
++      );
++    }
++  }
++
++  // ── 召喚作者 AI 分身 ──────────────────────────────────────────────
++  void _summonAuthorClone(Map<String, dynamic> p) {
++    final attached = p['attached_data'];
++    if (attached == null) return;
++
++    final String authorName = p['author'] ?? '未知用戶';
++    final String authorUserId = p['userId']?.toString() ?? '';
++    final int authorAvatarColor = p['authorAvatarColor'] as int? ?? 0;
++    final String title = attached['title'] ?? '無標題筆記';
++    final String content = attached['content'] ?? '';
++    final String strokesJson = attached['strokes']?.toString() ?? '';
++
++    // 計算手寫軌跡數量
++    int strokeCount = 0;
++    if (strokesJson.isNotEmpty && strokesJson != '[]') {
++      try {
++        final decoded = jsonDecode(strokesJson);
++        if (decoded is List) {
++          strokeCount = decoded.length;
++        }
++      } catch (_) {}
++    }
++
++    // 設置分身聊天上下文
++    _cloneContext = {
++      'author': authorName,
++      'userId': authorUserId,
++      'avatarColor': authorAvatarColor,
++      'title': title,
++      'content': content,
++      'strokeCount': strokeCount,
++    };
++
++    _aiFlowState = 'clone_chat';
++
++    // 初始化對話紀錄，加入歡迎詞與快捷提問標記
++    chatLogs = [
++      {
++        'isAI': true,
++        'text':
++            '💡 成功召喚 $authorName 的 AI 鏡像分身！\n我現在是這篇筆記「$title」的作者。你可以問我關於這篇筆記的任何邏輯、細節或推導過程喔！',
++        'isCard': false,
++        'author': authorName,
++        'avatarColor': authorAvatarColor,
++      },
++      {
++        'isAI': true,
++        'text': '',
++        'isCard': false,
++        'widgetType': 'clone_chat_welcome_chips',
++      }
++    ];
++
++    // 開啟全域助理面板
++    _openChatModal();
++  }
++
++  // ── 一鍵收藏題目邏輯 ──────────────────────────────────────────────
++  void _importSharedQuestion(Map<String, dynamic> attached) async {
++    try {
++      final db = await DatabaseHelper.instance.database;
++      final String text = attached['text'] ?? '';
++      final List<dynamic> options = attached['options'] is String
++          ? jsonDecode(attached['options'] as String) as List<dynamic>
++          : (attached['options'] as List<dynamic>? ?? []);
++      final String answer = attached['answer'] ?? '0';
++      final String explanation = attached['explanation'] ?? '';
++      final String subject = attached['subject'] ?? '一般';
++      final String difficulty = attached['difficulty'] ?? '中';
++
++      await db.insert('questions', <String, Object?>{
++        'user_id': widget.currentUser['id'],
++        'text': text,
++        'options': jsonEncode(options),
++        'answer': answer,
++        'explanation': explanation,
++        'subject': subject,
++        'difficulty': difficulty,
++        'is_public': 0,
++        'bookmarked': 0,
++        'created_at': DateTime.now().toIso8601String(),
++      });
++
++      // 重新載入全域資料
++      _loadData();
++
++      if (mounted) {
++        ScaffoldMessenger.of(context).hideCurrentSnackBar();
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(
++            content: const Text('🎉 題目已成功收藏至您的題庫！'),
++            backgroundColor: _currentPrimaryColor,
++            duration: const Duration(seconds: 2),
++          ),
++        );
++      }
++    } catch (e) {
++      if (mounted) {
++        ScaffoldMessenger.of(context).hideCurrentSnackBar();
++        ScaffoldMessenger.of(context).showSnackBar(
++          const SnackBar(
++            content: Text('收藏失敗'),
++            backgroundColor: Colors.redAccent,
++            duration: Duration(seconds: 2),
++          ),
++        );
++      }
++    }String content = attached['content'] ?? '';
++      final String category = attached['category'] ?? '學習';
++      final String authorName = p['author'] ?? '未知用戶';
++      final String authorUserId = p['userId']?.toString() ?? '';
++      final int authorAvatarColor = p['authorAvatarColor'] as int? ?? 0;
++
++      final List<Stroke> strokes = [];
++      final String? strokesJson = attached['strokes'];
++      if (strokesJson != null && strokesJson.isNotEmpty) {
++        try {
++          final decoded = jsonDecode(strokesJson) as List;
++          for (var s in decoded) {
++            strokes.add(Stroke.fromJson(s as Map<String, dynamic>));
++          }
++        } catch (e) {
++          debugPrint('解析筆記繪圖失敗: $e');
++        }
++      }
++
++      final newNote = Note(
++        id: 'note_${DateTime.now().millisecondsSinceEpoch}',
++        userId: widget.currentUser['id'],
++        title: '$title (社群匯入)',
++        content: content,
++        category:
++            NotesDatabase.categories.contains(category) ? category : '未分類',
++        strokes: strokes,
++        updatedAt: DateTime.now(),
++        authorName: authorName,
++        authorUserId: authorUserId,
++        authorAvatarColor: authorAvatarColor,
++      );
++
++      // 匯入至 NotesDatabase 運行時列表中
++      NotesDatabase.notes.insert(0, newNote);
++
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(
+           content: Text('🎉 筆記已成功匯入您的筆記本！'),

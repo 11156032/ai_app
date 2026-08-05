@@ -4,7 +4,13 @@ import '../database/database_helper.dart';
 
 class CreateLearningPackDialog extends StatefulWidget {
   final Map<String, dynamic> currentUser;
-  const CreateLearningPackDialog({super.key, required this.currentUser});
+  final Map<String, dynamic>? initialData;
+
+  const CreateLearningPackDialog({
+    super.key,
+    required this.currentUser,
+    this.initialData,
+  });
 
   @override
   State<CreateLearningPackDialog> createState() => _CreateLearningPackDialogState();
@@ -12,19 +18,46 @@ class CreateLearningPackDialog extends StatefulWidget {
 
 class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
   bool _isLoading = true;
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now().add(const Duration(days: 7));
+  late DateTime _startDate;
+  late DateTime _endDate;
   
   List<Map<String, dynamic>> _allPapers = [];
   final Set<int> _selectedPaperIds = {};
   int _selectedEventCount = 0;
 
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descController = TextEditingController();
+  late final TextEditingController _titleController;
+  late final TextEditingController _descController;
 
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController(text: widget.initialData?['pack_title'] as String? ?? '');
+    _descController = TextEditingController(text: widget.initialData?['pack_description'] as String? ?? '');
+
+    if (widget.initialData != null) {
+      if (widget.initialData!['start_date'] != null) {
+        _startDate = DateTime.tryParse(widget.initialData!['start_date'] as String) ?? DateTime.now();
+      } else {
+        _startDate = DateTime.now();
+      }
+      if (widget.initialData!['end_date'] != null) {
+        _endDate = DateTime.tryParse(widget.initialData!['end_date'] as String) ?? DateTime.now().add(const Duration(days: 7));
+      } else {
+        _endDate = DateTime.now().add(const Duration(days: 7));
+      }
+      final papers = widget.initialData!['user_papers'] as List?;
+      if (papers != null) {
+        for (var p in papers) {
+          if (p is Map && p['id'] != null) {
+            _selectedPaperIds.add(p['id'] as int);
+          }
+        }
+      }
+    } else {
+      _startDate = DateTime.now();
+      _endDate = DateTime.now().add(const Duration(days: 7));
+    }
+
     _loadData();
   }
 
@@ -125,6 +158,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
         }
         
         packPapers.add({
+          'id': paper['id'],
           'name': paper['name'],
           'questions': questions
         });
@@ -133,6 +167,8 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
       final packData = {
         'pack_title': _titleController.text.trim(),
         'pack_description': _descController.text.trim(),
+        'start_date': _startDate.toIso8601String(),
+        'end_date': _endDate.toIso8601String(),
         'calendar_events': packEvents,
         'user_papers': packPapers,
       };
