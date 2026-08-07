@@ -1291,7 +1291,6 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                                 color: isMe ? Colors.white.withValues(alpha: 0.95) : Theme.of(context).primaryColor,
                                               ),
                                             ),
-                                            const SizedBox(height: 2),
                                             Text(
                                               replyTo['content'] ?? '',
                                               style: TextStyle(
@@ -1316,17 +1315,31 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         p['content'] ?? '',
                         style: TextStyle(fontSize: 15, color: textColor, height: 1.3),
                       ),
-                      if (p['media_blob'] != null) ...[
+                      if (p['media_blob'] != null || (p['media'] != null && p['media'].toString().isNotEmpty)) ...[
                         const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover, width: 200, height: 150),
-                        ),
-                      ] else if (p['media'] != null && p['media'].toString().isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: _buildNetworkOrFile(p['media'].toString()),
+                        Builder(
+                          builder: (context) {
+                            Map<String, dynamic> attachedData = {};
+                            try {
+                              if (p['attached_data'] != null) {
+                                if (p['attached_data'] is Map) {
+                                  attachedData = Map<String, dynamic>.from(p['attached_data'] as Map);
+                                } else if (p['attached_data'] is String && (p['attached_data'] as String).isNotEmpty) {
+                                  attachedData = jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
+                                }
+                              }
+                            } catch (_) {}
+                            final double alignX = (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
+                            final double alignY = (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
+                            final Alignment imgAlignment = Alignment(alignX, alignY);
+
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: (p['media_blob'] != null)
+                                  ? Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover, width: double.infinity, height: 160, alignment: imgAlignment)
+                                  : _buildNetworkOrFile(p['media'].toString(), imgAlignment),
+                            );
+                          },
                         ),
                       ],
                     ],
@@ -1378,19 +1391,20 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     );
   }
 
-  Widget _buildNetworkOrFile(String src) {
+  Widget _buildNetworkOrFile(String src, Alignment alignment) {
     if (src.startsWith('data:image')) {
       return Image.memory(
           base64Decode(src.split(',').last),
           fit: BoxFit.cover,
           width: double.infinity,
-          height: 160);
+          height: 160,
+          alignment: alignment);
     } else if (src.startsWith('http') || kIsWeb) {
       return Image.network(src,
-          fit: BoxFit.cover, width: double.infinity, height: 160);
+          fit: BoxFit.cover, width: double.infinity, height: 160, alignment: alignment);
     } else {
       return Image.file(File(src),
-          fit: BoxFit.cover, width: double.infinity, height: 160);
+          fit: BoxFit.cover, width: double.infinity, height: 160, alignment: alignment);
     }
   }
 

@@ -9383,7 +9383,24 @@ $strokePrompt
     );
   }
 
+  Color _getMorandiScheduleColor(int rawColorVal) {
+    if (rawColorVal == 0xFFE53935 ||
+        rawColorVal == 0xFFD32F2F ||
+        rawColorVal == 0xFFFF5252 ||
+        rawColorVal == 0xFFF44336) {
+      return _isDarkMode ? const Color(0xFF9E4B4B) : const Color(0xFFD87A7A);
+    }
+    final Color c = Color(rawColorVal);
+    final hsl = HSLColor.fromColor(c);
+    if (hsl.saturation > 0.45) {
+      return hsl.withSaturation(0.32).withLightness(_isDarkMode ? 0.38 : 0.68).toColor();
+    }
+    return c;
+  }
+
   Widget _buildScheduleItem(Map<String, dynamic> event) {
+    final Color baseColor = _getMorandiScheduleColor(event['color'] as int? ?? 0xFFD87A7A);
+
     return GestureDetector(
         onTap: () => _showEditScheduleDialog(event),
         onLongPress: () {
@@ -9411,11 +9428,11 @@ $strokePrompt
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             decoration: BoxDecoration(
-                color: Color(event['color']).withValues(alpha: 0.85),
+                color: baseColor.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                      color: Color(event['color']).withValues(alpha: 0.3),
+                      color: baseColor.withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 6))
                 ],
@@ -12488,71 +12505,134 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   void _showFileTypeSheet() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color primaryColor = Theme.of(context).primaryColor;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1E1E2C) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                child: Text('選擇附件類型',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Row(
+                children: [
+                  Icon(Icons.filter_alt_rounded, color: primaryColor, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    '選擇常用檔案類型（快速同類過濾）',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
               ),
-              const Divider(),
-              ListTile(
-                leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFEDE7F6),
-                    child: Icon(Icons.folder_open_outlined,
-                        color: Colors.deepPurple)),
-                title: const Text('所有支援文件 (.pdf, .doc, .docx, .txt)'),
-                subtitle: const Text('允許選取上述所有支援格式'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickFileWithType(['pdf', 'doc', 'docx', 'txt']);
-                },
+              const SizedBox(height: 4),
+              Text(
+                '點選後開啟系統選擇器，僅顯示該類型檔案',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                ),
               ),
+              const SizedBox(height: 8),
+              Divider(color: isDark ? Colors.white12 : Colors.grey.shade200),
+
+              // 1. PDF 文件
               ListTile(
                 leading: const CircleAvatar(
                     backgroundColor: Color(0xFFFFEBEE),
-                    child:
-                        Icon(Icons.picture_as_pdf_outlined, color: Colors.red)),
-                title: const Text('PDF 文件 (.pdf)'),
-                subtitle: const Text('僅選取 PDF 格式檔案'),
+                    child: Icon(Icons.picture_as_pdf_rounded, color: Colors.red)),
+                title: Text('PDF 文件 (.pdf)',
+                    style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w600)),
+                subtitle: Text('開啟僅顯示 PDF 講義與文件',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickFileWithType(['pdf']);
+                  _pickFileWithType(
+                    type: FileType.custom,
+                    allowedExtensions: ['pdf'],
+                    labelHint: 'PDF 文件',
+                  );
                 },
               ),
+
+              // 2. Word 報告與作業
               ListTile(
                 leading: const CircleAvatar(
                     backgroundColor: Color(0xFFE3F2FD),
-                    child:
-                        Icon(Icons.description_outlined, color: Colors.blue)),
-                title: const Text('Word 文件 (.doc / .docx)'),
-                subtitle: const Text('僅選取 Word 格式報告'),
+                    child: Icon(Icons.description_rounded, color: Colors.blue)),
+                title: Text('Word 報告 (.doc, .docx)',
+                    style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w600)),
+                subtitle: Text('開啟僅顯示 Word 報告格式',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickFileWithType(['doc', 'docx']);
+                  _pickFileWithType(
+                    type: FileType.custom,
+                    allowedExtensions: ['doc', 'docx'],
+                    labelHint: 'Word 報告',
+                  );
                 },
               ),
+
+              // 3. 純文字筆記
               ListTile(
                 leading: const CircleAvatar(
                     backgroundColor: Color(0xFFE8F5E9),
-                    child: Icon(Icons.sticky_note_2_outlined,
-                        color: Colors.green)),
-                title: const Text('學習筆記 (.txt)'),
-                subtitle: const Text('僅選取純文字筆記'),
+                    child: Icon(Icons.sticky_note_2_rounded, color: Colors.green)),
+                title: Text('純文字筆記 (.txt, .md)',
+                    style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w600)),
+                subtitle: Text('開啟僅顯示筆記類純文字檔',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickFileWithType(['txt']);
+                  _pickFileWithType(
+                    type: FileType.custom,
+                    allowedExtensions: ['txt', 'md'],
+                    labelHint: '純文字筆記',
+                  );
+                },
+              ),
+
+              // 4. 所有支援文件
+              ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFEDE7F6),
+                    child: Icon(Icons.folder_open_rounded, color: Colors.deepPurple)),
+                title: Text('所有檔案格式 (不限)',
+                    style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w600)),
+                subtitle: Text('開啟檔案庫顯示所有格式檔案',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFileWithType(
+                    type: FileType.any,
+                    labelHint: '檔案',
+                  );
                 },
               ),
               const SizedBox(height: 8),
@@ -12563,25 +12643,32 @@ class _CreatePostPageState extends State<CreatePostPage> {
     );
   }
 
-  void _pickFileWithType(List<String> extensions) async {
+  void _pickFileWithType({
+    FileType type = FileType.custom,
+    List<String>? allowedExtensions,
+    String? labelHint,
+  }) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: extensions,
+        type: type,
+        allowedExtensions: (type == FileType.custom) ? allowedExtensions : null,
         withData: true,
       );
       if (result != null && mounted) {
+        final file = result.files.single;
         setState(() {
-          _selectedFileName = result.files.single.name;
-          _selectedFileBytes = result.files.single.bytes;
+          _selectedFileName = file.name;
+          _selectedFileBytes = file.bytes;
         });
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('已附加檔案：$_selectedFileName')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已附加${labelHint ?? '檔案'}：${file.name}')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('選取檔案失敗，請再試一次')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('選取檔案失敗，請再試一次')),
+        );
       }
     }
   }

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 // 預設插圖頭像（emoji 角色 + 背景色）
 const List<Map<String, dynamic>> kPresetAvatars = [
-  {'emoji': '😊', 'color': Color(0xFFFFD54F), 'label': '開心'},
+  {'emoji': '😊', 'color': Color(0xFFA1887F), 'label': '開心'}, // 預設暖棕
   {'emoji': '🐱', 'color': Color(0xFFFFAB91), 'label': '小貓'},
   {'emoji': '🐶', 'color': Color(0xFFA5D6A7), 'label': '小狗'},
   {'emoji': '🦊', 'color': Color(0xFFFFCC80), 'label': '狐狸'},

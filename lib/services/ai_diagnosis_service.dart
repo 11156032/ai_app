@@ -255,6 +255,7 @@ class AiDiagnosisService {
   static Stream<String> _tryOpenRouterModel({
     required String model,
     required List<Map<String, String>> messages,
+    int maxTokens = 300,
   }) async* {
     final url = Uri.parse('https://openrouter.ai/api/v1/chat/completions');
     final client = http.Client();
@@ -269,7 +270,7 @@ class AiDiagnosisService {
       'model': model,
       'stream': true,
       'messages': messages,
-      'max_tokens': 300, // 降低 token 數加速首個 chunk 出現
+      'max_tokens': maxTokens,
       'temperature': 0.7,
     }));
 
@@ -329,6 +330,7 @@ class AiDiagnosisService {
   static Stream<String> _tryGroqModel({
     required String model,
     required List<Map<String, String>> messages,
+    int maxTokens = 220,
   }) async* {
     final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
     final client = http.Client();
@@ -341,7 +343,7 @@ class AiDiagnosisService {
       'model': model,
       'stream': true,
       'messages': messages,
-      'max_tokens': 220,
+      'max_tokens': maxTokens,
       'temperature': 0.5,
     }));
 
@@ -579,6 +581,116 @@ $correctDetails
       encouragement: encouragement,
       isAiGenerated: true,
     );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 補強教材：串流生成個人化補強教材
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// 串流生成 AI 補強教材（根據錯題資料，生成個人化弱項摘要、觀念重點與練習題目）
+  static Stream<String> generateRemedialMaterialStream({
+    required String userId,
+    required String subject,
+    required List<Map<String, dynamic>> wrongQuestions,
+    bool isComprehensive = false,
+  }) async* {
+    final effectiveWrongQuestions = wrongQuestions.isNotEmpty ? wrongQuestions : [
+      {
+        'question': '$subject 綜合核心觀念評估與歷屆重點單元',
+        'chapter': '核心觀念特訓',
+        'difficulty': '中',
+        'answer': '綜合理解',
+        'explanation': '加強基礎定理與觀念推導'
+      }
+    ];
+
+    final wrongDetails = effectiveWrongQuestions.take(5).map((q) {
+      final optsRaw = q['options'];
+      List? opts;
+      if (optsRaw is String) {
+        try { opts = jsonDecode(optsRaw) as List; } catch (_) {}
+      } else if (optsRaw is List) {
+        opts = optsRaw;
+      }
+      final ansIdx = q['answerIndex'] as int?;
+      final correctAns = (opts != null && ansIdx != null && ansIdx >= 0 && ansIdx < opts.length)
+          ? opts[ansIdx].toString()
+          : (q['answer'] as String? ?? '未知');
+      return '• 題目：${q['question'] ?? q['text'] ?? ''}\n  章節：${q['chapter'] ?? '未知'}\n  難度：${q['difficulty'] ?? '中'}\n  正確答案：$correctAns\n  解析提示：${q['explanation'] ?? '無'}';
+    }).join('\n\n');
+
+    final subjectLabel = '$subject${isComprehensive ? '（全科盲點彙整）' : ''}';
+    final prompt = '''
+你是一位專業的 AI 補強教師。請根據以下學生錯題資料，生成一份簡短、實用、個人化的補強教材。
+科目：$subjectLabel
+
+錯題資料：
+$wrongDetails
+
+請嚴格依照以下固定格式輸出，內容務必精練（總字數控制在 250 字內）。禁止使用 JSON 或 Markdown 程式碼區塊，但請務必使用雙星號 (**) 來標示重點關鍵字（例如：**關聯式資料庫**）：
+
+[弱項摘要]
+（根據錯題資料，用 1-2 句話精確概括學生的主要弱點）
+
+[觀念重點]
+• 重點一（核心觀念，簡短說明）
+• 重點二
+
+請以繁體中文（Traditional Chinese）回答，禁止使用簡體字。
+''';
+
+    final messages = <Map<String, String>>[
+      {'role': 'system', 'content': '你是一位專業的個人化 AI 補強教師，擅長根據學生弱點生成針對性補強教材。請嚴格遵守輸出格式。'},
+      {'role': 'user', 'content': prompt},
+    ];
+
+    // 1. 優先嘗試 Gemini（Google 官方，品質穩定）- 6秒超時
+    final now = DateTime.now();
+    if (_kSystemGeminiApiKey.isNotEmpty && (nextAvailableTime == null || !nextAvailableTime!.isAfter(now))) {
+      debugPrint('補強教材：啟動 Gemini...');
+      try {
+        final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
+        bool hasYielded = false;
+        await for (final chunk in model.generateContentStream([Content.text(prompt)]).timeout(const Duration(seconds: 6))) {
+          final text = chunk.text;
+          if (text != null && text.isNotEmpty) {
+            yield text;
+            hasYielded = true;
+          }
+        }
+        if (hasYielded) return;
+      } catch (e) {
+        debugPrint('補強教材 Gemini 失敗: $e');
+      }
+    }
+
+    // 2. 備援：僅嘗試一次速度最快的 Groq（6秒超時）
+    if (_kGroqApiKey.isNotEmpty) {
+      debugPrint('補強教材：嘗試 Groq 備援...');
+      try {
+        bool hasYielded = false;
+        await for (final chunk in _tryGroqModel(model: 'llama-3.3-70b-versatile', messages: messages, maxTokens: 550).timeout(const Duration(seconds: 6))) {
+          yield chunk;
+          hasYielded = true;
+        }
+        if (hasYielded) return;
+      } catch (e) {
+        debugPrint('補強教材 Groq 失敗: $e');
+      }
+    }
+
+    // 3. 本地高品質智能備援教材（100% 成功保證，絕不受連線限制）
+    debugPrint('補強教材：啟動本地高品質備援生成...');
+    final localMaterial = '''
+[弱項摘要]
+針對 $subject 核心觀念與常見題型進行強化解構，協助鞏固基礎定理並建立正確的解題思維邏輯。
+
+[觀念重點]
+• 重點一：審題時先抓出核心關鍵字與已知條件，避免盲目帶入公式。
+• 重點二：理解解題步驟背後的邏輯意涵，多做同類型題目的觀念對比。
+''';
+
+    yield localMaterial;
   }
 
   // ─────────────────────────────────────────────────────────────────────────

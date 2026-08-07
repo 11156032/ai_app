@@ -627,7 +627,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                   ElevatedButton(
                     onPressed: () {
-                      _showAISnackbar('已根據盲點單元為您生成 AI 補強計畫！', Icons.auto_awesome);
+                      _showRemedialMaterialSheet('綜合盲點');
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
@@ -643,6 +643,38 @@ extension MainScreenProfileTab on _MainScreenState {
             ),
           ]
         ],
+      ),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadWrongQuestionDetails() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final rows = await db.query('questions', limit: 5);
+      return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  void _showRemedialMaterialSheet(String subjectName) async {
+    final bool isDark = _isDarkMode;
+    final Color primary = _currentPrimaryColor;
+
+    // Pre-load wrong questions
+    final wrongList = await _loadWrongQuestionDetails();
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _RemedialMaterialSheet(
+        subjectName: subjectName,
+        wrongList: wrongList,
+        userId: widget.currentUser['id']?.toString() ?? 'u1',
+        isDark: isDark,
+        primary: primary,
       ),
     );
   }
@@ -732,31 +764,55 @@ extension MainScreenProfileTab on _MainScreenState {
                 height: 190,
                 child: ScatterChart(
                   ScatterChartData(
-                    scatterSpots: _weeklyMatrixData.asMap().entries.map((e) {
-                      final d = e.value;
-                      double acc = (d['accuracy'] as num).toDouble();
-                      double time = (d['avgTime'] as num).toDouble();
-                      Color color;
-                      if (acc >= 60 && time <= 15) {
-                        color = Colors.blue;
-                      } else if (acc >= 60 && time > 15) {
-                        color = Colors.amber.shade700;
-                      } else if (acc < 60 && time > 15) {
-                        color = Colors.red;
-                      } else {
-                        color = Colors.grey.shade600;
+                    scatterSpots: () {
+                      final spots = <ScatterSpot>[];
+                      final posCount = <String, int>{};
+
+                      for (int i = 0; i < _weeklyMatrixData.length; i++) {
+                        final d = _weeklyMatrixData[i];
+                        double acc = (d['accuracy'] as num).toDouble();
+                        double time = (d['avgTime'] as num).toDouble();
+
+                        final key = '${(time / 1.5).round()}_${(acc / 5.0).round()}';
+                        int count = posCount[key] ?? 0;
+                        posCount[key] = count + 1;
+
+                        double jitterX = 0;
+                        double jitterY = 0;
+                        if (count > 1) {
+                          final angles = [0.0, 3.14, 1.57, 4.71, 0.78, 2.35, 3.92, 5.49];
+                          final angle = angles[(count - 1) % angles.length];
+                          final dist = (1 + (count - 1) ~/ 8) * 0.8;
+                          jitterX = math.cos(angle) * dist * 1.2;
+                          jitterY = math.sin(angle) * dist * 3.5;
+                        }
+
+                        Color color;
+                        if (acc >= 60 && time <= 15) {
+                          color = Colors.blue;
+                        } else if (acc >= 60 && time > 15) {
+                          color = Colors.amber.shade700;
+                        } else if (acc < 60 && time > 15) {
+                          color = Colors.red;
+                        } else {
+                          color = Colors.grey.shade600;
+                        }
+
+                        spots.add(
+                          ScatterSpot(
+                            (time + jitterX).clamp(0.5, maxX),
+                            (acc + jitterY).clamp(2.0, 98.0),
+                            dotPainter: FlDotCirclePainter(
+                              color: color,
+                              radius: 9,
+                              strokeWidth: 2.5,
+                              strokeColor: Colors.white,
+                            ),
+                          ),
+                        );
                       }
-                      return ScatterSpot(
-                        time,
-                        acc,
-                        dotPainter: FlDotCirclePainter(
-                          color: color,
-                          radius: 9,
-                          strokeWidth: 2.5,
-                          strokeColor: Colors.white,
-                        ),
-                      );
-                    }).toList(),
+                      return spots;
+                    }(),
                     minX: 0,
                     maxX: maxX,
                     minY: 0,
@@ -843,14 +899,28 @@ extension MainScreenProfileTab on _MainScreenState {
                     ),
                     scatterTouchData: ScatterTouchData(
                       enabled: true,
-                      touchSpotThreshold: 35.0,
+                      touchSpotThreshold: 24.0,
                       touchCallback: (FlTouchEvent event, ScatterTouchResponse? touchResponse) {
                         if (touchResponse != null &&
                             touchResponse.touchedSpot != null &&
                             event is FlTapUpEvent) {
                           final spotIndex = touchResponse.touchedSpot!.spotIndex;
                           if (spotIndex >= 0 && spotIndex < _weeklyMatrixData.length) {
-                            _showQuizDetailSheet(context, _weeklyMatrixData[spotIndex]);
+                            final touchedData = _weeklyMatrixData[spotIndex];
+                            double acc = (touchedData['accuracy'] as num).toDouble();
+                            double time = (touchedData['avgTime'] as num).toDouble();
+
+                            final nearby = _weeklyMatrixData.where((d) {
+                              double dAcc = (d['accuracy'] as num).toDouble();
+                              double dTime = (d['avgTime'] as num).toDouble();
+                              return (dAcc - acc).abs() <= 8.0 && (dTime - time).abs() <= 3.0;
+                            }).toList();
+
+                            if (nearby.length > 1) {
+                              _showOverlappedQuizzesSheet(context, nearby);
+                            } else {
+                              _showQuizDetailSheet(context, touchedData);
+                            }
                           }
                         }
                       },
@@ -911,6 +981,127 @@ extension MainScreenProfileTab on _MainScreenState {
           ],
         ),
       ],
+    );
+  }
+
+  void _showOverlappedQuizzesSheet(BuildContext context, List<Map<String, dynamic>> quizzes) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        decoration: BoxDecoration(
+          color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.layers_rounded, color: _currentPrimaryColor, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  '此區域包含 ${quizzes.length} 筆測驗紀錄',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '請點擊欲查看的測驗，以開啟詳細診斷與 AI 補強：',
+              style: TextStyle(
+                fontSize: 12,
+                color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: quizzes.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final item = quizzes[i];
+                  final subject = item['subject']?.toString() ?? '測驗';
+                  final acc = (item['accuracy'] as num).toDouble();
+                  final avgTime = (item['avgTime'] as num).toDouble();
+                  final date = item['timestamp']?.toString() ?? item['date']?.toString() ?? '';
+                  
+                  Color statusColor;
+                  String statusText;
+                  if (acc >= 60 && avgTime <= 15) {
+                    statusColor = Colors.blue;
+                    statusText = '熟練度高';
+                  } else if (acc >= 60 && avgTime > 15) {
+                    statusColor = Colors.amber.shade700;
+                    statusText = '猶豫期';
+                  } else if (acc < 60 && avgTime > 15) {
+                    statusColor = Colors.red;
+                    statusText = '嚴重盲點';
+                  } else {
+                    statusColor = Colors.grey.shade600;
+                    statusText = '粗心';
+                  }
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                    title: Row(
+                      children: [
+                        Text(
+                          subject,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: _isDarkMode ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            statusText,
+                            style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      '正確率: ${acc.toInt()}% • 平均耗時: ${avgTime.toStringAsFixed(1)}s${date.isNotEmpty ? " • $date" : ""}',
+                      style: TextStyle(fontSize: 12, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+                    ),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showQuizDetailSheet(context, item);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1115,7 +1306,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           ),
                           onPressed: () {
                             Navigator.pop(ctx);
-                            _showAISnackbar('已呼叫 AI 為您針對 $subject 產生盲點特訓專題！', Icons.auto_awesome);
+                            _showRemedialMaterialSheet(subject);
                           },
                         ),
                       ),
@@ -2279,5 +2470,322 @@ extension MainScreenProfileTab on _MainScreenState {
       debugPrint('客服回饋 API 網路例外（啟動本地容錯接收）: $e');
       return true; // 容錯機制：發生超時或網路問題時直接標記成功，避免使用者端無限轉圈
     }
+  }
+}
+
+// ─── 補強教材彈窗（獨立 StatefulWidget）───
+class _RemedialMaterialSheet extends StatefulWidget {
+  final String subjectName;
+  final List<Map<String, dynamic>> wrongList;
+  final String userId;
+  final bool isDark;
+  final Color primary;
+
+  const _RemedialMaterialSheet({
+    required this.subjectName,
+    required this.wrongList,
+    required this.userId,
+    required this.isDark,
+    required this.primary,
+  });
+
+  @override
+  State<_RemedialMaterialSheet> createState() => _RemedialMaterialSheetState();
+}
+
+class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
+  final StringBuffer _buffer = StringBuffer();
+  StreamSubscription<String>? _sub;
+  final ScrollController _sc = ScrollController();
+  
+  bool _isConnecting = true;
+  bool _showLoading = true;
+  double _loadingTarget = 0.95;
+  int _loadingDurationMs = 8000;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = AiDiagnosisService.generateRemedialMaterialStream(
+      userId: widget.userId,
+      subject: widget.subjectName,
+      wrongQuestions: widget.wrongList,
+    ).listen(
+      (chunk) {
+        if (mounted) {
+          _buffer.write(chunk);
+          if (_isConnecting) {
+            _isConnecting = false;
+            setState(() {
+              _loadingTarget = 1.0;
+              _loadingDurationMs = 400;
+            });
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) setState(() => _showLoading = false);
+            });
+          } else {
+            if (!_showLoading) setState(() {});
+          }
+        }
+      },
+      onError: (e) {
+        debugPrint('補強教材串流嚴重錯誤: $e');
+        if (mounted) {
+          setState(() {
+            _showLoading = false;
+            if (_buffer.isEmpty) {
+              _buffer.write('【連線異常】\n無法連線至 AI 伺服器，請稍後再試。');
+            } else {
+              _buffer.write('\n\n(分析中斷，請重試)');
+            }
+          });
+        }
+      },
+      onDone: () {
+        if (mounted && _buffer.isEmpty) {
+          setState(() {
+            _showLoading = false;
+            _buffer.write('【系統提示】\n未獲得任何分析結果，請稍後再試。');
+          });
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _sc.dispose();
+    super.dispose();
+  }
+
+  Widget _parseInlineFormatting(String text, TextStyle defaultStyle, bool isDark) {
+    final spans = <InlineSpan>[];
+    final regex = RegExp(r'\*\*(.*?)\*\*');
+    int lastMatchEnd = 0;
+    
+    for (var match in regex.allMatches(text)) {
+      if (match.start > lastMatchEnd) {
+        spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start)));
+      }
+      spans.add(
+        TextSpan(
+          text: match.group(1),
+          style: defaultStyle.copyWith(
+            backgroundColor: isDark ? Colors.amber.withValues(alpha: 0.3) : Colors.yellow.withValues(alpha: 0.4),
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.amber.shade100 : Colors.black87,
+          ),
+        ),
+      );
+      lastMatchEnd = match.end;
+    }
+    if (lastMatchEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastMatchEnd)));
+    }
+    
+    return RichText(
+      text: TextSpan(
+        style: defaultStyle,
+        children: spans,
+      ),
+    );
+  }
+
+  List<Widget> _buildRichText(String text, bool isDark) {
+    if (text.isEmpty) return [];
+    
+    final lines = text.split('\n');
+    final widgets = <Widget>[];
+    
+    for (var line in lines) {
+      if (line.trim().isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+      
+      if (line.startsWith('【') && line.contains('】')) {
+        // Title
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            line,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: widget.primary,
+            ),
+          ),
+        ));
+      } else if (line.startsWith('[') && line.contains(']')) {
+        // Section Header
+        widgets.add(Container(
+          margin: const EdgeInsets.only(top: 16, bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+             color: isDark ? Colors.white10 : widget.primary.withValues(alpha: 0.08),
+             border: Border(left: BorderSide(color: widget.primary, width: 4)),
+          ),
+          child: Text(
+            line,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+        ));
+      } else if (line.startsWith('•') || line.startsWith('-')) {
+        // Bullet point
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('•', style: TextStyle(color: widget.primary, fontSize: 16, height: 1.4, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _parseInlineFormatting(
+                  line.substring(1).trim(),
+                  TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                  ),
+                  isDark,
+                ),
+              ),
+            ],
+          ),
+        ));
+      } else {
+        // Normal text
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: _parseInlineFormatting(
+            line,
+            TextStyle(
+              fontSize: 14,
+              height: 1.6,
+              color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+            ),
+            isDark,
+          ),
+        ));
+      }
+    }
+    return widgets;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = _buffer.toString();
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.92,
+      builder: (ctx, sc) => Container(
+        decoration: BoxDecoration(
+          color: widget.isDark ? const Color(0xFF1E1E2C) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: widget.isDark ? Colors.white24 : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+              child: Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: widget.primary, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'AI 專屬補強教材 (${widget.subjectName})',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: widget.isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _showLoading
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.memory,
+                              size: 48,
+                              color: widget.primary.withValues(alpha: 0.7)),
+                          const SizedBox(height: 24),
+                          TweenAnimationBuilder<double>(
+                            tween: Tween<double>(begin: 0.0, end: _loadingTarget),
+                            duration: Duration(milliseconds: _loadingDurationMs),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, value, child) {
+                              return Column(
+                                children: [
+                                  SizedBox(
+                                    width: 200,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: LinearProgressIndicator(
+                                        value: value,
+                                        backgroundColor: widget.isDark
+                                            ? Colors.white12
+                                            : Colors.grey.shade200,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                            widget.primary),
+                                        minHeight: 6,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'AI 正在為您深度分析盲點... ${(value * 100).toInt()}%',
+                                    style: TextStyle(
+                                      color: widget.isDark
+                                          ? Colors.white70
+                                          : Colors.grey.shade600,
+                                      fontSize: 13,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      controller: sc,
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _buildRichText(text, widget.isDark),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

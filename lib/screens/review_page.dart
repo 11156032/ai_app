@@ -224,6 +224,16 @@ class _ReviewPageState extends State<ReviewPage>
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            tooltip: '回到題庫頁面',
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),

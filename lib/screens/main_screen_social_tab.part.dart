@@ -1601,6 +1601,7 @@ extension MainScreenSocialTab on _MainScreenState {
   Widget _buildPostItemNewsList(Map<String, dynamic> p, [int? index, bool isSocialFeed = false]) {
     final idx = index ?? 0;
     final bool isDark = _isDarkMode;
+    final bool isGuest = widget.currentUser['id'] == 'u4';
     final Color borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
     final Color textCol = isDark ? Colors.white70 : Colors.black87;
     final hasMedia = p['media_blob'] != null ||
@@ -1674,9 +1675,9 @@ extension MainScreenSocialTab on _MainScreenState {
                         ),
                       ),
                     ],
+                    const Spacer(),
                     if (p['userId'].toString() ==
                         widget.currentUser['id'].toString()) ...[
-                      const Spacer(),
                       PopupMenuButton<String>(
                         padding: EdgeInsets.zero,
                         iconSize: 18,
@@ -1694,7 +1695,26 @@ extension MainScreenSocialTab on _MainScreenState {
                                   style: TextStyle(color: Colors.red))),
                         ],
                       ),
+                      const SizedBox(width: 4),
                     ],
+                    // 收藏貼文圖示（放在點點右側）
+                    GestureDetector(
+                      onTap: () => isGuest ? _showGuestLoginPrompt() : _toggleBookmark(p),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          (p['isBookmarked'] as bool? ?? false)
+                              ? Icons.bookmark
+                              : Icons.bookmark_border,
+                          size: 18,
+                          color: isGuest
+                              ? Colors.grey.shade400
+                              : ((p['isBookmarked'] as bool? ?? false)
+                                  ? _currentPrimaryColor
+                                  : (isDark ? Colors.white38 : Colors.grey.shade400)),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1863,113 +1883,180 @@ extension MainScreenSocialTab on _MainScreenState {
                         ],
                       ),
                     ),
-                    // Thumbnail Right
+                    // Thumbnail Right (大氣寬敞，92x92 提升細節與層次感)
                     if (hasMedia) ...[
-                      const SizedBox(width: 12),
-            GestureDetector(
-              onTap: () => _showImagePreviewDialog(p),
-              child: Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: isDark ? Colors.black26 : Colors.grey.shade100,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: (p['media_blob'] != null)
-                      ? Image.memory(p['media_blob'] as Uint8List,
-                          fit: BoxFit.cover, gaplessPlayback: true)
-                      : (p['media'].toString().startsWith('data:image'))
-                          ? Image.memory(
-                              base64Decode(p['media'].toString().split(',').last),
-                              fit: BoxFit.cover,
-                              gaplessPlayback: true)
-                          : (p['media'].toString().startsWith('http') || kIsWeb)
-                              ? Image.network(p['media'] as String,
-                                  fit: BoxFit.cover, gaplessPlayback: true)
-                              : Image.file(File(p['media'] as String),
-                                  fit: BoxFit.cover, gaplessPlayback: true),
-                ),
-              ),
-            ),
+                      const SizedBox(width: 14),
+                      GestureDetector(
+                        onTap: () => _showImagePreviewDialog(p),
+                        child: Builder(
+                          builder: (context) {
+                            Map<String, dynamic> attachedData = {};
+                            try {
+                              if (p['attached_data'] != null) {
+                                if (p['attached_data'] is Map) {
+                                  attachedData = Map<String, dynamic>.from(p['attached_data'] as Map);
+                                } else if (p['attached_data'] is String && (p['attached_data'] as String).isNotEmpty) {
+                                  attachedData = jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
+                                }
+                              }
+                            } catch (_) {}
+                            final double alignX = (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
+                            final double alignY = (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
+                            final Alignment imgAlignment = Alignment(alignX, alignY);
+
+                            return Container(
+                              width: 92,
+                              height: 92,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: isDark ? Colors.black26 : Colors.grey.shade100,
+                                border: Border.all(
+                                  color: isDark ? Colors.white12 : Colors.grey.shade200,
+                                  width: 0.8,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(9),
+                                child: (p['media_blob'] != null)
+                                    ? Image.memory(p['media_blob'] as Uint8List,
+                                        fit: BoxFit.cover, alignment: imgAlignment, gaplessPlayback: true)
+                                    : (p['media'].toString().startsWith('data:image'))
+                                        ? Image.memory(
+                                            base64Decode(p['media'].toString().split(',').last),
+                                            fit: BoxFit.cover,
+                                            alignment: imgAlignment,
+                                            gaplessPlayback: true)
+                                        : (p['media'].toString().startsWith('http') || kIsWeb)
+                                            ? Image.network(p['media'] as String,
+                                                fit: BoxFit.cover, alignment: imgAlignment, gaplessPlayback: true)
+                                            : Image.file(File(p['media'] as String),
+                                                fit: BoxFit.cover, alignment: imgAlignment, gaplessPlayback: true),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ],
                 ),
-                const SizedBox(height: 8),
-                // Actions row
+                const SizedBox(height: 10),
+                // Actions row (舒適軟卡片膠囊點擊區域)
                 _buildPostActionsMini(p),
         ],
       ),
     );
   }
 
-  // ── 新聞式列表小型動作列 ──────────────────────────────────────────
+  // ── 新聞式列表小型動作列（舒適點擊膠囊按鈕）────────────────────────────
   Widget _buildPostActionsMini(Map<String, dynamic> p) {
     final bool isGuest = widget.currentUser['id'] == 'u4';
     final bool isDark = _isDarkMode;
-    final textStyle = TextStyle(
-      fontSize: 11,
-      color: isDark ? Colors.white30 : Colors.grey.shade500,
-    );
+    final bool isLiked = (p['isLiked'] as bool? ?? false);
+    final int likes = (p['likes'] as int?) ?? 0;
+    final int replies = (p['replies'] as int?) ?? 0;
 
     return Row(
       children: [
-        GestureDetector(
-          onTap: () => isGuest ? _showGuestLoginPrompt() : _toggleLike(p),
-          child: Row(
-            children: [
-              Icon(
-                p['isLiked'] ? Icons.favorite : Icons.favorite_border,
-                size: 14,
-                color: isGuest
-                    ? Colors.grey.shade300
-                    : (p['isLiked'] ? Colors.redAccent : Colors.grey),
+        // 按讚膠囊區域
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => isGuest ? _showGuestLoginPrompt() : _toggleLike(p),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isLiked
+                    ? Colors.red.withValues(alpha: isDark ? 0.25 : 0.08)
+                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isLiked
+                      ? Colors.red.withValues(alpha: 0.3)
+                      : Colors.transparent,
+                ),
               ),
-              const SizedBox(width: 4),
-              Text('${p['likes']}', style: textStyle),
-            ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    size: 15,
+                    color: isGuest
+                        ? Colors.grey.shade400
+                        : (isLiked ? Colors.redAccent : (isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '$likes',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isLiked ? FontWeight.bold : FontWeight.w500,
+                      color: isLiked
+                          ? Colors.redAccent
+                          : (isDark ? Colors.grey.shade300 : Colors.grey.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        const SizedBox(width: 16),
-        GestureDetector(
-          onTap: () {
-            if (isGuest) {
-              _showGuestLoginPrompt();
-              return;
-            }
-            Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => PostReplyPage(
-                            originalPost: p, currentUser: widget.currentUser)))
-                .then((_) => _loadData());
-          },
-          child: Row(
-            children: [
-              Icon(
-                Icons.mode_comment_outlined,
-                size: 14,
-                color: isGuest ? Colors.grey.shade300 : Colors.grey,
+        const SizedBox(width: 8),
+
+        // 留言膠囊區域
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              if (isGuest) {
+                _showGuestLoginPrompt();
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostReplyPage(
+                    originalPost: p,
+                    currentUser: widget.currentUser,
+                  ),
+                ),
+              ).then((_) => _loadData());
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(width: 4),
-              Text('${p['replies']}', style: textStyle),
-            ],
-          ),
-        ),
-        const Spacer(),
-        GestureDetector(
-          onTap: () => isGuest ? _showGuestLoginPrompt() : _toggleBookmark(p),
-          child: Icon(
-            (p['isBookmarked'] as bool? ?? false)
-                ? Icons.bookmark
-                : Icons.bookmark_border,
-            size: 14,
-            color: isGuest
-                ? Colors.grey.shade300
-                : ((p['isBookmarked'] as bool? ?? false)
-                    ? _currentPrimaryColor
-                    : Colors.grey),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.mode_comment_outlined,
+                    size: 15,
+                    color: isGuest ? Colors.grey.shade400 : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '$replies',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],

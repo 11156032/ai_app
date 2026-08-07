@@ -659,11 +659,25 @@ extension MainScreenActivityTab on _MainScreenState {
 
   // ─── 媒體圖片顯示 ───────────────────────────────────────────────
   Widget _buildActivityMedia(Map<String, dynamic> p, {double height = 160}) {
+    Map<String, dynamic> attachedData = {};
+    try {
+      if (p['attached_data'] != null) {
+        if (p['attached_data'] is Map) {
+          attachedData = Map<String, dynamic>.from(p['attached_data'] as Map);
+        } else if (p['attached_data'] is String && (p['attached_data'] as String).isNotEmpty) {
+          attachedData = jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
+        }
+      }
+    } catch (_) {}
+    final double alignX = (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
+    final double alignY = (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
+    final Alignment imgAlignment = Alignment(alignX, alignY);
+
     if (p['media_blob'] != null) {
       return SizedBox(
         width: double.infinity,
         height: height,
-        child: Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover),
+        child: Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover, alignment: imgAlignment),
       );
     }
     final media = p['media']?.toString() ?? '';
@@ -674,6 +688,7 @@ extension MainScreenActivityTab on _MainScreenState {
         child: Image.memory(
           base64Decode(media.split(',').last),
           fit: BoxFit.cover,
+          alignment: imgAlignment,
         ),
       );
     }
@@ -681,13 +696,13 @@ extension MainScreenActivityTab on _MainScreenState {
       return SizedBox(
         width: double.infinity,
         height: height,
-        child: Image.network(media, fit: BoxFit.cover),
+        child: Image.network(media, fit: BoxFit.cover, alignment: imgAlignment),
       );
     }
     return SizedBox(
       width: double.infinity,
       height: height,
-      child: Image.file(File(media), fit: BoxFit.cover),
+      child: Image.file(File(media), fit: BoxFit.cover, alignment: imgAlignment),
     );
   }
 
