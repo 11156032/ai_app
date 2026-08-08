@@ -157,7 +157,7 @@ extension MainScreenProfileTab on _MainScreenState {
 
   Widget _buildPersonalizedDashboard(BuildContext context) {
     bool isFlipped = false;
-    
+
     return StatefulBuilder(
       builder: (context, setState) {
         return GestureDetector(
@@ -174,7 +174,8 @@ extension MainScreenProfileTab on _MainScreenState {
               bool showBack = value > 0.5;
               double angle = value * math.pi;
 
-              Widget content = showBack ? _buildDashboardBack() : _buildDashboardFront();
+              Widget content =
+                  showBack ? _buildDashboardBack() : _buildDashboardFront();
 
               return Transform(
                 transform: Matrix4.identity()
@@ -223,7 +224,9 @@ extension MainScreenProfileTab on _MainScreenState {
               const Text(
                 '今日學習摘要',
                 style: TextStyle(
-                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -231,7 +234,8 @@ extension MainScreenProfileTab on _MainScreenState {
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('點擊翻轉', style: TextStyle(color: Colors.white, fontSize: 10)),
+                child: const Text('點擊翻轉',
+                    style: TextStyle(color: Colors.white, fontSize: 10)),
               ),
             ],
           ),
@@ -256,8 +260,8 @@ extension MainScreenProfileTab on _MainScreenState {
     final baseColor = _currentPrimaryColor;
     final primaryColor = HSLColor.fromColor(baseColor)
         .withHue((HSLColor.fromColor(baseColor).hue + 25) % 360)
-        .toColor(); 
-    
+        .toColor();
+
     int totalQuestions = 0;
     int totalSeconds = 0;
     for (var d in _weeklyMatrixData) {
@@ -292,7 +296,9 @@ extension MainScreenProfileTab on _MainScreenState {
               const Text(
                 '本週學習數據',
                 style: TextStyle(
-                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -300,7 +306,8 @@ extension MainScreenProfileTab on _MainScreenState {
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('點擊翻轉', style: TextStyle(color: Colors.white, fontSize: 10)),
+                child: const Text('點擊翻轉',
+                    style: TextStyle(color: Colors.white, fontSize: 10)),
               ),
             ],
           ),
@@ -310,8 +317,8 @@ extension MainScreenProfileTab on _MainScreenState {
             children: [
               _buildDashboardItem(Icons.timer_outlined, '本週時數',
                   '${weeklyHours.toStringAsFixed(1)}h'),
-              _buildDashboardItem(Icons.library_books_outlined, '本週題目',
-                  '$totalQuestions 題'),
+              _buildDashboardItem(
+                  Icons.library_books_outlined, '本週題目', '$totalQuestions 題'),
               _buildDashboardItem(
                   Icons.bar_chart, '總題數', '$_totalQuestionsAnswered 題'),
             ],
@@ -594,18 +601,20 @@ extension MainScreenProfileTab on _MainScreenState {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-
           _buildMatrixChart(context),
           const SizedBox(height: 14),
-
           Center(
             child: Text(
-              hasData ? '💡 點擊散點圖中圓點查看測驗詳情與 AI 補強方案' : '本週尚無作答紀錄，完成練習後將自動繪製掌握度圖表',
-              style: TextStyle(color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700, fontSize: 12),
+              hasData
+                  ? '💡 點擊圓點查看測驗詳情與 AI 學習建議'
+                  : '本週尚無作答紀錄，完成練習後將自動繪製掌握度圖表',
+              style: TextStyle(
+                  color:
+                      _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
+                  fontSize: 12),
               textAlign: TextAlign.center,
             ),
           ),
-
           if (blindSpotCount > 0) ...[
             const SizedBox(height: 12),
             Container(
@@ -617,12 +626,16 @@ extension MainScreenProfileTab on _MainScreenState {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.red, size: 24),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '本週偵測到 $blindSpotCount 筆嚴重盲點！建議及早複習。',
-                      style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500),
                     ),
                   ),
                   ElevatedButton(
@@ -632,11 +645,14 @@ extension MainScreenProfileTab on _MainScreenState {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 0),
                       minimumSize: const Size(0, 30),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('AI 全面補強', style: TextStyle(fontSize: 11)),
+                    child:
+                        const Text('AI 學習建議', style: TextStyle(fontSize: 11)),
                   ),
                 ],
               ),
@@ -647,10 +663,36 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  Future<List<Map<String, dynamic>>> _loadWrongQuestionDetails() async {
+  Future<List<Map<String, dynamic>>> _loadWrongQuestionDetails(String subjectName) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      final rows = await db.query('questions', limit: 5);
+      final userId = widget.currentUser['id'];
+
+      String? whereStr = 'subject = ?';
+      List<dynamic>? whereArgs = [subjectName];
+      if (subjectName == '綜合盲點') {
+        whereStr = null;
+        whereArgs = null;
+      }
+
+      // 優先抓取該科目的「錯題」
+      final query = '''
+        SELECT q.* 
+        FROM wrong_questions w
+        JOIN questions q ON w.question_id = q.id
+        WHERE w.user_id = ? ${subjectName != '綜合盲點' ? 'AND q.subject = ?' : ''}
+        ORDER BY w.created_at DESC
+        LIMIT 5
+      ''';
+      final args = subjectName != '綜合盲點' ? [userId, subjectName] : [userId];
+      final rows = await db.rawQuery(query, args);
+
+      if (rows.isEmpty) {
+        // 如果沒有錯題，至少抓取該科目的隨機題目來當作上下文，避免 AI 產生無關科目的建議
+        final fallbackRows = await db.query('questions', where: whereStr, whereArgs: whereArgs, limit: 5);
+        return fallbackRows.map((r) => Map<String, dynamic>.from(r)).toList();
+      }
+
       return rows.map((r) => Map<String, dynamic>.from(r)).toList();
     } catch (_) {
       return [];
@@ -662,7 +704,7 @@ extension MainScreenProfileTab on _MainScreenState {
     final Color primary = _currentPrimaryColor;
 
     // Pre-load wrong questions
-    final wrongList = await _loadWrongQuestionDetails();
+    final wrongList = await _loadWrongQuestionDetails(subjectName);
     if (!mounted) return;
 
     showModalBottomSheet(
@@ -679,8 +721,6 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-
-
   void _showAISnackbar(String message, IconData icon) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -691,7 +731,10 @@ extension MainScreenProfileTab on _MainScreenState {
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -724,6 +767,33 @@ extension MainScreenProfileTab on _MainScreenState {
       if (time > maxX) maxX = time + 5;
     }
 
+    // 先做重疊分群
+    final List<Map<String, dynamic>> clusters = [];
+    for (var d in _weeklyMatrixData) {
+      double acc = (d['accuracy'] as num).toDouble();
+      double time = (d['avgTime'] as num).toDouble();
+
+      bool added = false;
+      for (var cluster in clusters) {
+        double cx = cluster['x'];
+        double cy = cluster['y'];
+        // 分群距離閾值 (加大範圍，避免圓點重疊難以點選)
+        if ((cx - time).abs() <= 4.0 && (cy - acc).abs() <= 15.0) {
+          (cluster['items'] as List).add(d);
+          added = true;
+          break;
+        }
+      }
+
+      if (!added) {
+        clusters.add({
+          'x': time,
+          'y': acc,
+          'items': [d],
+        });
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -738,12 +808,36 @@ extension MainScreenProfileTab on _MainScreenState {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.arrow_upward_rounded, size: 11,
-                        color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700),
+                    Icon(Icons.arrow_upward_rounded,
+                        size: 11,
+                        color: _isDarkMode
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade700),
                     const SizedBox(height: 3),
-                    Text('正', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, height: 1.25, color: _isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800)),
-                    Text('確', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, height: 1.25, color: _isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800)),
-                    Text('率', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, height: 1.25, color: _isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800)),
+                    Text('正',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            height: 1.25,
+                            color: _isDarkMode
+                                ? Colors.grey.shade300
+                                : Colors.grey.shade800)),
+                    Text('確',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            height: 1.25,
+                            color: _isDarkMode
+                                ? Colors.grey.shade300
+                                : Colors.grey.shade800)),
+                    Text('率',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            height: 1.25,
+                            color: _isDarkMode
+                                ? Colors.grey.shade300
+                                : Colors.grey.shade800)),
                     const SizedBox(height: 3),
                     Text(
                       '(%)',
@@ -751,7 +845,9 @@ extension MainScreenProfileTab on _MainScreenState {
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
+                        color: _isDarkMode
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade700,
                       ),
                     ),
                   ],
@@ -762,184 +858,172 @@ extension MainScreenProfileTab on _MainScreenState {
             Expanded(
               child: SizedBox(
                 height: 190,
-                child: ScatterChart(
-                  ScatterChartData(
-                    scatterSpots: () {
-                      final spots = <ScatterSpot>[];
-                      final posCount = <String, int>{};
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Stack(
+                      children: [
+                        // Chart
+                        Positioned.fill(
+                          child: ScatterChart(
+                            ScatterChartData(
+                              scatterSpots: clusters.map((cluster) {
+                                double cx = cluster['x'];
+                                double cy = cluster['y'];
+                                int count = (cluster['items'] as List).length;
 
-                      for (int i = 0; i < _weeklyMatrixData.length; i++) {
-                        final d = _weeklyMatrixData[i];
-                        double acc = (d['accuracy'] as num).toDouble();
-                        double time = (d['avgTime'] as num).toDouble();
+                                Color color;
+                                if (cy >= 60 && cx <= 15) {
+                                  color = Colors.blue;
+                                } else if (cy >= 60 && cx > 15) {
+                                  color = Colors.amber.shade700;
+                                } else if (cy < 60 && cx > 15) {
+                                  color = Colors.red;
+                                } else {
+                                  color = Colors.grey.shade600;
+                                }
 
-                        final key = '${(time / 1.5).round()}_${(acc / 5.0).round()}';
-                        int count = posCount[key] ?? 0;
-                        posCount[key] = count + 1;
+                                return ScatterSpot(
+                                  cx.clamp(0.5, maxX),
+                                  cy.clamp(2.0, 98.0),
+                                  dotPainter: _ClusterDotPainter(
+                                    color: color,
+                                    count: count,
+                                  ),
+                                );
+                              }).toList(),
+                              minX: 0,
+                              maxX: maxX,
+                              minY: 0,
+                              maxY: 100,
+                              borderData: FlBorderData(show: false),
+                              gridData: FlGridData(
+                                show: true,
+                                drawHorizontalLine: true,
+                                drawVerticalLine: true,
+                                horizontalInterval: 20,
+                                verticalInterval: 5,
+                                getDrawingHorizontalLine: (value) {
+                                  if (value == 60) {
+                                    return FlLine(
+                                        color: Colors.blue.withValues(alpha: 0.65),
+                                        strokeWidth: 2,
+                                        dashArray: [5, 5]);
+                                  }
+                                  return FlLine(
+                                      color: _isDarkMode
+                                          ? Colors.grey.withValues(alpha: 0.15)
+                                          : Colors.grey.withValues(alpha: 0.25),
+                                      strokeWidth: 1);
+                                },
+                                getDrawingVerticalLine: (value) {
+                                  if (value == 15) {
+                                    return FlLine(
+                                        color: Colors.blue.withValues(alpha: 0.65),
+                                        strokeWidth: 2,
+                                        dashArray: [5, 5]);
+                                  }
+                                  return FlLine(
+                                      color: _isDarkMode
+                                          ? Colors.grey.withValues(alpha: 0.15)
+                                          : Colors.grey.withValues(alpha: 0.25),
+                                      strokeWidth: 1);
+                                },
+                              ),
+                              titlesData: FlTitlesData(
+                                show: true,
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 22,
+                                    interval: 10,
+                                    getTitlesWidget: (value, meta) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          '${value.toInt()}',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isDarkMode
+                                                ? Colors.grey.shade400
+                                                : Colors.grey.shade800,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 28,
+                                    interval: 20,
+                                    getTitlesWidget: (value, meta) {
+                                      return Text(
+                                        '${value.toInt()}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: _isDarkMode
+                                              ? Colors.grey.shade400
+                                              : Colors.grey.shade800,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                rightTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false)),
+                                topTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false)),
+                              ),
+                              scatterTouchData: ScatterTouchData(
+                                enabled: true,
+                                touchSpotThreshold: 50.0,
+                                touchCallback: (FlTouchEvent event,
+                                    ScatterTouchResponse? touchResponse) {
+                                  if (touchResponse != null &&
+                                      touchResponse.touchedSpot != null &&
+                                      event is FlTapUpEvent) {
+                                    final spotIndex =
+                                        touchResponse.touchedSpot!.spotIndex;
+                                    if (spotIndex >= 0 &&
+                                        spotIndex < clusters.length) {
+                                      final cluster = clusters[spotIndex];
+                                      final items = cluster['items'] as List;
 
-                        double jitterX = 0;
-                        double jitterY = 0;
-                        if (count > 1) {
-                          final angles = [0.0, 3.14, 1.57, 4.71, 0.78, 2.35, 3.92, 5.49];
-                          final angle = angles[(count - 1) % angles.length];
-                          final dist = (1 + (count - 1) ~/ 8) * 0.8;
-                          jitterX = math.cos(angle) * dist * 1.2;
-                          jitterY = math.sin(angle) * dist * 3.5;
-                        }
-
-                        Color color;
-                        if (acc >= 60 && time <= 15) {
-                          color = Colors.blue;
-                        } else if (acc >= 60 && time > 15) {
-                          color = Colors.amber.shade700;
-                        } else if (acc < 60 && time > 15) {
-                          color = Colors.red;
-                        } else {
-                          color = Colors.grey.shade600;
-                        }
-
-                        spots.add(
-                          ScatterSpot(
-                            (time + jitterX).clamp(0.5, maxX),
-                            (acc + jitterY).clamp(2.0, 98.0),
-                            dotPainter: FlDotCirclePainter(
-                              color: color,
-                              radius: 9,
-                              strokeWidth: 2.5,
-                              strokeColor: Colors.white,
-                            ),
-                          ),
-                        );
-                      }
-                      return spots;
-                    }(),
-                    minX: 0,
-                    maxX: maxX,
-                    minY: 0,
-                    maxY: 100,
-                    borderData: FlBorderData(show: false),
-                    gridData: FlGridData(
-                      show: true,
-                      drawHorizontalLine: true,
-                      drawVerticalLine: true,
-                      horizontalInterval: 20,
-                      verticalInterval: 5,
-                      getDrawingHorizontalLine: (value) {
-                        if (value == 60) {
-                          return FlLine(
-                              color: Colors.blue.withValues(alpha: 0.65),
-                              strokeWidth: 2,
-                              dashArray: [5, 5]);
-                        }
-                        return FlLine(
-                            color: _isDarkMode
-                                ? Colors.grey.withValues(alpha: 0.15)
-                                : Colors.grey.withValues(alpha: 0.25),
-                            strokeWidth: 1);
-                      },
-                      getDrawingVerticalLine: (value) {
-                        if (value == 15) {
-                          return FlLine(
-                              color: Colors.blue.withValues(alpha: 0.65),
-                              strokeWidth: 2,
-                              dashArray: [5, 5]);
-                        }
-                        return FlLine(
-                            color: _isDarkMode
-                                ? Colors.grey.withValues(alpha: 0.15)
-                                : Colors.grey.withValues(alpha: 0.25),
-                            strokeWidth: 1);
-                      },
-                    ),
-                    titlesData: FlTitlesData(
-                      show: true,
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 22,
-                          interval: 10,
-                          getTitlesWidget: (value, meta) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                '${value.toInt()}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: _isDarkMode
-                                      ? Colors.grey.shade400
-                                      : Colors.grey.shade800,
+                                      if (items.length > 1) {
+                                        _showOverlappedQuizzesSheet(
+                                            context,
+                                            List<Map<String, dynamic>>.from(items));
+                                      } else {
+                                        _showQuizDetailSheet(context, items.first);
+                                      }
+                                    }
+                                  }
+                                },
+                                touchTooltipData: ScatterTouchTooltipData(
+                                  getTooltipColor: (_) => _isDarkMode
+                                      ? const Color(0xFF2C2C2C)
+                                      : const Color(0xFF212121),
+                                  getTooltipItems: (ScatterSpot touchedBarSpot) {
+                                    return ScatterTooltipItem(
+                                      '正確率約: ${touchedBarSpot.y.toInt()}%\n平均耗時約: ${touchedBarSpot.x.toStringAsFixed(1)}s\n(點擊開啟診斷詳情)',
+                                      textStyle: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          height: 1.35,
+                                          fontWeight: FontWeight.w500),
+                                    );
+                                  },
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 28,
-                          interval: 20,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              '${value.toInt()}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: _isDarkMode
-                                    ? Colors.grey.shade400
-                                    : Colors.grey.shade800,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    ),
-                    scatterTouchData: ScatterTouchData(
-                      enabled: true,
-                      touchSpotThreshold: 24.0,
-                      touchCallback: (FlTouchEvent event, ScatterTouchResponse? touchResponse) {
-                        if (touchResponse != null &&
-                            touchResponse.touchedSpot != null &&
-                            event is FlTapUpEvent) {
-                          final spotIndex = touchResponse.touchedSpot!.spotIndex;
-                          if (spotIndex >= 0 && spotIndex < _weeklyMatrixData.length) {
-                            final touchedData = _weeklyMatrixData[spotIndex];
-                            double acc = (touchedData['accuracy'] as num).toDouble();
-                            double time = (touchedData['avgTime'] as num).toDouble();
-
-                            final nearby = _weeklyMatrixData.where((d) {
-                              double dAcc = (d['accuracy'] as num).toDouble();
-                              double dTime = (d['avgTime'] as num).toDouble();
-                              return (dAcc - acc).abs() <= 8.0 && (dTime - time).abs() <= 3.0;
-                            }).toList();
-
-                            if (nearby.length > 1) {
-                              _showOverlappedQuizzesSheet(context, nearby);
-                            } else {
-                              _showQuizDetailSheet(context, touchedData);
-                            }
-                          }
-                        }
-                      },
-                      touchTooltipData: ScatterTouchTooltipData(
-                        getTooltipColor: (_) =>
-                            _isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFF212121),
-                        getTooltipItems: (ScatterSpot touchedBarSpot) {
-                          return ScatterTooltipItem(
-                            '正確率: ${touchedBarSpot.y.toInt()}%\n平均耗時: ${touchedBarSpot.x.toStringAsFixed(1)}s\n(點擊開啟診斷詳情)',
-                            textStyle: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                height: 1.35,
-                                fontWeight: FontWeight.w500),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -957,34 +1041,42 @@ extension MainScreenProfileTab on _MainScreenState {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: _isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800,
+                    color: _isDarkMode
+                        ? Colors.grey.shade300
+                        : Colors.grey.shade800,
                   ),
                 ),
                 const SizedBox(width: 2),
-                Icon(Icons.arrow_forward_rounded, size: 11,
-                    color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700),
+                Icon(Icons.arrow_forward_rounded,
+                    size: 11,
+                    color: _isDarkMode
+                        ? Colors.grey.shade400
+                        : Colors.grey.shade700),
               ],
             ),
           ),
         ),
         // ── 圖例
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
-          children: [
-            _buildLegendDot(Colors.blue, '熟練度高'),
-            _buildLegendDot(Colors.amber.shade700, '猶豫期'),
-            _buildLegendDot(Colors.grey.shade600, '粗心'),
-            _buildLegendDot(Colors.red, '嚴重盲點'),
-          ],
+        Center(
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              _buildLegendDot(Colors.blue, '熟練度高'),
+              _buildLegendDot(Colors.amber.shade700, '猶豫期'),
+              _buildLegendDot(Colors.grey.shade600, '粗心'),
+              _buildLegendDot(Colors.red, '嚴重盲點'),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  void _showOverlappedQuizzesSheet(BuildContext context, List<Map<String, dynamic>> quizzes) {
+  void _showOverlappedQuizzesSheet(
+      BuildContext context, List<Map<String, dynamic>> quizzes) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1003,7 +1095,8 @@ extension MainScreenProfileTab on _MainScreenState {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: _isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                  color:
+                      _isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1011,7 +1104,8 @@ extension MainScreenProfileTab on _MainScreenState {
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(Icons.layers_rounded, color: _currentPrimaryColor, size: 22),
+                Icon(Icons.layers_rounded,
+                    color: _currentPrimaryColor, size: 22),
                 const SizedBox(width: 8),
                 Text(
                   '此區域包含 ${quizzes.length} 筆測驗紀錄',
@@ -1028,7 +1122,8 @@ extension MainScreenProfileTab on _MainScreenState {
               '請點擊欲查看的測驗，以開啟詳細診斷與 AI 補強：',
               style: TextStyle(
                 fontSize: 12,
-                color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                color:
+                    _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
               ),
             ),
             const SizedBox(height: 14),
@@ -1042,8 +1137,10 @@ extension MainScreenProfileTab on _MainScreenState {
                   final subject = item['subject']?.toString() ?? '測驗';
                   final acc = (item['accuracy'] as num).toDouble();
                   final avgTime = (item['avgTime'] as num).toDouble();
-                  final date = item['timestamp']?.toString() ?? item['date']?.toString() ?? '';
-                  
+                  final date = item['timestamp']?.toString() ??
+                      item['date']?.toString() ??
+                      '';
+
                   Color statusColor;
                   String statusText;
                   if (acc >= 60 && avgTime <= 15) {
@@ -1061,7 +1158,8 @@ extension MainScreenProfileTab on _MainScreenState {
                   }
 
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
                     title: Row(
                       children: [
                         Text(
@@ -1074,21 +1172,29 @@ extension MainScreenProfileTab on _MainScreenState {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: statusColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             statusText,
-                            style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: statusColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
                     ),
                     subtitle: Text(
                       '正確率: ${acc.toInt()}% • 平均耗時: ${avgTime.toStringAsFixed(1)}s${date.isNotEmpty ? " • $date" : ""}',
-                      style: TextStyle(fontSize: 12, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: _isDarkMode
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600),
                     ),
                     trailing: const Icon(Icons.chevron_right, size: 20),
                     onTap: () {
@@ -1154,7 +1260,8 @@ extension MainScreenProfileTab on _MainScreenState {
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
             decoration: BoxDecoration(
               color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -1166,7 +1273,9 @@ extension MainScreenProfileTab on _MainScreenState {
                       width: 36,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: _isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                        color: _isDarkMode
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -1180,7 +1289,8 @@ extension MainScreenProfileTab on _MainScreenState {
                           color: statusColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.analytics_rounded, color: statusColor, size: 22),
+                        child: Icon(Icons.analytics_rounded,
+                            color: statusColor, size: 22),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1189,30 +1299,46 @@ extension MainScreenProfileTab on _MainScreenState {
                           children: [
                             Text(
                               subject,
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : Colors.black87),
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isDarkMode
+                                      ? Colors.white
+                                      : Colors.black87),
                             ),
                             Text(
                               '測驗時間：$timeStr',
-                              style: TextStyle(fontSize: 12, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: _isDarkMode
+                                      ? Colors.grey.shade400
+                                      : Colors.grey),
                             ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: statusColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(
                           statusText,
-                          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Divider(color: _isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                  Divider(
+                      color: _isDarkMode
+                          ? Colors.grey.shade800
+                          : Colors.grey.shade200),
                   const SizedBox(height: 12),
 
                   // 數據列
@@ -1220,8 +1346,12 @@ extension MainScreenProfileTab on _MainScreenState {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildSheetStat('正確率', '${acc.toInt()}%', statusColor),
-                      _buildSheetStat('答對/總數', '$correct / $total 題', _isDarkMode ? Colors.white : Colors.black87),
-                      _buildSheetStat('平均時間', '${avgTime.toStringAsFixed(1)} 秒/題', _isDarkMode ? Colors.white : Colors.black87),
+                      _buildSheetStat('答對/總數', '$correct / $total 題',
+                          _isDarkMode ? Colors.white : Colors.black87),
+                      _buildSheetStat(
+                          '平均時間',
+                          '${avgTime.toStringAsFixed(1)} 秒/題',
+                          _isDarkMode ? Colors.white : Colors.black87),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1231,13 +1361,20 @@ extension MainScreenProfileTab on _MainScreenState {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: _isDarkMode ? 0.18 : 0.08),
+                      color: statusColor.withValues(
+                          alpha: _isDarkMode ? 0.18 : 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                      border:
+                          Border.all(color: statusColor.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       statusDesc,
-                      style: TextStyle(fontSize: 13, color: _isDarkMode ? Colors.grey.shade200 : Colors.black87, height: 1.4),
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: _isDarkMode
+                              ? Colors.grey.shade200
+                              : Colors.black87,
+                          height: 1.4),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -1249,35 +1386,43 @@ extension MainScreenProfileTab on _MainScreenState {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                            icon: const Icon(Icons.calendar_today_rounded,
+                                size: 16),
                             label: Text('排入複習行程 ($subject)'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: statusColor,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                             onPressed: () async {
                               final pickedTime = await showTimePicker(
                                 context: context,
-                                initialTime: const TimeOfDay(hour: 18, minute: 0),
+                                initialTime:
+                                    const TimeOfDay(hour: 18, minute: 0),
                                 helpText: '選擇複習行程時間',
                                 cancelText: '取消',
                                 confirmText: '確定',
                               );
                               if (pickedTime != null && context.mounted) {
                                 Navigator.pop(ctx);
-                                final db = await DatabaseHelper.instance.database;
+                                final db =
+                                    await DatabaseHelper.instance.database;
                                 final now = DateTime.now();
-                                final dateKey = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-                                final startHr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+                                final dateKey =
+                                    "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+                                final startHr =
+                                    "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
                                 final endHour = (pickedTime.hour + 1) % 24;
-                                final endHr = "${endHour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+                                final endHr =
+                                    "${endHour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
 
                                 final startStr = "$dateKey $startHr";
                                 final endStr = "$dateKey $endHr";
 
-                                await db.insert('calendar_events', <String, Object?>{
+                                await db.insert(
+                                    'calendar_events', <String, Object?>{
                                   'user_id': widget.currentUser['id'],
                                   'title': '複習：$subject',
                                   'start_time': startStr,
@@ -1285,8 +1430,11 @@ extension MainScreenProfileTab on _MainScreenState {
                                   'color': '0xFFE53935',
                                 });
                                 await _loadData();
-                                final timeString = '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}';
-                                _showAISnackbar('已將「複習：$subject」排入今日 $timeString 行程！', Icons.event_available);
+                                final timeString =
+                                    '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}';
+                                _showAISnackbar(
+                                    '已將「複習：$subject」排入今日 $timeString 行程！',
+                                    Icons.event_available);
                               }
                             },
                           ),
@@ -1297,11 +1445,12 @@ extension MainScreenProfileTab on _MainScreenState {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.auto_awesome, size: 16),
-                          label: const Text('一鍵 AI 生成專屬補強教材'),
+                          label: const Text('一鍵 AI 生成學習建議'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: _currentPrimaryColor,
                             side: BorderSide(color: _currentPrimaryColor),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                           onPressed: () {
@@ -1325,9 +1474,15 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildSheetStat(String label, String value, Color color) {
     return Column(
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700)),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11,
+                color:
+                    _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700)),
         const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.bold, color: color)),
       ],
     );
   }
@@ -1357,9 +1512,8 @@ extension MainScreenProfileTab on _MainScreenState {
         children: [
           Icon(icon,
               size: 20,
-              color: _isDarkMode
-                  ? const Color(0xFFD7CCC8)
-                  : _currentPrimaryColor),
+              color:
+                  _isDarkMode ? const Color(0xFFD7CCC8) : _currentPrimaryColor),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -1830,10 +1984,14 @@ extension MainScreenProfileTab on _MainScreenState {
     Color textCol = isDark ? Colors.white54 : Colors.black54;
     Color borderCol = isDark ? Colors.white12 : Colors.grey.shade200;
     Color primary = _currentPrimaryColor;
-    
-    Color imageBgCol = isSelected ? primary.withValues(alpha: 0.15) : textCol.withValues(alpha: 0.1);
-    Color imageIconCol = isSelected ? primary.withValues(alpha: 0.7) : Colors.grey;
-    Color titleCol = isSelected ? primary : (isDark ? Colors.white : Colors.black87);
+
+    Color imageBgCol = isSelected
+        ? primary.withValues(alpha: 0.15)
+        : textCol.withValues(alpha: 0.1);
+    Color imageIconCol =
+        isSelected ? primary.withValues(alpha: 0.7) : Colors.grey;
+    Color titleCol =
+        isSelected ? primary : (isDark ? Colors.white : Colors.black87);
 
     if (mode == 'card') {
       return Container(
@@ -1842,7 +2000,8 @@ extension MainScreenProfileTab on _MainScreenState {
         decoration: BoxDecoration(
           color: cellBg,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? primary.withValues(alpha: 0.5) : borderCol),
+          border: Border.all(
+              color: isSelected ? primary.withValues(alpha: 0.5) : borderCol),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1852,14 +2011,25 @@ extension MainScreenProfileTab on _MainScreenState {
                 CircleAvatar(
                   radius: 10,
                   backgroundColor: primary.withValues(alpha: 0.2),
-                  child: Text('A', style: TextStyle(fontSize: 10, color: primary, fontWeight: FontWeight.bold)),
+                  child: Text('A',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: primary,
+                          fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 6),
-                Text('Aden', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: titleCol)),
+                Text('Aden',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: titleCol)),
                 const SizedBox(width: 6),
-                Text('2 小時前', style: TextStyle(fontSize: 9, color: textCol.withValues(alpha: 0.6))),
+                Text('2 小時前',
+                    style: TextStyle(
+                        fontSize: 9, color: textCol.withValues(alpha: 0.6))),
                 const Spacer(),
-                Icon(Icons.more_horiz, size: 14, color: textCol.withValues(alpha: 0.6)),
+                Icon(Icons.more_horiz,
+                    size: 14, color: textCol.withValues(alpha: 0.6)),
               ],
             ),
             const SizedBox(height: 8),
@@ -1882,15 +2052,22 @@ extension MainScreenProfileTab on _MainScreenState {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.favorite_border, size: 12, color: textCol.withValues(alpha: 0.6)),
+                Icon(Icons.favorite_border,
+                    size: 12, color: textCol.withValues(alpha: 0.6)),
                 const SizedBox(width: 4),
-                Text('12', style: TextStyle(fontSize: 9, color: textCol.withValues(alpha: 0.6))),
+                Text('12',
+                    style: TextStyle(
+                        fontSize: 9, color: textCol.withValues(alpha: 0.6))),
                 const SizedBox(width: 12),
-                Icon(Icons.mode_comment_outlined, size: 12, color: textCol.withValues(alpha: 0.6)),
+                Icon(Icons.mode_comment_outlined,
+                    size: 12, color: textCol.withValues(alpha: 0.6)),
                 const SizedBox(width: 4),
-                Text('3', style: TextStyle(fontSize: 9, color: textCol.withValues(alpha: 0.6))),
+                Text('3',
+                    style: TextStyle(
+                        fontSize: 9, color: textCol.withValues(alpha: 0.6))),
                 const Spacer(),
-                Icon(Icons.bookmark_border, size: 12, color: textCol.withValues(alpha: 0.6)),
+                Icon(Icons.bookmark_border,
+                    size: 12, color: textCol.withValues(alpha: 0.6)),
               ],
             ),
           ],
@@ -1904,7 +2081,8 @@ extension MainScreenProfileTab on _MainScreenState {
         decoration: BoxDecoration(
           color: cellBg,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? primary.withValues(alpha: 0.5) : borderCol),
+          border: Border.all(
+              color: isSelected ? primary.withValues(alpha: 0.5) : borderCol),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1918,12 +2096,23 @@ extension MainScreenProfileTab on _MainScreenState {
                       CircleAvatar(
                         radius: 8,
                         backgroundColor: primary.withValues(alpha: 0.2),
-                        child: Text('A', style: TextStyle(fontSize: 8, color: primary, fontWeight: FontWeight.bold)),
+                        child: Text('A',
+                            style: TextStyle(
+                                fontSize: 8,
+                                color: primary,
+                                fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 4),
-                      Text('Aden', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: titleCol)),
+                      Text('Aden',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: titleCol)),
                       const SizedBox(width: 4),
-                      Text('2 小時前', style: TextStyle(fontSize: 8, color: textCol.withValues(alpha: 0.6))),
+                      Text('2 小時前',
+                          style: TextStyle(
+                              fontSize: 8,
+                              color: textCol.withValues(alpha: 0.6))),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -1936,13 +2125,21 @@ extension MainScreenProfileTab on _MainScreenState {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.favorite_border, size: 10, color: textCol.withValues(alpha: 0.6)),
+                      Icon(Icons.favorite_border,
+                          size: 10, color: textCol.withValues(alpha: 0.6)),
                       const SizedBox(width: 4),
-                      Text('12', style: TextStyle(fontSize: 8, color: textCol.withValues(alpha: 0.6))),
+                      Text('12',
+                          style: TextStyle(
+                              fontSize: 8,
+                              color: textCol.withValues(alpha: 0.6))),
                       const SizedBox(width: 8),
-                      Icon(Icons.mode_comment_outlined, size: 10, color: textCol.withValues(alpha: 0.6)),
+                      Icon(Icons.mode_comment_outlined,
+                          size: 10, color: textCol.withValues(alpha: 0.6)),
                       const SizedBox(width: 4),
-                      Text('3', style: TextStyle(fontSize: 8, color: textCol.withValues(alpha: 0.6))),
+                      Text('3',
+                          style: TextStyle(
+                              fontSize: 8,
+                              color: textCol.withValues(alpha: 0.6))),
                     ],
                   ),
                 ],
@@ -2056,8 +2253,7 @@ extension MainScreenProfileTab on _MainScreenState {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
-              Icon(Icons.headset_mic_outlined,
-                  color: _currentPrimaryColor),
+              Icon(Icons.headset_mic_outlined, color: _currentPrimaryColor),
               const SizedBox(width: 10),
               const Text('客服與意見回饋',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
@@ -2189,9 +2385,8 @@ extension MainScreenProfileTab on _MainScreenState {
                               content: Text(ok
                                   ? '已送出，感謝您的回饋！我們會盡快處理。'
                                   : '發送失敗，請稍後再試或確認網路連線。'),
-                              backgroundColor: ok
-                                  ? _currentPrimaryColor
-                                  : Colors.redAccent,
+                              backgroundColor:
+                                  ok ? _currentPrimaryColor : Colors.redAccent,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
@@ -2473,7 +2668,7 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 }
 
-// ─── 補強教材彈窗（獨立 StatefulWidget）───
+// ─── 學習建議彈窗（獨立 StatefulWidget）───
 class _RemedialMaterialSheet extends StatefulWidget {
   final String subjectName;
   final List<Map<String, dynamic>> wrongList;
@@ -2497,7 +2692,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
   final StringBuffer _buffer = StringBuffer();
   StreamSubscription<String>? _sub;
   final ScrollController _sc = ScrollController();
-  
+
   bool _isConnecting = true;
   bool _showLoading = true;
   double _loadingTarget = 0.95;
@@ -2529,7 +2724,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
         }
       },
       onError: (e) {
-        debugPrint('補強教材串流嚴重錯誤: $e');
+        debugPrint('學習建議串流嚴重錯誤: $e');
         if (mounted) {
           setState(() {
             _showLoading = false;
@@ -2559,11 +2754,12 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
     super.dispose();
   }
 
-  Widget _parseInlineFormatting(String text, TextStyle defaultStyle, bool isDark) {
+  Widget _parseInlineFormatting(
+      String text, TextStyle defaultStyle, bool isDark) {
     final spans = <InlineSpan>[];
     final regex = RegExp(r'\*\*(.*?)\*\*');
     int lastMatchEnd = 0;
-    
+
     for (var match in regex.allMatches(text)) {
       if (match.start > lastMatchEnd) {
         spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start)));
@@ -2572,7 +2768,9 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
         TextSpan(
           text: match.group(1),
           style: defaultStyle.copyWith(
-            backgroundColor: isDark ? Colors.amber.withValues(alpha: 0.3) : Colors.yellow.withValues(alpha: 0.4),
+            backgroundColor: isDark
+                ? Colors.amber.withValues(alpha: 0.3)
+                : Colors.yellow.withValues(alpha: 0.4),
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.amber.shade100 : Colors.black87,
           ),
@@ -2583,7 +2781,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
     if (lastMatchEnd < text.length) {
       spans.add(TextSpan(text: text.substring(lastMatchEnd)));
     }
-    
+
     return RichText(
       text: TextSpan(
         style: defaultStyle,
@@ -2594,16 +2792,16 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
 
   List<Widget> _buildRichText(String text, bool isDark) {
     if (text.isEmpty) return [];
-    
+
     final lines = text.split('\n');
     final widgets = <Widget>[];
-    
+
     for (var line in lines) {
       if (line.trim().isEmpty) {
         widgets.add(const SizedBox(height: 8));
         continue;
       }
-      
+
       if (line.startsWith('【') && line.contains('】')) {
         // Title
         widgets.add(Padding(
@@ -2623,8 +2821,10 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
           margin: const EdgeInsets.only(top: 16, bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-             color: isDark ? Colors.white10 : widget.primary.withValues(alpha: 0.08),
-             border: Border(left: BorderSide(color: widget.primary, width: 4)),
+            color: isDark
+                ? Colors.white10
+                : widget.primary.withValues(alpha: 0.08),
+            border: Border(left: BorderSide(color: widget.primary, width: 4)),
           ),
           child: Text(
             line,
@@ -2642,7 +2842,12 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('•', style: TextStyle(color: widget.primary, fontSize: 16, height: 1.4, fontWeight: FontWeight.bold)),
+              Text('•',
+                  style: TextStyle(
+                      color: widget.primary,
+                      fontSize: 16,
+                      height: 1.4,
+                      fontWeight: FontWeight.bold)),
               const SizedBox(width: 8),
               Expanded(
                 child: _parseInlineFormatting(
@@ -2650,7 +2855,9 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                   TextStyle(
                     fontSize: 14,
                     height: 1.6,
-                    color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.9)
+                        : Colors.black87,
                   ),
                   isDark,
                 ),
@@ -2667,7 +2874,8 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
             TextStyle(
               fontSize: 14,
               height: 1.6,
-              color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+              color:
+                  isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
             ),
             isDark,
           ),
@@ -2708,7 +2916,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'AI 專屬補強教材 (${widget.subjectName})',
+                      'AI 專屬學習建議 (${widget.subjectName})',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -2735,8 +2943,10 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                               color: widget.primary.withValues(alpha: 0.7)),
                           const SizedBox(height: 24),
                           TweenAnimationBuilder<double>(
-                            tween: Tween<double>(begin: 0.0, end: _loadingTarget),
-                            duration: Duration(milliseconds: _loadingDurationMs),
+                            tween:
+                                Tween<double>(begin: 0.0, end: _loadingTarget),
+                            duration:
+                                Duration(milliseconds: _loadingDurationMs),
                             curve: Curves.easeOutCubic,
                             builder: (context, value, child) {
                               return Column(
@@ -2750,8 +2960,9 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                                         backgroundColor: widget.isDark
                                             ? Colors.white12
                                             : Colors.grey.shade200,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                            widget.primary),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                widget.primary),
                                         minHeight: 6,
                                       ),
                                     ),
@@ -2788,4 +2999,59 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
       ),
     );
   }
+}
+
+class _ClusterDotPainter extends FlDotPainter {
+  final Color color;
+  final int count;
+
+  _ClusterDotPainter({required this.color, required this.count});
+
+  @override
+  void draw(Canvas canvas, FlSpot spot, Offset offsetInCanvas) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    
+    final double radius = count > 1 ? 14.0 : 10.0;
+    
+    canvas.drawCircle(offsetInCanvas, radius, paint);
+
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(offsetInCanvas, radius, borderPaint);
+
+    if (count > 1) {
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: count.toString(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        offsetInCanvas - Offset(textPainter.width / 2, textPainter.height / 2),
+      );
+    }
+  }
+
+  @override
+  Size getSize(FlSpot spot) => count > 1 ? const Size(28, 28) : const Size(20, 20);
+
+  @override
+  Color get mainColor => color;
+
+  @override
+  FlDotPainter lerp(FlDotPainter a, FlDotPainter b, double t) => b;
+
+  @override
+  List<Object?> get props => [color, count];
 }

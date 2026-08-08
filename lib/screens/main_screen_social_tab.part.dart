@@ -2311,72 +2311,73 @@ extension MainScreenSocialTab on _MainScreenState {
       child: Container(
         margin: const EdgeInsets.only(top: 12),
         width: double.infinity,
-        constraints: const BoxConstraints(maxHeight: 260, minHeight: 150),
+        height: 220,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: _isDarkMode ? Colors.black45 : Colors.grey.shade100,
           border: Border.all(
               color: _isDarkMode ? Colors.white10 : Colors.grey.shade200),
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: (p['media_blob'] != null)
-                  ? Image.memory(p['media_blob'] as Uint8List,
-                      fit: BoxFit.cover,
-                      alignment: imgAlignment,
-                      gaplessPlayback: true,
-                      filterQuality: FilterQuality.high)
-                  : (p['media'].toString().startsWith('data:image'))
-                      ? Image.memory(
-                          base64Decode(p['media'].toString().split(',').last),
-                          fit: BoxFit.cover,
-                          alignment: imgAlignment,
-                          gaplessPlayback: true,
-                          filterQuality: FilterQuality.high)
-                      : (p['media'].toString().startsWith('http') || kIsWeb)
-                          ? Image.network(p['media'] as String,
-                              fit: BoxFit.cover,
-                              alignment: imgAlignment,
-                              gaplessPlayback: true,
-                              filterQuality: FilterQuality.high)
-                          : Image.file(File(p['media'] as String),
-                              fit: BoxFit.cover,
-                              alignment: imgAlignment,
-                              gaplessPlayback: true,
-                              filterQuality: FilterQuality.high),
-            ),
-            Positioned(
-              left: 8,
-              bottom: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24, width: 0.8),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.zoom_in, color: Colors.white, size: 11),
-                    SizedBox(width: 4),
-                    Text(
-                      '點擊可查看全圖',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: (p['media_blob'] != null)
+                    ? Image.memory(p['media_blob'] as Uint8List,
+                        fit: BoxFit.cover,
+                        alignment: imgAlignment,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.high)
+                    : (p['media'].toString().startsWith('data:image'))
+                        ? Image.memory(
+                            base64Decode(p['media'].toString().split(',').last),
+                            fit: BoxFit.cover,
+                            alignment: imgAlignment,
+                            gaplessPlayback: true,
+                            filterQuality: FilterQuality.high)
+                        : (p['media'].toString().startsWith('http') || kIsWeb)
+                            ? Image.network(p['media'] as String,
+                                fit: BoxFit.cover,
+                                alignment: imgAlignment,
+                                gaplessPlayback: true,
+                                filterQuality: FilterQuality.high)
+                            : Image.file(File(p['media'] as String),
+                                fit: BoxFit.cover,
+                                alignment: imgAlignment,
+                                gaplessPlayback: true,
+                                filterQuality: FilterQuality.high),
+              ),
+              Positioned(
+                left: 8,
+                bottom: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24, width: 0.8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.zoom_in, color: Colors.white, size: 11),
+                      SizedBox(width: 4),
+                      Text(
+                        '點擊可查看全圖',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-
-          ],
+            ],
+          ),
         ),
       ),
     );

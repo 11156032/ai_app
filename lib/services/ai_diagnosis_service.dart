@@ -86,6 +86,45 @@ class AiDiagnosisService {
 
   static DateTime? nextAvailableTime;
 
+  static const String _kCloudflareProxyUrl =
+      'https://ai-app-proxy.adenlee36.workers.dev';
+
+  /// 呼叫 Cloudflare 雲端中繼站 (支援 Groq, OpenRouter, Gemini)
+  static Future<String?> _tryCloudflareProxy({
+    required String provider,
+    required String prompt,
+    String? model,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(_kCloudflareProxyUrl),
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({
+          'provider': provider,
+          if (model != null) 'model': model,
+          'prompt': prompt,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (provider == 'groq' || provider == 'openrouter') {
+          return data['choices']?[0]?['message']?['content'] as String?;
+        } else {
+          return data['candidates']?[0]?['content']?['parts']?[0]?['text']
+              as String?;
+        }
+      } else {
+        debugPrint(
+            'Cloudflare Proxy Error [${response.statusCode}]: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Cloudflare Proxy Exception: $e');
+      return null;
+    }
+  }
+
   /// 呼叫 AI 進行 APP 導覽與對答 (優先使用 Groq 超高速零成本引擎，失敗退至 OpenRouter / Gemini)
   static Stream<AssistantResponseChunk> generateOpenRouterGuideStream({
     required String userInput,
@@ -133,11 +172,38 @@ class AiDiagnosisService {
     }
     messages.add({'role': 'user', 'content': userInput});
 
-    // 0. 優先嘗試 Groq (具備雙模型備援：70B 高品質 ➔ 8B Instant 極速備援)
-    if (_kGroqApiKey.isNotEmpty) {
+    // 0. 若本地無設定 Key（例如實體手機 / 打包 APK），直接優先使用 Cloudflare 雲端中繼站 (避免空 Key 逾時卡住)
+    if (_kGroqApiKey.trim().isEmpty &&
+        _kOpenRouterApiKey.trim().isEmpty &&
+        _kSystemGeminiApiKey.trim().isEmpty) {
+      debugPrint('代理人助理：未偵測到本地 Key，直接優先使用 Cloudflare 雲端中繼站...');
+      try {
+        String? proxyText = await _tryCloudflareProxy(
+          provider: 'groq',
+          prompt: userInput,
+        );
+        if (proxyText == null || proxyText.trim().isEmpty) {
+          debugPrint('代理人助理：Groq 中繼失敗，切換 Gemini 中繼...');
+          proxyText = await _tryCloudflareProxy(
+            provider: 'gemini',
+            prompt: userInput,
+          );
+        }
+        if (proxyText != null && proxyText.trim().isNotEmpty) {
+          debugPrint('代理人助理：成功取得 Cloudflare 回應');
+          yield AssistantResponseChunk(proxyText, 'proxy');
+          return;
+        }
+      } catch (e) {
+        debugPrint('Cloudflare 雲端中繼站直連失敗: $e');
+      }
+    }
+
+    // 1. 嘗試本地 Groq (具備雙模型備援)
+    if (_kGroqApiKey.trim().isNotEmpty) {
       final groqModels = [
         'llama-3.3-70b-versatile', // 旗艦高品質模型
-        'llama-3.1-8b-instant',    // 極速備援模型（幾無併發延遲）
+        'llama-3.1-8b-instant', // 極速備援模型（幾無併發延遲）
       ];
       for (final gModel in groqModels) {
         debugPrint('代理人助理：啟動 Groq 超高速引擎 ($gModel)...');
@@ -157,37 +223,38 @@ class AiDiagnosisService {
       }
     }
 
-    // 1. 優先嘗試 OpenRouter 免費模型（實測 streaming chunks 有效，依速度與文字輸出排序）
-    final fallbackModels = [
-      if (customModel != null && customModel.isNotEmpty) customModel,
-      'google/gemma-4-26b-a4b-it:free',           // 實測必有文字輸出：Google Gemma 4
-      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // 實測必有文字輸出
-      'nvidia/nemotron-3-ultra-550b-a55b:free',   // 實測必有文字輸出
-      'poolside/laguna-s-2.1:free',
-    ];
-
-
+    // 2. 嘗試本地 OpenRouter (僅在 Key 存在時調用，避免卡住)
     bool openRouterSucceeded = false;
     Exception? lastError;
 
-    for (final model in fallbackModels) {
-      debugPrint('代理人助理：優先使用 OpenRouter 免費模型 $model 以節省成本');
-      try {
-        bool hasYielded = false;
-        await for (final chunk in _tryOpenRouterModel(
-          model: model,
-          messages: messages,
-        )) {
-          yield AssistantResponseChunk(chunk, 'openrouter');
-          hasYielded = true;
+    if (_kOpenRouterApiKey.trim().isNotEmpty) {
+      final fallbackModels = [
+        if (customModel != null && customModel.isNotEmpty) customModel,
+        'google/gemma-4-26b-a4b-it:free',
+        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+        'nvidia/nemotron-3-ultra-550b-a55b:free',
+        'poolside/laguna-s-2.1:free',
+      ];
+
+      for (final model in fallbackModels) {
+        debugPrint('代理人助理：使用 OpenRouter 模型 $model');
+        try {
+          bool hasYielded = false;
+          await for (final chunk in _tryOpenRouterModel(
+            model: model,
+            messages: messages,
+          )) {
+            yield AssistantResponseChunk(chunk, 'openrouter');
+            hasYielded = true;
+          }
+          if (hasYielded) {
+            openRouterSucceeded = true;
+            break;
+          }
+        } catch (e) {
+          lastError = e is Exception ? e : Exception(e.toString());
+          debugPrint('OpenRouter 模型 $model 失敗（$e）...');
         }
-        if (hasYielded) {
-          openRouterSucceeded = true;
-          break; // OpenRouter 免費模型回答成功，直接結束
-        }
-      } catch (e) {
-        lastError = e is Exception ? e : Exception(e.toString());
-        debugPrint('OpenRouter 模型 $model 失敗/超時（$e），快速切換下一個...');
       }
     }
 
@@ -224,10 +291,12 @@ class AiDiagnosisService {
         }
         geminiContents.add(Content.text(userInput));
 
-        final responseStream = model.generateContentStream(geminiContents).timeout(
-          const Duration(seconds: 20),
-          onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（20s）')),
-        );
+        final responseStream = model
+            .generateContentStream(geminiContents)
+            .timeout(
+              const Duration(seconds: 20),
+              onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（20s）')),
+            );
         bool hasYielded = false;
         await for (final chunk in responseStream) {
           final text = chunk.text;
@@ -247,7 +316,28 @@ class AiDiagnosisService {
       }
     }
 
-    // 最終防護線：如果所有模型均失敗，向上拋出錯誤
+    // 最終防護線：嘗試 Cloudflare 雲端中繼站 (支援 Groq 與 Gemini 雙重備援)
+    try {
+      debugPrint('代理人助理：嘗試 Cloudflare 雲端中繼站 (Groq)...');
+      String? proxyText = await _tryCloudflareProxy(
+        provider: 'groq',
+        prompt: userInput,
+      );
+      if (proxyText == null || proxyText.isEmpty) {
+        debugPrint('代理人助理：Groq 中繼失敗，嘗試 Cloudflare 雲端中繼站 (Gemini)...');
+        proxyText = await _tryCloudflareProxy(
+          provider: 'gemini',
+          prompt: userInput,
+        );
+      }
+      if (proxyText != null && proxyText.isNotEmpty) {
+        yield AssistantResponseChunk(proxyText, 'proxy');
+        return;
+      }
+    } catch (e) {
+      debugPrint('Cloudflare 中繼站失敗: $e');
+    }
+
     throw lastError ?? Exception('所有 AI 助理模型均無法使用');
   }
 
@@ -292,8 +382,8 @@ class AiDiagnosisService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .timeout(const Duration(seconds: 12), onTimeout: (sink) {
-            sink.addError(Exception('OpenRouter 串流讀取逾時（12s）'));
-          });
+        sink.addError(Exception('OpenRouter 串流讀取逾時（12s）'));
+      });
 
       int chunkCount = 0;
       await for (final line in byteStream) {
@@ -364,8 +454,8 @@ class AiDiagnosisService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .timeout(const Duration(seconds: 12), onTimeout: (sink) {
-            sink.addError(Exception('Groq 串流讀取逾時（12s）'));
-          });
+        sink.addError(Exception('Groq 串流讀取逾時（12s）'));
+      });
 
       int chunkCount = 0;
       await for (final line in byteStream) {
@@ -584,36 +674,43 @@ $correctDetails
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 補強教材：串流生成個人化補強教材
+  // 學習建議：串流生成個人化學習建議
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// 串流生成 AI 補強教材（根據錯題資料，生成個人化弱項摘要、觀念重點與練習題目）
+  /// 串流生成 AI 學習建議（根據錯題資料，生成個人化弱項摘要、觀念重點與練習題目）
   static Stream<String> generateRemedialMaterialStream({
     required String userId,
     required String subject,
     required List<Map<String, dynamic>> wrongQuestions,
     bool isComprehensive = false,
   }) async* {
-    final effectiveWrongQuestions = wrongQuestions.isNotEmpty ? wrongQuestions : [
-      {
-        'question': '$subject 綜合核心觀念評估與歷屆重點單元',
-        'chapter': '核心觀念特訓',
-        'difficulty': '中',
-        'answer': '綜合理解',
-        'explanation': '加強基礎定理與觀念推導'
-      }
-    ];
+    final effectiveWrongQuestions = wrongQuestions.isNotEmpty
+        ? wrongQuestions
+        : [
+            {
+              'question': '$subject 綜合核心觀念評估與歷屆重點單元',
+              'chapter': '核心觀念特訓',
+              'difficulty': '中',
+              'answer': '綜合理解',
+              'explanation': '加強基礎定理與觀念推導'
+            }
+          ];
 
     final wrongDetails = effectiveWrongQuestions.take(5).map((q) {
       final optsRaw = q['options'];
       List? opts;
       if (optsRaw is String) {
-        try { opts = jsonDecode(optsRaw) as List; } catch (_) {}
+        try {
+          opts = jsonDecode(optsRaw) as List;
+        } catch (_) {}
       } else if (optsRaw is List) {
         opts = optsRaw;
       }
       final ansIdx = q['answerIndex'] as int?;
-      final correctAns = (opts != null && ansIdx != null && ansIdx >= 0 && ansIdx < opts.length)
+      final correctAns = (opts != null &&
+              ansIdx != null &&
+              ansIdx >= 0 &&
+              ansIdx < opts.length)
           ? opts[ansIdx].toString()
           : (q['answer'] as String? ?? '未知');
       return '• 題目：${q['question'] ?? q['text'] ?? ''}\n  章節：${q['chapter'] ?? '未知'}\n  難度：${q['difficulty'] ?? '中'}\n  正確答案：$correctAns\n  解析提示：${q['explanation'] ?? '無'}';
@@ -621,7 +718,7 @@ $correctDetails
 
     final subjectLabel = '$subject${isComprehensive ? '（全科盲點彙整）' : ''}';
     final prompt = '''
-你是一位專業的 AI 補強教師。請根據以下學生錯題資料，生成一份簡短、實用、個人化的補強教材。
+你是一位專業的 AI 補強教師。請根據以下學生錯題資料，生成一份簡短、實用、個人化的學習建議。
 科目：$subjectLabel
 
 錯題資料：
@@ -640,18 +737,24 @@ $wrongDetails
 ''';
 
     final messages = <Map<String, String>>[
-      {'role': 'system', 'content': '你是一位專業的個人化 AI 補強教師，擅長根據學生弱點生成針對性補強教材。請嚴格遵守輸出格式。'},
+      {
+        'role': 'system',
+        'content': '你是一位專業的個人化 AI 補強教師，擅長根據學生弱點生成針對性學習建議。請嚴格遵守輸出格式。'
+      },
       {'role': 'user', 'content': prompt},
     ];
 
-    // 1. 優先嘗試 Gemini（Google 官方，品質穩定）- 6秒超時
+    // 1. 優先嘗試 Gemini（Google 官方，品質穩定）- 15秒超時
     final now = DateTime.now();
-    if (_kSystemGeminiApiKey.isNotEmpty && (nextAvailableTime == null || !nextAvailableTime!.isAfter(now))) {
-      debugPrint('補強教材：啟動 Gemini...');
+    if (_kSystemGeminiApiKey.isNotEmpty &&
+        (nextAvailableTime == null || !nextAvailableTime!.isAfter(now))) {
+      debugPrint('學習建議：啟動 Gemini...');
       try {
-        final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
+        final model = GenerativeModel(
+            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
-        await for (final chunk in model.generateContentStream([Content.text(prompt)]).timeout(const Duration(seconds: 6))) {
+        await for (final chunk in model.generateContentStream(
+            [Content.text(prompt)]).timeout(const Duration(seconds: 15))) {
           final text = chunk.text;
           if (text != null && text.isNotEmpty) {
             yield text;
@@ -660,27 +763,46 @@ $wrongDetails
         }
         if (hasYielded) return;
       } catch (e) {
-        debugPrint('補強教材 Gemini 失敗: $e');
+        debugPrint('學習建議 Gemini 失敗: $e');
       }
     }
 
-    // 2. 備援：僅嘗試一次速度最快的 Groq（6秒超時）
+    // 2. 備援：嘗試速度最快的 Groq（15秒超時）
     if (_kGroqApiKey.isNotEmpty) {
-      debugPrint('補強教材：嘗試 Groq 備援...');
+      debugPrint('學習建議：嘗試 Groq 備援...');
       try {
         bool hasYielded = false;
-        await for (final chunk in _tryGroqModel(model: 'llama-3.3-70b-versatile', messages: messages, maxTokens: 550).timeout(const Duration(seconds: 6))) {
+        await for (final chunk in _tryGroqModel(
+                model: 'llama-3.3-70b-versatile',
+                messages: messages,
+                maxTokens: 550)
+            .timeout(const Duration(seconds: 15))) {
           yield chunk;
           hasYielded = true;
         }
         if (hasYielded) return;
       } catch (e) {
-        debugPrint('補強教材 Groq 失敗: $e');
+        debugPrint('學習建議 Groq 失敗: $e');
       }
     }
 
-    // 3. 本地高品質智能備援教材（100% 成功保證，絕不受連線限制）
-    debugPrint('補強教材：啟動本地高品質備援生成...');
+    // 3. 雲端中繼站備援 (適合實體手機無本機 Key 時)
+    try {
+      debugPrint('學習建議：嘗試 Cloudflare 雲端中繼站...');
+      final proxyText = await _tryCloudflareProxy(
+        provider: 'groq',
+        prompt: prompt,
+      );
+      if (proxyText != null && proxyText.isNotEmpty) {
+        yield proxyText;
+        return;
+      }
+    } catch (e) {
+      debugPrint('學習建議 Cloudflare 中繼站失敗: $e');
+    }
+
+    // 4. 本地高品質智能備援教材（100% 成功保證，絕不受連線限制）
+    debugPrint('學習建議：啟動本地高品質備援生成...');
     final localMaterial = '''
 [弱項摘要]
 針對 $subject 核心觀念與常見題型進行強化解構，協助鞏固基礎定理並建立正確的解題思維邏輯。
@@ -899,9 +1021,9 @@ $noteContent
       contents.add(Content.text(userInput));
 
       final contentStream = model.generateContentStream(contents).timeout(
-        const Duration(seconds: 15),
-        onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（15s）')),
-      );
+            const Duration(seconds: 15),
+            onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（15s）')),
+          );
       await for (final chunk in contentStream) {
         final text = chunk.text;
         if (text != null && text.isNotEmpty) {

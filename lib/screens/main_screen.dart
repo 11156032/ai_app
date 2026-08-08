@@ -5499,6 +5499,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     }
                                     return KeyEventResult.handled;
                                   } else {
+                                    FocusScope.of(context).unfocus();
                                     if (_cloneContext != null) {
                                       final text = modalController.text;
                                       modalController.clear();
@@ -5541,6 +5542,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   icon: const Icon(Icons.send,
                                       color: Colors.white, size: 20),
                                   onPressed: () {
+                                    FocusScope.of(context).unfocus();
                                     if (_cloneContext != null) {
                                       final text = modalController.text;
                                       modalController.clear();
@@ -12653,9 +12655,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
         type: type,
         allowedExtensions: (type == FileType.custom) ? allowedExtensions : null,
         withData: true,
+        dialogTitle: labelHint != null ? '選擇 $labelHint' : '選擇檔案',
       );
       if (result != null && mounted) {
         final file = result.files.single;
+        
+        // 手動驗證副檔名 (做為部分系統選擇器忽略 allowedExtensions 的防呆機制)
+        if (type == FileType.custom && allowedExtensions != null && allowedExtensions.isNotEmpty) {
+          final ext = file.extension?.toLowerCase();
+          final allowedLower = allowedExtensions.map((e) => e.toLowerCase()).toList();
+          if (ext == null || !allowedLower.contains(ext)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('格式不符！請選擇 ${allowedExtensions.join(", ")} 格式的檔案')),
+            );
+            return;
+          }
+        }
+
         setState(() {
           _selectedFileName = file.name;
           _selectedFileBytes = file.bytes;
@@ -13027,7 +13043,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       children: [
                         Container(
                           width: double.infinity,
-                          constraints: const BoxConstraints(maxHeight: 260, minHeight: 140),
+                          height: 220,
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(14),
@@ -13035,11 +13051,17 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(14),
-                            child: Image.file(
-                              File(_selectedImageX!.path),
-                              fit: BoxFit.cover,
-                              alignment: Alignment(_imgAlignX, _imgAlignY),
-                              filterQuality: FilterQuality.high,
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: Image.file(
+                                    File(_selectedImageX!.path),
+                                    fit: BoxFit.cover,
+                                    alignment: Alignment(_imgAlignX, _imgAlignY),
+                                    filterQuality: FilterQuality.high,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -13875,13 +13897,45 @@ class _PostReplyPageState extends State<PostReplyPage> {
               (widget.originalPost['media'] != null &&
                   widget.originalPost['media'].toString().isNotEmpty)) ...[
             const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: widget.originalPost['media_blob'] != null
-                  ? Image.memory(widget.originalPost['media_blob'] as Uint8List,
-                      height: 180, width: double.infinity, fit: BoxFit.cover)
-                  : Image.network(widget.originalPost['media'] as String,
-                      height: 180, width: double.infinity, fit: BoxFit.cover),
+            Builder(
+              builder: (context) {
+                Map<String, dynamic> attachedData = {};
+                try {
+                  final attached = widget.originalPost['attached_data'];
+                  if (attached != null) {
+                    if (attached is Map) {
+                      attachedData = Map<String, dynamic>.from(attached);
+                    } else if (attached is String && attached.isNotEmpty) {
+                      attachedData = jsonDecode(attached) as Map<String, dynamic>;
+                    }
+                  }
+                } catch (_) {}
+                final double alignX = (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
+                final double alignY = (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
+                final Alignment imgAlignment = Alignment(alignX, alignY);
+
+                return Container(
+                  height: 220,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: widget.originalPost['media_blob'] != null
+                              ? Image.memory(widget.originalPost['media_blob'] as Uint8List,
+                                  fit: BoxFit.cover, alignment: imgAlignment)
+                              : Image.network(widget.originalPost['media'] as String,
+                                  fit: BoxFit.cover, alignment: imgAlignment),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ],
           _buildPostAttachmentPreview(widget.originalPost),
