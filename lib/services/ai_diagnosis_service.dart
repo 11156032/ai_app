@@ -108,12 +108,17 @@ class AiDiagnosisService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        String? rawText;
         if (provider == 'groq' || provider == 'openrouter') {
-          return data['choices']?[0]?['message']?['content'] as String?;
+          rawText = data['choices']?[0]?['message']?['content'] as String?;
         } else {
-          return data['candidates']?[0]?['content']?['parts']?[0]?['text']
+          rawText = data['candidates']?[0]?['content']?['parts']?[0]?['text']
               as String?;
         }
+        if (rawText != null) {
+          return _cleanMarkdown(rawText);
+        }
+        return null;
       } else {
         debugPrint(
             'Cloudflare Proxy Error [${response.statusCode}]: ${response.body}');
@@ -123,6 +128,14 @@ class AiDiagnosisService {
       debugPrint('Cloudflare Proxy Exception: $e');
       return null;
     }
+  }
+
+  static String _cleanMarkdown(String text) {
+    return text
+        .replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'\1')
+        .replaceAll('**', '')
+        .replaceAll(RegExp(r'^\s*\*\s+', multiLine: true), '• ')
+        .trim();
   }
 
   /// 呼叫 AI 進行 APP 導覽與對答 (優先使用 Groq 超高速零成本引擎，失敗退至 OpenRouter / Gemini)
@@ -177,16 +190,17 @@ class AiDiagnosisService {
         _kOpenRouterApiKey.trim().isEmpty &&
         _kSystemGeminiApiKey.trim().isEmpty) {
       debugPrint('代理人助理：未偵測到本地 Key，直接優先使用 Cloudflare 雲端中繼站...');
+      final fullPrompt = '$systemInstruction\n\n【使用者對話歷史與提問】\n$userInput';
       try {
         String? proxyText = await _tryCloudflareProxy(
           provider: 'groq',
-          prompt: userInput,
+          prompt: fullPrompt,
         );
         if (proxyText == null || proxyText.trim().isEmpty) {
           debugPrint('代理人助理：Groq 中繼失敗，切換 Gemini 中繼...');
           proxyText = await _tryCloudflareProxy(
             provider: 'gemini',
-            prompt: userInput,
+            prompt: fullPrompt,
           );
         }
         if (proxyText != null && proxyText.trim().isNotEmpty) {
@@ -319,15 +333,16 @@ class AiDiagnosisService {
     // 最終防護線：嘗試 Cloudflare 雲端中繼站 (支援 Groq 與 Gemini 雙重備援)
     try {
       debugPrint('代理人助理：嘗試 Cloudflare 雲端中繼站 (Groq)...');
+      final fullPrompt = '$systemInstruction\n\n【使用者問題】\n$userInput';
       String? proxyText = await _tryCloudflareProxy(
         provider: 'groq',
-        prompt: userInput,
+        prompt: fullPrompt,
       );
       if (proxyText == null || proxyText.isEmpty) {
         debugPrint('代理人助理：Groq 中繼失敗，嘗試 Cloudflare 雲端中繼站 (Gemini)...');
         proxyText = await _tryCloudflareProxy(
           provider: 'gemini',
-          prompt: userInput,
+          prompt: fullPrompt,
         );
       }
       if (proxyText != null && proxyText.isNotEmpty) {

@@ -12506,144 +12506,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
   }
 
-  void _showFileTypeSheet() {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color primaryColor = Theme.of(context).primaryColor;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: isDark ? const Color(0xFF1E1E2C) : Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.filter_alt_rounded, color: primaryColor, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    '選擇常用檔案類型（快速同類過濾）',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '點選後開啟系統選擇器，僅顯示該類型檔案',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? Colors.white60 : Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Divider(color: isDark ? Colors.white12 : Colors.grey.shade200),
-
-              // 1. PDF 文件
-              ListTile(
-                leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFFFEBEE),
-                    child: Icon(Icons.picture_as_pdf_rounded, color: Colors.red)),
-                title: Text('PDF 文件 (.pdf)',
-                    style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.w600)),
-                subtitle: Text('開啟僅顯示 PDF 講義與文件',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickFileWithType(
-                    type: FileType.custom,
-                    allowedExtensions: ['pdf'],
-                    labelHint: 'PDF 文件',
-                  );
-                },
-              ),
-
-              // 2. Word 報告與作業
-              ListTile(
-                leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE3F2FD),
-                    child: Icon(Icons.description_rounded, color: Colors.blue)),
-                title: Text('Word 報告 (.doc, .docx)',
-                    style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.w600)),
-                subtitle: Text('開啟僅顯示 Word 報告格式',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickFileWithType(
-                    type: FileType.custom,
-                    allowedExtensions: ['doc', 'docx'],
-                    labelHint: 'Word 報告',
-                  );
-                },
-              ),
-
-              // 3. 純文字筆記
-              ListTile(
-                leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE8F5E9),
-                    child: Icon(Icons.sticky_note_2_rounded, color: Colors.green)),
-                title: Text('純文字筆記 (.txt, .md)',
-                    style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.w600)),
-                subtitle: Text('開啟僅顯示筆記類純文字檔',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickFileWithType(
-                    type: FileType.custom,
-                    allowedExtensions: ['txt', 'md'],
-                    labelHint: '純文字筆記',
-                  );
-                },
-              ),
-
-              // 4. 所有支援文件
-              ListTile(
-                leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFEDE7F6),
-                    child: Icon(Icons.folder_open_rounded, color: Colors.deepPurple)),
-                title: Text('所有檔案格式 (不限)',
-                    style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.w600)),
-                subtitle: Text('開啟檔案庫顯示所有格式檔案',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? Colors.white54 : Colors.grey.shade600)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickFileWithType(
-                    type: FileType.any,
-                    labelHint: '檔案',
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   void _pickFileWithType({
     FileType type = FileType.custom,
@@ -13240,7 +13103,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       icon: Icons.attach_file,
                       label: '文件',
                       color: Colors.blue,
-                      onTap: _isSubmitting ? null : _showFileTypeSheet,
+                      onTap: _isSubmitting 
+                          ? null 
+                          : () => _pickFileWithType(type: FileType.any, labelHint: '檔案'),
                     ),
 
                     // 定時發布
@@ -15851,10 +15716,12 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Alignment currentAlignment = Alignment(_alignX, _alignY);
 
     return Dialog(
-      backgroundColor: const Color(0xFF14141F),
+      backgroundColor: isDark ? const Color(0xFF14141F) : Colors.white,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -15863,69 +15730,79 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
           children: [
             Row(
               children: [
-                const Icon(Icons.center_focus_strong, color: Color(0xFF7C6AFF), size: 22),
+                Icon(Icons.center_focus_strong, color: Theme.of(context).primaryColor, size: 22),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   '調整社群視圖顯示焦點',
-                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 17, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  icon: Icon(Icons.close, color: isDark ? Colors.white54 : Colors.grey, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
-              '在預覽框手動拖曳對齊方位，決定貼文在社群動態牆的最佳展示焦點',
-              style: TextStyle(color: Colors.white60, fontSize: 12),
+            Text(
+              '可放大縮小預覽框，並手動拖曳對齊方位，決定最佳展示焦點',
+              style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 12),
             ),
             const SizedBox(height: 16),
-            GestureDetector(
-              onPanUpdate: (details) {
-                const double sens = 0.006;
-                setState(() {
-                  _alignX = (_alignX + details.delta.dx * sens).clamp(-1.0, 1.0);
-                  _alignY = (_alignY + details.delta.dy * sens).clamp(-1.0, 1.0);
-                });
-              },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: double.infinity,
-                  height: 220,
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    border: Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.5), width: 1.5),
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Image.memory(
-                          widget.rawBytes,
-                          fit: BoxFit.cover,
-                          alignment: currentAlignment,
-                        ),
-                      ),
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.65),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.touch_app, color: Colors.white70, size: 14),
-                              SizedBox(width: 4),
-                              Text('按住並滑動可手動微調焦點', style: TextStyle(color: Colors.white, fontSize: 11)),
-                            ],
+            InteractiveViewer(
+              clipBehavior: Clip.none,
+              maxScale: 4.0,
+              minScale: 1.0,
+              panEnabled: false, // Let GestureDetector handle 1-finger panning for alignment
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  const double sens = 0.006;
+                  setState(() {
+                    _alignX = (_alignX + details.delta.dx * sens).clamp(-1.0, 1.0);
+                    _alignY = (_alignY + details.delta.dy * sens).clamp(-1.0, 1.0);
+                  });
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: double.infinity,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.black : Colors.black.withValues(alpha: 0.05),
+                      border: Border.all(
+                          color: isDark 
+                              ? Theme.of(context).primaryColor.withValues(alpha: 0.5) 
+                              : Colors.grey.shade300, 
+                          width: 1.5),
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.memory(
+                            widget.rawBytes,
+                            fit: BoxFit.cover,
+                            alignment: currentAlignment,
                           ),
                         ),
-                      ),
-                    ],
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.touch_app, color: Colors.white70, size: 14),
+                                SizedBox(width: 4),
+                                Text('按住滑動微調，雙指可縮放預覽', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -15937,8 +15814,8 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white60,
-                      side: const BorderSide(color: Colors.white24),
+                      foregroundColor: isDark ? Colors.white60 : Colors.black54,
+                      side: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -15951,7 +15828,7 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context, Offset(_alignX, _alignY)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C6AFF),
+                      backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
