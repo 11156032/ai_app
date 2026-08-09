@@ -2984,16 +2984,6 @@ startxref
           attached['strokes'].toString() != '[]' &&
           attached['strokes'].toString().isNotEmpty;
 
-      final effectivePosts = _getEffectiveSocialPosts();
-      final firstNotePost = effectivePosts.firstWhere(
-        (post) =>
-            post['attached_data'] != null &&
-            post['attached_data']['shared_type'] == 'note',
-        orElse: () => <String, dynamic>{},
-      );
-      final bool isTargetNotePost =
-          firstNotePost.isNotEmpty && firstNotePost['id'] == p['id'];
-
       return GestureDetector(
         onTap: () => _showNotePreviewDialog(p),
         child: Container(
@@ -3085,24 +3075,6 @@ startxref
                       style:
                           TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: () => _importSharedNote(p),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  key: isSocialFeed && isTargetNotePost && _tourOverlayEntry != null && _currentIndex == 2 ? _tourDialogSummonKey : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _currentPrimaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18)),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    elevation: 1,
-                  ),
-                  icon: const Icon(Icons.auto_awesome, size: 15),
-                  label: const Text('召喚分身',
-                      style:
-                          TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () => _summonAuthorClone(p),
                 ),
               ],
             ),
@@ -3368,22 +3340,6 @@ startxref
                       fontSize: 11,
                       color: _currentPrimaryColor,
                       fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(width: 4),
-            TextButton.icon(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              icon: Icon(Icons.auto_awesome,
-                  size: 12, color: _currentPrimaryColor),
-              label: Text('召喚分身',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: _currentPrimaryColor,
-                      fontWeight: FontWeight.bold)),
-              onPressed: () => _summonAuthorClone(p),
             ),
           ],
         ),
@@ -3694,62 +3650,7 @@ startxref
     }
   }
 
-  // ── 召喚作者 AI 分身 ──────────────────────────────────────────────
-  void _summonAuthorClone(Map<String, dynamic> p) {
-    final attached = p['attached_data'];
-    if (attached == null) return;
 
-    final String authorName = p['author'] ?? '未知用戶';
-    final String authorUserId = p['userId']?.toString() ?? '';
-    final int authorAvatarColor = p['authorAvatarColor'] as int? ?? 0;
-    final String title = attached['title'] ?? '無標題筆記';
-    final String content = attached['content'] ?? '';
-    final String strokesJson = attached['strokes']?.toString() ?? '';
-
-    // 計算手寫軌跡數量
-    int strokeCount = 0;
-    if (strokesJson.isNotEmpty && strokesJson != '[]') {
-      try {
-        final decoded = jsonDecode(strokesJson);
-        if (decoded is List) {
-          strokeCount = decoded.length;
-        }
-      } catch (_) {}
-    }
-
-    // 設置分身聊天上下文
-    _cloneContext = {
-      'author': authorName,
-      'userId': authorUserId,
-      'avatarColor': authorAvatarColor,
-      'title': title,
-      'content': content,
-      'strokeCount': strokeCount,
-    };
-
-    _aiFlowState = 'clone_chat';
-
-    // 初始化對話紀錄，加入歡迎詞與快捷提問標記
-    chatLogs = [
-      {
-        'isAI': true,
-        'text':
-            '💡 成功召喚 $authorName 的 AI 鏡像分身！\n我現在是這份筆記「$title」的作者。你可以問我關於這篇筆記的任何邏輯、細節或推導過程喔！',
-        'isCard': false,
-        'author': authorName,
-        'avatarColor': authorAvatarColor,
-      },
-      {
-        'isAI': true,
-        'text': '',
-        'isCard': false,
-        'widgetType': 'clone_chat_welcome_chips',
-      }
-    ];
-
-    // 開啟全域助理面板
-    _openChatModal();
-  }
 
   // ── 一鍵收藏題目邏輯 ──────────────────────────────────────────────
   void _importSharedQuestion(Map<String, dynamic> attached) async {
@@ -4047,24 +3948,6 @@ startxref
                           onPressed: () {
                             Navigator.pop(context);
                             _importSharedNote(p);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _currentPrimaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          ),
-                          icon: const Icon(Icons.auto_awesome, size: 16),
-                          label: const Text('召喚分身',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _summonAuthorClone(p);
                           },
                         ),
                       ],

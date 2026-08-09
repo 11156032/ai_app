@@ -124,7 +124,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final GlobalKey _tourNavSocialKey = GlobalKey();
   final GlobalKey _tourAiChatBarKey = GlobalKey();
   final GlobalKey _tourFirstPostAvatarKey = GlobalKey();
-  final GlobalKey _tourDialogSummonKey = GlobalKey();
 
   Map<String, List<Map<String, dynamic>>> allSchedules = {};
   List<Map<String, dynamic>> allTodos = [];
@@ -149,7 +148,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _weeklyMatrixData = []; // 知識掌握度矩陣資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.3.0';
+  String _appVersion = 'v1.4.0';
 
   // --- 排行榜資料 ---
   List<Map<String, dynamic>> _leaderboardList = [];
@@ -901,11 +900,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       // 6.5 知識掌握度矩陣資料（本週測驗單筆紀錄）
       final matrixRows = await db.rawQuery('''
-        SELECT correct, total, duration_seconds, subject, paper_id, wrong_question_ids, timestamp 
+        SELECT 
+          subject, 
+          SUM(correct) as correct, 
+          SUM(total) as total, 
+          SUM(duration_seconds) as duration_seconds,
+          MAX(timestamp) as timestamp
         FROM quiz_results 
         WHERE user_id = ? AND total > 0 
           AND timestamp >= ?
-        ORDER BY timestamp DESC
+        GROUP BY subject
       ''', [currentUserId, monday.toIso8601String().substring(0, 10)]);
 
       List<Map<String, dynamic>> weeklyMatrixData = [];
@@ -914,13 +918,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final int tot = (row['total'] as num?)?.toInt() ?? 0;
         final int dur = (row['duration_seconds'] as num?)?.toInt() ?? 0;
         final String subj = (row['subject'] as String?) ?? '一般練習';
-        final int? paperId = row['paper_id'] as int?;
-        final String wrongIdsStr = (row['wrong_question_ids'] as String?) ?? '[]';
         final String timeStr = (row['timestamp'] as String?) ?? '';
         
         if (tot > 0) {
           final double acc = (cor / tot) * 100.0;
-          // 若為舊筆紀錄 (dur == 0)，估算預設 12.0 秒/題，否則計算精確平均時間
           final double avgTime = dur > 0 ? (dur / tot) : 12.0;
           weeklyMatrixData.add({
             'accuracy': acc,
@@ -929,8 +930,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             'correct': cor,
             'duration': dur,
             'subject': subj.isNotEmpty ? subj : '綜合測驗',
-            'paper_id': paperId,
-            'wrong_question_ids': wrongIdsStr,
             'timestamp': timeStr,
           });
         }
@@ -1095,12 +1094,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   List<TourStep> _buildTourSteps() {
     return [
-      // ────── 功能 1：🤖 AI 分身 ──────
+      // ────── 功能 1：🌐 社群動態 ──────
       TourStep(
-        featureTitle: '🤖 AI 分身',
+        featureTitle: '🌐 社群動態',
         featureIndex: 0,
         stepInFeature: 1,
-        totalInFeature: 2,
+        totalInFeature: 1,
         targetPageIndex: 2,
         targetKey: null,
         title: '探索社群頁面',
@@ -1108,35 +1107,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         onEnter: () {
           _socialFilter = '全部';
           _socialAuthorFilter = '';
-        },
-      ),
-      TourStep(
-        featureTitle: '🤖 AI 分身',
-        featureIndex: 0,
-        stepInFeature: 2,
-        totalInFeature: 2,
-        targetPageIndex: 2,
-        targetKey: _tourDialogSummonKey,
-        title: '召喚 AI 分身對話',
-        description: '在貼文的筆記資源中，點選「召喚分身」按鈕，AI 將模擬該作者的風格與你進行對話！',
-        onEnter: () {
-          _socialFilter = '全部';
-          _socialAuthorFilter = '';
-          final effectivePosts = _getEffectiveSocialPosts();
-          for (var post in effectivePosts) {
-            if (post['attached_data'] != null &&
-                post['attached_data']['shared_type'] == 'note') {
-              post['_isExpanded'] = true;
-              break;
-            }
-          }
-          if (_socialFeedScrollController.hasClients) {
-            _socialFeedScrollController.jumpTo(0.0);
-          }
-          final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
-          if (!isMainScreenCurrent && Navigator.canPop(context)) {
-            Navigator.pop(context); // 關閉任何可能打開的彈窗
-          }
         },
       ),
       // ────── 功能 2：📅 AI 排程 ──────
@@ -1154,7 +1124,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         onEnter: () {
           final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
-            Navigator.pop(context); // 關閉可能遺留的對話框 (如前一步召喚分身的 Modal)
+            Navigator.pop(context); // 關閉可能遺留的對話框
           }
         },
       ),
@@ -12446,6 +12416,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool _isSubmitting = false;
   DateTime? _scheduledAt; // 定時發佈時間
   Map<String, dynamic>? _learningPackData; // 學習 Pack 的資料
+  final ScrollController _typeScrollController = ScrollController();
 
   Uint8List? _userAvatarBlob;
   int? _userAvatarColor;
@@ -12456,6 +12427,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
   void initState() {
     super.initState();
     _loadUserAvatar();
+  }
+
+  @override
+  void dispose() {
+    _typeScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserAvatar() async {
@@ -12789,25 +12766,37 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   ),
                   const SizedBox(height: 14),
                   // 貼文類型標籤
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(children: [
-                      _buildTypeChip('📝 學習筆記', 'note',
-                          selectedColor: const Color(0xFF4CAF50),
-                          bgColor: const Color(0xFFE8F5E9)),
-                      const SizedBox(width: 8),
-                      _buildTypeChip('💭 心情文章', 'mood',
-                          selectedColor: const Color(0xFF9C27B0),
-                          bgColor: const Color(0xFFF3E5F5)),
-                      const SizedBox(width: 8),
-                      _buildTypeChip('📄 分享資料', 'doc',
-                          selectedColor: const Color(0xFF2196F3),
-                          bgColor: const Color(0xFFE3F2FD)),
-                      const SizedBox(width: 8),
-                      _buildTypeChip('📦 學習 Pack', 'learning_pack',
-                          selectedColor: const Color(0xFFFF9800),
-                          bgColor: const Color(0xFFFFF3E0)),
-                    ]),
+                  RawScrollbar(
+                    controller: _typeScrollController,
+                    thumbVisibility: true,
+                    trackVisibility: true,
+                    thumbColor: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                    trackColor: Colors.grey.shade200,
+                    thickness: 4,
+                    radius: const Radius.circular(10),
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SingleChildScrollView(
+                      controller: _typeScrollController,
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(bottom: 12), // 為捲軸預留空間
+                      child: Row(children: [
+                        _buildTypeChip('📝 學習筆記', 'note',
+                            selectedColor: const Color(0xFF4CAF50),
+                            bgColor: const Color(0xFFE8F5E9)),
+                        const SizedBox(width: 8),
+                        _buildTypeChip('💭 心情文章', 'mood',
+                            selectedColor: const Color(0xFF9C27B0),
+                            bgColor: const Color(0xFFF3E5F5)),
+                        const SizedBox(width: 8),
+                        _buildTypeChip('📄 分享資料', 'doc',
+                            selectedColor: const Color(0xFF2196F3),
+                            bgColor: const Color(0xFFE3F2FD)),
+                        const SizedBox(width: 8),
+                        _buildTypeChip('📦 學習 Pack', 'learning_pack',
+                            selectedColor: const Color(0xFFFF9800),
+                            bgColor: const Color(0xFFFFF3E0)),
+                      ]),
+                    ),
                   ),
                   if (_postType == 'learning_pack') ...[
                     const SizedBox(height: 12),

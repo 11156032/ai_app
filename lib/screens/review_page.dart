@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
+import '../services/ai_diagnosis_service.dart';
 
 class ReviewPage extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
@@ -34,6 +35,7 @@ class _ReviewPageState extends State<ReviewPage>
   late final List<GlobalKey> _itemKeys;
   final Set<int> _bookmarkedQids = {};
   bool _showOnlyWrong = false;
+  final Map<int, String> _cachedAiExplanations = {};
 
   @override
   void initState() {
@@ -206,6 +208,28 @@ class _ReviewPageState extends State<ReviewPage>
     }
   }
   */
+
+  void _showAiExplanationSheet(
+      BuildContext context, int qIdx, Map<String, dynamic> q, int correctIndex, int? chosenIndex) {
+    final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u4';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return _AiExplanationSheet(
+          question: q,
+          correctIndex: correctIndex,
+          chosenIndex: chosenIndex,
+          userId: uid.toString(),
+          cachedText: _cachedAiExplanations[qIdx],
+          onSaveCache: (text) {
+            _cachedAiExplanations[qIdx] = text;
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -910,6 +934,18 @@ class _ReviewPageState extends State<ReviewPage>
                   ),
                 ],
                 const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _showAiExplanationSheet(context, qIdx, q, correct, chosen),
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: const Text('詢問 AI 解析'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).primaryColor,
+                    side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                ),
                 if (widget.saveResult) ...[
                   const SizedBox(height: 12),
                   TextField(
@@ -1178,3 +1214,526 @@ class _ReviewDiagnosisLoadingProgressState
   }
 }
 */
+
+class _AiExplanationSheet extends StatefulWidget {
+  final Map<String, dynamic> question;
+  final int correctIndex;
+  final int? chosenIndex;
+  final String userId;
+  final String? cachedText;
+  final ValueChanged<String>? onSaveCache;
+
+  const _AiExplanationSheet({
+    required this.question,
+    required this.correctIndex,
+    required this.chosenIndex,
+    required this.userId,
+    this.cachedText,
+    this.onSaveCache,
+  });
+
+  @override
+  State<_AiExplanationSheet> createState() => _AiExplanationSheetState();
+}
+
+class _AiExplanationSheetState extends State<_AiExplanationSheet> {
+  final StringBuffer _explanationBuffer = StringBuffer();
+  bool _isLoading = true;
+  StreamSubscription<String>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.cachedText != null && widget.cachedText!.isNotEmpty) {
+      _explanationBuffer.write(widget.cachedText);
+      _isLoading = false;
+    } else {
+      _startAiStream();
+    }
+  }
+
+  void _startAiStream() {
+    _sub = AiDiagnosisService.askQuestionExplanationStream(
+      userId: widget.userId,
+      question: widget.question,
+      correctIndex: widget.correctIndex,
+      chosenIndex: widget.chosenIndex,
+    ).listen(
+      (chunk) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _explanationBuffer.write(chunk);
+        });
+      },
+      onError: (err) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _explanationBuffer.write('\n\n[連線錯誤] 無法取得 AI 解析：$err');
+        });
+      },
+      onDone: () {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+        });
+        widget.onSaveCache?.call(_explanationBuffer.toString());
+      },
+    );
+  }
+
+  void _regenerate() {
+    _sub?.cancel();
+    setState(() {
+      _explanationBuffer.clear();
+      _isLoading = true;
+    });
+    _startAiStream();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final size = MediaQuery.of(context).size;
+    final rawText = _explanationBuffer.toString();
+    
+    return Container(
+      constraints: BoxConstraints(maxHeight: size.height * 0.85),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Title Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.auto_awesome_rounded, color: cs.primary, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'AI 專屬解析',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: cs.primary,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded),
+                  tooltip: '重新生成解析',
+                  onPressed: _isLoading ? null : _regenerate,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+
+          // Question Status Bar
+          _buildQuestionOverviewHeader(cs),
+
+          // Explanation Content Body
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_isLoading && rawText.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            CircularProgressIndicator(color: cs.primary),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'AI 導師正在深度解析本題觀念...',
+                              style: TextStyle(color: Colors.grey, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    _buildStructuredExplanationContent(rawText, cs),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 頂部作答與正確答案提示對比列
+  Widget _buildQuestionOverviewHeader(ColorScheme cs) {
+    final correctOpt = String.fromCharCode(65 + widget.correctIndex);
+    final chosenOpt = widget.chosenIndex != null ? String.fromCharCode(65 + widget.chosenIndex!) : '未作答';
+    final isCorrect = widget.chosenIndex == widget.correctIndex;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Row(
+            children: [
+              const Text('正確解答：', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Text(
+                  '選項 ($correctOpt)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              const Text('您的作答：', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isCorrect ? Colors.green.shade50 : (widget.chosenIndex != null ? Colors.red.shade50 : Colors.grey.shade100),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: isCorrect ? Colors.green.shade200 : (widget.chosenIndex != null ? Colors.red.shade200 : Colors.grey.shade300)),
+                ),
+                child: Text(
+                  widget.chosenIndex != null ? '選項 ($chosenOpt)' : '未作答',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isCorrect ? Colors.green.shade800 : (widget.chosenIndex != null ? Colors.red.shade700 : Colors.grey.shade700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 將 AI 的純文字解析為結構化的高質感區塊卡片
+  Widget _buildStructuredExplanationContent(String text, ColorScheme cs) {
+    final cleaned = AiDiagnosisService.cleanAiExplanationText(text);
+    if (cleaned.isEmpty) return const SizedBox.shrink();
+
+    // 依行拆分或段落拆分
+    final lines = cleaned.split('\n');
+    final List<Widget> cardList = [];
+    String? currentTitle;
+    List<String> currentBodyLines = [];
+
+    void flushSection() {
+      if (currentTitle != null || currentBodyLines.isNotEmpty) {
+        cardList.add(_buildSectionCard(currentTitle, currentBodyLines, cs));
+        currentBodyLines = [];
+        currentTitle = null;
+      }
+    }
+
+    for (var line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+
+      // 檢查是否為區塊標題（如 🎯 觀念剖析、🔍 盲點檢視、💡 核心大通關、觀念剖析：...）
+      String formatTitle = trimmed;
+      bool isHeading = false;
+
+      if (trimmed.startsWith('🎯') ||
+          trimmed.startsWith('🔍') ||
+          trimmed.startsWith('💡') ||
+          trimmed.startsWith('【觀念') ||
+          trimmed.startsWith('【盲點') ||
+          trimmed.startsWith('【迷思') ||
+          trimmed.startsWith('【重點') ||
+          trimmed.startsWith('【核心') ||
+          trimmed.startsWith('【口訣') ||
+          trimmed.startsWith('觀念精華') ||
+          trimmed.startsWith('觀念剖析') ||
+          trimmed.startsWith('觀念解析') ||
+          trimmed.startsWith('迷思快剖') ||
+          trimmed.startsWith('盲點檢視') ||
+          trimmed.startsWith('盲點分析') ||
+          trimmed.startsWith('常見誤解') ||
+          trimmed.startsWith('一秒口訣') ||
+          trimmed.startsWith('核心大通關') ||
+          trimmed.startsWith('核心總結') ||
+          trimmed.startsWith('觀念總結') ||
+          trimmed.startsWith('重點整理') ||
+          RegExp(r'^\d+[\.\重\觀\盲\迷\一\、]').hasMatch(trimmed)) {
+        isHeading = true;
+
+        if (trimmed.contains('觀念') || trimmed.contains('正確')) {
+          if (!formatTitle.startsWith('🎯')) formatTitle = '🎯 $formatTitle';
+        } else if (trimmed.contains('盲點') || trimmed.contains('誤解') || trimmed.contains('迷思')) {
+          if (!formatTitle.startsWith('🔍')) formatTitle = '🔍 $formatTitle';
+        } else if (trimmed.contains('核心') || trimmed.contains('總結') || trimmed.contains('口訣') || trimmed.contains('一秒')) {
+          if (!formatTitle.startsWith('💡')) formatTitle = '💡 $formatTitle';
+        }
+      }
+
+      if (isHeading) {
+        flushSection();
+        currentTitle = formatTitle;
+      } else {
+        currentBodyLines.add(line);
+      }
+    }
+    flushSection();
+
+    // 如果完全沒有解析出區塊標題或只有單一大卡片，進行智慧分段
+    if (cardList.isEmpty || (cardList.length == 1 && currentTitle == null)) {
+      final paragraphs = cleaned.split(RegExp(r'\n\s*\n'));
+      if (paragraphs.length > 1) {
+        final List<Widget> autoCards = [];
+        for (int i = 0; i < paragraphs.length; i++) {
+          final pLines = paragraphs[i].split('\n').where((l) => l.trim().isNotEmpty).toList();
+          if (pLines.isEmpty) continue;
+          
+          String autoTitle;
+          if (i == 0) {
+            autoTitle = '🎯 觀念剖析與正確解答';
+          } else if (i == 1) {
+            autoTitle = '🔍 盲點檢視與誤解釐清';
+          } else {
+            autoTitle = '💡 核心總結與重點複習';
+          }
+          autoCards.add(_buildSectionCard(autoTitle, pLines, cs));
+        }
+        if (autoCards.isNotEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: autoCards,
+          );
+        }
+      }
+      return _buildSectionCard('🎯 觀念剖析與解析', lines, cs);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: cardList,
+    );
+  }
+
+  /// 渲染單一結構區塊卡片（簡潔優雅白底 + 微質感主題 Header）
+  Widget _buildSectionCard(String? title, List<String> bodyLines, ColorScheme cs) {
+    // 依標題類型決定主題顏色與圖示
+    Color primaryColor = cs.primary;
+    Color headerBgColor = cs.primary.withValues(alpha: 0.06);
+    IconData iconData = Icons.auto_awesome_rounded;
+
+    if (title != null) {
+      if (title.contains('🎯') || title.contains('正確') || title.contains('觀念')) {
+        primaryColor = const Color(0xFF0F766E); // 質感深翡翠綠 (Deep Emerald/Teal)
+        headerBgColor = const Color(0xFFF0FDF4); // 極淡柔和薄荷色
+        iconData = Icons.task_alt_rounded;
+      } else if (title.contains('🔍') || title.contains('盲點') || title.contains('誤解') || title.contains('迷思')) {
+        primaryColor = const Color(0xFFC2410C); // 質感溫暖琥珀赤陶 (Warm Amber/Orange)
+        headerBgColor = const Color(0xFFFFF7ED); // 極淡暖色
+        iconData = Icons.find_in_page_rounded;
+      } else if (title.contains('💡') || title.contains('口訣') || title.contains('總結') || title.contains('一秒')) {
+        primaryColor = const Color(0xFF4338CA); // 質感深綻藍紫 (Deep Indigo)
+        headerBgColor = const Color(0xFFEEF2FF); // 極淡靛藍色
+        iconData = Icons.lightbulb_rounded;
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: headerBgColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+              ),
+              child: Row(
+                children: [
+                  Icon(iconData, size: 17, color: primaryColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          ],
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: bodyLines.map((line) {
+                final trimmed = line.trim();
+                final isBullet = trimmed.startsWith('•') || trimmed.startsWith('-');
+                final cleanContent = isBullet ? trimmed.substring(1).trim() : line;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isBullet)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 5.0, right: 8.0),
+                          child: Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: _buildRichTextWithKeywordChips(
+                          cleanContent,
+                          const TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
+                            color: Color(0xFF334155),
+                          ),
+                          primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 將 【關鍵字】 解析為獨立視覺化的微型標籤 (WidgetSpan Chip)
+  Widget _buildRichTextWithKeywordChips(String text, TextStyle baseStyle, Color primaryColor) {
+    final List<InlineSpan> spans = [];
+    final RegExp regExp = RegExp(r'【([^】]+)】');
+    int lastIndex = 0;
+
+    for (final Match match in regExp.allMatches(text)) {
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(text: text.substring(lastIndex, match.start), style: baseStyle));
+      }
+      final keyword = match.group(1) ?? '';
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: primaryColor.withValues(alpha: 0.3), width: 0.8),
+            ),
+            child: Text(
+              keyword,
+              style: TextStyle(
+                fontSize: (baseStyle.fontSize ?? 14) * 0.88,
+                fontWeight: FontWeight.bold,
+                color: primaryColor,
+              ),
+            ),
+          ),
+        ),
+      );
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(text: text.substring(lastIndex), style: baseStyle));
+    }
+
+    return Text.rich(
+      TextSpan(children: spans),
+      style: baseStyle,
+    );
+  }
+}

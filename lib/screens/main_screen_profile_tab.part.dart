@@ -583,82 +583,16 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   Widget _buildLearningProgressModule(BuildContext context) {
-    final hasData = _weeklyMatrixData.isNotEmpty;
-    int blindSpotCount = 0; // 盲點
-
-    for (var d in _weeklyMatrixData) {
-      double acc = (d['accuracy'] as num).toDouble();
-      double time = (d['avgTime'] as num).toDouble();
-      if (acc < 60 && time > 15) {
-        blindSpotCount++;
-      }
-    }
-
-    return _buildModuleContainer(
-      context: context,
-      title: '學習歷程（知識掌握度矩陣）',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
-          _buildMatrixChart(context),
-          const SizedBox(height: 14),
-          Center(
-            child: Text(
-              hasData
-                  ? '💡 點擊圓點查看測驗詳情與 AI 學習建議'
-                  : '本週尚無作答紀錄，完成練習後將自動繪製掌握度圖表',
-              style: TextStyle(
-                  color:
-                      _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
-                  fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          if (blindSpotCount > 0) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: Colors.red, size: 24),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '本週偵測到 $blindSpotCount 筆嚴重盲點！建議及早複習。',
-                      style: const TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      _showRemedialMaterialSheet('綜合盲點');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 0),
-                      minimumSize: const Size(0, 30),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child:
-                        const Text('AI 學習建議', style: TextStyle(fontSize: 11)),
-                  ),
-                ],
-              ),
-            ),
-          ]
-        ],
+    return _LearningProgressCard(
+      matrixData: _weeklyMatrixData,
+      isDarkMode: _isDarkMode,
+      primaryColor: _currentPrimaryColor,
+      matrixChartWidget: _buildMatrixChart(context),
+      onShowRemedial: (subject) => _showRemedialMaterialSheet(subject),
+      moduleContainerBuilder: (title, child) => _buildModuleContainer(
+        context: context,
+        title: title,
+        child: child,
       ),
     );
   }
@@ -747,6 +681,8 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
+  static DateTime? _lastScatterTapTime;
+
   Widget _buildMatrixChart(BuildContext context) {
     if (_weeklyMatrixData.isEmpty) {
       return Container(
@@ -797,6 +733,21 @@ extension MainScreenProfileTab on _MainScreenState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── 頂部圖例
+        Center(
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: [
+              _buildLegendDot(Colors.blue, '熟練度高'),
+              _buildLegendDot(Colors.amber.shade700, '猶豫期'),
+              _buildLegendDot(Colors.grey.shade600, '粗心'),
+              _buildLegendDot(Colors.red, '嚴重盲點'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -857,8 +808,10 @@ extension MainScreenProfileTab on _MainScreenState {
             // ── 散點圖
             Expanded(
               child: SizedBox(
-                height: 190,
-                child: LayoutBuilder(
+                height: 195,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 10, 16, 0),
+                  child: LayoutBuilder(
                   builder: (context, constraints) {
                     return Stack(
                       children: [
@@ -979,12 +932,20 @@ extension MainScreenProfileTab on _MainScreenState {
                               ),
                               scatterTouchData: ScatterTouchData(
                                 enabled: true,
-                                touchSpotThreshold: 50.0,
+                                touchSpotThreshold: 12.0,
                                 touchCallback: (FlTouchEvent event,
                                     ScatterTouchResponse? touchResponse) {
                                   if (touchResponse != null &&
                                       touchResponse.touchedSpot != null &&
-                                      event is FlTapUpEvent) {
+                                      (event is FlTapUpEvent || event is FlTapDownEvent)) {
+                                    final now = DateTime.now();
+                                    if (_lastScatterTapTime != null &&
+                                        now.difference(_lastScatterTapTime!) <
+                                            const Duration(milliseconds: 500)) {
+                                      return;
+                                    }
+                                    _lastScatterTapTime = now;
+
                                     final spotIndex =
                                         touchResponse.touchedSpot!.spotIndex;
                                     if (spotIndex >= 0 &&
@@ -996,7 +957,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                         _showOverlappedQuizzesSheet(
                                             context,
                                             List<Map<String, dynamic>>.from(items));
-                                      } else {
+                                      } else if (items.isNotEmpty) {
                                         _showQuizDetailSheet(context, items.first);
                                       }
                                     }
@@ -1027,6 +988,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 ),
               ),
             ),
+          ),
           ],
         ),
         // ── 下方 X 軸標籤
@@ -1056,21 +1018,7 @@ extension MainScreenProfileTab on _MainScreenState {
             ),
           ),
         ),
-        // ── 圖例
-        const SizedBox(height: 12),
-        Center(
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _buildLegendDot(Colors.blue, '熟練度高'),
-              _buildLegendDot(Colors.amber.shade700, '猶豫期'),
-              _buildLegendDot(Colors.grey.shade600, '粗心'),
-              _buildLegendDot(Colors.red, '嚴重盲點'),
-            ],
-          ),
-        ),
+
       ],
     );
   }
@@ -1079,61 +1027,63 @@ extension MainScreenProfileTab on _MainScreenState {
       BuildContext context, List<Map<String, dynamic>> quizzes) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-        decoration: BoxDecoration(
-          color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color:
-                      _isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
+      builder: (ctx) => SafeArea(
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.layers_rounded,
-                    color: _currentPrimaryColor, size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  '此區域包含 ${quizzes.length} 筆測驗紀錄',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _isDarkMode ? Colors.white : Colors.black87,
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _isDarkMode
+                          ? Colors.grey.shade700
+                          : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '請點擊欲查看的測驗，以開啟詳細診斷與 AI 補強：',
-              style: TextStyle(
-                fontSize: 12,
-                color:
-                    _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: quizzes.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (ctx, i) {
-                  final item = quizzes[i];
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(Icons.layers_rounded,
+                        color: _currentPrimaryColor, size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      '此區域包含 ${quizzes.length} 個科目內容',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: _isDarkMode ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '請點擊欲查看的科目，以開啟詳細診斷與 AI 補強：',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _isDarkMode
+                        ? Colors.grey.shade400
+                        : Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ...quizzes.map((item) {
                   final subject = item['subject']?.toString() ?? '測驗';
                   final acc = (item['accuracy'] as num).toDouble();
                   final avgTime = (item['avgTime'] as num).toDouble();
@@ -1157,55 +1107,70 @@ extension MainScreenProfileTab on _MainScreenState {
                     statusText = '粗心';
                   }
 
-                  return ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                    title: Row(
-                      children: [
-                        Text(
-                          subject,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: _isDarkMode ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            statusText,
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: _isDarkMode
+                          ? Colors.grey.shade900
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _isDarkMode
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 12),
+                      title: Row(
+                        children: [
+                          Text(
+                            subject,
                             style: TextStyle(
-                                color: statusColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color:
+                                  _isDarkMode ? Colors.white : Colors.black87,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              statusText,
+                              style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        '正確率: ${acc.toInt()}% • 平均耗時: ${avgTime.toStringAsFixed(1)}s${date.isNotEmpty ? " • $date" : ""}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: _isDarkMode
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showQuizDetailSheet(context, item);
+                      },
                     ),
-                    subtitle: Text(
-                      '正確率: ${acc.toInt()}% • 平均耗時: ${avgTime.toStringAsFixed(1)}s${date.isNotEmpty ? " • $date" : ""}',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: _isDarkMode
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade600),
-                    ),
-                    trailing: const Icon(Icons.chevron_right, size: 20),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _showQuizDetailSheet(context, item);
-                    },
                   );
-                },
-              ),
+                }),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -2638,12 +2603,11 @@ extension MainScreenProfileTab on _MainScreenState {
       final Map<String, dynamic> payload = {
         'access_key': accessKey,
         'subject': '[$type] $subject',
-        'from_name': userName,
+        'name': userName,
         'email': userEmail,
+        'message': body, // Web3Forms requires 'message' field
         '回報類型': type == 'bug' ? 'Bug 回報 🐞' : '功能建議 💡',
         '使用者ID': userId,
-        '使用者名稱': userName,
-        '詳細描述': body,
         'App版本': _appVersion,
       };
 
@@ -2656,14 +2620,18 @@ extension MainScreenProfileTab on _MainScreenState {
             },
             body: jsonEncode(payload),
           )
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 8));
 
-      debugPrint(
-          'Web3Forms 回應碼: ${response.statusCode}, Body: ${response.body}');
-      return true;
+      debugPrint('Web3Forms 回應碼: ${response.statusCode}, Body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        return false;
+      }
     } catch (e) {
-      debugPrint('客服回饋 API 網路例外（啟動本地容錯接收）: $e');
-      return true; // 容錯機制：發生超時或網路問題時直接標記成功，避免使用者端無限轉圈
+      debugPrint('客服回饋 API 網路例外: $e');
+      return false; // 發生例外時應回傳失敗，讓使用者知道未送出成功
     }
   }
 }
@@ -3054,4 +3022,249 @@ class _ClusterDotPainter extends FlDotPainter {
 
   @override
   List<Object?> get props => [color, count];
+}
+
+class _LearningProgressCard extends StatefulWidget {
+  final List<Map<String, dynamic>> matrixData;
+  final bool isDarkMode;
+  final Color primaryColor;
+  final Widget matrixChartWidget;
+  final Function(String) onShowRemedial;
+  final Widget Function(String, Widget) moduleContainerBuilder;
+
+  const _LearningProgressCard({
+    required this.matrixData,
+    required this.isDarkMode,
+    required this.primaryColor,
+    required this.matrixChartWidget,
+    required this.onShowRemedial,
+    required this.moduleContainerBuilder,
+  });
+
+  @override
+  State<_LearningProgressCard> createState() => _LearningProgressCardState();
+}
+
+class _LearningProgressCardState extends State<_LearningProgressCard> {
+  final PageController _pageController = PageController();
+  int _currentIndex = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildRadarChart() {
+    if (widget.matrixData.isEmpty) {
+      return Container(
+        height: 180,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text('暫無測驗資料', style: TextStyle(color: Colors.grey)),
+      );
+    }
+
+    // Extract subjects and accuracy
+    List<String> subjects = [];
+    List<double> accuracies = [];
+    
+    final data = widget.matrixData.take(8).toList();
+    for (var d in data) {
+      subjects.add(d['subject'].toString());
+      accuracies.add((d['accuracy'] as num).toDouble());
+    }
+    
+    while (subjects.length < 3) {
+      subjects.add('維度 ${subjects.length + 1}');
+      accuracies.add(0.0);
+    }
+
+    return SizedBox(
+      height: 235,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: RadarChart(
+          RadarChartData(
+            dataSets: [
+              RadarDataSet(
+                fillColor: widget.primaryColor.withValues(alpha: 0.3),
+                borderColor: widget.primaryColor,
+                entryRadius: 4,
+                dataEntries: accuracies.map((e) => RadarEntry(value: e)).toList(),
+                borderWidth: 2,
+              ),
+            ],
+            radarBackgroundColor: Colors.transparent,
+            borderData: FlBorderData(show: false),
+            radarBorderData: const BorderSide(color: Colors.transparent),
+            titlePositionPercentageOffset: 0.08,
+            titleTextStyle: TextStyle(
+              color: widget.isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+            getTitle: (index, angle) {
+              if (index >= subjects.length) return const RadarChartTitle(text: '');
+              return RadarChartTitle(text: subjects[index]);
+            },
+            tickCount: 5,
+            ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 0),
+            tickBorderData: BorderSide(
+              color: widget.isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+              width: 1,
+            ),
+            gridBorderData: BorderSide(
+              color: widget.isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+              width: 1,
+            ),
+          ),
+          duration: const Duration(milliseconds: 250),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    int blindSpotCount = 0;
+    for (var d in widget.matrixData) {
+      double acc = (d['accuracy'] as num).toDouble();
+      double time = (d['avgTime'] as num).toDouble();
+      if (acc < 60 && time > 15) {
+        blindSpotCount++;
+      }
+    }
+
+    final hasData = widget.matrixData.isNotEmpty;
+    final title = _currentIndex == 0 ? '學習歷程 (知識掌握度矩陣)' : '學習歷程 (多維能力分析)';
+
+    return widget.moduleContainerBuilder(
+      title,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 240,
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              children: [
+                widget.matrixChartWidget,
+                _buildRadarChart(),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Dot Indicator
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(2, (index) {
+              return GestureDetector(
+                onTap: () {
+                  _pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: _currentIndex == index ? 20 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _currentIndex == index
+                        ? widget.primaryColor
+                        : Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          if (_currentIndex == 0)
+            Center(
+              child: Text(
+                hasData
+                    ? '💡 點擊圓點查看測驗詳情與 AI 學習建議'
+                    : '本週尚無作答紀錄，完成練習後將自動繪製掌握度圖表',
+                style: TextStyle(
+                    color: widget.isDarkMode
+                        ? Colors.grey.shade400
+                        : Colors.grey.shade700,
+                    fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            Center(
+              child: Text(
+                hasData
+                    ? '💡 透過雷達圖快速掌握各科目能力分佈'
+                    : '完成練習後將自動繪製各科能力分佈',
+                style: TextStyle(
+                    color: widget.isDarkMode
+                        ? Colors.grey.shade400
+                        : Colors.grey.shade700,
+                    fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          if (blindSpotCount > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.red, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '本週偵測到 $blindSpotCount 筆嚴重盲點！建議及早複習。',
+                      style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      widget.onShowRemedial('綜合盲點');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 0),
+                      minimumSize: const Size(0, 30),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child:
+                        const Text('AI 學習建議', style: TextStyle(fontSize: 11)),
+                  ),
+                ],
+              ),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
 }

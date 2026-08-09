@@ -94,6 +94,7 @@ class AiDiagnosisService {
     required String provider,
     required String prompt,
     String? model,
+    int timeoutSeconds = 15,
   }) async {
     try {
       final response = await http.post(
@@ -104,7 +105,7 @@ class AiDiagnosisService {
           if (model != null) 'model': model,
           'prompt': prompt,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(Duration(seconds: timeoutSeconds));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -613,12 +614,45 @@ $correctDetails
 ''';
 
     try {
+      // 1. 本地 Groq (若有金鑰)
+      if (_kGroqApiKey.isNotEmpty) {
+        final groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+        for (final gModel in groqModels) {
+          try {
+            bool hasYielded = false;
+            await for (final chunk in _tryGroqModel(
+                    model: gModel,
+                    messages: [{'role': 'user', 'content': prompt}],
+                    maxTokens: 1024)
+                .timeout(const Duration(seconds: 6))) {
+              yield chunk;
+              hasYielded = true;
+            }
+            if (hasYielded) return;
+          } catch (_) {}
+        }
+      }
+
+      // 2. Cloudflare Groq 中繼站
+      try {
+        final proxyText = await _tryCloudflareProxy(
+          provider: 'groq',
+          prompt: prompt,
+          timeoutSeconds: 8,
+        );
+        if (proxyText != null && proxyText.isNotEmpty) {
+          yield proxyText;
+          return;
+        }
+      } catch (_) {}
+
+      // 3. Gemini 直連
       final model = GenerativeModel(
         model: 'gemini-2.5-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
-      await for (final chunk in contentStream) {
+      await for (final chunk in contentStream.timeout(const Duration(seconds: 8))) {
         final text = chunk.text;
         if (text != null && text.isNotEmpty) {
           yield text;
@@ -957,7 +991,7 @@ $noteContent
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
-      await for (final chunk in contentStream) {
+      await for (final chunk in contentStream.timeout(const Duration(seconds: 8))) {
         final text = chunk.text;
         if (text != null && text.isNotEmpty) {
           yield text;
@@ -1008,54 +1042,88 @@ $noteContent
     };
   }
 
-  /// 分身對話串流：使用 Gemini SDK，支援 system instruction 與多輪對話歷史。
-  /// [systemPrompt]  — 角色扮演提示詞（筆記作者分身）
-  /// [userInput]     — 使用者本次輸入
-  /// [history]       — 先前的對話紀錄（isAI/text 欄位）
+  /// 分身對話串流：支援 Gemini SDK 及 Cloudflare 雲端中繼站備援（實體機無 Key 自動降級）
   static Stream<String> generateCloneStream({
     required String systemPrompt,
     required String userInput,
     required List<Map<String, dynamic>> history,
   }) async* {
-    try {
-      final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
-        apiKey: _kSystemGeminiApiKey,
-        systemInstruction: Content.system(systemPrompt),
-      );
+    final String apiKey = _kSystemGeminiApiKey.trim();
+    bool geminiSuccess = false;
 
-      // 將歷史對話轉為 Gemini Content 格式
-      final List<Content> contents = [];
-      for (final msg in history) {
-        final text = (msg['text'] as String? ?? '').trim();
-        if (text.isEmpty) continue;
-        final role = (msg['isAI'] as bool? ?? false) ? 'model' : 'user';
-        contents.add(Content(role, [TextPart(text)]));
-      }
-      // 加入使用者本次輸入
-      contents.add(Content.text(userInput));
+    // 1. 若本地有 API Key，優先嘗試 Gemini SDK
+    if (apiKey.isNotEmpty &&
+        (nextAvailableTime == null || !nextAvailableTime!.isAfter(DateTime.now()))) {
+      try {
+        final model = GenerativeModel(
+          model: 'gemini-2.5-flash',
+          apiKey: apiKey,
+          systemInstruction: Content.system(systemPrompt),
+        );
 
-      final contentStream = model.generateContentStream(contents).timeout(
-            const Duration(seconds: 15),
-            onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（15s）')),
-          );
-      await for (final chunk in contentStream) {
-        final text = chunk.text;
-        if (text != null && text.isNotEmpty) {
-          yield text;
+        final List<Content> contents = [];
+        for (final msg in history) {
+          final text = (msg['text'] as String? ?? '').trim();
+          if (text.isEmpty) continue;
+          final role = (msg['isAI'] as bool? ?? false) ? 'model' : 'user';
+          contents.add(Content(role, [TextPart(text)]));
+        }
+        contents.add(Content.text(userInput));
+
+        final contentStream = model.generateContentStream(contents).timeout(
+              const Duration(seconds: 15),
+              onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（15s）')),
+            );
+
+        await for (final chunk in contentStream) {
+          final text = chunk.text;
+          if (text != null && text.isNotEmpty) {
+            geminiSuccess = true;
+            yield text;
+          }
+        }
+        if (geminiSuccess) return;
+      } catch (e) {
+        debugPrint('Gemini clone stream error, switching to Cloudflare Proxy: $e');
+        if (e.toString().contains('429') || e.toString().contains('RESOURCE_EXHAUSTED')) {
+          nextAvailableTime = DateTime.now().add(const Duration(seconds: 60));
         }
       }
-    } on GenerativeAIException catch (e) {
-      debugPrint('Gemini clone stream error: $e');
-      if (e.message.contains('429') ||
-          e.message.contains('RESOURCE_EXHAUSTED')) {
-        nextAvailableTime = DateTime.now().add(const Duration(seconds: 60));
-      }
-      rethrow;
-    } catch (e) {
-      debugPrint('Unexpected clone stream error: $e');
-      rethrow;
     }
+
+    // 2. 本地無 Key 或 Gemini 連線失敗，自動無縫切換 Cloudflare 雲端中繼站 (Gemini / Groq)
+    debugPrint('召喚分身：無本地 Key 或 Gemini 失敗，使用 Cloudflare 雲端中繼站...');
+
+    final StringBuffer fullPrompt = StringBuffer();
+    fullPrompt.writeln(systemPrompt);
+    fullPrompt.writeln('\n【對話歷史與使用者提問】');
+    for (final msg in history) {
+      final text = (msg['text'] as String? ?? '').trim();
+      if (text.isEmpty) continue;
+      final role = (msg['isAI'] as bool? ?? false) ? '作者' : '使用者';
+      fullPrompt.writeln('$role: $text');
+    }
+    fullPrompt.writeln('使用者: $userInput');
+    fullPrompt.writeln('作者:');
+
+    // 優先嘗試 Cloudflare Gemini
+    String? responseText = await _tryCloudflareProxy(
+      provider: 'gemini',
+      prompt: fullPrompt.toString(),
+    );
+
+    // 備援：若 Cloudflare Gemini 失敗，嘗試 Cloudflare Groq
+    responseText ??= await _tryCloudflareProxy(
+      provider: 'groq',
+      prompt: fullPrompt.toString(),
+    );
+
+    if (responseText != null && responseText.isNotEmpty) {
+      yield responseText;
+      return;
+    }
+
+    throw Exception('所有 AI 分身服務均無法回應，請檢查網路連線。');
   }
 
   static Map<String, dynamic> _generateLocalNoteSummaryMap(String content) {
@@ -1267,6 +1335,173 @@ $correctDetails
       encouragement: encouragement,
       isAiGenerated: false,
     );
+  }
+
+  static String cleanAiExplanationText(String text) {
+    return text
+        .replaceAll(RegExp(r'^\s*#{1,6}\s*', multiLine: true), '')
+        .replaceAll(RegExp(r'^\s*[\*\-]\s*\*\*([^*]+)\*\*\s*:\s*', multiLine: true), r'• 【$1】：')
+        .replaceAll(RegExp(r'^\s*[\*\-]\s*', multiLine: true), '• ')
+        .replaceAll('**', '')
+        .trim();
+  }
+
+  static Stream<String> askQuestionExplanationStream({
+    required String userId,
+    required Map<String, dynamic> question,
+    required int correctIndex,
+    required int? chosenIndex,
+  }) async* {
+    if (userId == 'u4') {
+      yield '訪客帳戶無法使用 AI 專屬解題功能，請登入正式帳戶以獲得完整解析。';
+      return;
+    }
+
+    final qText = question['question'] ?? question['text'] ?? '';
+    final rawOptions = question['options'];
+    List<String> options = [];
+    if (rawOptions is List) {
+      options = rawOptions.map((e) => e.toString()).toList();
+    } else if (rawOptions is String) {
+      try {
+        final decoded = jsonDecode(rawOptions);
+        if (decoded is List) {
+          options = decoded.map((e) => e.toString()).toList();
+        }
+      } catch (_) {
+        options = rawOptions.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').split(',').map((e) => e.trim()).toList();
+      }
+    }
+    
+    final correctOpt = (correctIndex >= 0 && correctIndex < options.length) ? options[correctIndex] : '未知';
+    final chosenOpt = (chosenIndex != null && chosenIndex >= 0 && chosenIndex < options.length) ? options[chosenIndex] : '未作答';
+
+    final correctOptLetter = String.fromCharCode(65 + correctIndex);
+    final chosenOptLetter = chosenIndex != null ? String.fromCharCode(65 + chosenIndex) : '無';
+
+    final prompt = '''
+你是一位極緻精煉、直擊考點的台灣 AI 考題導師。學生在練習選擇題時，需要「10 秒內能看完的精華觀念摘要」。
+
+【精簡原則 - 嚴禁長篇大論與冗長贅述】
+- 全文總字數請控制在 150 ~ 200 字以內，極致精華，直擊核心！
+- 每一區塊只需 1~2 句簡短重點，絕對不講廢話。
+
+【語言規範】
+- 全程使用「台灣繁體中文 (zh-TW)」與台灣教育慣用語（如：區分/辨析、資訊、軟體）。
+
+【結構規範 - 請輸出以下 3 個精華區塊標題】
+🎯 觀念精華：為什麼正確答案是 ($correctOptLetter)
+• 1句話說明正確答案的【核心公式】或【原理觀念】。
+
+🔍 迷思快剖：${chosenIndex != null ? '選擇 ($chosenOptLetter) 的盲點' : '常見作答陷阱'}
+• 1~2點點出選錯原因或【常見混淆觀念】。
+
+💡 一秒口訣：精闢記憶句
+• 1句最精簡的【記憶口訣】或【高頻考點金句】。
+
+【重點標籤規範】
+- 僅在【核心觀念】或【公式名詞】使用【】粗括號標記，每區塊最多標記 1~2 個關鍵字。
+- 條列請統一使用「• 」。
+
+題目：$qText
+選項：
+${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.value}').join('\n')}
+
+正確答案：$correctOptLetter. $correctOpt
+學生作答：${chosenIndex != null ? '$chosenOptLetter. $chosenOpt' : '未作答'}
+
+請直接開始精煉解析：
+''';
+
+    final messages = <Map<String, String>>[
+      {
+        'role': 'system',
+        'content': '你是一位專粹精煉的台灣 AI 考題導師，全程使用台灣繁體中文。你說話極致精簡、只給精華幹貨，全文控制在 180 字內，用 🎯 觀念精華、🔍 迷思快剖、💡 一秒口訣 3 個卡片回答，絕不寫廢話長文。'
+      },
+      {'role': 'user', 'content': prompt},
+    ];
+
+    // 1. 優先：嘗試本地 Groq API
+    if (_kGroqApiKey.isNotEmpty) {
+      final groqModels = [
+        'llama-3.3-70b-versatile',
+        'llama-3.1-8b-instant',
+      ];
+      for (final gModel in groqModels) {
+        debugPrint('AI 解析：嘗試本地 Groq 引擎 ($gModel)...');
+        try {
+          bool hasYielded = false;
+          await for (final chunk in _tryGroqModel(
+                  model: gModel,
+                  messages: messages,
+                  maxTokens: 1024)
+              .timeout(const Duration(seconds: 4))) {
+            yield chunk;
+            hasYielded = true;
+          }
+          if (hasYielded) return;
+        } catch (e) {
+          debugPrint('AI 解析 Groq 模型 $gModel 失敗/逾時: $e');
+        }
+      }
+    }
+
+    // 2. 備援：發起 Cloudflare 雲端中繼站 (Groq 引擎)
+    try {
+      debugPrint('AI 解析：嘗試 Cloudflare 雲端中繼站 (Groq)...');
+      final proxyText = await _tryCloudflareProxy(
+        provider: 'groq',
+        prompt: prompt,
+        timeoutSeconds: 8,
+      );
+      if (proxyText != null && proxyText.isNotEmpty) {
+        yield proxyText;
+        return;
+      }
+    } catch (e) {
+      debugPrint('AI 解析 Cloudflare Groq 中繼站失敗: $e');
+    }
+
+    // 3. 備援：嘗試 Gemini 直連
+    final now = DateTime.now();
+    if (_kSystemGeminiApiKey.isNotEmpty &&
+        (nextAvailableTime == null || !nextAvailableTime!.isAfter(now))) {
+      debugPrint('AI 解析：切換 Gemini 備援...');
+      try {
+        final model = GenerativeModel(
+            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
+        bool hasYielded = false;
+        await for (final chunk in model.generateContentStream(
+            [Content.text(prompt)]).timeout(const Duration(seconds: 6))) {
+          final text = chunk.text;
+          if (text != null && text.isNotEmpty) {
+            yield text;
+            hasYielded = true;
+          }
+        }
+        if (hasYielded) return;
+      } catch (e) {
+        debugPrint('AI 解析 Gemini 失敗: $e');
+      }
+    }
+
+    // 4. 最終備援：Cloudflare Gemini 中繼站
+    try {
+      debugPrint('AI 解析：嘗試 Cloudflare 雲端中繼站 (Gemini)...');
+      final proxyText = await _tryCloudflareProxy(
+        provider: 'gemini',
+        prompt: prompt,
+        timeoutSeconds: 8,
+      );
+      if (proxyText != null && proxyText.isNotEmpty) {
+        yield proxyText;
+        return;
+      }
+    } catch (e) {
+      debugPrint('AI 解析 Cloudflare Gemini 中繼站失敗: $e');
+    }
+
+    yield '目前 AI 助手似乎有點累了，無法連線為您解答。請檢查您的網路，稍後再試一次！';
   }
 
   static void _updateNextAvailableTime(String responseBody) {
