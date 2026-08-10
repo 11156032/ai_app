@@ -93,6 +93,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _socialMainTab = 0;
   late PageController _socialPageController; // 0=廣場, 1=群組
   final ScrollController _socialFeedScrollController = ScrollController();
+  final ScrollController _socialFilterScrollController = ScrollController();
 
   void _scrollToTopSocialFeed() {
     if (_socialFeedScrollController.hasClients) {
@@ -11010,7 +11011,6 @@ $strokePrompt
       builder: (ctx) => SimpleDialog(
         title: const Text('選擇字體大小'),
         children: [
-          _buildFontSizeOption(ctx, '精簡 (小)', 0.85, '範例文字 Aa'),
           _buildFontSizeOption(ctx, '標準 (預設)', 1.0, '範例文字 Aa'),
           _buildFontSizeOption(ctx, '放大 (大)', 1.2, '範例文字 Aa'),
           _buildFontSizeOption(ctx, '特大 (清晰)', 1.4, '範例文字 Aa'),
@@ -12661,9 +12661,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
         leading: TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('取消',
+              maxLines: 1,
               style: TextStyle(color: Colors.grey, fontSize: 15)),
         ),
-        leadingWidth: 60,
+        leadingWidth: 80,
         title: const Text('發表新貼文',
             style: TextStyle(
                 fontSize: 16,

@@ -39,118 +39,142 @@ extension MainScreenSocialTab on _MainScreenState {
       color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
       child: Column(
         children: [
-          Row(
+          Stack(
+            alignment: Alignment.bottomCenter,
             children: [
+              Row(
+                children: [
               Expanded(
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     if (_socialMainTab == 0) {
                       _scrollToTopSocialFeed();
                     } else {
-                      _updateState(() => _socialMainTab = 0);
-                      _socialPageController.animateToPage(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                      _socialPageController.animateToPage(0,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut);
                     }
                   },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: _socialMainTab == 0
-                              ? _currentPrimaryColor
-                              : Colors.transparent,
-                          width: 2.5,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '🌐 廣場',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: _socialMainTab == 0
+                                ? FontWeight.bold
+                                : FontWeight.w500,
+                            color: _socialMainTab == 0
+                                ? _currentPrimaryColor
+                                : (isDark ? Colors.white54 : Colors.grey.shade600),
+                          ),
                         ),
-                      ),
-                    ),
-                    child: Text(
-                      '🌐 廣場',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: _socialMainTab == 0
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: _socialMainTab == 0
-                            ? _currentPrimaryColor
-                            : (isDark ? Colors.white54 : Colors.black45),
-                      ),
+                        const SizedBox(height: 9),
+                      ],
                     ),
                   ),
                 ),
               ),
               Expanded(
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    _updateState(() => _socialMainTab = 1);
-                    _socialPageController.animateToPage(1, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                    if (_socialMainTab != 1) {
+                      _socialPageController.animateToPage(1,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut);
+                    }
                   },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: _socialMainTab == 1
-                              ? _currentPrimaryColor
-                              : Colors.transparent,
-                          width: 2.5,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          '👥 群組',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: _socialMainTab == 1
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: _socialMainTab == 1
-                                ? _currentPrimaryColor
-                                : (isDark ? Colors.white54 : Colors.black45),
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '👥 群組',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: _socialMainTab == 1
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: _socialMainTab == 1
+                                    ? _currentPrimaryColor
+                                    : (isDark ? Colors.white54 : Colors.grey.shade600),
+                              ),
+                            ),
+                            if (totalPendingRequests > 0) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade700,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text('$totalPendingRequests',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            ] else if (totalUnreadPosts > 0) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text('$totalUnreadPosts',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ],
                         ),
-                        if (totalPendingRequests > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade700,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text('$totalPendingRequests',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                        ] else if (totalUnreadPosts > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text('$totalUnreadPosts',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                        ],
+                        const SizedBox(height: 9),
                       ],
                     ),
                   ),
                 ),
               ),
             ],
+          ),
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            alignment: _socialMainTab == 0 ? Alignment.bottomLeft : Alignment.bottomRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              child: Center(
+                child: Container(
+                  width: 120, // 廣場、群組的長條可長一些
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: _currentPrimaryColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? Colors.white10 : Colors.grey.shade200,
           ),
         ],
       ),
@@ -1108,11 +1132,18 @@ extension MainScreenSocialTab on _MainScreenState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 52,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            children: kSocialFilterMap.keys.map((label) {
+          height: 56,
+          child: RawScrollbar(
+            controller: _socialFilterScrollController,
+            thumbColor: _currentPrimaryColor.withValues(alpha: 0.4),
+            thickness: 3,
+            radius: const Radius.circular(10),
+            padding: const EdgeInsets.only(top: 8),
+            child: ListView(
+              controller: _socialFilterScrollController,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 12),
+              children: kSocialFilterMap.keys.map((label) {
               final isSelected = _socialFilter == label;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -1147,6 +1178,7 @@ extension MainScreenSocialTab on _MainScreenState {
             }).toList(),
           ),
         ),
+      ),
         if (_socialAuthorFilter.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

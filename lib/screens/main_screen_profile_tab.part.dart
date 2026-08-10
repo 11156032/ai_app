@@ -414,13 +414,11 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.format_size,
             label: '字體大小',
-            value: _fontSizeFactor <= 0.88
-                ? '精簡 (小)'
-                : _fontSizeFactor <= 1.05
-                    ? '標準 (預設)'
-                    : _fontSizeFactor <= 1.25
-                        ? '放大 (大)'
-                        : '特大 (清晰)',
+            value: _fontSizeFactor <= 1.05
+                ? '標準 (預設)'
+                : _fontSizeFactor <= 1.25
+                    ? '放大 (大)'
+                    : '特大 (清晰)',
             onTap: _showFontSizeDialog,
           ),
           const Divider(height: 24),
@@ -2580,12 +2578,18 @@ extension MainScreenProfileTab on _MainScreenState {
     required String subject,
     required String body,
   }) async {
-    final apiUrl = (dotenv.env['FEEDBACK_API_URL']?.isNotEmpty ?? false)
-        ? dotenv.env['FEEDBACK_API_URL']!
-        : 'https://api.web3forms.com/submit';
-    final accessKey = (dotenv.env['WEB3FORMS_ACCESS_KEY']?.isNotEmpty ?? false)
-        ? dotenv.env['WEB3FORMS_ACCESS_KEY']!
-        : '84030ade-dd9c-4a22-a16c-dd1a55d6c4d2';
+    String apiUrl = 'https://api.web3forms.com/submit';
+    String accessKey = '84030ade-dd9c-4a22-a16c-dd1a55d6c4d2';
+    try {
+      if (dotenv.isInitialized) {
+        if (dotenv.env['FEEDBACK_API_URL']?.isNotEmpty == true) {
+          apiUrl = dotenv.env['FEEDBACK_API_URL']!;
+        }
+        if (dotenv.env['WEB3FORMS_ACCESS_KEY']?.isNotEmpty == true) {
+          accessKey = dotenv.env['WEB3FORMS_ACCESS_KEY']!;
+        }
+      }
+    } catch (_) {}
 
     try {
       final userId = widget.currentUser['id']?.toString() ?? 'u1';
