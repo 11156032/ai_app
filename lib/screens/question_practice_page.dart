@@ -282,8 +282,9 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: SafeArea(
+        child: Column(
+          children: [
           _buildFixedTopNavigationRow(cs),
           Expanded(
             child: ListView(
@@ -592,6 +593,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     ),
   ],
 ),
+      ),
     );
   }
 

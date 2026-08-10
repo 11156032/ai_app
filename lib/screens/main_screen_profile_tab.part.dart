@@ -2404,7 +2404,9 @@ extension MainScreenProfileTab on _MainScreenState {
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.grey.shade300),
                               image: DecorationImage(
-                                image: FileImage(File(file.path)),
+                                image: kIsWeb 
+                                  ? NetworkImage(file.path) as ImageProvider
+                                  : FileImage(File(file.path)),
                                 fit: BoxFit.cover,
                               ),
                             ),
@@ -2794,19 +2796,22 @@ extension MainScreenProfileTab on _MainScreenState {
       request.fields.addAll(payload);
 
       if (attachments != null && attachments.isNotEmpty) {
-        for (var file in attachments) {
+        for (int i = 0; i < attachments.length; i++) {
+          final file = attachments[i];
+          final bytes = await file.readAsBytes();
           request.files.add(
-            await http.MultipartFile.fromPath(
-              'attachment', // Web3Forms accepts 'attachment' or any file field
-              file.path,
+            http.MultipartFile.fromBytes(
+              'attachment_${i + 1}', // Web3Forms detects "attachment"
+              bytes,
+              filename: file.name,
             ),
           );
         }
       }
 
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse)
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 15));
 
       debugPrint(
           'Web3Forms 回應碼: ${response.statusCode}, Body: ${response.body}');

@@ -286,7 +286,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         foregroundColor: cs.onPrimary,
         elevation: 0,
       ),
-      body: _loading
+      body: SafeArea(
+        child: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -609,6 +610,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                 ),
               ],
             ),
+          ),
     );
   }
 
