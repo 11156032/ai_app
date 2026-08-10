@@ -3299,8 +3299,9 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
               fontWeight: FontWeight.bold,
             ),
             getTitle: (index, angle) {
-              if (index >= subjects.length)
+              if (index >= subjects.length) {
                 return const RadarChartTitle(text: '');
+              }
               return RadarChartTitle(text: subjects[index]);
             },
             tickCount: 5,
