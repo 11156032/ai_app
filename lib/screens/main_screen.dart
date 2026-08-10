@@ -22,6 +22,7 @@ import 'notes_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../services/push_notification_service.dart';
 import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
 import 'tabs/group_detail_page.dart';
@@ -87,6 +88,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _themeColorIdx = 0;
   bool _isDarkMode = false;
   bool _showFloatingNavBar = false;
+  bool _pushNotificationsEnabled = true;
   String _socialFilter = '全部'; // 社群貼文分類篩選狀態
   String _socialAuthorFilter = ''; // 社群貼文作者篩選（空字串 = 全部）
   String _socialFeedLayout = 'card'; // 社群貼文版面：'card' 規格化 / 'list' 新聞式
@@ -1020,8 +1022,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             _socialFeedLayout =
                 (userRows.first['social_feed_layout'] as String?) ?? 'card';
             _showFloatingNavBar = (userRows.first['show_floating_nav_bar'] ?? 0) == 1;
+            _pushNotificationsEnabled = (userRows.first['push_notifications_enabled'] ?? 1) == 1;
             debugPrint(
-                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _calendarViewMode=$_calendarViewMode, _socialFeedLayout=$_socialFeedLayout, _showFloatingNavBar=$_showFloatingNavBar');
+                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _calendarViewMode=$_calendarViewMode, _socialFeedLayout=$_socialFeedLayout, _showFloatingNavBar=$_showFloatingNavBar, _pushNotificationsEnabled=$_pushNotificationsEnabled');
           }
         });
       }
@@ -5493,7 +5496,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 decoration: InputDecoration(
                                     hintText: _cloneContext != null
                                         ? '以分身視角向作者問問題...'
-                                        : '去題庫 / 看日曆 / 加行程...',
+                                        : '請輸入您的問題或指令...',
                                     filled: true,
                                     fillColor: Colors.white,
                                     border: OutlineInputBorder(
@@ -11120,6 +11123,7 @@ $strokePrompt
         'calendar_view_mode': _calendarViewMode,
         'social_feed_layout': _socialFeedLayout,
         'show_floating_nav_bar': _showFloatingNavBar ? 1 : 0,
+        'push_notifications_enabled': _pushNotificationsEnabled ? 1 : 0,
       },
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],

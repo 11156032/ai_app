@@ -1292,7 +1292,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
           if (fab != null)
             Positioned(
               right: 16,
-              bottom: 80,
+              bottom: 80 + MediaQuery.of(context).padding.bottom,
               child: fab,
             ),
         ],

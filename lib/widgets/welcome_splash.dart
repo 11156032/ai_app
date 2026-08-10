@@ -68,7 +68,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
       body: '',
       features: [
         _FeatureLine('💬', 'AI 排程', '輸入一句話，自動幫你加入行程'),
-        _FeatureLine('✨', 'AI 分身', '召喚同學 AI 分身，互相切磋知識'),
+        _FeatureLine('💡', 'AI 伴學解答', '即時解答學習疑難與解題思路'),
         _FeatureLine('📊', 'AI 診斷', '測驗後自動分析弱點，給出建議'),
       ],
     ),

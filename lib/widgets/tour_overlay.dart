@@ -11,7 +11,7 @@ class TourKeys {
 
 /// 每一個引導步驟的資料描述
 class TourStep {
-  final String featureTitle;   // 功能名稱，例如「🤖 AI 分身」
+  final String featureTitle;   // 功能名稱，例如「🤖 AI 排程」
   final int featureIndex;      // 功能索引 0/1/2
   final int stepInFeature;     // 在該功能中的步驟 1/2/3
   final int totalInFeature;    // 該功能總步驟數

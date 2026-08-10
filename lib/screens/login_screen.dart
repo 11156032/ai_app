@@ -1294,7 +1294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       _buildInlineSection('3. 使用者行為規範',
                           '不得散佈違法、騷擾、誹謗或侵權內容；不得傳播惡意程式；不得以自動化方式大量存取服務。我們保留移除違規內容及停權帳號的權利。'),
                       _buildInlineSection('4. AI 功能聲明',
-                          'AI 智慧功能（含 AI 診斷、AI 分身、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考，不構成專業建議。'),
+                          'AI 智慧功能（含 AI 診斷、AI 伴學、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考，不構成專業建議。'),
                       _buildInlineSection('5. 免責聲明',
                           '本服務「依現狀」提供，不附帶任何形式的保證。在法律允許的範圍內，我們不對因使用本服務所造成的損害負責。'),
                       _buildInlineSection('6. 條款修改',

@@ -117,6 +117,12 @@ class DatabaseHelper {
         debugPrint('Dynamic migration: Added file_blob column to posts table.');
       }
 
+      var userCols = await db.rawQuery('PRAGMA table_info(users)');
+      if (!userCols.any((c) => c['name'] == 'push_notifications_enabled')) {
+        await db.execute('ALTER TABLE users ADD COLUMN push_notifications_enabled INTEGER DEFAULT 1');
+        debugPrint('Dynamic migration: Added push_notifications_enabled column to users table.');
+      }
+
       var quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
       if (!quizCols.any((c) => c['name'] == 'subject')) {
         await db.execute("ALTER TABLE quiz_results ADD COLUMN subject TEXT DEFAULT ''");
@@ -172,7 +178,7 @@ class DatabaseHelper {
         )
       ''');
 
-      var userCols = await db.rawQuery('PRAGMA table_info(users)');
+      userCols = await db.rawQuery('PRAGMA table_info(users)');
       if (!userCols.any((c) => c['name'] == 'deleted_at')) {
         await db.execute('ALTER TABLE users ADD COLUMN deleted_at DATETIME');
         debugPrint(

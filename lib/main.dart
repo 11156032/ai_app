@@ -7,6 +7,8 @@ import 'screens/main_screen.dart';
 import 'screens/notes_screen.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +16,13 @@ Future<void> main() async {
     await dotenv.load(fileName: "assets/keys.env");
   } catch (e) {
     debugPrint('Warning: Could not load assets/keys.env file: $e');
+  }
+  
+  try {
+    await Firebase.initializeApp();
+    await PushNotificationService().initialize();
+  } catch (e) {
+    debugPrint('Warning: Firebase initialization failed. Please ensure google-services.json / GoogleService-Info.plist is configured. Error: $e');
   }
   runApp(const MyApp());
 }

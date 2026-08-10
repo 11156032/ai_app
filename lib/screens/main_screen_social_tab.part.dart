@@ -271,7 +271,7 @@ extension MainScreenSocialTab on _MainScreenState {
       if (widget.currentUser['id'] != 'u4')
         Positioned(
             right: 16,
-            bottom: 16,
+            bottom: 16 + MediaQuery.of(context).padding.bottom,
             child: FloatingActionButton(
                 heroTag: 'add_post',
                 backgroundColor: _currentPrimaryColor,
@@ -324,7 +324,7 @@ extension MainScreenSocialTab on _MainScreenState {
             if (!isGuest)
               Positioned(
                 right: 16,
-                bottom: 16,
+                bottom: 16 + MediaQuery.of(context).padding.bottom,
                 child: FloatingActionButton.extended(
                   heroTag: 'create_group_fab',
                   backgroundColor: _currentPrimaryColor,

@@ -669,7 +669,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
         if (_selectedTab == 1)
           Positioned(
             right: 16,
-            bottom: 80,
+            bottom: 80 + MediaQuery.of(context).padding.bottom,
             child: FloatingActionButton.extended(
               heroTag: 'custom_add_fab',
               onPressed: () => _showAddCustomContentBottomSheet(context, cs),

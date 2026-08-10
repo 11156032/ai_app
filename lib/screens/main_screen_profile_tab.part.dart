@@ -493,9 +493,26 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildSecurityModule(BuildContext context) {
     return _buildModuleContainer(
       context: context,
-      title: '帳號安全',
+      title: '設定與安全',
       child: Column(
         children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('接收系統通知',
+                style: TextStyle(
+                    fontSize: 14,
+                    color: _isDarkMode ? Colors.white70 : Colors.black87)),
+            secondary: Icon(Icons.notifications_active_outlined,
+                size: 20, color: Colors.grey.shade600),
+            value: _pushNotificationsEnabled,
+            activeThumbColor: _currentPrimaryColor,
+            onChanged: (val) async {
+              _update(() => _pushNotificationsEnabled = val);
+              await _updatePersonalization();
+              await PushNotificationService().setNotificationsEnabled(val);
+            },
+          ),
+          const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.email_outlined,
@@ -2142,6 +2159,14 @@ extension MainScreenProfileTab on _MainScreenState {
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
+            icon: Icons.help_outline_rounded,
+            label: '常見問題',
+            value: '查看大家常問的問題與解答',
+            onTap: _showFaqDialog,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
             icon: Icons.headset_mic_outlined,
             label: '客服與意見回饋',
             value: '回報問題或提供功能建議',
@@ -2207,6 +2232,8 @@ extension MainScreenProfileTab on _MainScreenState {
     final TextEditingController bodyCtrl = TextEditingController();
     String selectedType = 'bug';
     bool isSending = false;
+    List<XFile> selectedImages = [];
+    final ImagePicker picker = ImagePicker();
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -2308,6 +2335,90 @@ extension MainScreenProfileTab on _MainScreenState {
                         horizontal: 12, vertical: 10),
                   ),
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('附加圖片 (最多 3 張)',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: _isDarkMode
+                                ? Colors.white60
+                                : Colors.grey.shade700)),
+                    TextButton.icon(
+                      onPressed: selectedImages.length >= 3
+                          ? null
+                          : () async {
+                              final List<XFile> images =
+                                  await picker.pickMultiImage();
+                              if (images.isNotEmpty) {
+                                setS(() {
+                                  selectedImages.addAll(images);
+                                  if (selectedImages.length > 3) {
+                                    selectedImages =
+                                        selectedImages.sublist(0, 3);
+                                  }
+                                });
+                              }
+                            },
+                      icon: const Icon(Icons.add_photo_alternate, size: 16),
+                      label: const Text('選擇圖片'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+                if (selectedImages.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: selectedImages.asMap().entries.map((entry) {
+                      final int index = entry.key;
+                      final XFile file = entry.value;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                              image: DecorationImage(
+                                image: FileImage(File(file.path)),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: -8,
+                            top: -8,
+                            child: GestureDetector(
+                              onTap: () {
+                                setS(() {
+                                  selectedImages.removeAt(index);
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close,
+                                    size: 12, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
             ),
           ),
@@ -2340,6 +2451,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           type: selectedType,
                           subject: subject,
                           body: body,
+                          attachments: selectedImages,
                         );
                         if (ctx.mounted) Navigator.pop(ctx);
                         if (mounted) {
@@ -2424,6 +2536,52 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
+  void _showFaqDialog() {
+    final primaryColor = _currentPrimaryColor;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.help_outline_rounded, color: primaryColor),
+            const SizedBox(width: 10),
+            const Text('常見問題 (FAQ)',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTermsSection('Q1: 如何將學習紀錄與進度同步？',
+                    '您的學習紀錄會與您的帳號連動，只要確保在有網路的環境下登入，系統會自動在背景將進度與雲端同步。如果使用訪客登入，資料只會保留在當前裝置。'),
+                _buildTermsSection('Q2: AI 診斷報告的依據是什麼？',
+                    '系統會分析您在「錯題本」與「模擬考卷」中的答題狀況，找出常錯單元，並結合 AI 提供專屬的改善建議與複習方向。'),
+                _buildTermsSection('Q3: 如何關閉系統通知或提醒？',
+                    '您可以在「個人檔案」>「設定與安全」中，找到「接收系統通知」的選項進行開啟或關閉。如果您想關閉手機本身的推播，請至手機的「設定」中調整。'),
+                _buildTermsSection('Q4: 可以修改登入的電子信箱嗎？',
+                    '目前為了確保帳號安全，註冊或綁定的電子信箱無法直接修改。如果確有修改需求，請透過「客服與意見回饋」與我們聯繫。'),
+                _buildTermsSection('Q5: 發現題庫有錯誤怎麼辦？',
+                    '若您發現題目或解答有誤，可以點擊題目右上角的「標記」功能，並透過客服表單將該題的截圖回報給我們，我們會盡快由專人修正。'),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('關閉', style: TextStyle(color: primaryColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showTermsDialog() {
     final primaryColor = _currentPrimaryColor;
     showDialog(
@@ -2457,7 +2615,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 _buildTermsSection('5. 智慧財產權',
                     '本應用程式的所有設計、程式碼、圖示及品牌識別均受智慧財產權法律保護，所有權歸開發團隊所有。使用者發布於社群的內容，其著作權仍屬使用者本人，惟您同意授予我們非獨家、免費的使用許可，以於服務範疇內展示該內容。'),
                 _buildTermsSection('6. AI 功能聲明',
-                    'AI 智慧功能（含 AI 診斷、AI 分身、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考。使用者應自行判斷 AI 輸出的正確性，如有題可藉由客服與意見回饋功能回報。'),
+                    'AI 智慧功能（含 AI 診斷、AI 伴學、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考。使用者應自行判斷 AI 輸出的正確性，如有題可藉由客服與意見回饋功能回報。'),
                 _buildTermsSection('7. 免責聲明與責任限制',
                     '本服務「依現狀」提供，不附帶任何形式的明示或默示保證。在法律允許的最大範圍內，我們不對因使用或無法使用本服務所造成的任何間接、附帶、特殊或懲罰性損害負責。'),
                 _buildTermsSection('8. 條款修改',
@@ -2577,6 +2735,7 @@ extension MainScreenProfileTab on _MainScreenState {
     required String type,
     required String subject,
     required String body,
+    List<XFile>? attachments,
   }) async {
     String apiUrl = 'https://api.web3forms.com/submit';
     String accessKey = '84030ade-dd9c-4a22-a16c-dd1a55d6c4d2';
@@ -2604,7 +2763,7 @@ extension MainScreenProfileTab on _MainScreenState {
 
       debugPrint('[客服回饋記錄] 類型: $type | 主旨: $subject | 內容: $body');
 
-      final Map<String, dynamic> payload = {
+      final Map<String, String> payload = {
         'access_key': accessKey,
         'subject': '[$type] $subject',
         'name': userName,
@@ -2615,15 +2774,22 @@ extension MainScreenProfileTab on _MainScreenState {
         'App版本': _appVersion,
       };
 
-      final response = await http
-          .post(
-            Uri.parse(apiUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: jsonEncode(payload),
-          )
+      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      request.fields.addAll(payload);
+
+      if (attachments != null && attachments.isNotEmpty) {
+        for (var file in attachments) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'attachment', // Web3Forms accepts 'attachment' or any file field
+              file.path,
+            ),
+          );
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 8));
 
       debugPrint('Web3Forms 回應碼: ${response.statusCode}, Body: ${response.body}');

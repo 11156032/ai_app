@@ -1308,7 +1308,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
-                  hintText: '去題庫 / 看日曆 / 加行程...',
+                  hintText: '請輸入您的問題或指令...',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
