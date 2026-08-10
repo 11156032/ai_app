@@ -612,7 +612,8 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  Future<List<Map<String, dynamic>>> _loadWrongQuestionDetails(String subjectName) async {
+  Future<List<Map<String, dynamic>>> _loadWrongQuestionDetails(
+      String subjectName) async {
     try {
       final db = await DatabaseHelper.instance.database;
       final userId = widget.currentUser['id'];
@@ -638,7 +639,8 @@ extension MainScreenProfileTab on _MainScreenState {
 
       if (rows.isEmpty) {
         // 如果沒有錯題，至少抓取該科目的隨機題目來當作上下文，避免 AI 產生無關科目的建議
-        final fallbackRows = await db.query('questions', where: whereStr, whereArgs: whereArgs, limit: 5);
+        final fallbackRows = await db.query('questions',
+            where: whereStr, whereArgs: whereArgs, limit: 5);
         return fallbackRows.map((r) => Map<String, dynamic>.from(r)).toList();
       }
 
@@ -827,87 +829,114 @@ extension MainScreenProfileTab on _MainScreenState {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 10, 16, 0),
                   child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Stack(
-                      children: [
-                        // Chart
-                        Positioned.fill(
-                          child: ScatterChart(
-                            ScatterChartData(
-                              scatterSpots: clusters.map((cluster) {
-                                double cx = cluster['x'];
-                                double cy = cluster['y'];
-                                int count = (cluster['items'] as List).length;
+                    builder: (context, constraints) {
+                      return Stack(
+                        children: [
+                          // Chart
+                          Positioned.fill(
+                            child: ScatterChart(
+                              ScatterChartData(
+                                scatterSpots: clusters.map((cluster) {
+                                  double cx = cluster['x'];
+                                  double cy = cluster['y'];
+                                  int count = (cluster['items'] as List).length;
 
-                                Color color;
-                                if (cy >= 60 && cx <= 15) {
-                                  color = Colors.blue;
-                                } else if (cy >= 60 && cx > 15) {
-                                  color = Colors.amber.shade700;
-                                } else if (cy < 60 && cx > 15) {
-                                  color = Colors.red;
-                                } else {
-                                  color = Colors.grey.shade600;
-                                }
+                                  Color color;
+                                  if (cy >= 60 && cx <= 15) {
+                                    color = Colors.blue;
+                                  } else if (cy >= 60 && cx > 15) {
+                                    color = Colors.amber.shade700;
+                                  } else if (cy < 60 && cx > 15) {
+                                    color = Colors.red;
+                                  } else {
+                                    color = Colors.grey.shade600;
+                                  }
 
-                                return ScatterSpot(
-                                  cx.clamp(0.5, maxX),
-                                  cy.clamp(2.0, 98.0),
-                                  dotPainter: _ClusterDotPainter(
-                                    color: color,
-                                    count: count,
+                                  return ScatterSpot(
+                                    cx.clamp(0.5, maxX),
+                                    cy.clamp(2.0, 98.0),
+                                    dotPainter: _ClusterDotPainter(
+                                      color: color,
+                                      count: count,
+                                    ),
+                                  );
+                                }).toList(),
+                                minX: 0,
+                                maxX: maxX,
+                                minY: 0,
+                                maxY: 100,
+                                borderData: FlBorderData(show: false),
+                                gridData: FlGridData(
+                                  show: true,
+                                  drawHorizontalLine: true,
+                                  drawVerticalLine: true,
+                                  horizontalInterval: 20,
+                                  verticalInterval: 5,
+                                  getDrawingHorizontalLine: (value) {
+                                    if (value == 60) {
+                                      return FlLine(
+                                          color: Colors.blue
+                                              .withValues(alpha: 0.65),
+                                          strokeWidth: 2,
+                                          dashArray: [5, 5]);
+                                    }
+                                    return FlLine(
+                                        color: _isDarkMode
+                                            ? Colors.grey
+                                                .withValues(alpha: 0.15)
+                                            : Colors.grey
+                                                .withValues(alpha: 0.25),
+                                        strokeWidth: 1);
+                                  },
+                                  getDrawingVerticalLine: (value) {
+                                    if (value == 15) {
+                                      return FlLine(
+                                          color: Colors.blue
+                                              .withValues(alpha: 0.65),
+                                          strokeWidth: 2,
+                                          dashArray: [5, 5]);
+                                    }
+                                    return FlLine(
+                                        color: _isDarkMode
+                                            ? Colors.grey
+                                                .withValues(alpha: 0.15)
+                                            : Colors.grey
+                                                .withValues(alpha: 0.25),
+                                        strokeWidth: 1);
+                                  },
+                                ),
+                                titlesData: FlTitlesData(
+                                  show: true,
+                                  bottomTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      reservedSize: 22,
+                                      interval: 10,
+                                      getTitlesWidget: (value, meta) {
+                                        return Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            '${value.toInt()}',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: _isDarkMode
+                                                  ? Colors.grey.shade400
+                                                  : Colors.grey.shade800,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
-                                );
-                              }).toList(),
-                              minX: 0,
-                              maxX: maxX,
-                              minY: 0,
-                              maxY: 100,
-                              borderData: FlBorderData(show: false),
-                              gridData: FlGridData(
-                                show: true,
-                                drawHorizontalLine: true,
-                                drawVerticalLine: true,
-                                horizontalInterval: 20,
-                                verticalInterval: 5,
-                                getDrawingHorizontalLine: (value) {
-                                  if (value == 60) {
-                                    return FlLine(
-                                        color: Colors.blue.withValues(alpha: 0.65),
-                                        strokeWidth: 2,
-                                        dashArray: [5, 5]);
-                                  }
-                                  return FlLine(
-                                      color: _isDarkMode
-                                          ? Colors.grey.withValues(alpha: 0.15)
-                                          : Colors.grey.withValues(alpha: 0.25),
-                                      strokeWidth: 1);
-                                },
-                                getDrawingVerticalLine: (value) {
-                                  if (value == 15) {
-                                    return FlLine(
-                                        color: Colors.blue.withValues(alpha: 0.65),
-                                        strokeWidth: 2,
-                                        dashArray: [5, 5]);
-                                  }
-                                  return FlLine(
-                                      color: _isDarkMode
-                                          ? Colors.grey.withValues(alpha: 0.15)
-                                          : Colors.grey.withValues(alpha: 0.25),
-                                      strokeWidth: 1);
-                                },
-                              ),
-                              titlesData: FlTitlesData(
-                                show: true,
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    reservedSize: 22,
-                                    interval: 10,
-                                    getTitlesWidget: (value, meta) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Text(
+                                  leftTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      reservedSize: 28,
+                                      interval: 20,
+                                      getTitlesWidget: (value, meta) {
+                                        return Text(
                                           '${value.toInt()}',
                                           style: TextStyle(
                                             fontSize: 10,
@@ -916,94 +945,81 @@ extension MainScreenProfileTab on _MainScreenState {
                                                 ? Colors.grey.shade400
                                                 : Colors.grey.shade800,
                                           ),
-                                        ),
-                                      );
-                                    },
+                                        );
+                                      },
+                                    ),
                                   ),
+                                  rightTitles: const AxisTitles(
+                                      sideTitles:
+                                          SideTitles(showTitles: false)),
+                                  topTitles: const AxisTitles(
+                                      sideTitles:
+                                          SideTitles(showTitles: false)),
                                 ),
-                                leftTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    reservedSize: 28,
-                                    interval: 20,
-                                    getTitlesWidget: (value, meta) {
-                                      return Text(
-                                        '${value.toInt()}',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: _isDarkMode
-                                              ? Colors.grey.shade400
-                                              : Colors.grey.shade800,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                                rightTitles: const AxisTitles(
-                                    sideTitles: SideTitles(showTitles: false)),
-                                topTitles: const AxisTitles(
-                                    sideTitles: SideTitles(showTitles: false)),
-                              ),
-                              scatterTouchData: ScatterTouchData(
-                                enabled: true,
-                                touchSpotThreshold: 12.0,
-                                touchCallback: (FlTouchEvent event,
-                                    ScatterTouchResponse? touchResponse) {
-                                  if (touchResponse != null &&
-                                      touchResponse.touchedSpot != null &&
-                                      (event is FlTapUpEvent || event is FlTapDownEvent)) {
-                                    final now = DateTime.now();
-                                    if (_lastScatterTapTime != null &&
-                                        now.difference(_lastScatterTapTime!) <
-                                            const Duration(milliseconds: 500)) {
-                                      return;
-                                    }
-                                    _lastScatterTapTime = now;
+                                scatterTouchData: ScatterTouchData(
+                                  enabled: true,
+                                  touchSpotThreshold: 12.0,
+                                  touchCallback: (FlTouchEvent event,
+                                      ScatterTouchResponse? touchResponse) {
+                                    if (touchResponse != null &&
+                                        touchResponse.touchedSpot != null &&
+                                        (event is FlTapUpEvent ||
+                                            event is FlTapDownEvent)) {
+                                      final now = DateTime.now();
+                                      if (_lastScatterTapTime != null &&
+                                          now.difference(_lastScatterTapTime!) <
+                                              const Duration(
+                                                  milliseconds: 500)) {
+                                        return;
+                                      }
+                                      _lastScatterTapTime = now;
 
-                                    final spotIndex =
-                                        touchResponse.touchedSpot!.spotIndex;
-                                    if (spotIndex >= 0 &&
-                                        spotIndex < clusters.length) {
-                                      final cluster = clusters[spotIndex];
-                                      final items = cluster['items'] as List;
+                                      final spotIndex =
+                                          touchResponse.touchedSpot!.spotIndex;
+                                      if (spotIndex >= 0 &&
+                                          spotIndex < clusters.length) {
+                                        final cluster = clusters[spotIndex];
+                                        final items = cluster['items'] as List;
 
-                                      if (items.length > 1) {
-                                        _showOverlappedQuizzesSheet(
-                                            context,
-                                            List<Map<String, dynamic>>.from(items));
-                                      } else if (items.isNotEmpty) {
-                                        _showQuizDetailSheet(context, items.first);
+                                        if (items.length > 1) {
+                                          _showOverlappedQuizzesSheet(
+                                              context,
+                                              List<Map<String, dynamic>>.from(
+                                                  items));
+                                        } else if (items.isNotEmpty) {
+                                          _showQuizDetailSheet(
+                                              context, items.first);
+                                        }
                                       }
                                     }
-                                  }
-                                },
-                                touchTooltipData: ScatterTouchTooltipData(
-                                  getTooltipColor: (_) => _isDarkMode
-                                      ? const Color(0xFF2C2C2C)
-                                      : const Color(0xFF212121),
-                                  getTooltipItems: (ScatterSpot touchedBarSpot) {
-                                    return ScatterTooltipItem(
-                                      '正確率約: ${touchedBarSpot.y.toInt()}%\n平均耗時約: ${touchedBarSpot.x.toStringAsFixed(1)}s\n(點擊開啟診斷詳情)',
-                                      textStyle: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          height: 1.35,
-                                          fontWeight: FontWeight.w500),
-                                    );
                                   },
+                                  touchTooltipData: ScatterTouchTooltipData(
+                                    getTooltipColor: (_) => _isDarkMode
+                                        ? const Color(0xFF2C2C2C)
+                                        : const Color(0xFF212121),
+                                    getTooltipItems:
+                                        (ScatterSpot touchedBarSpot) {
+                                      return ScatterTooltipItem(
+                                        '正確率約: ${touchedBarSpot.y.toInt()}%\n平均耗時約: ${touchedBarSpot.x.toStringAsFixed(1)}s\n(點擊開啟診斷詳情)',
+                                        textStyle: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            height: 1.35,
+                                            fontWeight: FontWeight.w500),
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
           ],
         ),
         // ── 下方 X 軸標籤
@@ -1033,7 +1049,6 @@ extension MainScreenProfileTab on _MainScreenState {
             ),
           ),
         ),
-
       ],
     );
   }
@@ -2765,6 +2780,7 @@ extension MainScreenProfileTab on _MainScreenState {
 
       final Map<String, String> payload = {
         'access_key': accessKey,
+        'from_name': 'YeLaiYeBang',
         'subject': '[$type] $subject',
         'name': userName,
         'email': userEmail,
@@ -2792,8 +2808,9 @@ extension MainScreenProfileTab on _MainScreenState {
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 8));
 
-      debugPrint('Web3Forms 回應碼: ${response.statusCode}, Body: ${response.body}');
-      
+      debugPrint(
+          'Web3Forms 回應碼: ${response.statusCode}, Body: ${response.body}');
+
       if (response.statusCode == 200) {
         return true;
       } else {
@@ -3150,9 +3167,9 @@ class _ClusterDotPainter extends FlDotPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    
+
     final double radius = count > 1 ? 14.0 : 10.0;
-    
+
     canvas.drawCircle(offsetInCanvas, radius, paint);
 
     final borderPaint = Paint()
@@ -3182,7 +3199,8 @@ class _ClusterDotPainter extends FlDotPainter {
   }
 
   @override
-  Size getSize(FlSpot spot) => count > 1 ? const Size(28, 28) : const Size(20, 20);
+  Size getSize(FlSpot spot) =>
+      count > 1 ? const Size(28, 28) : const Size(20, 20);
 
   @override
   Color get mainColor => color;
@@ -3241,13 +3259,13 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
     // Extract subjects and accuracy
     List<String> subjects = [];
     List<double> accuracies = [];
-    
+
     final data = widget.matrixData.take(8).toList();
     for (var d in data) {
       subjects.add(d['subject'].toString());
       accuracies.add((d['accuracy'] as num).toDouble());
     }
-    
+
     while (subjects.length < 3) {
       subjects.add('維度 ${subjects.length + 1}');
       accuracies.add(0.0);
@@ -3264,7 +3282,8 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
                 fillColor: widget.primaryColor.withValues(alpha: 0.3),
                 borderColor: widget.primaryColor,
                 entryRadius: 4,
-                dataEntries: accuracies.map((e) => RadarEntry(value: e)).toList(),
+                dataEntries:
+                    accuracies.map((e) => RadarEntry(value: e)).toList(),
                 borderWidth: 2,
               ),
             ],
@@ -3273,22 +3292,30 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
             radarBorderData: const BorderSide(color: Colors.transparent),
             titlePositionPercentageOffset: 0.08,
             titleTextStyle: TextStyle(
-              color: widget.isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+              color: widget.isDarkMode
+                  ? Colors.grey.shade300
+                  : Colors.grey.shade700,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
             getTitle: (index, angle) {
-              if (index >= subjects.length) return const RadarChartTitle(text: '');
+              if (index >= subjects.length)
+                return const RadarChartTitle(text: '');
               return RadarChartTitle(text: subjects[index]);
             },
             tickCount: 5,
-            ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 0),
+            ticksTextStyle:
+                const TextStyle(color: Colors.transparent, fontSize: 0),
             tickBorderData: BorderSide(
-              color: widget.isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+              color: widget.isDarkMode
+                  ? Colors.grey.shade700
+                  : Colors.grey.shade300,
               width: 1,
             ),
             gridBorderData: BorderSide(
-              color: widget.isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+              color: widget.isDarkMode
+                  ? Colors.grey.shade700
+                  : Colors.grey.shade300,
               width: 1,
             ),
           ),
@@ -3365,9 +3392,7 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           if (_currentIndex == 0)
             Center(
               child: Text(
-                hasData
-                    ? '💡 點擊圓點查看測驗詳情與 AI 學習建議'
-                    : '本週尚無作答紀錄，完成練習後將自動繪製掌握度圖表',
+                hasData ? '💡 點擊圓點查看測驗詳情與 AI 學習建議' : '本週尚無作答紀錄，完成練習後將自動繪製掌握度圖表',
                 style: TextStyle(
                     color: widget.isDarkMode
                         ? Colors.grey.shade400
@@ -3379,9 +3404,7 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           else
             Center(
               child: Text(
-                hasData
-                    ? '💡 透過雷達圖快速掌握各科目能力分佈'
-                    : '完成練習後將自動繪製各科能力分佈',
+                hasData ? '💡 透過雷達圖快速掌握各科目能力分佈' : '完成練習後將自動繪製各科能力分佈',
                 style: TextStyle(
                     color: widget.isDarkMode
                         ? Colors.grey.shade400
