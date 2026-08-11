@@ -2793,38 +2793,59 @@ extension MainScreenProfileTab on _MainScreenState {
 
       debugPrint('[客服回饋記錄] 類型: $type | 主旨: $subject | 內容: $body');
 
-      final Map<String, String> payload = {
+      String finalBody = body;
+
+      if (attachments != null && attachments.isNotEmpty) {
+        finalBody += '\n\n--- 附件圖片 ---';
+        for (int i = 0; i < attachments.length; i++) {
+          final file = attachments[i];
+          final bytes = await file.readAsBytes();
+          
+          try {
+            var uploadReq = http.MultipartRequest('POST', Uri.parse('https://catbox.moe/user/api.php'));
+            uploadReq.fields['reqtype'] = 'fileupload';
+            uploadReq.files.add(
+              http.MultipartFile.fromBytes(
+                'fileToUpload', 
+                bytes,
+                filename: file.name.isNotEmpty ? file.name : 'image_${i + 1}.jpg',
+              )
+            );
+            
+            final uploadRes = await uploadReq.send().timeout(const Duration(seconds: 15));
+            final resStr = await uploadRes.stream.bytesToString();
+            
+            if (uploadRes.statusCode == 200 && resStr.startsWith('http')) {
+              finalBody += '\n圖片 ${i + 1}: $resStr';
+            } else {
+              finalBody += '\n圖片 ${i + 1}: 上傳失敗 (代碼: ${uploadRes.statusCode})';
+            }
+          } catch (e) {
+            finalBody += '\n圖片 ${i + 1}: 上傳異常 ($e)';
+          }
+        }
+      }
+
+      final Map<String, dynamic> payload = {
         'access_key': accessKey,
         'from_name': 'YeLaiYeBang',
         'subject': '[$type] $subject',
         'name': userName,
         'email': userEmail,
-        'message': body, // Web3Forms requires 'message' field
+        'message': finalBody,
         '回報類型': type == 'bug' ? 'Bug 回報 🐞' : '功能建議 💡',
         '使用者ID': userId,
         'App版本': _appVersion,
       };
 
-      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
-      request.fields.addAll(payload);
-
-      if (attachments != null && attachments.isNotEmpty) {
-        for (int i = 0; i < attachments.length; i++) {
-          final file = attachments[i];
-          final bytes = await file.readAsBytes();
-          request.files.add(
-            http.MultipartFile.fromBytes(
-              'attachment', // Web3Forms detects "attachment"
-              bytes,
-              filename: file.name.isNotEmpty ? file.name : 'image_${i + 1}.jpg',
-            ),
-          );
-        }
-      }
-
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamedResponse)
-          .timeout(const Duration(seconds: 15));
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 15));
 
       debugPrint(
           'Web3Forms 回應碼: ${response.statusCode}, Body: ${response.body}');
