@@ -70,5 +70,11 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>此應用程式需要存取您的相簿，以便您在客服與意見回饋中附加圖片。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>此應用程式需要存取您的相機，以便您在客服與意見回饋中拍攝並附加圖片。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>此應用程式需要存取您的麥克風，以便錄製帶有聲音的影片。</string>
 </dict>
 </plist>

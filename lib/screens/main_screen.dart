@@ -10768,10 +10768,13 @@ $strokePrompt
           widget.currentUser['avatar_selected'] = 1;
         });
         // 重新載入資料，讓社群貼文的頭像也同步更新
-        await _loadData();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✅ 頭像已更新！'), duration: Duration(seconds: 2)));
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(const SnackBar(
+              content: Text('✅ 頭像已更新！'),
+              duration: Duration(milliseconds: 1200),
+            ));
         }
       }
     } catch (e) {
@@ -11005,7 +11008,11 @@ $strokePrompt
     await _loadData();
     if (!mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('簡介已更新')));
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(
+        content: Text('簡介已更新'),
+        duration: Duration(milliseconds: 1200),
+      ));
   }
 
   void _showFontSizeDialog() {
@@ -11131,7 +11138,11 @@ $strokePrompt
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('偏好設定已儲存')));
+        ..clearSnackBars()
+        ..showSnackBar(const SnackBar(
+          content: Text('偏好設定已儲存'),
+          duration: Duration(milliseconds: 1200),
+        ));
     }
   }
 
@@ -11181,7 +11192,11 @@ $strokePrompt
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('暱稱已更新')));
+        ..clearSnackBars()
+        ..showSnackBar(const SnackBar(
+          content: Text('暱稱已更新'),
+          duration: Duration(milliseconds: 1200),
+        ));
     }
   }
 
@@ -11204,7 +11219,12 @@ $strokePrompt
                     where: 'id = ?', whereArgs: [widget.currentUser['id']]);
                 await _loadData();
                 navigator.pop();
-                messenger.showSnackBar(const SnackBar(content: Text('驗證成功！')));
+                messenger
+                  ..clearSnackBars()
+                  ..showSnackBar(const SnackBar(
+                    content: Text('驗證成功！'),
+                    duration: Duration(milliseconds: 1200),
+                  ));
               },
               child: const Text('發送驗證信'),
             ),
@@ -11245,9 +11265,14 @@ $strokePrompt
 
   void _showChangePasswordDialog() {
     if (widget.currentUser['is_google'] == 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('您已透過 Google 登入，無須修改密碼')),
-      );
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('您已透過 Google 登入，無須修改密碼'),
+            duration: Duration(milliseconds: 1200),
+          ),
+        );
       return;
     }
     final oldCtrl = TextEditingController();
@@ -11276,7 +11301,11 @@ $strokePrompt
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('密碼已修改')));
+                ..clearSnackBars()
+                ..showSnackBar(const SnackBar(
+                  content: Text('密碼已修改'),
+                  duration: Duration(milliseconds: 1200),
+                ));
             },
             child: const Text('確認修改'),
           ),

@@ -522,7 +522,11 @@ extension MainScreenProfileTab on _MainScreenState {
             valueColor: Colors.grey,
             onTap: () {
               ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('註冊信箱不可更改')));
+                ..clearSnackBars()
+                ..showSnackBar(const SnackBar(
+                  content: Text('註冊信箱不可更改'),
+                  duration: Duration(milliseconds: 1200),
+                ));
             },
           ),
           const Divider(height: 24),
@@ -537,9 +541,14 @@ extension MainScreenProfileTab on _MainScreenState {
                 widget.currentUser['is_google'] == 1 ? Colors.grey : null,
             onTap: widget.currentUser['is_google'] == 1
                 ? () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('您已透過 Google 登入，無須修改密碼')),
-                    );
+                    ScaffoldMessenger.of(context)
+                      ..clearSnackBars()
+                      ..showSnackBar(
+                        const SnackBar(
+                          content: Text('您已透過 Google 登入，無須修改密碼'),
+                          duration: Duration(milliseconds: 1200),
+                        ),
+                      );
                   }
                 : _showChangePasswordDialog,
           ),
@@ -673,29 +682,31 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   void _showAISnackbar(String message, IconData icon) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold),
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(milliseconds: 1200),
         ),
-        backgroundColor: const Color(0xFF2E7D32),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+      );
   }
 
   static DateTime? _lastScatterTapTime;
@@ -765,67 +776,65 @@ extension MainScreenProfileTab on _MainScreenState {
           ),
         ),
         const SizedBox(height: 6),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── 左側 Y 軸標籤（中文直書）
-            SizedBox(
-              width: 26,
-              height: 190,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.arrow_upward_rounded,
-                        size: 11,
-                        color: _isDarkMode
-                            ? Colors.grey.shade400
-                            : Colors.grey.shade700),
-                    const SizedBox(height: 3),
-                    Text('正',
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── 左側 Y 軸標籤（中文直書）
+              SizedBox(
+                width: 26,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_upward_rounded,
+                          size: 11,
+                          color: _isDarkMode
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade700),
+                      const SizedBox(height: 3),
+                      Text('正',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              height: 1.25,
+                              color: _isDarkMode
+                                  ? Colors.grey.shade300
+                                  : Colors.grey.shade800)),
+                      Text('確',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              height: 1.25,
+                              color: _isDarkMode
+                                  ? Colors.grey.shade300
+                                  : Colors.grey.shade800)),
+                      Text('率',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              height: 1.25,
+                              color: _isDarkMode
+                                  ? Colors.grey.shade300
+                                  : Colors.grey.shade800)),
+                      const SizedBox(height: 3),
+                      Text(
+                        '(%)',
+                        softWrap: false,
                         style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            height: 1.25,
-                            color: _isDarkMode
-                                ? Colors.grey.shade300
-                                : Colors.grey.shade800)),
-                    Text('確',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            height: 1.25,
-                            color: _isDarkMode
-                                ? Colors.grey.shade300
-                                : Colors.grey.shade800)),
-                    Text('率',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            height: 1.25,
-                            color: _isDarkMode
-                                ? Colors.grey.shade300
-                                : Colors.grey.shade800)),
-                    const SizedBox(height: 3),
-                    Text(
-                      '(%)',
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: _isDarkMode
-                            ? Colors.grey.shade400
-                            : Colors.grey.shade700,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade700,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // ── 散點圖
-            Expanded(
-              child: SizedBox(
-                height: 195,
+              // ── 散點圖
+              Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 10, 16, 0),
                   child: LayoutBuilder(
@@ -1019,8 +1028,8 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         // ── 下方 X 軸標籤
         Padding(
@@ -2458,7 +2467,10 @@ extension MainScreenProfileTab on _MainScreenState {
                       final body = bodyCtrl.text.trim();
                       if (subject.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('請填寫主旨')),
+                          const SnackBar(
+                            content: Text('請填寫主旨'),
+                            duration: Duration(milliseconds: 1500),
+                          ),
                         );
                         return;
                       }
@@ -2479,6 +2491,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                   : '發送失敗，請稍後再試或確認網路連線。'),
                               backgroundColor:
                                   ok ? _currentPrimaryColor : Colors.redAccent,
+                              duration: const Duration(milliseconds: 1500),
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
@@ -2801,9 +2814,9 @@ extension MainScreenProfileTab on _MainScreenState {
           final bytes = await file.readAsBytes();
           request.files.add(
             http.MultipartFile.fromBytes(
-              'attachment_${i + 1}', // Web3Forms detects "attachment"
+              'attachment', // Web3Forms detects "attachment"
               bytes,
-              filename: file.name,
+              filename: file.name.isNotEmpty ? file.name : 'image_${i + 1}.jpg',
             ),
           );
         }
@@ -3276,11 +3289,9 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
       accuracies.add(0.0);
     }
 
-    return SizedBox(
-      height: 235,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: RadarChart(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: RadarChart(
           RadarChartData(
             dataSets: [
               RadarDataSet(
@@ -3325,8 +3336,7 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
               width: 1,
             ),
           ),
-          duration: const Duration(milliseconds: 250),
-        ),
+        duration: const Duration(milliseconds: 250),
       ),
     );
   }
@@ -3344,6 +3354,8 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
 
     final hasData = widget.matrixData.isNotEmpty;
     final title = _currentIndex == 0 ? '學習歷程 (知識掌握度矩陣)' : '學習歷程 (多維能力分析)';
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final double pageViewHeight = (245.0 * textScale).clamp(245.0, 310.0);
 
     return widget.moduleContainerBuilder(
       title,
@@ -3352,7 +3364,7 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
         children: [
           const SizedBox(height: 8),
           SizedBox(
-            height: 240,
+            height: pageViewHeight,
             child: PageView(
               controller: _pageController,
               onPageChanged: (index) {

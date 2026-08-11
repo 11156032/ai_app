@@ -883,7 +883,7 @@ extension MainScreenSocialTab on _MainScreenState {
     );
   }
 
-  // ── 透過邀請連結加入 ──────────────────────────────────────────────────
+  // ── 透過邀請碼 / 邀請連結加入 ──────────────────────────────────────────
   void _showJoinByLinkDialog(bool isDark) {
     if (widget.currentUser['id'] == 'u4') {
       _showGuestLoginPrompt();
@@ -893,38 +893,85 @@ extension MainScreenSocialTab on _MainScreenState {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(children: [
-          Icon(Icons.link_rounded, color: _currentPrimaryColor),
-          SizedBox(width: 8),
-          Text('用邀請連結加入', style: TextStyle(fontSize: 17)),
-        ]),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF242424) : Colors.white,
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _currentPrimaryColor.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.group_add_rounded,
+                  color: _currentPrimaryColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '加入學習群組',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '請貼上對方分享的邀請連結',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
+            Text(
+              '請輸入群組邀請碼，或貼上對方分享的邀請連結',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextField(
               controller: ctrl,
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
               decoration: InputDecoration(
-                hintText: 'app://join?token=...',
+                hintText: '請輸入邀請碼...',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                ),
                 filled: true,
-                fillColor: Colors.grey.shade50,
+                fillColor: isDark
+                    ? Colors.grey.shade900.withValues(alpha: 0.6)
+                    : Colors.grey.shade100,
+                prefixIcon: Icon(Icons.vpn_key_outlined,
+                    size: 19, color: _currentPrimaryColor),
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide:
+                      BorderSide(color: _currentPrimaryColor, width: 1.5),
+                ),
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 12),
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.paste, size: 18),
+                  tooltip: '一鍵貼上',
+                  icon: Icon(Icons.paste_rounded,
+                      size: 19, color: _currentPrimaryColor),
                   onPressed: () async {
                     final data =
                         await Clipboard.getData(Clipboard.kTextPlain);
-                    if (data?.text != null) {
-                      ctrl.text = data!.text!;
+                    if (data?.text != null && data!.text!.trim().isNotEmpty) {
+                      ctrl.text = data.text!.trim();
                     }
                   },
                 ),
@@ -935,20 +982,27 @@ extension MainScreenSocialTab on _MainScreenState {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            style: TextButton.styleFrom(
+              foregroundColor: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: const Text('取消'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _currentPrimaryColor,
               foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () async {
+              final input = ctrl.text.trim();
               Navigator.pop(ctx);
-              await _joinByLink(ctrl.text.trim());
+              await _joinByLink(input);
             },
-            child: const Text('加入'),
+            child: const Text('加入', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -956,34 +1010,50 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   Future<void> _joinByLink(String link) async {
-    String? token;
-    String? type;
-    String? ref;
-    try {
-      final uri = Uri.tryParse(link);
-      token = uri?.queryParameters['token'];
-      type = uri?.queryParameters['type'];
-      ref = uri?.queryParameters['ref'];
-    } catch (_) {}
-
-    if (token == null || token.isEmpty) {
+    final input = link.trim();
+    if (input.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('無效的邀請連結，請確認後再試')),
-        );
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('請輸入邀請碼或貼上邀請連結'),
+              duration: Duration(milliseconds: 1200),
+            ),
+          );
       }
       return;
     }
+
+    String? token;
+    String? type;
+    String? ref;
+
+    try {
+      final uri = Uri.tryParse(input);
+      if (uri != null && uri.hasQuery) {
+        token = uri.queryParameters['token'];
+        type = uri.queryParameters['type'];
+        ref = uri.queryParameters['ref'];
+      }
+    } catch (_) {}
+
+    // 若非完整 URL query 格式，直接使用輸入字串當作邀請碼 token
+    token ??= input;
 
     try {
       final group = await DatabaseHelper.instance.getGroupByToken(token);
       if (group == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('找不到對應的群組，連結可能已失效或過期'),
-                backgroundColor: Colors.redAccent),
-          );
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text('找不到對應的群組，邀請碼或連結可能無效'),
+                backgroundColor: Colors.redAccent,
+                duration: Duration(milliseconds: 1200),
+              ),
+            );
         }
         return;
       }
@@ -1003,9 +1073,14 @@ extension MainScreenSocialTab on _MainScreenState {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加入失敗：$e')),
-        );
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('加入失敗：$e'),
+              duration: const Duration(milliseconds: 1200),
+            ),
+          );
       }
     }
   }

@@ -72,7 +72,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
         SnackBar(
           content: Text('✅ 邀請連結已複製到剪貼板！'),
           backgroundColor: Theme.of(context).primaryColor,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 1),
         ),
       );
     }
@@ -119,7 +119,10 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
           _updateExpiryLabel();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('邀請連結已重新生成')),
+          const SnackBar(
+            content: Text('邀請連結已重新生成'),
+            duration: Duration(seconds: 1),
+          ),
         );
       }
     } catch (e) {
@@ -152,7 +155,10 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
         _updateExpiryLabel();
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已設定為：$label')),
+        SnackBar(
+          content: Text('已設定為：$label'),
+          duration: const Duration(seconds: 1),
+        ),
       );
     }
   }
@@ -446,13 +452,13 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    _inviteUrl,
+                                    '邀請碼：${_group['invite_token'] ?? ''}',
                                     style: TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
                                         color: isDark
-                                            ? Colors.white54
-                                            : Colors.black54),
+                                            ? Colors.white
+                                            : Colors.black87),
                                     overflow: TextOverflow.ellipsis,
                                     maxLines: 2,
                                   ),
@@ -492,7 +498,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                   ),
                                   icon: const Icon(Icons.share_rounded,
                                       size: 16),
-                                  label: const Text('複製連結',
+                                  label: const Text('複製邀請碼',
                                       style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600)),
