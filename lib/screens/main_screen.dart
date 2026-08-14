@@ -23,6 +23,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/push_notification_service.dart';
+import '../services/app_locale_service.dart';
 import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
 import 'tabs/group_detail_page.dart';
@@ -86,6 +87,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String? _userBio;
   double _fontSizeFactor = 1.0;
   int _themeColorIdx = 0;
+  String _appLanguage = 'zh_TW';
   bool _isDarkMode = false;
   bool _showFloatingNavBar = false;
   bool _pushNotificationsEnabled = true;
@@ -1023,8 +1025,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 (userRows.first['social_feed_layout'] as String?) ?? 'card';
             _showFloatingNavBar = (userRows.first['show_floating_nav_bar'] ?? 0) == 1;
             _pushNotificationsEnabled = (userRows.first['push_notifications_enabled'] ?? 1) == 1;
+            _appLanguage = (userRows.first['language'] as String?) ?? 'zh_TW';
+            AppLocaleService.setLanguage(_appLanguage);
             debugPrint(
-                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _calendarViewMode=$_calendarViewMode, _socialFeedLayout=$_socialFeedLayout, _showFloatingNavBar=$_showFloatingNavBar, _pushNotificationsEnabled=$_pushNotificationsEnabled');
+                'Theme Loaded: _themeColorIdx=$_themeColorIdx, _isDarkMode=$_isDarkMode, _appLanguage=$_appLanguage, _calendarViewMode=$_calendarViewMode, _socialFeedLayout=$_socialFeedLayout, _showFloatingNavBar=$_showFloatingNavBar, _pushNotificationsEnabled=$_pushNotificationsEnabled');
           }
         });
       }
@@ -2348,7 +2352,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               Icon(Icons.keyboard_arrow_down,
                                   color: _isDarkMode ? Colors.white : Colors.black87)
                             ]))
-                        : Text(_appBarTitle,
+                        : Text(_getTranslatedAppBarTitle(),
                             style: TextStyle(
                                 fontSize: 18,
                                 color: _isDarkMode ? Colors.white : Colors.black87,
@@ -2382,7 +2386,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     child: ListView(children: [
               Padding(
                   padding: EdgeInsets.all(20.0),
-                  child: Text('系統選單',
+                  child: Text(AppLocaleService.tr('drawer_title', _appLanguage),
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -2390,41 +2394,41 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ListTile(
                   leading: Icon(Icons.calendar_month,
                       color: Theme.of(context).primaryColor),
-                  title: Text('日曆行程'),
+                  title: Text(AppLocaleService.tr('nav_calendar', _appLanguage)),
                   onTap: () {
-                    _changePage(0, '日曆行程');
+                    _changePage(0, AppLocaleService.tr('nav_calendar', _appLanguage));
                     Navigator.pop(context);
                   }),
               if (widget.currentUser['id'] != 'u4')
                 ListTile(
                     leading: Icon(Icons.edit_note,
                         color: Theme.of(context).primaryColor),
-                    title: Text('筆記本'),
+                    title: Text(AppLocaleService.tr('nav_notes', _appLanguage)),
                     onTap: () {
-                      _changePage(5, '筆記本');
+                      _changePage(5, AppLocaleService.tr('nav_notes', _appLanguage));
                       Navigator.pop(context);
                     }),
               ListTile(
                   leading: Icon(Icons.menu_book,
                       color: Theme.of(context).primaryColor),
-                  title: Text('題庫'),
+                  title: Text(AppLocaleService.tr('nav_quiz', _appLanguage)),
                   onTap: () {
-                    _changePage(1, '題庫');
+                    _changePage(1, AppLocaleService.tr('nav_quiz', _appLanguage));
                     Navigator.pop(context);
                   }),
               ListTile(
                   leading:
                       Icon(Icons.forum, color: Theme.of(context).primaryColor),
-                  title: const Text('社群'),
+                  title: Text(AppLocaleService.tr('nav_community', _appLanguage)),
                   onTap: () {
-                    _changePage(2, '社群');
+                    _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
                     Navigator.pop(context);
                   }),
               const Divider(indent: 20, endIndent: 20),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text('互動與管理',
-                    style: TextStyle(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(AppLocaleService.tr('drawer_interact', _appLanguage),
+                    style: const TextStyle(
                         color: Colors.grey,
                         fontSize: 12,
                         fontWeight: FontWeight.bold)),
@@ -2432,25 +2436,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ListTile(
                   leading: Icon(Icons.history_edu_rounded,
                       color: Theme.of(context).primaryColor),
-                  title: Text('社群動態'),
+                  title: Text(AppLocaleService.tr('nav_social_feed', _appLanguage)),
                   onTap: () {
-                    _changePage(3, '社群動態');
+                    _changePage(3, AppLocaleService.tr('nav_social_feed', _appLanguage));
                     Navigator.pop(context);
                   }),
               ListTile(
                   leading: Icon(Icons.settings_suggest_rounded,
                       color: Theme.of(context).primaryColor),
-                  title: Text('個人檔案'),
+                  title: Text(AppLocaleService.tr('nav_profile', _appLanguage)),
                   onTap: () {
-                    _changePage(4, '個人檔案');
+                    _changePage(4, AppLocaleService.tr('nav_profile', _appLanguage));
                     Navigator.pop(context);
                   }),
               ListTile(
                   leading: Icon(Icons.leaderboard_rounded,
                       color: Theme.of(context).primaryColor),
-                  title: const Text('排行榜'),
+                  title: Text(AppLocaleService.tr('nav_leaderboard', _appLanguage)),
                   onTap: () {
-                    _changePage(6, '排行榜');
+                    _changePage(6, AppLocaleService.tr('nav_leaderboard', _appLanguage));
                     Navigator.pop(context);
                   }),
             ]))),
@@ -2530,11 +2534,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavItem(Icons.calendar_month_rounded, '日曆行程', 0, key: _tourNavCalendarKey),
-              _buildNavItem(Icons.menu_book_rounded, '題庫', 1, key: _tourNavQuestionKey),
-              _buildNavItem(Icons.auto_awesome_rounded, 'AI助理', -1, key: _tourAiChatBarKey, onTap: _openChatModal),
-              _buildNavItem(Icons.forum_rounded, '社群', 2, key: _tourNavSocialKey),
-              _buildNavItem(Icons.person_rounded, '個人檔案', 4),
+              _buildNavItem(Icons.calendar_month_rounded, AppLocaleService.tr('nav_calendar', _appLanguage), 0, key: _tourNavCalendarKey),
+              _buildNavItem(Icons.menu_book_rounded, AppLocaleService.tr('nav_quiz', _appLanguage), 1, key: _tourNavQuestionKey),
+              _buildNavItem(Icons.auto_awesome_rounded, AppLocaleService.tr('nav_ai_assistant', _appLanguage), -1, key: _tourAiChatBarKey, onTap: _openChatModal),
+              _buildNavItem(Icons.forum_rounded, AppLocaleService.tr('nav_community', _appLanguage), 2, key: _tourNavSocialKey),
+              _buildNavItem(Icons.person_rounded, AppLocaleService.tr('nav_profile', _appLanguage), 4),
             ],
           ),
         ),
@@ -8075,7 +8079,7 @@ $strokePrompt
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  "今日行程",
+                  AppLocaleService.tr('cal_tab_schedule', _appLanguage),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -8103,7 +8107,7 @@ $strokePrompt
                 child: Row(
                   children: [
                     Text(
-                      "待辦清單",
+                      AppLocaleService.tr('cal_tab_todo', _appLanguage),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -8149,7 +8153,7 @@ $strokePrompt
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  "日記",
+                  AppLocaleService.tr('cal_tab_diary', _appLanguage),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -8184,7 +8188,7 @@ $strokePrompt
                     children: [
                       Icon(Icons.event_note_rounded, color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
-                      Text('新增行程'),
+                      Text(AppLocaleService.tr('cal_add_schedule', _appLanguage)),
                     ],
                   ),
                 ),
@@ -8194,7 +8198,7 @@ $strokePrompt
                     children: [
                       Icon(Icons.check_box_outlined, color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
-                      Text('新增待辦'),
+                      Text(AppLocaleService.tr('cal_add_todo', _appLanguage)),
                     ],
                   ),
                 ),
@@ -8204,7 +8208,7 @@ $strokePrompt
                     children: [
                       Icon(Icons.book_outlined, color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
-                      Text('寫今日日記'),
+                      Text(AppLocaleService.tr('cal_write_diary', _appLanguage)),
                     ],
                   ),
                 ),
@@ -11080,18 +11084,97 @@ $strokePrompt
     );
   }
 
+  String _getTranslatedAppBarTitle() {
+    switch (_currentIndex) {
+      case 0:
+        return AppLocaleService.tr('nav_calendar', _appLanguage);
+      case 1:
+        return AppLocaleService.tr('nav_quiz', _appLanguage);
+      case 2:
+        return AppLocaleService.tr('nav_community', _appLanguage);
+      case 3:
+        return AppLocaleService.tr('nav_social_feed', _appLanguage);
+      case 4:
+        return AppLocaleService.tr('nav_profile', _appLanguage);
+      case 5:
+        return AppLocaleService.tr('nav_notes', _appLanguage);
+      case 6:
+        return AppLocaleService.tr('nav_leaderboard', _appLanguage);
+      default:
+        return _appBarTitle;
+    }
+  }
+
   void _showThemeColorDialog() {
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('選擇主題顏色'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(AppLocaleService.tr('settings_theme_color', _appLanguage)),
         children: [
-          _buildThemeOption(ctx, '經典暖棕 (預設)', 0, const Color(0xFF8D6E63)),
-          _buildThemeOption(ctx, '孔雀藍', 1, const Color(0xFF6B8A96)),
-          _buildThemeOption(ctx, '森林綠', 2, const Color(0xFF8AA682)),
-          _buildThemeOption(ctx, '暮櫻紫', 3, const Color(0xFFB57B94)),
-          _buildThemeOption(ctx, '琥珀橙', 4, const Color(0xFFC27D66)),
+          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_0', _appLanguage), 0, const Color(0xFF8D6E63)),
+          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_1', _appLanguage), 1, const Color(0xFF6B8A96)),
+          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_2', _appLanguage), 2, const Color(0xFF8AA682)),
+          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_3', _appLanguage), 3, const Color(0xFFB57B94)),
+          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_4', _appLanguage), 4, const Color(0xFFC27D66)),
         ],
+      ),
+    );
+  }
+
+  void _showLanguageDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.language_rounded, color: _currentPrimaryColor),
+            const SizedBox(width: 10),
+            Text(AppLocaleService.tr('settings_language', _appLanguage)),
+          ],
+        ),
+        children: [
+          _buildLanguageOption(ctx, '🇹🇼 繁體中文 (預設)', AppLocaleService.zhTW),
+          _buildLanguageOption(ctx, '🇯🇵 日本語 (Japanese)', AppLocaleService.ja),
+          _buildLanguageOption(ctx, '🇰🇷 한국어 (Korean)', AppLocaleService.ko),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption(BuildContext ctx, String label, String langCode) {
+    final isSelected = _appLanguage == langCode;
+    return SimpleDialogOption(
+      onPressed: () async {
+        Navigator.pop(ctx);
+        if (_appLanguage != langCode) {
+          setState(() {
+            _appLanguage = langCode;
+          });
+          AppLocaleService.setLanguage(langCode);
+          await _updatePersonalization();
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? _currentPrimaryColor : null,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded,
+                  color: _currentPrimaryColor, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -11131,6 +11214,7 @@ $strokePrompt
         'social_feed_layout': _socialFeedLayout,
         'show_floating_nav_bar': _showFloatingNavBar ? 1 : 0,
         'push_notifications_enabled': _pushNotificationsEnabled ? 1 : 0,
+        'language': _appLanguage,
       },
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],

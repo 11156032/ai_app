@@ -122,6 +122,10 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE users ADD COLUMN push_notifications_enabled INTEGER DEFAULT 1');
         debugPrint('Dynamic migration: Added push_notifications_enabled column to users table.');
       }
+      if (!userCols.any((c) => c['name'] == 'language')) {
+        await db.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'zh_TW'");
+        debugPrint('Dynamic migration: Added language column to users table.');
+      }
 
       var quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
       if (!quizCols.any((c) => c['name'] == 'subject')) {

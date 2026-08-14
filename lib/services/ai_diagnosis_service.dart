@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'app_locale_service.dart';
 
 class AssistantResponseChunk {
   final String text;
@@ -355,6 +356,53 @@ class AiDiagnosisService {
     }
 
     throw lastError ?? Exception('所有 AI 助理模型均無法使用');
+  }
+
+  /// 呼叫 24H 智慧線上客服（專門解答 APP 操作、題庫測驗、AI 診斷、個人筆記與帳號設定等問題）
+  static Stream<String> generateCustomerSupportStream({
+    required String userInput,
+    required List<Map<String, dynamic>> history,
+  }) async* {
+    final langDirective = AppLocaleService.getAiLanguageInstruction();
+    final systemPrompt = '''
+你是「YeBang 家教 APP」的專業 24 小時智慧線上客服專員（YeBang Support Agent）。
+你的職責是親切、有條理地解答使用者在 APP 操作、功能使用、題庫練習、AI 診斷、個人筆記、行事曆排程與帳號設定等各方面的疑問。
+
+【本 APP 核心功能知識庫】
+1. 📚 題庫練習與測驗：
+   - 支援國高中各學科練習與模擬試卷，作答完成後自動匯入「錯題本」。
+   - 每道題目附有解析，並可點擊「AI 詳解」獲取深入的步驟剖析與觀念釐清。
+2. 📊 AI 學習診斷與個人化建議：
+   - 「個人檔案」頁面提供知識掌握度矩陣圖與能力雷達圖。
+   - 點擊矩陣圓點或「一鍵 AI 生成學習建議」，即可生成針對學生弱項的客製化補強教材。
+3. 📓 個人筆記本：
+   - 可建立筆記、標籤分類、搜尋，並支援「一鍵 AI 摘要整理」提取重點。
+   - 測驗後的錯題也可一鍵同步為筆記。
+4. 📅 智慧行事曆與待辦：
+   - 可建立讀書計畫、新增與修改待辦事項，支援推播提醒。
+5. 💬 社群交流：
+   - 提供學生互相分享讀書心得、發布貼文與互動討論。
+6. ⚙️ 個人設定與帳號安全：
+   - 支援修改暱稱、頭像、個人簡介、切換深色/淺色主題、字體大小、通知開關。
+   - 帳號綁定 Email 為主要登入識別，密碼可在「設定與安全」修改。
+   - 若遇到無法解決的技術問題或需人工協助，可引導使用者至「客服與意見回饋」填寫表單。
+
+【回答規範】
+- $langDirective
+- 語氣親切溫暖、條理清晰（例如適度條列重點）。
+- 重要名詞或步驟請以雙星號 (**) 標示（例如：**個人檔案** > **設定與安全**）。
+- 內容精簡明瞭（約 100~200 字），避免冗長廢話。
+''';
+
+    await for (final chunk in generateOpenRouterGuideStream(
+      userInput: userInput,
+      history: history,
+      customSystemPrompt: systemPrompt,
+    )) {
+      if (chunk.text.isNotEmpty) {
+        yield chunk.text;
+      }
+    }
   }
 
   /// 內部輔助：向指定模型發送串流請求，每個 chunk 逐一 yield。
@@ -726,64 +774,71 @@ $correctDetails
   // 學習建議：串流生成個人化學習建議
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// 串流生成 AI 學習建議（根據錯題資料，生成個人化弱項摘要、觀念重點與練習題目）
+  /// 串流生成 AI 學習建議（根據錯題資料或掌握度，生成個人化弱項摘要、觀念重點與練習題目）
   static Stream<String> generateRemedialMaterialStream({
     required String userId,
     required String subject,
     required List<Map<String, dynamic>> wrongQuestions,
+    bool hasRealMistakes = true,
     bool isComprehensive = false,
   }) async* {
-    final effectiveWrongQuestions = wrongQuestions.isNotEmpty
-        ? wrongQuestions
-        : [
-            {
-              'question': '$subject 綜合核心觀念評估與歷屆重點單元',
-              'chapter': '核心觀念特訓',
-              'difficulty': '中',
-              'answer': '綜合理解',
-              'explanation': '加強基礎定理與觀念推導'
-            }
-          ];
-
-    final wrongDetails = effectiveWrongQuestions.take(5).map((q) {
-      final optsRaw = q['options'];
-      List? opts;
-      if (optsRaw is String) {
-        try {
-          opts = jsonDecode(optsRaw) as List;
-        } catch (_) {}
-      } else if (optsRaw is List) {
-        opts = optsRaw;
-      }
-      final ansIdx = q['answerIndex'] as int?;
-      final correctAns = (opts != null &&
-              ansIdx != null &&
-              ansIdx >= 0 &&
-              ansIdx < opts.length)
-          ? opts[ansIdx].toString()
-          : (q['answer'] as String? ?? '未知');
-      return '• 題目：${q['question'] ?? q['text'] ?? ''}\n  章節：${q['chapter'] ?? '未知'}\n  難度：${q['difficulty'] ?? '中'}\n  正確答案：$correctAns\n  解析提示：${q['explanation'] ?? '無'}';
-    }).join('\n\n');
-
     final subjectLabel = '$subject${isComprehensive ? '（全科盲點彙整）' : ''}';
-    final prompt = '''
-你是一位專業的 AI 補強教師。請根據以下學生錯題資料，生成一份簡短、實用、個人化的學習建議。
-科目：$subjectLabel
 
-錯題資料：
+    String prompt;
+    if (hasRealMistakes && wrongQuestions.isNotEmpty) {
+      final wrongDetails = wrongQuestions.take(5).map((q) {
+        final optsRaw = q['options'];
+        List? opts;
+        if (optsRaw is String) {
+          try {
+            opts = jsonDecode(optsRaw) as List;
+          } catch (_) {}
+        } else if (optsRaw is List) {
+          opts = optsRaw;
+        }
+        final ansIdx = q['answerIndex'] as int?;
+        final correctAns = (opts != null &&
+                ansIdx != null &&
+                ansIdx >= 0 &&
+                ansIdx < opts.length)
+            ? opts[ansIdx].toString()
+            : (q['answer'] as String? ?? '未知');
+        return '• 題目：${q['question'] ?? q['text'] ?? ''}\n  章節：${q['chapter'] ?? '未知'}\n  難度：${q['difficulty'] ?? '中'}\n  正確答案：$correctAns\n  解析提示：${q['explanation'] ?? '無'}';
+      }).join('\n\n');
+
+      prompt = '''
+你是一位專業的 AI 補強教師。請根據以下學生在【$subjectLabel】的真實測驗錯題資料，精確分析學生的盲點並給予關鍵補強建議。
+
+學生錯題資料：
 $wrongDetails
 
-請嚴格依照以下固定格式輸出，內容務必精練（總字數控制在 250 字內）。禁止使用 JSON 或 Markdown 程式碼區塊，但請務必使用雙星號 (**) 來標示重點關鍵字（例如：**關聯式資料庫**）：
+請嚴格依照以下固定格式輸出，內容務必精練（總字數控制在 250 字內）。禁止使用 JSON 或 Markdown 程式碼區塊，但請務必使用雙星號 (**) 來標示重點關鍵字（例如：**關鍵觀念**）：
 
 [弱項摘要]
-（根據錯題資料，用 1-2 句話精確概括學生的主要弱點）
+（根據錯題資料，用 1-2 句話精確概括學生的主要弱點與盲點）
 
 [觀念重點]
-• 重點一（核心觀念，簡短說明）
+• 重點一（針對錯題核心觀念的解題補強與觀念解析）
 • 重點二
 
-請以繁體中文（Traditional Chinese）回答，禁止使用簡體字。
+${AppLocaleService.getAiLanguageInstruction()}
 ''';
+    } else {
+      prompt = '''
+你是一位專業的 AI 學習導師。學生目前在【$subjectLabel】科目掌握度良好（測驗表現優異或無近期錯題），請為學生整理該科目的核心精華觀念與進階學習方向。
+
+請嚴格依照以下固定格式輸出，內容務必精練（總字數控制在 250 字內）。禁止使用 JSON 或 Markdown 程式碼區塊，但請務必使用雙星號 (**) 來標示重點關鍵字（例如：**核心考點**）：
+
+[弱項摘要]
+學生目前在該科目掌握度優異，暫無明顯錯題盲點。建議持續保持手感，著重在核心概念的融會貫通與進階難題挑戰。
+
+[觀念重點]
+• 重點一（該科目的必考核心精華觀念與常見題型突破點）
+• 重點二
+
+${AppLocaleService.getAiLanguageInstruction()}
+''';
+    }
 
     final messages = <Map<String, String>>[
       {
@@ -908,7 +963,7 @@ $wrongDetails
 筆記內容：
 $noteContent
 
-請以繁體中文 (Traditional Chinese) 回答，切勿使用簡體字。
+${AppLocaleService.getAiLanguageInstruction()}
 ''';
 
       final response = await http
@@ -982,7 +1037,7 @@ $noteContent
 筆記內容：
 $noteContent
 
-請以繁體中文 (Traditional Chinese) 回答。
+${AppLocaleService.getAiLanguageInstruction()}
 ''';
 
     try {
@@ -1387,7 +1442,7 @@ $correctDetails
 - 每一區塊只需 1~2 句簡短重點，絕對不講廢話。
 
 【語言規範】
-- 全程使用「台灣繁體中文 (zh-TW)」與台灣教育慣用語（如：區分/辨析、資訊、軟體）。
+- ${AppLocaleService.getAiLanguageInstruction()}
 
 【結構規範 - 請輸出以下 3 個精華區塊標題】
 🎯 觀念精華：為什麼正確答案是 ($correctOptLetter)
@@ -1416,7 +1471,8 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
     final messages = <Map<String, String>>[
       {
         'role': 'system',
-        'content': '你是一位專粹精煉的台灣 AI 考題導師，全程使用台灣繁體中文。你說話極致精簡、只給精華幹貨，全文控制在 180 字內，用 🎯 觀念精華、🔍 迷思快剖、💡 一秒口訣 3 個卡片回答，絕不寫廢話長文。'
+        'content':
+            '你是一位專粹精煉的 AI 考題導師。${AppLocaleService.getAiLanguageInstruction()} 你說話極致精簡、只給精華幹貨，全文控制在 180 字內，用 🎯 觀念精華、🔍 迷思快剖、💡 一秒口訣 3 個卡片回答，絕不寫廢話長文。'
       },
       {'role': 'user', 'content': prompt},
     ];

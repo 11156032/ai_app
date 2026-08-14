@@ -19,10 +19,16 @@ extension MainScreenProfileTab on _MainScreenState {
               dividerColor: Colors.transparent,
               tabAlignment: TabAlignment.start,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              tabs: const [
-                Tab(text: '概覽'),
-                Tab(text: '設定與安全'),
-                Tab(text: '系統協助'),
+              tabs: [
+                Tab(
+                    text: AppLocaleService.tr(
+                        'profile_tab_overview', _appLanguage)),
+                Tab(
+                    text: AppLocaleService.tr(
+                        'profile_tab_settings', _appLanguage)),
+                Tab(
+                    text: AppLocaleService.tr(
+                        'profile_tab_support', _appLanguage)),
               ],
             ),
             Expanded(
@@ -221,9 +227,9 @@ extension MainScreenProfileTab on _MainScreenState {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '今日學習摘要',
-                style: TextStyle(
+              Text(
+                AppLocaleService.tr('dashboard_today_summary', _appLanguage),
+                style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold),
@@ -234,8 +240,9 @@ extension MainScreenProfileTab on _MainScreenState {
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('點擊翻轉',
-                    style: TextStyle(color: Colors.white, fontSize: 10)),
+                child: Text(
+                    AppLocaleService.tr('dashboard_tap_flip', _appLanguage),
+                    style: const TextStyle(color: Colors.white, fontSize: 10)),
               ),
             ],
           ),
@@ -243,10 +250,15 @@ extension MainScreenProfileTab on _MainScreenState {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildDashboardItem(Icons.timer_outlined, '學習時數',
+              _buildDashboardItem(
+                  Icons.timer_outlined,
+                  AppLocaleService.tr('dashboard_study_hours', _appLanguage),
                   '${_todayStudyHours.toStringAsFixed(1)}h'),
-              _buildDashboardItem(Icons.check_circle_outline, '完成題目',
-                  '$_todayCompletedQuestions 題'),
+              _buildDashboardItem(
+                  Icons.check_circle_outline,
+                  AppLocaleService.tr(
+                      'dashboard_completed_questions', _appLanguage),
+                  '$_todayCompletedQuestions ${AppLocaleService.tr('unit_questions', _appLanguage)}'),
               _buildDashboardItem(
                   Icons.local_fire_department, '連續天數', '$_streakDays 天'),
             ],
@@ -379,13 +391,13 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildBasicInfoModule(BuildContext context) {
     return _buildModuleContainer(
       context: context,
-      title: '基本資訊',
+      title: AppLocaleService.tr('profile_basic_info', _appLanguage),
       child: Column(
         children: [
           _buildProfileTile(
             context: context,
             icon: Icons.person_outline,
-            label: '暱稱',
+            label: AppLocaleService.tr('profile_nickname', _appLanguage),
             value: _displayName ?? '未設定',
             onTap: _showEditNicknameDialog,
           ),
@@ -393,9 +405,9 @@ extension MainScreenProfileTab on _MainScreenState {
           _buildProfileTile(
             context: context,
             icon: Icons.assignment_ind_outlined,
-            label: '個人簡介',
+            label: AppLocaleService.tr('profile_bio', _appLanguage),
             value: (_userBio == null || _userBio!.isEmpty)
-                ? '點擊設定簡介...'
+                ? AppLocaleService.tr('profile_bio_hint', _appLanguage)
                 : _userBio!,
             onTap: _showEditBioDialog,
           ),
@@ -407,56 +419,70 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildPersonalizationModule(BuildContext context) {
     return _buildModuleContainer(
       context: context,
-      title: '個人化設定',
+      title: AppLocaleService.tr('settings_title', _appLanguage),
       child: Column(
         children: [
           _buildProfileTile(
             context: context,
+            icon: Icons.language_rounded,
+            label: AppLocaleService.tr('settings_language', _appLanguage),
+            value:
+                '${AppLocaleService.getLanguageFlag(_appLanguage)} ${AppLocaleService.getLanguageDisplayName(_appLanguage)}',
+            onTap: _showLanguageDialog,
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
             icon: Icons.format_size,
-            label: '字體大小',
+            label: AppLocaleService.tr('settings_font_size', _appLanguage),
             value: _fontSizeFactor <= 1.05
-                ? '標準 (預設)'
+                ? AppLocaleService.tr('font_size_std', _appLanguage)
                 : _fontSizeFactor <= 1.25
-                    ? '放大 (大)'
-                    : '特大 (清晰)',
+                    ? AppLocaleService.tr('font_size_large', _appLanguage)
+                    : AppLocaleService.tr('font_size_xlarge', _appLanguage),
             onTap: _showFontSizeDialog,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.palette_outlined,
-            label: '主題顏色',
+            label: AppLocaleService.tr('settings_theme_color', _appLanguage),
             value: _themeColorIdx == 1
-                ? '孔雀藍'
+                ? AppLocaleService.tr('theme_color_1', _appLanguage)
                 : _themeColorIdx == 2
-                    ? '森林綠'
+                    ? AppLocaleService.tr('theme_color_2', _appLanguage)
                     : _themeColorIdx == 3
-                        ? '暮櫻紫'
+                        ? AppLocaleService.tr('theme_color_3', _appLanguage)
                         : _themeColorIdx == 4
-                            ? '琥珀橙'
-                            : '經典暖棕',
+                            ? AppLocaleService.tr('theme_color_4', _appLanguage)
+                            : AppLocaleService.tr(
+                                'theme_color_0', _appLanguage),
             onTap: _showThemeColorDialog,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.calendar_view_month,
-            label: '行事曆顯示樣式',
-            value: _calendarViewMode == 'bar' ? '橫條跨天模式' : '經典短條模式',
+            label: AppLocaleService.tr('settings_calendar_style', _appLanguage),
+            value: _calendarViewMode == 'bar' 
+                ? AppLocaleService.tr('calendar_mode_bar', _appLanguage) 
+                : AppLocaleService.tr('calendar_mode_dot', _appLanguage),
             onTap: _showCalendarViewModeDialog,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.grid_view_rounded,
-            label: '社群貼文版面樣式',
-            value: _socialFeedLayout == 'list' ? '新聞式列表' : '規格化卡片',
+            label: AppLocaleService.tr('settings_social_style', _appLanguage),
+            value: _socialFeedLayout == 'list' 
+                ? AppLocaleService.tr('feed_layout_list', _appLanguage) 
+                : AppLocaleService.tr('feed_layout_card', _appLanguage),
             onTap: _showSocialFeedLayoutDialog,
           ),
           const Divider(height: 24),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text('顯示底部導覽列',
+            title: Text(AppLocaleService.tr('settings_floating_nav', _appLanguage),
                 style: TextStyle(
                     fontSize: 14,
                     color: _isDarkMode ? Colors.white70 : Colors.black87)),
@@ -472,7 +498,7 @@ extension MainScreenProfileTab on _MainScreenState {
           const Divider(height: 24),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text('深色模式',
+            title: Text(AppLocaleService.tr('settings_dark_mode', _appLanguage),
                 style: TextStyle(
                     fontSize: 14,
                     color: _isDarkMode ? Colors.white70 : Colors.black87)),
@@ -493,12 +519,12 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildSecurityModule(BuildContext context) {
     return _buildModuleContainer(
       context: context,
-      title: '設定與安全',
+      title: AppLocaleService.tr('profile_security_title', _appLanguage),
       child: Column(
         children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text('接收系統通知',
+            title: Text(AppLocaleService.tr('settings_notifications', _appLanguage),
                 style: TextStyle(
                     fontSize: 14,
                     color: _isDarkMode ? Colors.white70 : Colors.black87)),
@@ -516,16 +542,16 @@ extension MainScreenProfileTab on _MainScreenState {
           _buildProfileTile(
             context: context,
             icon: Icons.email_outlined,
-            label: '綁定 Email',
+            label: AppLocaleService.tr('profile_email', _appLanguage),
             value:
-                '${widget.currentUser['email'] ?? '未設定'}${widget.currentUser['is_google'] == 1 ? ' (Google)' : ''}',
+                '${widget.currentUser['email'] ?? AppLocaleService.tr('profile_not_set', _appLanguage)}${widget.currentUser['is_google'] == 1 ? ' (Google)' : ''}',
             valueColor: Colors.grey,
             onTap: () {
               ScaffoldMessenger.of(context)
                 ..clearSnackBars()
-                ..showSnackBar(const SnackBar(
-                  content: Text('註冊信箱不可更改'),
-                  duration: Duration(milliseconds: 1200),
+                ..showSnackBar(SnackBar(
+                  content: Text(AppLocaleService.tr('profile_email_unchangeable', _appLanguage)),
+                  duration: const Duration(milliseconds: 1200),
                 ));
             },
           ),
@@ -533,10 +559,10 @@ extension MainScreenProfileTab on _MainScreenState {
           _buildProfileTile(
             context: context,
             icon: Icons.lock_outline,
-            label: '修改密碼',
+            label: AppLocaleService.tr('profile_password', _appLanguage),
             value: widget.currentUser['is_google'] == 1
-                ? '已使用 Google 帳號登入'
-                : '定期修改更安全',
+                ? AppLocaleService.tr('profile_google_login', _appLanguage)
+                : AppLocaleService.tr('profile_change_password', _appLanguage),
             valueColor:
                 widget.currentUser['is_google'] == 1 ? Colors.grey : null,
             onTap: widget.currentUser['is_google'] == 1
@@ -544,9 +570,9 @@ extension MainScreenProfileTab on _MainScreenState {
                     ScaffoldMessenger.of(context)
                       ..clearSnackBars()
                       ..showSnackBar(
-                        const SnackBar(
-                          content: Text('您已透過 Google 登入，無須修改密碼'),
-                          duration: Duration(milliseconds: 1200),
+                        SnackBar(
+                          content: Text(AppLocaleService.tr('profile_no_password_needed', _appLanguage)),
+                          duration: const Duration(milliseconds: 1200),
                         ),
                       );
                   }
@@ -557,8 +583,8 @@ extension MainScreenProfileTab on _MainScreenState {
             _buildProfileTile(
               context: context,
               icon: Icons.delete_forever,
-              label: '刪除帳號',
-              value: '30 天內可復原',
+              label: AppLocaleService.tr('profile_delete_account', _appLanguage),
+              value: AppLocaleService.tr('profile_delete_hint', _appLanguage),
               valueColor: Colors.red.shade300,
               onTap: _showDeleteAccountDialog,
             ),
@@ -575,21 +601,21 @@ extension MainScreenProfileTab on _MainScreenState {
         : socialPosts.where((p) => p['userId'] == currentUserId).length;
     return _buildModuleContainer(
       context: context,
-      title: '互動紀錄',
+      title: AppLocaleService.tr('profile_interaction_title', _appLanguage),
       child: Column(
         children: [
           _buildProfileTile(
             context: context,
             icon: Icons.article_outlined,
-            label: '我的貼文',
-            value: '已發佈 $myPostCount 篇貼文與筆記',
+            label: AppLocaleService.tr('profile_my_posts', _appLanguage),
+            value: AppLocaleService.tr('profile_posts_count', _appLanguage, [myPostCount.toString()]),
             onTap: _showMyPostsPage,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.history,
-            label: '測驗歷史',
+            label: AppLocaleService.tr('profile_quiz_history', _appLanguage),
             value: _latestQuizScore,
             onTap: _showQuizHistoryPage,
           ),
@@ -597,8 +623,8 @@ extension MainScreenProfileTab on _MainScreenState {
           _buildProfileTile(
             context: context,
             icon: Icons.leaderboard_rounded,
-            label: '排行榜',
-            value: '查看所有使用者的測驗成績排名',
+            label: AppLocaleService.tr('profile_leaderboard', _appLanguage),
+            value: AppLocaleService.tr('profile_leaderboard_desc', _appLanguage),
             onTap: () => _changePage(6, '排行榜'),
           ),
         ],
@@ -613,6 +639,7 @@ extension MainScreenProfileTab on _MainScreenState {
       primaryColor: _currentPrimaryColor,
       matrixChartWidget: _buildMatrixChart(context),
       onShowRemedial: (subject) => _showRemedialMaterialSheet(subject),
+      appLanguage: _appLanguage,
       moduleContainerBuilder: (title, child) => _buildModuleContainer(
         context: context,
         title: title,
@@ -621,11 +648,13 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  Future<List<Map<String, dynamic>>> _loadWrongQuestionDetails(
-      String subjectName) async {
+  Future<({List<Map<String, dynamic>> questions, bool hasRealMistakes})>
+      _loadWrongQuestionDetails(String subjectName) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      final userId = widget.currentUser['id'];
+      final rawUid =
+          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+      final userId = rawUid.toString();
 
       String? whereStr = 'subject = ?';
       List<dynamic>? whereArgs = [subjectName];
@@ -634,28 +663,37 @@ extension MainScreenProfileTab on _MainScreenState {
         whereArgs = null;
       }
 
-      // 優先抓取該科目的「錯題」
+      // 優先抓取該科目的「真實錯題」
       final query = '''
         SELECT q.* 
         FROM wrong_questions w
         JOIN questions q ON w.question_id = q.id
-        WHERE w.user_id = ? ${subjectName != '綜合盲點' ? 'AND q.subject = ?' : ''}
+        WHERE (w.user_id = ? OR w.user_id = ?) ${subjectName != '綜合盲點' ? 'AND q.subject = ?' : ''}
         ORDER BY w.created_at DESC
         LIMIT 5
       ''';
-      final args = subjectName != '綜合盲點' ? [userId, subjectName] : [userId];
+      final args = subjectName != '綜合盲點'
+          ? [userId, rawUid, subjectName]
+          : [userId, rawUid];
       final rows = await db.rawQuery(query, args);
 
-      if (rows.isEmpty) {
-        // 如果沒有錯題，至少抓取該科目的隨機題目來當作上下文，避免 AI 產生無關科目的建議
-        final fallbackRows = await db.query('questions',
-            where: whereStr, whereArgs: whereArgs, limit: 5);
-        return fallbackRows.map((r) => Map<String, dynamic>.from(r)).toList();
+      if (rows.isNotEmpty) {
+        return (
+          questions: rows.map((r) => Map<String, dynamic>.from(r)).toList(),
+          hasRealMistakes: true,
+        );
       }
 
-      return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+      // 若該科目目前無錯題，抓取代表性題目作為章節知識庫參考
+      final fallbackRows = await db.query('questions',
+          where: whereStr, whereArgs: whereArgs, limit: 5);
+      return (
+        questions:
+            fallbackRows.map((r) => Map<String, dynamic>.from(r)).toList(),
+        hasRealMistakes: false,
+      );
     } catch (_) {
-      return [];
+      return (questions: <Map<String, dynamic>>[], hasRealMistakes: false);
     }
   }
 
@@ -663,8 +701,8 @@ extension MainScreenProfileTab on _MainScreenState {
     final bool isDark = _isDarkMode;
     final Color primary = _currentPrimaryColor;
 
-    // Pre-load wrong questions
-    final wrongList = await _loadWrongQuestionDetails(subjectName);
+    // Pre-load wrong questions & accuracy status
+    final result = await _loadWrongQuestionDetails(subjectName);
     if (!mounted) return;
 
     showModalBottomSheet(
@@ -673,7 +711,8 @@ extension MainScreenProfileTab on _MainScreenState {
       backgroundColor: Colors.transparent,
       builder: (ctx) => _RemedialMaterialSheet(
         subjectName: subjectName,
-        wrongList: wrongList,
+        wrongList: result.questions,
+        hasRealMistakes: result.hasRealMistakes,
         userId: widget.currentUser['id']?.toString() ?? 'u1',
         isDark: isDark,
         primary: primary,
@@ -720,7 +759,7 @@ extension MainScreenProfileTab on _MainScreenState {
           color: Colors.grey.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Text('暫無測驗資料', style: TextStyle(color: Colors.grey)),
+        child: Text(AppLocaleService.tr('dashboard_no_quiz_data', _appLanguage), style: const TextStyle(color: Colors.grey)),
       );
     }
 
@@ -768,10 +807,10 @@ extension MainScreenProfileTab on _MainScreenState {
             runSpacing: 4,
             alignment: WrapAlignment.center,
             children: [
-              _buildLegendDot(Colors.blue, '熟練度高'),
-              _buildLegendDot(Colors.amber.shade700, '猶豫期'),
-              _buildLegendDot(Colors.grey.shade600, '粗心'),
-              _buildLegendDot(Colors.red, '嚴重盲點'),
+              _buildLegendDot(Colors.blue, AppLocaleService.tr('chart_legend_proficient', _appLanguage)),
+              _buildLegendDot(Colors.amber.shade700, AppLocaleService.tr('chart_legend_hesitant', _appLanguage)),
+              _buildLegendDot(Colors.grey.shade600, AppLocaleService.tr('chart_legend_careless', _appLanguage)),
+              _buildLegendDot(Colors.red, AppLocaleService.tr('chart_legend_blindspot', _appLanguage)),
             ],
           ),
         ),
@@ -793,7 +832,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               ? Colors.grey.shade400
                               : Colors.grey.shade700),
                       const SizedBox(height: 3),
-                      Text('正',
+                      Text(AppLocaleService.tr('chart_y_label', _appLanguage).split('')[0],
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -801,7 +840,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               color: _isDarkMode
                                   ? Colors.grey.shade300
                                   : Colors.grey.shade800)),
-                      Text('確',
+                      Text(AppLocaleService.tr('chart_y_label', _appLanguage).split('')[1],
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -809,7 +848,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               color: _isDarkMode
                                   ? Colors.grey.shade300
                                   : Colors.grey.shade800)),
-                      Text('率',
+                      Text(AppLocaleService.tr('chart_y_label', _appLanguage).split('')[2],
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -1009,7 +1048,10 @@ extension MainScreenProfileTab on _MainScreenState {
                                     getTooltipItems:
                                         (ScatterSpot touchedBarSpot) {
                                       return ScatterTooltipItem(
-                                        '正確率約: ${touchedBarSpot.y.toInt()}%\n平均耗時約: ${touchedBarSpot.x.toStringAsFixed(1)}s\n(點擊開啟診斷詳情)',
+                                        AppLocaleService.tr('chart_tooltip', _appLanguage, [
+                                          touchedBarSpot.y.toInt().toString(),
+                                          touchedBarSpot.x.toStringAsFixed(1)
+                                        ]),
                                         textStyle: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 11,
@@ -1039,7 +1081,7 @@ extension MainScreenProfileTab on _MainScreenState {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '平均作答時間 (秒)',
+                  AppLocaleService.tr('chart_x_label', _appLanguage),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -1102,7 +1144,7 @@ extension MainScreenProfileTab on _MainScreenState {
                         color: _currentPrimaryColor, size: 22),
                     const SizedBox(width: 8),
                     Text(
-                      '此區域包含 ${quizzes.length} 個科目內容',
+                      AppLocaleService.tr('sheet_overlapped_title', _appLanguage, [quizzes.length.toString()]),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1113,7 +1155,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '請點擊欲查看的科目，以開啟詳細診斷與 AI 補強：',
+                  AppLocaleService.tr('sheet_overlapped_desc', _appLanguage),
                   style: TextStyle(
                     fontSize: 12,
                     color: _isDarkMode
@@ -1123,7 +1165,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 ),
                 const SizedBox(height: 14),
                 ...quizzes.map((item) {
-                  final subject = item['subject']?.toString() ?? '測驗';
+                  final subject = item['subject']?.toString() ?? AppLocaleService.tr('general_practice', _appLanguage);
                   final acc = (item['accuracy'] as num).toDouble();
                   final avgTime = (item['avgTime'] as num).toDouble();
                   final date = item['timestamp']?.toString() ??
@@ -1134,16 +1176,16 @@ extension MainScreenProfileTab on _MainScreenState {
                   String statusText;
                   if (acc >= 60 && avgTime <= 15) {
                     statusColor = Colors.blue;
-                    statusText = '熟練度高';
+                    statusText = AppLocaleService.tr('chart_legend_proficient', _appLanguage);
                   } else if (acc >= 60 && avgTime > 15) {
                     statusColor = Colors.amber.shade700;
-                    statusText = '猶豫期';
+                    statusText = AppLocaleService.tr('chart_legend_hesitant', _appLanguage);
                   } else if (acc < 60 && avgTime > 15) {
                     statusColor = Colors.red;
-                    statusText = '嚴重盲點';
+                    statusText = AppLocaleService.tr('chart_legend_blindspot', _appLanguage);
                   } else {
                     statusColor = Colors.grey.shade600;
-                    statusText = '粗心';
+                    statusText = AppLocaleService.tr('chart_legend_careless', _appLanguage);
                   }
 
                   return Container(
@@ -1192,7 +1234,7 @@ extension MainScreenProfileTab on _MainScreenState {
                         ],
                       ),
                       subtitle: Text(
-                        '正確率: ${acc.toInt()}% • 平均耗時: ${avgTime.toStringAsFixed(1)}s${date.isNotEmpty ? " • $date" : ""}',
+                        '${AppLocaleService.tr('acc_rate', _appLanguage)}: ${acc.toInt()}% • ${AppLocaleService.tr('avg_time', _appLanguage)}: ${avgTime.toStringAsFixed(1)}s${date.isNotEmpty ? " • $date" : ""}',
                         style: TextStyle(
                             fontSize: 12,
                             color: _isDarkMode
@@ -1220,7 +1262,7 @@ extension MainScreenProfileTab on _MainScreenState {
     final double avgTime = (entry['avgTime'] as num).toDouble();
     final int total = (entry['total'] as num).toInt();
     final int correct = (entry['correct'] as num? ?? 0).toInt();
-    final String subject = entry['subject'] as String? ?? '一般練習';
+    final String subject = entry['subject'] as String? ?? AppLocaleService.tr('general_practice', _appLanguage);
     final String timeStr = formatRelativeTime(entry['timestamp']);
 
     String statusText;
@@ -1228,21 +1270,21 @@ extension MainScreenProfileTab on _MainScreenState {
     String statusDesc;
 
     if (acc >= 60 && avgTime <= 15) {
-      statusText = '熟練度高';
+      statusText = AppLocaleService.tr('chart_legend_proficient', _appLanguage);
       statusColor = Colors.blue;
-      statusDesc = '答題又快又準！代表該科目解題邏輯已經融會貫通。';
+      statusDesc = AppLocaleService.tr('quiz_desc_proficient', _appLanguage);
     } else if (acc >= 60 && avgTime > 15) {
-      statusText = '猶豫期';
+      statusText = AppLocaleService.tr('chart_legend_hesitant', _appLanguage);
       statusColor = Colors.amber.shade800;
-      statusDesc = '正確率達標，但花費較多時間思考，建議多做類似題目提升速度。';
+      statusDesc = AppLocaleService.tr('quiz_desc_hesitant', _appLanguage);
     } else if (acc < 60 && avgTime > 15) {
-      statusText = '嚴重盲點';
+      statusText = AppLocaleService.tr('chart_legend_blindspot', _appLanguage);
       statusColor = Colors.red;
-      statusDesc = '花費較長時間但答錯率高，代表觀念可能尚未理解，建議重新複習重點。';
+      statusDesc = AppLocaleService.tr('quiz_desc_blindspot', _appLanguage);
     } else {
-      statusText = '粗心作答';
+      statusText = AppLocaleService.tr('chart_legend_careless', _appLanguage);
       statusColor = Colors.grey.shade700;
-      statusDesc = '答題速度快但正確率偏低，可能審題過快或細節粗心造成。';
+      statusDesc = AppLocaleService.tr('quiz_desc_careless', _appLanguage);
     }
 
     showModalBottomSheet(
@@ -1311,7 +1353,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       : Colors.black87),
                             ),
                             Text(
-                              '測驗時間：$timeStr',
+                              '${AppLocaleService.tr('quiz_time', _appLanguage)}：$timeStr',
                               style: TextStyle(
                                   fontSize: 12,
                                   color: _isDarkMode
@@ -1349,12 +1391,12 @@ extension MainScreenProfileTab on _MainScreenState {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildSheetStat('正確率', '${acc.toInt()}%', statusColor),
-                      _buildSheetStat('答對/總數', '$correct / $total 題',
+                      _buildSheetStat(AppLocaleService.tr('acc_rate', _appLanguage), '${acc.toInt()}%', statusColor),
+                      _buildSheetStat(AppLocaleService.tr('quiz_score', _appLanguage), '$correct / $total',
                           _isDarkMode ? Colors.white : Colors.black87),
                       _buildSheetStat(
-                          '平均時間',
-                          '${avgTime.toStringAsFixed(1)} 秒/題',
+                          AppLocaleService.tr('avg_time_sec', _appLanguage),
+                          avgTime.toStringAsFixed(1),
                           _isDarkMode ? Colors.white : Colors.black87),
                     ],
                   ),
@@ -1392,7 +1434,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           child: ElevatedButton.icon(
                             icon: const Icon(Icons.calendar_today_rounded,
                                 size: 16),
-                            label: Text('排入複習行程 ($subject)'),
+                            label: Text(AppLocaleService.tr('quiz_review_schedule', _appLanguage, [subject])),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: statusColor,
                               foregroundColor: Colors.white,
@@ -1405,9 +1447,9 @@ extension MainScreenProfileTab on _MainScreenState {
                                 context: context,
                                 initialTime:
                                     const TimeOfDay(hour: 18, minute: 0),
-                                helpText: '選擇複習行程時間',
-                                cancelText: '取消',
-                                confirmText: '確定',
+                                helpText: AppLocaleService.tr('schedule_time_pick', _appLanguage),
+                                cancelText: AppLocaleService.tr('cancel', _appLanguage),
+                                confirmText: AppLocaleService.tr('confirm', _appLanguage),
                               );
                               if (pickedTime != null && context.mounted) {
                                 Navigator.pop(ctx);
@@ -1428,7 +1470,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 await db.insert(
                                     'calendar_events', <String, Object?>{
                                   'user_id': widget.currentUser['id'],
-                                  'title': '複習：$subject',
+                                  'title': AppLocaleService.tr('quiz_review_title', _appLanguage, [subject]),
                                   'start_time': startStr,
                                   'end_time': endStr,
                                   'color': '0xFFE53935',
@@ -1437,7 +1479,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 final timeString =
                                     '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}';
                                 _showAISnackbar(
-                                    '已將「複習：$subject」排入今日 $timeString 行程！',
+                                    AppLocaleService.tr('quiz_scheduled_msg', _appLanguage, [subject, timeString]),
                                     Icons.event_available);
                               }
                             },
@@ -1449,7 +1491,7 @@ extension MainScreenProfileTab on _MainScreenState {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.auto_awesome, size: 16),
-                          label: const Text('一鍵 AI 生成學習建議'),
+                          label: Text(AppLocaleService.tr('ai_suggestion_button', _appLanguage)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: _currentPrimaryColor,
                             side: BorderSide(color: _currentPrimaryColor),
@@ -1549,7 +1591,7 @@ extension MainScreenProfileTab on _MainScreenState {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Center(
           child: Text(
-            '選擇行事曆顯示樣式',
+            AppLocaleService.tr('settings_calendar_style', _appLanguage),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -1561,10 +1603,10 @@ extension MainScreenProfileTab on _MainScreenState {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildCalendarViewModeOption(
-                ctx, 'dot', '經典短條模式', '日期下方以彩色短條標示行程，簡潔清晰'),
+                ctx, 'dot', AppLocaleService.tr('calendar_mode_dot', _appLanguage), AppLocaleService.tr('calendar_mode_dot_desc', _appLanguage)),
             const SizedBox(height: 12),
             _buildCalendarViewModeOption(
-                ctx, 'bar', '橫條跨天模式', '以彩色橫條橫跨日期顯示，方便看清名稱與區間'),
+                ctx, 'bar', AppLocaleService.tr('calendar_mode_bar', _appLanguage), AppLocaleService.tr('calendar_mode_bar_desc', _appLanguage)),
           ],
         ),
         actions: [
@@ -1572,7 +1614,7 @@ extension MainScreenProfileTab on _MainScreenState {
             child: TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text(
-                '取消',
+                AppLocaleService.tr('cancel', _appLanguage),
                 style: TextStyle(
                   color: _isDarkMode ? Colors.white70 : _currentPrimaryColor,
                   fontWeight: FontWeight.bold,
@@ -1683,7 +1725,7 @@ extension MainScreenProfileTab on _MainScreenState {
         children: [
           // Weekday header
           Row(
-            children: ['一', '二', '三', '四', '五', '六', '日'].map((w) {
+            children: [AppLocaleService.tr('mon', _appLanguage), AppLocaleService.tr('tue', _appLanguage), AppLocaleService.tr('wed', _appLanguage), AppLocaleService.tr('thu', _appLanguage), AppLocaleService.tr('fri', _appLanguage), AppLocaleService.tr('sat', _appLanguage), AppLocaleService.tr('sun', _appLanguage)].map((w) {
               return Expanded(
                 child: Center(
                   child: Text(
@@ -1874,7 +1916,7 @@ extension MainScreenProfileTab on _MainScreenState {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Center(
           child: Text(
-            '選擇社群貼文版面',
+            AppLocaleService.tr('settings_social_style', _appLanguage),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -1886,10 +1928,10 @@ extension MainScreenProfileTab on _MainScreenState {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildSocialFeedLayoutOption(
-                ctx, 'card', '規格化卡片', '卡片式呈現，文字最多3行，附帶精美縮圖預覽'),
+                ctx, 'card', AppLocaleService.tr('feed_layout_card', _appLanguage), AppLocaleService.tr('feed_layout_card_desc', _appLanguage)),
             const SizedBox(height: 12),
             _buildSocialFeedLayoutOption(
-                ctx, 'list', '新聞式列表', 'Row 左右佈局，左邊文章標題與摘要，右邊 80x80 小縮圖'),
+                ctx, 'list', AppLocaleService.tr('feed_layout_list', _appLanguage), AppLocaleService.tr('feed_layout_list_desc', _appLanguage)),
           ],
         ),
         actions: [
@@ -1897,7 +1939,7 @@ extension MainScreenProfileTab on _MainScreenState {
             child: TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text(
-                '取消',
+                AppLocaleService.tr('cancel', _appLanguage),
                 style: TextStyle(
                   color: _isDarkMode ? Colors.white70 : _currentPrimaryColor,
                   fontWeight: FontWeight.bold,
@@ -2028,7 +2070,7 @@ extension MainScreenProfileTab on _MainScreenState {
                         fontWeight: FontWeight.bold,
                         color: titleCol)),
                 const SizedBox(width: 6),
-                Text('2 小時前',
+                Text(AppLocaleService.tr('time_2h_ago', _appLanguage),
                     style: TextStyle(
                         fontSize: 9, color: textCol.withValues(alpha: 0.6))),
                 const Spacer(),
@@ -2038,7 +2080,7 @@ extension MainScreenProfileTab on _MainScreenState {
             ),
             const SizedBox(height: 8),
             Text(
-              '打包測試\n這是一段用來展示卡片排版的模擬文字內容。',
+              '${AppLocaleService.tr('test_title', _appLanguage)}\n${AppLocaleService.tr('test_desc', _appLanguage)}',
               style: TextStyle(fontSize: 11, height: 1.4, color: textCol),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -2113,7 +2155,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               fontWeight: FontWeight.bold,
                               color: titleCol)),
                       const SizedBox(width: 4),
-                      Text('2 小時前',
+                      Text(AppLocaleService.tr('time_2h_ago', _appLanguage),
                           style: TextStyle(
                               fontSize: 8,
                               color: textCol.withValues(alpha: 0.6))),
@@ -2121,7 +2163,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '國小生複習計畫\n今天幫小朋友整理的重點，大家可以參考看看！',
+                    '${AppLocaleService.tr('plan_title', _appLanguage)}\n${AppLocaleService.tr('plan_desc', _appLanguage)}',
                     style: TextStyle(fontSize: 10, height: 1.4, color: textCol),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -2169,55 +2211,55 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildSupportModule(BuildContext context) {
     return _buildModuleContainer(
       context: context,
-      title: '系統與協助',
+      title: AppLocaleService.tr('profile_support_title', _appLanguage),
       child: Column(
         children: [
           _buildProfileTile(
             context: context,
             icon: Icons.info_outline_rounded,
-            label: '關於我們',
-            value: '了解 App 技術運用、核心功能與品牌故事',
+            label: AppLocaleService.tr('about_us', _appLanguage),
+            value: AppLocaleService.tr('about_us_sub', _appLanguage),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const AboutUsScreen())),
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
-            icon: Icons.help_outline_rounded,
-            label: '常見問題',
-            value: '查看大家常問的問題與解答',
+            icon: Icons.support_agent_rounded,
+            label: AppLocaleService.tr('faq_and_support', _appLanguage),
+            value: AppLocaleService.tr('faq_and_support_sub', _appLanguage),
             onTap: _showFaqDialog,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.headset_mic_outlined,
-            label: '客服與意見回饋',
-            value: '回報問題或提供功能建議',
+            label: AppLocaleService.tr('feedback_and_help', _appLanguage),
+            value: AppLocaleService.tr('feedback_and_help_sub', _appLanguage),
             onTap: _showFeedbackDialog,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.explore_outlined,
-            label: '互動式功能引導',
-            value: '操作引導：AI 功能、題庫功能逐步體驗',
+            label: AppLocaleService.tr('tour_label', _appLanguage),
+            value: AppLocaleService.tr('tour_value', _appLanguage),
             onTap: _startTour,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.gavel_outlined,
-            label: '服務條款',
-            value: '查看使用者協議與隱私政策',
+            label: AppLocaleService.tr('terms_label', _appLanguage),
+            value: AppLocaleService.tr('terms_value', _appLanguage),
             onTap: _showTermsDialog,
           ),
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
             icon: Icons.privacy_tip_outlined,
-            label: '隱私權政策',
-            value: '了解我們如何蒐集與保護您的個人資料',
+            label: AppLocaleService.tr('privacy_label', _appLanguage),
+            value: AppLocaleService.tr('privacy_value', _appLanguage),
             onTap: _showPrivacyPolicyDialog,
           ),
           const Divider(height: 24),
@@ -2568,46 +2610,18 @@ extension MainScreenProfileTab on _MainScreenState {
 
   void _showFaqDialog() {
     final primaryColor = _currentPrimaryColor;
-    showDialog(
+    final isDark = _isDarkMode;
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.help_outline_rounded, color: primaryColor),
-            const SizedBox(width: 10),
-            const Text('常見問題 (FAQ)',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 400,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTermsSection('Q1: 如何將學習紀錄與進度同步？',
-                    '您的學習紀錄會與您的帳號連動，只要確保在有網路的環境下登入，系統會自動在背景將進度與雲端同步。如果使用訪客登入，資料只會保留在當前裝置。'),
-                _buildTermsSection('Q2: AI 診斷報告的依據是什麼？',
-                    '系統會分析您在「錯題本」與「模擬考卷」中的答題狀況，找出常錯單元，並結合 AI 提供專屬的改善建議與複習方向。'),
-                _buildTermsSection('Q3: 如何關閉系統通知或提醒？',
-                    '您可以在「個人檔案」>「設定與安全」中，找到「接收系統通知」的選項進行開啟或關閉。如果您想關閉手機本身的推播，請至手機的「設定」中調整。'),
-                _buildTermsSection('Q4: 可以修改登入的電子信箱嗎？',
-                    '目前為了確保帳號安全，註冊或綁定的電子信箱無法直接修改。如果確有修改需求，請透過「客服與意見回饋」與我們聯繫。'),
-                _buildTermsSection('Q5: 發現題庫有錯誤怎麼辦？',
-                    '若您發現題目或解答有誤，可以點擊題目右上角的「標記」功能，並透過客服表單將該題的截圖回報給我們，我們會盡快由專人修正。'),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('關閉', style: TextStyle(color: primaryColor)),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _FaqAndCustomerSupportSheet(
+        isDark: isDark,
+        primary: primaryColor,
+        onOpenFeedback: () {
+          Navigator.pop(ctx);
+          _showFeedbackDialog();
+        },
       ),
     );
   }
@@ -2866,6 +2880,7 @@ extension MainScreenProfileTab on _MainScreenState {
 class _RemedialMaterialSheet extends StatefulWidget {
   final String subjectName;
   final List<Map<String, dynamic>> wrongList;
+  final bool hasRealMistakes;
   final String userId;
   final bool isDark;
   final Color primary;
@@ -2873,6 +2888,7 @@ class _RemedialMaterialSheet extends StatefulWidget {
   const _RemedialMaterialSheet({
     required this.subjectName,
     required this.wrongList,
+    this.hasRealMistakes = true,
     required this.userId,
     required this.isDark,
     required this.primary,
@@ -2899,6 +2915,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
       userId: widget.userId,
       subject: widget.subjectName,
       wrongQuestions: widget.wrongList,
+      hasRealMistakes: widget.hasRealMistakes,
     ).listen(
       (chunk) {
         if (mounted) {
@@ -2950,30 +2967,54 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
 
   Widget _parseInlineFormatting(
       String text, TextStyle defaultStyle, bool isDark) {
+    // 清理無效代碼區塊符號
+    String cleanText = text
+        .replaceAll('```markdown', '')
+        .replaceAll('```json', '')
+        .replaceAll('```', '')
+        .trim();
+
     final spans = <InlineSpan>[];
     final regex = RegExp(r'\*\*(.*?)\*\*');
     int lastMatchEnd = 0;
 
-    for (var match in regex.allMatches(text)) {
+    for (var match in regex.allMatches(cleanText)) {
       if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start)));
+        // 清理非高亮區域的殘留星號、反引號等符號
+        final normalPart = cleanText
+            .substring(lastMatchEnd, match.start)
+            .replaceAll('*', '')
+            .replaceAll('`', '');
+        if (normalPart.isNotEmpty) {
+          spans.add(TextSpan(text: normalPart));
+        }
       }
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: defaultStyle.copyWith(
-            backgroundColor: isDark
-                ? Colors.amber.withValues(alpha: 0.3)
-                : Colors.yellow.withValues(alpha: 0.4),
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.amber.shade100 : Colors.black87,
+      final highlightedText =
+          match.group(1)?.replaceAll('*', '').replaceAll('`', '') ?? '';
+      if (highlightedText.isNotEmpty) {
+        spans.add(
+          TextSpan(
+            text: highlightedText,
+            style: defaultStyle.copyWith(
+              backgroundColor: isDark
+                  ? Colors.amber.withValues(alpha: 0.3)
+                  : Colors.yellow.withValues(alpha: 0.4),
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.amber.shade100 : Colors.black87,
+            ),
           ),
-        ),
-      );
+        );
+      }
       lastMatchEnd = match.end;
     }
-    if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastMatchEnd)));
+    if (lastMatchEnd < cleanText.length) {
+      final tailPart = cleanText
+          .substring(lastMatchEnd)
+          .replaceAll('*', '')
+          .replaceAll('`', '');
+      if (tailPart.isNotEmpty) {
+        spans.add(TextSpan(text: tailPart));
+      }
     }
 
     return RichText(
@@ -2991,17 +3032,28 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
     final widgets = <Widget>[];
 
     for (var line in lines) {
-      if (line.trim().isEmpty) {
-        widgets.add(const SizedBox(height: 8));
+      final trimmed = line.trim();
+      if (trimmed.isEmpty ||
+          trimmed.startsWith('```') ||
+          trimmed == '{' ||
+          trimmed == '}') {
+        if (trimmed.isEmpty) widgets.add(const SizedBox(height: 8));
         continue;
       }
 
-      if (line.startsWith('【') && line.contains('】')) {
-        // Title
+      // 檢查是否為主要大標題（例如：【連線異常】、【系統提示】）
+      if ((trimmed.startsWith('【') && trimmed.contains('】')) ||
+          RegExp(r'^#\s+').hasMatch(trimmed)) {
+        final titleText = trimmed
+            .replaceAll('#', '')
+            .replaceAll('【', '')
+            .replaceAll('】', '')
+            .replaceAll('*', '')
+            .trim();
         widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 12, top: 4),
           child: Text(
-            line,
+            titleText,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -3009,19 +3061,40 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
             ),
           ),
         ));
-      } else if (line.startsWith('[') && line.contains(']')) {
-        // Section Header
+      }
+      // 檢查是否為區塊標題（例如：[弱項摘要]、[觀念重點]、### 弱項摘要、**弱項摘要**等）
+      else if ((trimmed.startsWith('[') && trimmed.contains(']')) ||
+          RegExp(r'^#{2,4}\s*').hasMatch(trimmed) ||
+          trimmed.contains('弱項摘要') ||
+          trimmed.contains('觀念重點') ||
+          trimmed.contains('學習建議')) {
+        // 去除多餘 Markdown 符號與中括號
+        final cleanHeader = trimmed
+            .replaceAll(RegExp(r'^#{1,6}\s*'), '')
+            .replaceAll('[', '')
+            .replaceAll(']', '')
+            .replaceAll('【', '')
+            .replaceAll('】', '')
+            .replaceAll('*', '')
+            .replaceAll('：', '')
+            .replaceAll(':', '')
+            .trim();
+
         widgets.add(Container(
           margin: const EdgeInsets.only(top: 16, bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: isDark
                 ? Colors.white10
                 : widget.primary.withValues(alpha: 0.08),
             border: Border(left: BorderSide(color: widget.primary, width: 4)),
+            borderRadius: const BorderRadius.only(
+              topRight: Radius.circular(6),
+              bottomRight: Radius.circular(6),
+            ),
           ),
           child: Text(
-            line,
+            cleanHeader,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
@@ -3029,10 +3102,15 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
             ),
           ),
         ));
-      } else if (line.startsWith('•') || line.startsWith('-')) {
-        // Bullet point
+      }
+      // 檢查是否為條列點（•、-、*、1.、2.、1、2、等）
+      else if (RegExp(r'^\s*([•\-\*]|\d+[\.、\)])\s*').hasMatch(trimmed)) {
+        final contentText = trimmed
+            .replaceFirst(RegExp(r'^\s*([•\-\*]|\d+[\.、\)])\s*'), '')
+            .trim();
+
         widgets.add(Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 6),
+          padding: const EdgeInsets.only(left: 8, bottom: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3045,7 +3123,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
               const SizedBox(width: 8),
               Expanded(
                 child: _parseInlineFormatting(
-                  line.substring(1).trim(),
+                  contentText,
                   TextStyle(
                     fontSize: 14,
                     height: 1.6,
@@ -3059,12 +3137,13 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
             ],
           ),
         ));
-      } else {
-        // Normal text
+      }
+      // 一般段落文字
+      else {
         widgets.add(Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: _parseInlineFormatting(
-            line,
+            trimmed,
             TextStyle(
               fontSize: 14,
               height: 1.6,
@@ -3258,6 +3337,7 @@ class _LearningProgressCard extends StatefulWidget {
   final Widget matrixChartWidget;
   final Function(String) onShowRemedial;
   final Widget Function(String, Widget) moduleContainerBuilder;
+  final String appLanguage;
 
   const _LearningProgressCard({
     required this.matrixData,
@@ -3266,6 +3346,7 @@ class _LearningProgressCard extends StatefulWidget {
     required this.matrixChartWidget,
     required this.onShowRemedial,
     required this.moduleContainerBuilder,
+    required this.appLanguage,
   });
 
   @override
@@ -3374,7 +3455,9 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
     }
 
     final hasData = widget.matrixData.isNotEmpty;
-    final title = _currentIndex == 0 ? '學習歷程 (知識掌握度矩陣)' : '學習歷程 (多維能力分析)';
+    final title = _currentIndex == 0
+        ? AppLocaleService.tr('chart_section_title_matrix', widget.appLanguage)
+        : AppLocaleService.tr('chart_section_title_radar', widget.appLanguage);
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final double pageViewHeight = (245.0 * textScale).clamp(245.0, 310.0);
 
@@ -3431,7 +3514,9 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           if (_currentIndex == 0)
             Center(
               child: Text(
-                hasData ? '💡 點擊圓點查看測驗詳情與 AI 學習建議' : '本週尚無作答紀錄，完成練習後將自動繪製掌握度圖表',
+                hasData
+                    ? AppLocaleService.tr('chart_hint_tap_dot', widget.appLanguage)
+                    : AppLocaleService.tr('chart_hint_no_data', widget.appLanguage),
                 style: TextStyle(
                     color: widget.isDarkMode
                         ? Colors.grey.shade400
@@ -3443,7 +3528,9 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           else
             Center(
               child: Text(
-                hasData ? '💡 透過雷達圖快速掌握各科目能力分佈' : '完成練習後將自動繪製各科能力分佈',
+                hasData
+                    ? AppLocaleService.tr('chart_hint_radar', widget.appLanguage)
+                    : AppLocaleService.tr('chart_hint_radar_no_data', widget.appLanguage),
                 style: TextStyle(
                     color: widget.isDarkMode
                         ? Colors.grey.shade400
@@ -3468,7 +3555,7 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '本週偵測到 $blindSpotCount 筆嚴重盲點！建議及早複習。',
+                      AppLocaleService.tr('chart_blindspot_warn', widget.appLanguage, [blindSpotCount.toString()]),
                       style: const TextStyle(
                           color: Colors.red,
                           fontSize: 12,
@@ -3489,13 +3576,986 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
                           borderRadius: BorderRadius.circular(8)),
                     ),
                     child:
-                        const Text('AI 學習建議', style: TextStyle(fontSize: 11)),
+                        Text(AppLocaleService.tr('chart_blindspot_btn', widget.appLanguage), style: TextStyle(fontSize: 11)),
                   ),
                 ],
               ),
             ),
           ]
         ],
+      ),
+    );
+  }
+}
+
+// ─── 常見問題與 24H 線上客服彈窗 ───
+class _FaqAndCustomerSupportSheet extends StatefulWidget {
+  final bool isDark;
+  final Color primary;
+  final VoidCallback onOpenFeedback;
+
+  const _FaqAndCustomerSupportSheet({
+    required this.isDark,
+    required this.primary,
+    required this.onOpenFeedback,
+  });
+
+  @override
+  State<_FaqAndCustomerSupportSheet> createState() =>
+      _FaqAndCustomerSupportSheetState();
+}
+
+class _FaqAndCustomerSupportSheetState
+    extends State<_FaqAndCustomerSupportSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _chatInputCtrl = TextEditingController();
+  final ScrollController _chatScrollCtrl = ScrollController();
+
+  String _searchQuery = '';
+  late String _selectedCategory;
+  bool _isAiResponding = false;
+  StreamSubscription<String>? _streamSub;
+
+  final List<Map<String, dynamic>> _faqData = [
+    {
+      'category': 'faq_cat_account',
+      'icon': Icons.sync_rounded,
+      'qKey': 'faq_q1',
+      'aKey': 'faq_a1',
+    },
+    {
+      'category': 'faq_cat_ai',
+      'icon': Icons.auto_awesome,
+      'qKey': 'faq_q2',
+      'aKey': 'faq_a2',
+    },
+    {
+      'category': 'faq_cat_quiz',
+      'icon': Icons.quiz_outlined,
+      'qKey': 'faq_q3',
+      'aKey': 'faq_a3',
+    },
+    {
+      'category': 'faq_cat_notes',
+      'icon': Icons.menu_book_rounded,
+      'qKey': 'faq_q4',
+      'aKey': 'faq_a4',
+    },
+    {
+      'category': 'faq_cat_settings',
+      'icon': Icons.notifications_active_outlined,
+      'qKey': 'faq_q5',
+      'aKey': 'faq_a5',
+    },
+    {
+      'category': 'faq_cat_account',
+      'icon': Icons.lock_outline_rounded,
+      'qKey': 'faq_q6',
+      'aKey': 'faq_a6',
+    },
+    {
+      'category': 'faq_cat_settings',
+      'icon': Icons.palette_outlined,
+      'qKey': 'faq_q7',
+      'aKey': 'faq_a7',
+    },
+  ];
+
+  final List<String> _categoryKeys = [
+    'faq_cat_all',
+    'faq_cat_account',
+    'faq_cat_ai',
+    'faq_cat_quiz',
+    'faq_cat_notes',
+    'faq_cat_settings',
+  ];
+
+  List<String> get _quickPrompts {
+    final lang = AppLocaleService.currentLanguage;
+    if (lang == AppLocaleService.ja) {
+      return [
+        '💡 AI学習アドバイスの使い方',
+        '📓 間違いノートへの同期方法',
+        '⚙️ ダークモードとテーマの変更',
+        '🔒 登録メールアドレスの変更',
+        '❓ 問題の不具合・誤答の報告',
+        '📅 学習計画とリマインダー設定',
+      ];
+    } else if (lang == AppLocaleService.ko) {
+      return [
+        '💡 AI 맞춤 학습 제안 사용법',
+        '📓 오답노트 자동 연동 방법',
+        '⚙️ 다크 모드 및 테마 색상 변경',
+        '🔒 로그인 이메일 변경 가능한가요?',
+        '❓ 문제 오류 및 정답 수정 신고',
+        '📅 학습 일정 및 알림 설정 방법',
+      ];
+    } else {
+      return [
+        '💡 如何使用 AI 學習建議？',
+        '📓 錯題如何同步到筆記本？',
+        '⚙️ 如何切換深色模式與主題？',
+        '🔒 登入信箱可以修改嗎？',
+        '❓ 發現題庫解答有誤如何回報？',
+        '📅 怎麼設定讀書計畫與提醒？',
+      ];
+    }
+  }
+
+  late List<Map<String, dynamic>> _chatHistory;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _selectedCategory = AppLocaleService.tr('faq_cat_all', AppLocaleService.currentLanguage);
+    final lang = AppLocaleService.currentLanguage;
+    _chatHistory = [
+      {
+        'isUser': false,
+        'text': AppLocaleService.tr('support_greeting', lang),
+        'time': DateTime.now(),
+      }
+    ];
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchCtrl.dispose();
+    _chatInputCtrl.dispose();
+    _chatScrollCtrl.dispose();
+    _streamSub?.cancel();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScrollCtrl.hasClients) {
+        _chatScrollCtrl.animateTo(
+          _chatScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _sendChatMessage(String messageText) {
+    final text = messageText.trim();
+    if (text.isEmpty || _isAiResponding) return;
+
+    _chatInputCtrl.clear();
+    setState(() {
+      _chatHistory.add({
+        'isUser': true,
+        'text': text,
+        'time': DateTime.now(),
+      });
+      _chatHistory.add({
+        'isUser': false,
+        'text': '',
+        'time': DateTime.now(),
+        'isStreaming': true,
+      });
+      _isAiResponding = true;
+    });
+    _scrollToBottom();
+
+    // 格式化歷史對話
+    final historyForAi = <Map<String, dynamic>>[];
+    for (var msg in _chatHistory.take(_chatHistory.length - 1)) {
+      historyForAi.add({
+        'isAI': msg['isUser'] == false,
+        'text': msg['text'] ?? '',
+      });
+    }
+
+    final StringBuffer responseBuffer = StringBuffer();
+
+    _streamSub = AiDiagnosisService.generateCustomerSupportStream(
+      userInput: text,
+      history: historyForAi,
+    ).listen(
+      (chunk) {
+        if (!mounted) return;
+        responseBuffer.write(chunk);
+        setState(() {
+          _chatHistory.last['text'] = responseBuffer.toString();
+        });
+        _scrollToBottom();
+      },
+      onError: (err) {
+        if (!mounted) return;
+        setState(() {
+          _isAiResponding = false;
+          _chatHistory.last['isStreaming'] = false;
+          if (responseBuffer.isEmpty) {
+            _chatHistory.last['text'] =
+                AppLocaleService.tr('support_error_msg', AppLocaleService.currentLanguage);
+          }
+        });
+      },
+      onDone: () {
+        if (!mounted) return;
+        setState(() {
+          _isAiResponding = false;
+          _chatHistory.last['isStreaming'] = false;
+        });
+        _scrollToBottom();
+      },
+    );
+  }
+
+  Widget _parseChatMarkdown(String text, bool isDark) {
+    final spans = <InlineSpan>[];
+    final regex = RegExp(r'\*\*(.*?)\*\*');
+    int lastMatchEnd = 0;
+
+    for (var match in regex.allMatches(text)) {
+      if (match.start > lastMatchEnd) {
+        spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start)));
+      }
+      spans.add(
+        TextSpan(
+          text: match.group(1),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.amber.shade200 : widget.primary,
+            backgroundColor: widget.primary.withValues(alpha: 0.1),
+          ),
+        ),
+      );
+      lastMatchEnd = match.end;
+    }
+    if (lastMatchEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastMatchEnd)));
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontSize: 14,
+          height: 1.55,
+          color: isDark ? Colors.white.withValues(alpha: 0.92) : Colors.black87,
+        ),
+        children: spans,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final primary = widget.primary;
+
+    final lang = AppLocaleService.currentLanguage;
+    final allLabel = AppLocaleService.tr('faq_cat_all', lang);
+    // 語言切換後，若 _selectedCategory 不再是有效的分類標籤，重置為「全部」
+    final validLabels = _categoryKeys.map((k) => AppLocaleService.tr(k, lang)).toSet();
+    if (!validLabels.contains(_selectedCategory)) {
+      Future.microtask(() {
+        if (mounted) setState(() => _selectedCategory = allLabel);
+      });
+    }
+    final filteredFaq = _faqData.where((item) {
+      final categoryLabel = AppLocaleService.tr(item['category'] as String, lang);
+      final matchesCategory = _selectedCategory == allLabel ||
+          categoryLabel == _selectedCategory;
+      final q = AppLocaleService.tr(item['qKey'] as String, lang);
+      final a = AppLocaleService.tr(item['aKey'] as String, lang);
+      final matchesSearch = _searchQuery.isEmpty ||
+          q.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          a.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    }).toList();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.88,
+      minChildSize: 0.6,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1B1C26) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // 頂部抓把
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white24 : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // 頂部標題列
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.support_agent_rounded,
+                        color: primary, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocaleService.tr('faq_and_support', lang),
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          AppLocaleService.tr('faq_sheet_subtitle', lang),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.white54 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded,
+                        color: isDark ? Colors.white60 : Colors.grey.shade700),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+
+            // 分頁導覽 TabBar
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  color: primary,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primary.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: Colors.white,
+                unselectedLabelColor: isDark ? Colors.white60 : Colors.grey.shade700,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                tabs: [
+                  Tab(
+                    icon: const Icon(Icons.lightbulb_outline_rounded, size: 18),
+                    text: AppLocaleService.tr('faq_tab_faq', lang),
+                  ),
+                  Tab(
+                    icon: const Icon(Icons.headset_mic_rounded, size: 18),
+                    text: AppLocaleService.tr('faq_tab_chat', lang),
+                  ),
+                ],
+              ),
+            ),
+
+            // 分頁內容
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // ─── TAB 1: 常見問題列表 ───
+                  Column(
+                    children: [
+                      // 搜尋列
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                          style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black87, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: AppLocaleService.tr('faq_search_hint', lang),
+                            hintStyle: TextStyle(
+                                color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                fontSize: 12),
+                            prefixIcon: Icon(Icons.search_rounded,
+                                color: primary, size: 20),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 16),
+                                    onPressed: () {
+                                      _searchCtrl.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: isDark
+                                      ? Colors.white12
+                                      : Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: isDark
+                                      ? Colors.white12
+                                      : Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: primary, width: 1.5),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // 分類標籤滑動列
+                      SizedBox(
+                        height: 38,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _categoryKeys.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (context, idx) {
+                            final catKey = _categoryKeys[idx];
+                            final catLabel = AppLocaleService.tr(catKey, lang);
+                            final isSel = _selectedCategory == catLabel;
+                            return ChoiceChip(
+                              label: Text(catLabel,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                    color: isSel
+                                        ? Colors.white
+                                        : (isDark ? Colors.white70 : Colors.grey.shade800),
+                                  )),
+                              selected: isSel,
+                              selectedColor: primary,
+                              backgroundColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.06)
+                                  : Colors.grey.shade100,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20)),
+                              onSelected: (_) =>
+                                  setState(() => _selectedCategory = catLabel),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+
+                      // 常見問題清單
+                      Expanded(
+                        child: filteredFaq.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.search_off_rounded,
+                                        size: 48,
+                                        color: isDark
+                                            ? Colors.white24
+                                            : Colors.grey.shade300),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      AppLocaleService.tr('faq_no_result', lang, [_searchQuery]),
+                                        style: TextStyle(
+                                            color: isDark
+                                                ? Colors.white60
+                                                : Colors.grey.shade600,
+                                            fontSize: 13)),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.chat_bubble_outline_rounded,
+                                          size: 16),
+                                      label: Text(AppLocaleService.tr('faq_go_chat', lang)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: primary,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10)),
+                                      ),
+                                      onPressed: () =>
+                                          _tabController.animateTo(1),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+                                itemCount: filteredFaq.length + 1,
+                                itemBuilder: (ctx, i) {
+                                  if (i == filteredFaq.length) {
+                                    // 底部導引到客服的橫幅
+                                    return Container(
+                                      margin: const EdgeInsets.only(top: 12),
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            primary.withValues(alpha: 0.15),
+                                            primary.withValues(alpha: 0.05),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                            color: primary.withValues(alpha: 0.3)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.chat_bubble_outline_rounded,
+                                              color: primary, size: 24),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(AppLocaleService.tr('faq_footer_title', lang),
+                                                    style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: isDark
+                                                            ? Colors.white
+                                                            : Colors.black87)),
+                                                const SizedBox(height: 2),
+                                                Text(AppLocaleService.tr('faq_footer_sub', lang),
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: isDark
+                                                            ? Colors.white60
+                                                            : Colors.grey.shade600)),
+                                              ],
+                                            ),
+                                          ),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: primary,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 12, vertical: 8),
+                                              shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10)),
+                                            ),
+                                            onPressed: () =>
+                                                _tabController.animateTo(1),
+                                            child: Text(AppLocaleService.tr('faq_footer_btn', lang),
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+
+                                  final item = filteredFaq[i];
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? const Color(0xFF242533)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.white12
+                                            : Colors.grey.shade200,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.02),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Theme(
+                                      data: Theme.of(context).copyWith(
+                                          dividerColor: Colors.transparent),
+                                      child: ExpansionTile(
+                                        leading: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: primary.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Icon(item['icon'] as IconData,
+                                              color: primary, size: 18),
+                                        ),
+                                        title: Text(
+                                          AppLocaleService.tr(item['qKey'] as String, lang),
+                                          style: TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                        childrenPadding:
+                                            const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                                        expandedCrossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Divider(height: 1),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            AppLocaleService.tr(item['aKey'] as String, lang),
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              height: 1.6,
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : Colors.grey.shade800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+
+                  // ─── TAB 2: 24H 智能線上客服 ───
+                  Column(
+                    children: [
+                      // 頂部小狀態列
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.03)
+                              : Colors.grey.shade50,
+                          border: Border(
+                              bottom: BorderSide(
+                                  color: isDark
+                                      ? Colors.white10
+                                      : Colors.grey.shade200)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              AppLocaleService.tr('support_agent_online', lang),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white70 : Colors.grey.shade700,
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                              icon: const Icon(Icons.mail_outline_rounded, size: 14),
+                              label: Text(AppLocaleService.tr('support_transfer_btn', lang),
+                                  style: TextStyle(fontSize: 11)),
+                              onPressed: widget.onOpenFeedback,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 快捷問題標籤（水平滑動）
+                      Container(
+                        height: 38,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          itemCount: _quickPrompts.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 6),
+                          itemBuilder: (ctx, i) {
+                            return ActionChip(
+                              label: Text(_quickPrompts[i],
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.85)
+                                        : Colors.black87,
+                                  )),
+                              backgroundColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : primary.withValues(alpha: 0.08),
+                              side: BorderSide(
+                                  color: primary.withValues(alpha: 0.2)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              onPressed: () =>
+                                  _sendChatMessage(_quickPrompts[i]),
+                            );
+                          },
+                        ),
+                      ),
+
+                      // 聊天訊息列表
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _chatScrollCtrl,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          itemCount: _chatHistory.length,
+                          itemBuilder: (ctx, idx) {
+                            final msg = _chatHistory[idx];
+                            final isUser = msg['isUser'] == true;
+                            final text = msg['text'] as String? ?? '';
+                            final isStreaming = msg['isStreaming'] == true;
+
+                            if (isUser) {
+                              return Align(
+                                alignment: Alignment.centerRight,
+                                child: Container(
+                                  margin: const EdgeInsets.only(
+                                      bottom: 12, left: 40),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: primary,
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(16),
+                                      topRight: Radius.circular(16),
+                                      bottomLeft: Radius.circular(16),
+                                      bottomRight: Radius.circular(4),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    text,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            } else {
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor:
+                                          primary.withValues(alpha: 0.15),
+                                      child: Icon(Icons.support_agent_rounded,
+                                          color: primary, size: 18),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Container(
+                                        margin: const EdgeInsets.only(
+                                            bottom: 12, right: 30),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: isDark
+                                              ? const Color(0xFF262738)
+                                              : const Color(0xFFF3F4F6),
+                                          borderRadius: const BorderRadius.only(
+                                            topLeft: Radius.circular(4),
+                                            topRight: Radius.circular(16),
+                                            bottomLeft: Radius.circular(16),
+                                            bottomRight: Radius.circular(16),
+                                          ),
+                                          border: Border.all(
+                                            color: isDark
+                                                ? Colors.white10
+                                                : Colors.grey.shade200,
+                                          ),
+                                        ),
+                                        child: (text.isEmpty && isStreaming)
+                                            ? Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      valueColor:
+                                                          AlwaysStoppedAnimation<Color>(
+                                                              primary),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(AppLocaleService.tr('support_thinking', lang),
+                                                      style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: isDark
+                                                              ? Colors.white54
+                                                              : Colors.grey.shade600)),
+                                                ],
+                                              )
+                                            : _parseChatMarkdown(text, isDark),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+
+                      // 底部輸入框與發送按鈕
+                      Container(
+                        padding: EdgeInsets.fromLTRB(
+                            12,
+                            8,
+                            12,
+                            8 + MediaQuery.of(context).viewInsets.bottom),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF222332)
+                              : Colors.white,
+                          border: Border(
+                            top: BorderSide(
+                              color: isDark
+                                  ? Colors.white12
+                                  : Colors.grey.shade200,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.cleaning_services_rounded,
+                                  size: 20,
+                                  color: isDark
+                                      ? Colors.white54
+                                      : Colors.grey.shade600),
+                              tooltip: AppLocaleService.tr('support_clear_tooltip', lang),
+                              onPressed: _isAiResponding
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _chatHistory = [
+                                          {
+                                            'isUser': false,
+                                            'text': AppLocaleService.tr('support_reset_msg', lang),
+                                            'time': DateTime.now(),
+                                          }
+                                        ];
+                                      });
+                                    },
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: _chatInputCtrl,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: _sendChatMessage,
+                                decoration: InputDecoration(
+                                  hintText: AppLocaleService.tr('support_input_placeholder', lang),
+                                  hintStyle: TextStyle(
+                                    fontSize: 12.5,
+                                    color: isDark
+                                        ? Colors.white38
+                                        : Colors.grey.shade500,
+                                  ),
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: isDark
+                                      ? Colors.white.withValues(alpha: 0.06)
+                                      : Colors.grey.shade100,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              style: IconButton.styleFrom(
+                                backgroundColor: primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.all(8),
+                              ),
+                              icon: _isAiResponding
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                            Colors.white),
+                                      ),
+                                    )
+                                  : const Icon(Icons.send_rounded, size: 18),
+                              onPressed: _isAiResponding
+                                  ? null
+                                  : () => _sendChatMessage(_chatInputCtrl.text),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
