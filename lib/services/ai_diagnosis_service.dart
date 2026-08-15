@@ -85,6 +85,14 @@ class AiDiagnosisService {
     return '';
   }
 
+  /// Groq AI 預設使用的模型清單 (按優先順序排序)
+  /// 【在這改 Groq 模型】
+  static const List<String> _kGroqModels = [
+    'llama-3.1-8b-instant', // 極速備援模型
+    'openai/gpt-oss-120b', // 官方推薦旗艦模型 (GPT OSS 120B)
+    'qwen/qwen3.6-27b', // 官方推薦旗艦模型 (Qwen 3.6 27B)
+  ];
+
   static DateTime? nextAvailableTime;
 
   static const String _kCloudflareProxyUrl =
@@ -98,18 +106,20 @@ class AiDiagnosisService {
     int timeoutSeconds = 15,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse(_kCloudflareProxyUrl),
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode({
-          'provider': provider,
-          if (model != null) 'model': model,
-          'prompt': prompt,
-        }),
-      ).timeout(Duration(seconds: timeoutSeconds));
+      final response = await http
+          .post(
+            Uri.parse(_kCloudflareProxyUrl),
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode({
+              'provider': provider,
+              if (model != null) 'model': model,
+              'prompt': prompt,
+            }),
+          )
+          .timeout(Duration(seconds: timeoutSeconds));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         String? rawText;
         if (provider == 'groq' || provider == 'openrouter') {
           rawText = data['choices']?[0]?['message']?['content'] as String?;
@@ -132,12 +142,188 @@ class AiDiagnosisService {
     }
   }
 
-  static String _cleanMarkdown(String text) {
-    return text
-        .replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'\1')
+  /// 自動將簡體字與大陸術語轉換為繁體中文與台灣慣用語
+  static String toTraditionalChinese(String text) {
+    if (text.isEmpty) return text;
+
+    String result = text
+        .replaceAll('笔记', '筆記')
+        .replaceAll('关键词', '關鍵字')
+        .replaceAll('检索', '檢索')
+        .replaceAll('查找', '搜尋')
+        .replaceAll('要点', '要點')
+        .replaceAll('储存', '儲存')
+        .replaceAll('存储', '儲存')
+        .replaceAll('标签', '標籤')
+        .replaceAll('错题', '錯題')
+        .replaceAll('练习', '練習')
+        .replaceAll('诊断', '診斷')
+        .replaceAll('设置', '設定')
+        .replaceAll('密码', '密碼')
+        .replaceAll('登录', '登入')
+        .replaceAll('计划', '計畫')
+        .replaceAll('简介', '簡介')
+        .replaceAll('个人', '個人')
+        .replaceAll('档案', '檔案')
+        .replaceAll('账号', '帳號')
+        .replaceAll('页面', '頁面')
+        .replaceAll('帮助', '幫助')
+        .replaceAll('总结', '總結')
+        .replaceAll('建议', '建議')
+        .replaceAll('题目', '題目')
+        .replaceAll('选项', '選項')
+        .replaceAll('复习', '複習')
+        .replaceAll('学习', '學習')
+        .replaceAll('知识', '知識')
+        .replaceAll('难度', '難度')
+        .replaceAll('章节', '章節')
+        .replaceAll('单元', '單元')
+        .replaceAll('低代码', '低程式碼')
+        .replaceAll('代码', '程式碼')
+        .replaceAll('用户', '使用者')
+        .replaceAll('界面', '介面')
+        .replaceAll('网络', '網路')
+        .replaceAll('项目', '項目')
+        .replaceAll('点击', '點擊')
+        .replaceAll('一键', '一鍵')
+        .replaceAll('专员', '專員');
+
+    const s2t = {
+      '点': '點',
+      '关': '關',
+      '键': '鍵',
+      '记': '記',
+      '标': '標',
+      '签': '籤',
+      '错': '錯',
+      '题': '題',
+      '练': '練',
+      '习': '習',
+      '诊': '診',
+      '断': '斷',
+      '码': '碼',
+      '录': '錄',
+      '划': '劃',
+      '简': '簡',
+      '个': '個',
+      '档': '檔',
+      '账': '帳',
+      '页': '頁',
+      '帮': '幫',
+      '总': '總',
+      '结': '結',
+      '议': '議',
+      '难': '難',
+      '单': '單',
+      '库': '庫',
+      '网': '網',
+      '络': '絡',
+      '专': '專',
+      '业': '業',
+      '门': '門',
+      '开': '開',
+      '发': '發',
+      '统': '統',
+      '计': '計',
+      '实': '實',
+      '现': '現',
+      '创': '創',
+      '减': '減',
+      '杂': '雜',
+      '时': '時',
+      '间': '間',
+      '构': '構',
+      '选': '選',
+      '择': '擇',
+      '释': '釋',
+      '观': '觀',
+      '导': '導',
+      '师': '師',
+      '课': '課',
+      '测': '測',
+      '验': '驗',
+      '试': '試',
+      '卷': '卷',
+      '准': '準',
+      '备': '備',
+      '查': '查',
+      '询': '詢',
+      '贴': '貼',
+      '动': '動',
+      '态': '態',
+      '评': '評',
+      '论': '論',
+      '赞': '讚',
+      '提': '提',
+      '取': '取',
+      '优': '優',
+      '化': '化',
+      '随': '隨',
+      '与': '與',
+      '给': '給',
+      '为': '為',
+      '这': '這',
+      '么': '麼',
+      '样': '樣',
+      '里': '裡',
+      '后': '後',
+      '并': '並',
+      '数': '數',
+      '据': '據',
+      '显': '顯',
+      '示': '示',
+      '输': '輸',
+      '详': '詳',
+      '细': '細',
+      '步': '步',
+      '骤': '驟',
+      '图': '圖',
+      '历': '歷',
+      '程': '程',
+      '待': '待',
+      '办': '辦',
+      '获': '獲',
+      '得': '得',
+      '连': '連',
+      '线': '線',
+      '轻': '輕',
+      '松': '鬆',
+      '进': '進',
+      '行': '行',
+      '快': '快',
+      '速': '速',
+      '重': '重',
+      '类': '類',
+      '型': '型',
+    };
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < result.length; i++) {
+      final char = result[i];
+      buffer.write(s2t[char] ?? char);
+    }
+    return buffer.toString();
+  }
+
+  /// 移除 AI 模型（包含 Reasoning/Thinking 模型）輸出的內部思考過程塊 <think>...</think>，過濾 ** 星號為美觀括號，並強制繁體中文
+  static String cleanThinkingTags(String text) {
+    if (text.isEmpty) return text;
+    String cleaned = text
+        .replaceAll(
+            RegExp(r'<think>[\s\S]*?<\/think>', caseSensitive: false), '')
+        .replaceAll(RegExp(r'<think>[\s\S]*$', caseSensitive: false), '')
+        .replaceAll(
+            RegExp(r'^<think>.*$', caseSensitive: false, multiLine: true), '')
+        .replaceAll(
+            RegExp(r'^\s*\*\*\s*([^*]+?)\s*\*\*\s*$', multiLine: true), r'【$1】')
+        .replaceAll(RegExp(r'\*\*([^*]+?)\*\*'), r'【$1】')
         .replaceAll('**', '')
-        .replaceAll(RegExp(r'^\s*\*\s+', multiLine: true), '• ')
-        .trim();
+        .replaceAll(RegExp(r'^\s*[\*\-]\s+', multiLine: true), '• ');
+    return toTraditionalChinese(cleaned.trim());
+  }
+
+  static String _cleanMarkdown(String text) {
+    return cleanThinkingTags(text);
   }
 
   /// 呼叫 AI 進行 APP 導覽與對答 (優先使用 Groq 超高速零成本引擎，失敗退至 OpenRouter / Gemini)
@@ -150,26 +336,25 @@ class AiDiagnosisService {
     // 系統提示詞：定義導覽員的角色與對答規則
     final systemInstruction = customSystemPrompt ??
         '''
-你是「代理人助理」，這款學習 APP 專屬的個人智慧特助。
+你是「YeBang 家教學習 APP」的個人智慧特助「代理人助理」。你是一位精練有禮、親切友好、直擊重點的學習好夥伴。
 
-【雙重職責與回答原則】
-1. 💡 協助 APP 功能操作：
-   - 當使用者想執行功能（如新增行程、發貼文、測驗診斷、筆記管理、修改設定）或詢問 APP 功能時，請以【條理分明、簡潔點列】的方式引導，並提示具體觸發關鍵字（例如：直接說「新增行程」）。
-2. 💬 日常對問與生活關懷：
-   - 當使用者進行日常寒暄、心情抒發、學科常識問答或讀書鼓勵時，請以【溫暖口語、親切自然】的方式回答（約 2-3 句），可適時結合 APP 功能給予貼心關懷。
+【回答核心原則：精簡扼要、直擊核心】
+- 字數嚴格控制在【80 ~ 170 字以內】，精闢講重點，拒絕冗長鋪墊與廢話。
+- 先用 1 句精華定義核心概念，再用 2~3 點簡短重點（• ）說明關鍵要素，讓使用者 10 秒內快速吸收。
+- 語氣友好親切大方（稱呼「你」），使用台灣繁體中文習慣用語（例如：「低程式碼 (Low-Code)」）。
+- 嚴禁在句首生硬堆疊「喔😊」等做作語氣詞，直接自然切入重點。
 
-【本 APP 支援的功能與對應觸發關鍵字】
-1. 📅 日曆行程與待辦：管理個人行程與任務（直接輸入「新增行程」、「新增待辦」、「修改行程」、「修改待辦」）。
-2. 💬 社群交流：發布學習貼文、心得與互動（直接輸入「發貼文」）。
-3. 📚 題庫與 AI 診斷：進行測驗並分析個人弱項（直接輸入「練習題庫」）。
-4. 📓 個人筆記本：紀錄筆記與 AI 摘要整理（直接輸入「查看筆記本」、「新增筆記」、「整理筆記」）。
-5. ⚙️ 個人設定：直接提示精確關鍵字，例如「修改密碼」、「修改暱稱」、「更換頭像」、「修改簡介」、「切換主題」、「字體大小」、「個人檔案」。
+【功能操作引導】
+當使用者詢問或想執行 APP 功能時，1~2 句簡要說明並提示觸發關鍵字：
+1. 📓 個人筆記本（關鍵字：「新增筆記」、「查看筆記本」、「整理筆記」）
+2. ⚙️ 個人設定（關鍵字：「修改密碼」、「修改暱稱」、「更換頭像」、「個人檔案」）
+3. 📅 日曆與待辦（關鍵字：「新增行程」、「新增待辦」、「修改行程」）
+4. 📚 題庫測驗（關鍵字：「練習題庫」、「做測驗」）
+5. 💬 社群交流（關鍵字：「發貼文」、「看動態」）
 
-【排版與視覺規範】
-- 語言：永遠使用繁體中文（Traditional Chinese），絕不使用簡體字。
-- 字數控制：文字務必【精簡流暢】（整體控制在 80~120 字以內），避免長篇大論。
-- 條列規範：列舉項目時請使用標準條列（• 或 1. 2.），Emoji 符號僅在重點處適度點綴 1-2 個（嚴禁過度堆疊）。
-- 符號禁忌：絕對不使用任何類似星星的符號（如 ✨、⭐、🌟 等）。
+【排版與語言】
+- 永遠使用繁體中文（Traditional Chinese），絕不使用簡體字。
+- 條列使用標準符號（• ），Emoji 適度點綴 1-2 個，保持版面清爽好讀。
 ''';
 
     // 組建對話訊息
@@ -217,11 +402,7 @@ class AiDiagnosisService {
 
     // 1. 嘗試本地 Groq (具備雙模型備援)
     if (_kGroqApiKey.trim().isNotEmpty) {
-      final groqModels = [
-        'llama-3.3-70b-versatile', // 旗艦高品質模型
-        'llama-3.1-8b-instant', // 極速備援模型（幾無併發延遲）
-      ];
-      for (final gModel in groqModels) {
+      for (final gModel in _kGroqModels) {
         debugPrint('代理人助理：啟動 Groq 超高速引擎 ($gModel)...');
         try {
           bool hasYielded = false;
@@ -240,6 +421,7 @@ class AiDiagnosisService {
     }
 
     // 2. 嘗試本地 OpenRouter (僅在 Key 存在時調用，避免卡住)
+    // 【在這改 OpenRouter 模型】
     bool openRouterSucceeded = false;
     Exception? lastError;
 
@@ -388,10 +570,10 @@ class AiDiagnosisService {
    - 若遇到無法解決的技術問題或需人工協助，可引導使用者至「客服與意見回饋」填寫表單。
 
 【回答規範】
-- $langDirective
+- $langDirective（嚴禁出現「笔记」、「关键词」、「要点」等簡體字，一律使用繁體字「筆記」、「關鍵字」、「要點」）。
 - 語氣親切溫暖、條理清晰（例如適度條列重點）。
 - 重要名詞或步驟請以雙星號 (**) 標示（例如：**個人檔案** > **設定與安全**）。
-- 內容精簡明瞭（約 100~200 字），避免冗長廢話。
+- 內容精簡明瞭（約 80~150 字），直擊重點，避免冗長廢話。
 ''';
 
     await for (final chunk in generateOpenRouterGuideStream(
@@ -400,7 +582,7 @@ class AiDiagnosisService {
       customSystemPrompt: systemPrompt,
     )) {
       if (chunk.text.isNotEmpty) {
-        yield chunk.text;
+        yield toTraditionalChinese(chunk.text);
       }
     }
   }
@@ -409,7 +591,7 @@ class AiDiagnosisService {
   static Stream<String> _tryOpenRouterModel({
     required String model,
     required List<Map<String, String>> messages,
-    int maxTokens = 300,
+    int maxTokens = 700,
   }) async* {
     final url = Uri.parse('https://openrouter.ai/api/v1/chat/completions');
     final client = http.Client();
@@ -484,7 +666,7 @@ class AiDiagnosisService {
   static Stream<String> _tryGroqModel({
     required String model,
     required List<Map<String, String>> messages,
-    int maxTokens = 220,
+    int maxTokens = 700,
   }) async* {
     final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
     final client = http.Client();
@@ -498,7 +680,7 @@ class AiDiagnosisService {
       'stream': true,
       'messages': messages,
       'max_tokens': maxTokens,
-      'temperature': 0.5,
+      'temperature': 0.7,
     }));
 
     try {
@@ -664,13 +846,14 @@ $correctDetails
     try {
       // 1. 本地 Groq (若有金鑰)
       if (_kGroqApiKey.isNotEmpty) {
-        final groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
-        for (final gModel in groqModels) {
+        for (final gModel in _kGroqModels) {
           try {
             bool hasYielded = false;
             await for (final chunk in _tryGroqModel(
                     model: gModel,
-                    messages: [{'role': 'user', 'content': prompt}],
+                    messages: [
+                      {'role': 'user', 'content': prompt}
+                    ],
                     maxTokens: 1024)
                 .timeout(const Duration(seconds: 6))) {
               yield chunk;
@@ -700,7 +883,8 @@ $correctDetails
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
-      await for (final chunk in contentStream.timeout(const Duration(seconds: 8))) {
+      await for (final chunk
+          in contentStream.timeout(const Duration(seconds: 8))) {
         final text = chunk.text;
         if (text != null && text.isNotEmpty) {
           yield text;
@@ -874,19 +1058,19 @@ ${AppLocaleService.getAiLanguageInstruction()}
     // 2. 備援：嘗試速度最快的 Groq（15秒超時）
     if (_kGroqApiKey.isNotEmpty) {
       debugPrint('學習建議：嘗試 Groq 備援...');
-      try {
-        bool hasYielded = false;
-        await for (final chunk in _tryGroqModel(
-                model: 'llama-3.3-70b-versatile',
-                messages: messages,
-                maxTokens: 550)
-            .timeout(const Duration(seconds: 15))) {
-          yield chunk;
-          hasYielded = true;
+      for (final gModel in _kGroqModels) {
+        try {
+          bool hasYielded = false;
+          await for (final chunk in _tryGroqModel(
+                  model: gModel, messages: messages, maxTokens: 550)
+              .timeout(const Duration(seconds: 15))) {
+            yield chunk;
+            hasYielded = true;
+          }
+          if (hasYielded) return;
+        } catch (e) {
+          debugPrint('學習建議 Groq 模型 $gModel 失敗: $e');
         }
-        if (hasYielded) return;
-      } catch (e) {
-        debugPrint('學習建議 Groq 失敗: $e');
       }
     }
 
@@ -1046,7 +1230,8 @@ ${AppLocaleService.getAiLanguageInstruction()}
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
-      await for (final chunk in contentStream.timeout(const Duration(seconds: 8))) {
+      await for (final chunk
+          in contentStream.timeout(const Duration(seconds: 8))) {
         final text = chunk.text;
         if (text != null && text.isNotEmpty) {
           yield text;
@@ -1108,7 +1293,8 @@ ${AppLocaleService.getAiLanguageInstruction()}
 
     // 1. 若本地有 API Key，優先嘗試 Gemini SDK
     if (apiKey.isNotEmpty &&
-        (nextAvailableTime == null || !nextAvailableTime!.isAfter(DateTime.now()))) {
+        (nextAvailableTime == null ||
+            !nextAvailableTime!.isAfter(DateTime.now()))) {
       try {
         final model = GenerativeModel(
           model: 'gemini-2.5-flash',
@@ -1139,8 +1325,10 @@ ${AppLocaleService.getAiLanguageInstruction()}
         }
         if (geminiSuccess) return;
       } catch (e) {
-        debugPrint('Gemini clone stream error, switching to Cloudflare Proxy: $e');
-        if (e.toString().contains('429') || e.toString().contains('RESOURCE_EXHAUSTED')) {
+        debugPrint(
+            'Gemini clone stream error, switching to Cloudflare Proxy: $e');
+        if (e.toString().contains('429') ||
+            e.toString().contains('RESOURCE_EXHAUSTED')) {
           nextAvailableTime = DateTime.now().add(const Duration(seconds: 60));
         }
       }
@@ -1393,9 +1581,12 @@ $correctDetails
   }
 
   static String cleanAiExplanationText(String text) {
-    return text
+    final cleaned = cleanThinkingTags(text);
+    return cleaned
         .replaceAll(RegExp(r'^\s*#{1,6}\s*', multiLine: true), '')
-        .replaceAll(RegExp(r'^\s*[\*\-]\s*\*\*([^*]+)\*\*\s*:\s*', multiLine: true), r'• 【$1】：')
+        .replaceAll(
+            RegExp(r'^\s*[\*\-]\s*\*\*([^*]+)\*\*\s*:\s*', multiLine: true),
+            r'• 【$1】：')
         .replaceAll(RegExp(r'^\s*[\*\-]\s*', multiLine: true), '• ')
         .replaceAll('**', '')
         .trim();
@@ -1424,15 +1615,28 @@ $correctDetails
           options = decoded.map((e) => e.toString()).toList();
         }
       } catch (_) {
-        options = rawOptions.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').split(',').map((e) => e.trim()).toList();
+        options = rawOptions
+            .replaceAll('[', '')
+            .replaceAll(']', '')
+            .replaceAll('"', '')
+            .split(',')
+            .map((e) => e.trim())
+            .toList();
       }
     }
-    
-    final correctOpt = (correctIndex >= 0 && correctIndex < options.length) ? options[correctIndex] : '未知';
-    final chosenOpt = (chosenIndex != null && chosenIndex >= 0 && chosenIndex < options.length) ? options[chosenIndex] : '未作答';
+
+    final correctOpt = (correctIndex >= 0 && correctIndex < options.length)
+        ? options[correctIndex]
+        : '未知';
+    final chosenOpt = (chosenIndex != null &&
+            chosenIndex >= 0 &&
+            chosenIndex < options.length)
+        ? options[chosenIndex]
+        : '未作答';
 
     final correctOptLetter = String.fromCharCode(65 + correctIndex);
-    final chosenOptLetter = chosenIndex != null ? String.fromCharCode(65 + chosenIndex) : '無';
+    final chosenOptLetter =
+        chosenIndex != null ? String.fromCharCode(65 + chosenIndex) : '無';
 
     final prompt = '''
 你是一位極緻精煉、直擊考點的台灣 AI 考題導師。學生在練習選擇題時，需要「10 秒內能看完的精華觀念摘要」。
@@ -1479,18 +1683,12 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
 
     // 1. 優先：嘗試本地 Groq API
     if (_kGroqApiKey.isNotEmpty) {
-      final groqModels = [
-        'llama-3.3-70b-versatile',
-        'llama-3.1-8b-instant',
-      ];
-      for (final gModel in groqModels) {
+      for (final gModel in _kGroqModels) {
         debugPrint('AI 解析：嘗試本地 Groq 引擎 ($gModel)...');
         try {
           bool hasYielded = false;
           await for (final chunk in _tryGroqModel(
-                  model: gModel,
-                  messages: messages,
-                  maxTokens: 1024)
+                  model: gModel, messages: messages, maxTokens: 1024)
               .timeout(const Duration(seconds: 4))) {
             yield chunk;
             hasYielded = true;

@@ -7315,10 +7315,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await for (final chunk in stream) {
         buffer += chunk.text;
         modelUsed = chunk.model;
+        final cleanedText = AiDiagnosisService.cleanThinkingTags(buffer);
         setModalState(() {
           chatLogs[targetIndex] = {
             'isAI': true,
-            'text': buffer,
+            'text': cleanedText.isNotEmpty ? cleanedText : '⏳ 正在思考中...',
             'isCard': false,
             'modelUsed': modelUsed,
           };
@@ -7466,10 +7467,11 @@ $strokePrompt
 
       await for (final chunk in stream) {
         buffer += chunk;
+        final cleanedText = AiDiagnosisService.cleanThinkingTags(buffer);
         setModalState(() {
           chatLogs[responseIndex] = {
             'isAI': true,
-            'text': buffer,
+            'text': cleanedText.isNotEmpty ? cleanedText : '⏳ 正在思考中...',
             'isCard': false,
             'author': authorName,
             'avatarColor': _cloneContext!['avatarColor'],
