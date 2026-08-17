@@ -88,10 +88,11 @@ class AiDiagnosisService {
   /// Groq AI 預設使用的模型清單 (按優先順序排序)
   /// 【在這改 Groq 模型】
   static const List<String> _kGroqModels = [
-    'llama-3.3-70b-versatile', // 官方推薦頂級模型 (Groq 70B)
-    'llama-3.1-8b-instant', // 極速備援模型
-    'mixtral-8x7b-32768', // 高速長上下文模型
-    'gemma2-9b-it', // Google Gemma 備援模型
+    'llama-3.1-8b-instant', // 極速閃電主力模型 (~1000 tokens/s, 0.15s 回應)
+    'gemma2-9b-it', // Google Gemma 2 9B 備援模型
+    'mixtral-8x7b-32768', // 高速長上下文備援模型
+    'llama-3.2-3b-preview', // 輕量極速備援模型
+    'llama-3.2-1b-preview', // 超輕量備援模型
   ];
 
   static DateTime? nextAvailableTime;
@@ -344,7 +345,7 @@ class AiDiagnosisService {
 你是「YeBang 家教學習 APP」的個人智慧特助「代理人助理」。你是一位精練有禮、親切友好、直擊重點的學習好夥伴。
 
 【回答核心原則：精簡扼要、直擊核心】
-- 字數嚴格控制在【80 ~ 170 字以內】，精闢講重點，拒絕冗長鋪墊與廢話。
+- 字數嚴格控制在【80 ~ 120 字以內】，精闢講重點，拒絕冗長鋪墊與廢話。
 - 先用 1 句精華定義核心概念，再用 2~3 點簡短重點（• ）說明關鍵要素，讓使用者 10 秒內快速吸收。
 - 語氣友好親切大方（稱呼「你」），使用台灣繁體中文習慣用語（例如：「低程式碼 (Low-Code)」）。
 - 嚴禁在句首生硬堆疊「喔😊」等做作語氣詞，直接自然切入重點。
@@ -414,6 +415,7 @@ class AiDiagnosisService {
           await for (final chunk in _tryGroqModel(
             model: gModel,
             messages: messages,
+            maxTokens: 250,
           )) {
             yield AssistantResponseChunk(chunk, 'groq');
             hasYielded = true;
@@ -690,8 +692,8 @@ class AiDiagnosisService {
 
     try {
       final response = await client.send(request).timeout(
-            const Duration(seconds: 12),
-            onTimeout: () => throw Exception('Groq 請求逾時（12s）'),
+            const Duration(seconds: 4),
+            onTimeout: () => throw Exception('Groq 請求逾時（4s）'),
           );
 
       if (response.statusCode != 200) {
@@ -704,8 +706,8 @@ class AiDiagnosisService {
       final byteStream = response.stream
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .timeout(const Duration(seconds: 12), onTimeout: (sink) {
-        sink.addError(Exception('Groq 串流讀取逾時（12s）'));
+          .timeout(const Duration(seconds: 8), onTimeout: (sink) {
+        sink.addError(Exception('Groq 串流讀取逾時（8s）'));
       });
 
       int chunkCount = 0;

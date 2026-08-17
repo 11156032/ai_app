@@ -2643,32 +2643,32 @@ extension MainScreenProfileTab on _MainScreenState {
         ),
         content: SizedBox(
           width: double.maxFinite,
-          height: 320,
+          height: 360,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildTermsSection('1. 接受條款',
-                    '您存取或使用「YeBang 家教」應用程式即表示您已閱讀、理解並同意受本服務條款約束。若您不同意本條款之任何部分，請立即停止使用本服務。'),
-                _buildTermsSection('2. 服務說明',
-                    '本服務提供學習題庫、筆記管理、AI 智慧助手、行事曆排程及社群交流等功能。我們保留隨時新增、修改或移除任何功能的權利，且不另行通知。'),
-                _buildTermsSection('3. 帳號責任',
-                    '您有責任妥善保管帳號憑證，並對您帳號下發生的所有活動負責。請勿共享帳號或讓他人代為使用。如發現帳號遭未經授權使用，請立即通知我們。'),
-                _buildTermsSection('4. 使用者行為規範',
-                    '您同意不得利用本服務從事以下行為：散佈違法、騷擾、誹謗或侵權內容；傳播惡意程式；未經授權存取他人帳號；以自動化方式大量存取服務；或任何違反中華民國法律的行為。我們保留移除違規內容及停權帳號的權利。'),
-                _buildTermsSection('5. 智慧財產權',
-                    '本應用程式的所有設計、程式碼、圖示及品牌識別均受智慧財產權法律保護，所有權歸開發團隊所有。使用者發布於社群的內容，其著作權仍屬使用者本人，惟您同意授予我們非獨家、免費的使用許可，以於服務範疇內展示該內容。'),
-                _buildTermsSection('6. AI 功能聲明',
-                    'AI 智慧功能（含 AI 診斷、AI 伴學、AI 行事曆助手等）由第三方 AI 模型提供支援，其回覆內容僅供參考。使用者應自行判斷 AI 輸出的正確性，如有題可藉由客服與意見回饋功能回報。'),
+                _buildTermsSection('1. 接受條款與法律效力',
+                    '您存取或使用「YeBang 家教」應用程式（以下簡稱「本服務」）即表示您已詳細閱讀、理解並同意受本服務條款及相關規範約束。若您為限制行為能力人（如未成年人），應由法定代理人或監護人閱讀、瞭解並同意本條款後方可使用。若您不同意本條款之任何部分，請立即停止使用本服務。'),
+                _buildTermsSection('2. 服務範疇與功能說明',
+                    '本服務為綜合性智慧教育輔助平台，提供學科練習與模擬測驗、錯題自動收錄複習、AI 專屬步驟剖析詳解、學習歷程掌握度矩陣與雷達圖診斷、客製化補強教材生成、個人筆記（含手寫塗鴉與 AI 一鍵摘要整理）、智慧行事曆與讀書計畫排程、社群學習交流互動，以及 24H 智慧線上客服等功能。我們保留因版本迭代與優化隨時新增、調整或升級功能之權利。'),
+                _buildTermsSection('3. 帳號註冊與資訊安全',
+                    '您有責任妥善保管帳號憑證（包含電子郵件與密碼），並對您帳號下發生的所有活動負完全責任。請勿共享帳號或讓未授權他人使用。如發現帳號遭未經授權使用或有資安疑慮，請立即透過「客服與意見回饋」通知我們。'),
+                _buildTermsSection('4. 使用者行為規範與社群守則',
+                    '您同意合法、正當使用本服務，嚴禁散佈任何違法、侵權、騷擾、仇恨、誹謗、暴力、不雅或侵害他人智慧財產權之內容；嚴禁傳播惡意程式碼、破解逆向工程或利用自動化工具濫用系統資源。我們保留移除違規內容、限制功能或終止違規帳號之權利。'),
+                _buildTermsSection('5. 智慧財產權歸屬與授權',
+                    '本應用程式之所有設計架構、程式碼、圖示、題庫資料庫及品牌識別均受智慧財產權法律保護，所有權歸開發團隊所有。使用者發布於社群或筆記之原創內容，其著作權仍屬使用者本人，惟您同意授予我們非獨家、全球性、免費的使用與展示授權，以於服務範疇內正常呈現該內容。'),
+                _buildTermsSection('6. AI 生成內容聲明與教育輔助定位',
+                    '本服務整合之 AI 智慧功能（含 AI 智慧特助、題庫解題剖析、能力診斷分析、弱項補強教材、筆記摘要及 24H 客服等）係基於尖端生成式 AI 模型提供之「學習輔助參考資料」，不代表官方考試標準答案或法律/醫療等專業保證。使用者在正式考試或重要決策時應進行獨立查證與多方思考。'),
                 _buildTermsSection('7. 免責聲明與責任限制',
-                    '本服務「依現狀」提供，不附帶任何形式的明示或默示保證。在法律允許的最大範圍內，我們不對因使用或無法使用本服務所造成的任何間接、附帶、特殊或懲罰性損害負責。'),
-                _buildTermsSection('8. 條款修改',
-                    '我們保留隨時修訂本條款的權利。修訂後的條款將於 App 內公告，並以公告日期起生效。若您在條款更新後繼續使用本服務，即視為同意接受修訂後的條款。'),
-                _buildTermsSection('9. 準據法',
+                    '本服務係依「現況」及「現有技術水準」提供，不附帶任何明示或默示之擔保。在法律允許的最大範圍內，我們不對因網路中斷、不可抗力因素或使用者不當操作所導致之任何間接、附帶或衍生損害承擔賠償責任。'),
+                _buildTermsSection('8. 條款修訂與公告',
+                    '我們保留隨時修訂本條款的權利。修訂後之條款將於 App 內公告並即時生效。若您在條款更新後繼續使用本服務，即視為同意接受修訂後之條款。'),
+                _buildTermsSection('9. 準據法與爭議管轄',
                     '本條款之解釋、效力及爭議解決，均依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。'),
                 const SizedBox(height: 8),
                 Text(
-                  '最後更新日期：2026 年 7 月27 日',
+                  '最後更新日期：2026 年 8 月 17 日',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],
@@ -2708,26 +2708,26 @@ extension MainScreenProfileTab on _MainScreenState {
         ),
         content: SizedBox(
           width: double.maxFinite,
-          height: 360,
+          height: 380,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildTermsSection('1. 蒐集的資料類型',
-                    '我們蒐集以下類型的資料以提供服務：\n・帳號資訊：使用者名稱、電子郵件地址。\n・學習歷程：測驗紀錄、錯題記錄、筆記內容、日曆行程。\n・使用資料：功能使用頻率、應用程式設定偏好。\n・裝置資訊：作業系統版本（僅用於相容性診斷）。'),
-                _buildTermsSection('2. 資料使用目的',
-                    '我們蒐集的資料僅用於以下目的：\n・提供、維護及改善本服務功能。\n・個人化您的學習體驗（如 AI 診斷、分身設定）。\n・發送重要服務通知（如帳號安全警示）。\n我們不會出售您的個人資料給任何第三方，也不會將資料用於廣告目的。'),
-                _buildTermsSection('3. 資料儲存與安全',
-                    '您的學習資料主要儲存於您裝置本地的 SQLite 資料庫中。部分功能（如 AI 對話、回饋提交）需將資料傳輸至我們或第三方 AI 服務的伺服器，傳輸過程採用加密連線（HTTPS）保護。我們採取合理的技術措施防止未授權存取，但無法保證 100% 的資料安全性。'),
-                _buildTermsSection('4. 您的資料權利',
-                    '您對您的個人資料享有以下權利：\n・查詢權：可在「個人檔案」頁面查看您儲存的資料。\n・更正權：可隨時修改個人資料（暱稱、頭像、簡介）。\n・刪除權：可在帳號設定中申請刪除帳號，我們將於 30 天內清除您的個人資料。\n如需行使上述權利，請透過「客服與意見回饋」功能與我們聯繫。'),
-                _buildTermsSection('5. 第三方服務',
-                    '本應用程式使用以下第三方服務，請參閱各自的隱私權政策：\n・Google 登入（Google LLC）：用於快速建立帳號。\n・Google Gemini AI（Google LLC）：用於 AI 智慧功能。\n・OpenRouter AI：用於 AI 分身對話功能。\n使用上述功能時，相關資料將依照第三方服務的隱私權政策處理。'),
-                _buildTermsSection('6. 政策更新',
-                    '我們可能因法律要求或服務調整而不定期更新本隱私權政策。更新後將於 App 內公告，重大變更將以顯著方式告知。繼續使用本服務即代表您接受更新後的政策。'),
+                    '我們嚴格遵循最小化蒐集原則，僅蒐集提供服務所必需之資料：\n・帳號資訊：使用者名稱、暱稱、電子郵件地址、頭像及個人簡介（或 Google 登入授權傳輸之基礎識別資料）。\n・學習歷程與筆記：測驗紀錄、正確率、錯題本、手寫塗鴉與文字筆記、讀書行事曆排程及待辦事項。\n・社群互動資料：您主動發布的學習心得貼文與討論留言。\n・裝置與系統偏好：作業系統版本、深淺色主題設定、字體大小與多國語言偏好（僅用於相容性優化與介面渲染）。'),
+                _buildTermsSection('2. 資料使用目的與承諾',
+                    '我們蒐集的資料僅用於以下合法目的：\n・提供、維護及持續改善各項學習與診斷功能。\n・計算知識掌握度矩陣與雷達圖，為您生成客製化 AI 補強教材與學習建議。\n・發送重要帳號安全警示或系統重要公告。\n【絕不出售承諾】我們絕不會出售、出租或出借您的個人資料給任何第三方，亦不將資料用於任何非關本服務之商業廣告推銷。'),
+                _buildTermsSection('3. 資料儲存機制與傳輸安全',
+                    '本應用程式採用「本機優先 (Local-First)」架構，您的個人筆記、測驗歷程與日曆排程主要加密儲存於您本機裝置的 SQLite 資料庫中。部分涉及雲端處理之功能（如 AI 診斷分析、意見回饋與題庫同步），所有網路傳輸均採用標準 HTTPS / TLS 1.3 加密連線，確保傳輸過程不被未授權截取或竄改。'),
+                _buildTermsSection('4. 第三方服務供應商說明',
+                    '為提供高可用性與頂級運算體驗，本服務整合了以下符合國際隱私標準之第三方服務：\n・Google 登入（Google LLC）：用於快速、安全的帳號身分驗證。\n・Groq AI（Groq Inc.）：提供高吞吐、低延遲的極速推理（Llama 3.1 & Gemma 2）。\n・Google Gemini AI（Google LLC）：提供深度學習診斷與步驟解析。\n・OpenRouter AI & Cloudflare：提供備援通道與安全中繼。\n傳輸至第三方 AI 之文字僅用於當次即時推理，不包含個人敏感身分憑證。'),
+                _buildTermsSection('5. 使用者個人資料自主權利',
+                    '依個人資料保護法，您對您的個人資料享有完整自主權利：\n・查詢與閱覽：可在「個人檔案」及各功能頁面隨時查閱儲存之資料。\n・更正與補充：可隨時修改暱稱、頭像、個人簡介、筆記與行程。\n・刪除權（被遺忘權）：可在帳號設定中申請註銷並永久刪除帳號，系統將清除您的所有個人資料與學習紀錄；訪客模式亦可在登出時一鍵清空本機暫存。'),
+                _buildTermsSection('6. 政策更新與聯絡管道',
+                    '我們可能因法律要求或服務擴充而不定期修訂本隱私權政策。更新後將於 App 內公告並更新生效日期。若對本政策有任何疑問，歡迎透過「常見問題與 24H 線上客服」或「客服與意見回饋」與我們聯繫。'),
                 const SizedBox(height: 8),
                 Text(
-                  '最後更新日期：2026 年 7 月 27 日',
+                  '最後更新日期：2026 年 8 月 17 日',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],
@@ -2907,10 +2907,50 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
   bool _showLoading = true;
   double _loadingTarget = 0.95;
   int _loadingDurationMs = 8000;
+  bool _isCached = false;
+  String? _savedUpdatedAt;
 
   @override
   void initState() {
     super.initState();
+    _checkSavedAndInit();
+  }
+
+  Future<void> _checkSavedAndInit() async {
+    try {
+      final saved = await DatabaseHelper.instance
+          .getRemedialMaterial(widget.userId, widget.subjectName);
+      if (saved != null &&
+          saved['content'] != null &&
+          (saved['content'] as String).trim().isNotEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _buffer.clear();
+          _buffer.write(saved['content']);
+          _savedUpdatedAt = saved['updated_at']?.toString();
+          _isCached = true;
+          _showLoading = false;
+          _isConnecting = false;
+        });
+        return;
+      }
+    } catch (e) {
+      debugPrint('讀取已儲存的學習建議失敗: $e');
+    }
+    _startGenerating();
+  }
+
+  void _startGenerating({bool isRegenerate = false}) {
+    _sub?.cancel();
+    setState(() {
+      _buffer.clear();
+      _showLoading = true;
+      _isConnecting = true;
+      _loadingTarget = 0.95;
+      _loadingDurationMs = 8000;
+      _isCached = false;
+    });
+
     _sub = AiDiagnosisService.generateRemedialMaterialStream(
       userId: widget.userId,
       subject: widget.subjectName,
@@ -2948,11 +2988,30 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
         }
       },
       onDone: () {
-        if (mounted && _buffer.isEmpty) {
-          setState(() {
-            _showLoading = false;
-            _buffer.write('【系統提示】\n未獲得任何分析結果，請稍後再試。');
-          });
+        if (mounted) {
+          if (_buffer.isEmpty) {
+            setState(() {
+              _showLoading = false;
+              _buffer.write('【系統提示】\n未獲得任何分析結果，請稍後再試。');
+            });
+          } else {
+            final content = _buffer.toString();
+            if (!content.contains('【連線異常】') &&
+                !content.contains('【系統提示】')) {
+              // 自動持久化儲存至 SQLite，退出後仍可隨時重新閱覽
+              DatabaseHelper.instance
+                  .saveRemedialMaterial(
+                      widget.userId, widget.subjectName, content)
+                  .then((_) {
+                if (mounted) {
+                  setState(() {
+                    _savedUpdatedAt = DateTime.now().toIso8601String();
+                    _isCached = true;
+                  });
+                }
+              });
+            }
+          }
         }
       },
     );
@@ -2963,6 +3022,51 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
     _sub?.cancel();
     _sc.dispose();
     super.dispose();
+  }
+
+  Widget _buildCachedBanner(bool isDark) {
+    String formatted = '';
+    if (_savedUpdatedAt != null && _savedUpdatedAt!.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(_savedUpdatedAt!);
+        formatted =
+            '${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      } catch (_) {
+        formatted = _savedUpdatedAt ?? '';
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? widget.primary.withValues(alpha: 0.15)
+            : widget.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: widget.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.history_rounded, size: 16, color: widget.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              formatted.isNotEmpty
+                  ? '已載入前次生成的學習建議（$formatted），點擊右上角 🔄 可重新分析。'
+                  : '已載入前次生成的學習建議，點擊右上角 🔄 可重新分析。',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: isDark ? Colors.white70 : Colors.black87,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _parseInlineFormatting(
@@ -3034,6 +3138,11 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
 
     final lines = text.split('\n');
     final widgets = <Widget>[];
+
+    // 若為已儲存的紀錄，頂部顯示提示標籤
+    if (_isCached) {
+      widgets.add(_buildCachedBanner(isDark));
+    }
 
     for (var line in lines) {
       final trimmed = line.trim();
@@ -3186,21 +3295,42 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
               child: Row(
                 children: [
                   Icon(Icons.auto_awesome, color: widget.primary, size: 22),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'AI 專屬學習建議 (${widget.subjectName})',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: widget.isDark ? Colors.white : Colors.black87,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AI 專屬學習建議 (${widget.subjectName})',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: widget.isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        if (_isCached)
+                          Text(
+                            '已儲存紀錄 · 隨時可再次閱覽',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: widget.isDark
+                                  ? Colors.white54
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
+                  if (!_showLoading)
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      tooltip: '重新生成學習建議',
+                      onPressed: () => _startGenerating(isRegenerate: true),
+                    ),
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
                     onPressed: () => Navigator.pop(context),

@@ -102,6 +102,18 @@ class DatabaseHelper {
         )
       ''');
 
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS remedial_materials (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id VARCHAR NOT NULL,
+          subject VARCHAR NOT NULL,
+          content TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (user_id, subject) ON CONFLICT REPLACE
+        )
+      ''');
+
       var postCols = await db.rawQuery('PRAGMA table_info(posts)');
       if (!postCols.any((c) => c['name'] == 'is_edited')) {
         await db.execute(
@@ -3336,6 +3348,40 @@ class DatabaseHelper {
     }
     debugPrint(
         'Database Seeding: Inserted 120 chapter questions successfully!');
+  }
+
+  /// 取得先前已為使用者生成的 AI 學習建議教材
+  Future<Map<String, dynamic>?> getRemedialMaterial(
+      String userId, String subject) async {
+    final db = await database;
+    final res = await db.query(
+      'remedial_materials',
+      where: 'user_id = ? AND subject = ?',
+      whereArgs: [userId, subject],
+      orderBy: 'updated_at DESC',
+      limit: 1,
+    );
+    if (res.isNotEmpty) {
+      return res.first;
+    }
+    return null;
+  }
+
+  /// 儲存或更新 AI 學習建議教材（支援退出後再次隨時閱覽）
+  Future<void> saveRemedialMaterial(
+      String userId, String subject, String content) async {
+    if (content.trim().isEmpty) return;
+    final db = await database;
+    await db.insert(
+      'remedial_materials',
+      {
+        'user_id': userId,
+        'subject': subject,
+        'content': content,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future close() async {
