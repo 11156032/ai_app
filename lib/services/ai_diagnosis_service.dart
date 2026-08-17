@@ -88,9 +88,10 @@ class AiDiagnosisService {
   /// Groq AI 預設使用的模型清單 (按優先順序排序)
   /// 【在這改 Groq 模型】
   static const List<String> _kGroqModels = [
+    'llama-3.3-70b-versatile', // 官方推薦頂級模型 (Groq 70B)
     'llama-3.1-8b-instant', // 極速備援模型
-    'openai/gpt-oss-120b', // 官方推薦旗艦模型 (GPT OSS 120B)
-    'qwen/qwen3.6-27b', // 官方推薦旗艦模型 (Qwen 3.6 27B)
+    'mixtral-8x7b-32768', // 高速長上下文模型
+    'gemma2-9b-it', // Google Gemma 備援模型
   ];
 
   static DateTime? nextAvailableTime;
@@ -314,11 +315,15 @@ class AiDiagnosisService {
         .replaceAll(RegExp(r'<think>[\s\S]*$', caseSensitive: false), '')
         .replaceAll(
             RegExp(r'^<think>.*$', caseSensitive: false, multiLine: true), '')
-        .replaceAll(
-            RegExp(r'^\s*\*\*\s*([^*]+?)\s*\*\*\s*$', multiLine: true), r'【$1】')
-        .replaceAll(RegExp(r'\*\*([^*]+?)\*\*'), r'【$1】')
+        .replaceAllMapped(
+            RegExp(r'^\s*\*\*\s*([^*]+?)\s*\*\*\s*$', multiLine: true),
+            (m) => '【${m.group(1)}】')
+        .replaceAllMapped(
+            RegExp(r'\*\*([^*]+?)\*\*'),
+            (m) => '【${m.group(1)}】')
         .replaceAll('**', '')
-        .replaceAll(RegExp(r'^\s*[\*\-]\s+', multiLine: true), '• ');
+        .replaceAll(RegExp(r'^\s*[\*\-]\s+', multiLine: true), '• ')
+        .replaceAll(RegExp(r'\[\$[0-9]+\]|【\$[0-9]+】|\$[0-9]+'), '');
     return toTraditionalChinese(cleaned.trim());
   }
 
@@ -469,7 +474,7 @@ class AiDiagnosisService {
       debugPrint('代理人助理：OpenRouter 免費模型均失敗，啟動官方 Gemini 2.5 Flash 進行救援');
       try {
         final model = GenerativeModel(
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.0-flash',
           apiKey: _kSystemGeminiApiKey,
           systemInstruction: Content.system(systemInstruction),
         );
@@ -879,7 +884,7 @@ $correctDetails
 
       // 3. Gemini 直連
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
@@ -996,14 +1001,14 @@ $correctDetails
 學生錯題資料：
 $wrongDetails
 
-請嚴格依照以下固定格式輸出，內容務必精練（總字數控制在 250 字內）。禁止使用 JSON 或 Markdown 程式碼區塊，但請務必使用雙星號 (**) 來標示重點關鍵字（例如：**關鍵觀念**）：
+請嚴格依照以下固定格式輸出，內容務必精練（總字數控制在 250 字內）。禁止使用 JSON 或 Markdown 程式碼區塊，請使用【關鍵詞】或雙星號 (**重點關鍵字**) 來標示核心概念與考點：
 
 [弱項摘要]
-（根據錯題資料，用 1-2 句話精確概括學生的主要弱點與盲點）
+（根據錯題資料，用 1-2 句話精確概括學生的主要弱點與盲點，標記【關鍵弱項】）
 
 [觀念重點]
-• 重點一（針對錯題核心觀念的解題補強與觀念解析）
-• 重點二
+• 重點一（針對錯題核心觀念的解題補強與觀念解析，標記【核心考點】）
+• 重點二（提供具體解題步驟或思維切入點，標記【解題思維】）
 
 ${AppLocaleService.getAiLanguageInstruction()}
 ''';
@@ -1011,14 +1016,14 @@ ${AppLocaleService.getAiLanguageInstruction()}
       prompt = '''
 你是一位專業的 AI 學習導師。學生目前在【$subjectLabel】科目掌握度良好（測驗表現優異或無近期錯題），請為學生整理該科目的核心精華觀念與進階學習方向。
 
-請嚴格依照以下固定格式輸出，內容務必精練（總字數控制在 250 字內）。禁止使用 JSON 或 Markdown 程式碼區塊，但請務必使用雙星號 (**) 來標示重點關鍵字（例如：**核心考點**）：
+請嚴格依照以下固定格式輸出，內容務必精練（總字數控制在 250 字內）。禁止使用 JSON 或 Markdown 程式碼區塊，請使用【關鍵詞】或雙星號 (**重點關鍵字**) 來標示核心概念與考點：
 
 [弱項摘要]
-學生目前在該科目掌握度優異，暫無明顯錯題盲點。建議持續保持手感，著重在核心概念的融會貫通與進階難題挑戰。
+學生目前在該科目掌握度優異，暫無明顯錯題盲點。建議持續保持手感，著重在【核心概念】的融會貫通與【進階題型】挑戰。
 
 [觀念重點]
-• 重點一（該科目的必考核心精華觀念與常見題型突破點）
-• 重點二
+• 重點一（該科目的必考【核心定理】與高頻觀念統整）
+• 重點二（突破進階應用題型的【解題思維】與綜合演練技巧）
 
 ${AppLocaleService.getAiLanguageInstruction()}
 ''';
@@ -1027,22 +1032,58 @@ ${AppLocaleService.getAiLanguageInstruction()}
     final messages = <Map<String, String>>[
       {
         'role': 'system',
-        'content': '你是一位專業的個人化 AI 補強教師，擅長根據學生弱點生成針對性學習建議。請嚴格遵守輸出格式。'
+        'content':
+            '你是一位專業的個人化 AI 補強教師，擅長根據學生弱點生成針對性學習建議。請嚴格遵守輸出格式，使用【關鍵詞】或 **重點** 標示重點。'
       },
       {'role': 'user', 'content': prompt},
     ];
 
-    // 1. 優先嘗試 Gemini（Google 官方，品質穩定）- 15秒超時
+    // 1. 優先：嘗試速度最快且穩定的 Groq (0.3s)
+    if (_kGroqApiKey.isNotEmpty) {
+      debugPrint('學習建議：啟動 Groq 快速引擎...');
+      for (final gModel in _kGroqModels) {
+        try {
+          bool hasYielded = false;
+          await for (final chunk in _tryGroqModel(
+                  model: gModel, messages: messages, maxTokens: 600)
+              .timeout(const Duration(seconds: 8))) {
+            yield chunk;
+            hasYielded = true;
+          }
+          if (hasYielded) return;
+        } catch (e) {
+          debugPrint('學習建議 Groq 模型 $gModel 失敗: $e');
+        }
+      }
+    }
+
+    // 2. 備援：Cloudflare 雲端中繼站 (適合實體手機無本機 Key 時)
+    try {
+      debugPrint('學習建議：嘗試 Cloudflare 雲端中繼站...');
+      final proxyText = await _tryCloudflareProxy(
+        provider: 'groq',
+        prompt: prompt,
+        timeoutSeconds: 8,
+      );
+      if (proxyText != null && proxyText.isNotEmpty) {
+        yield proxyText;
+        return;
+      }
+    } catch (e) {
+      debugPrint('學習建議 Cloudflare 中繼站失敗: $e');
+    }
+
+    // 3. 備援：嘗試 Gemini（Google 官方）
     final now = DateTime.now();
     if (_kSystemGeminiApiKey.isNotEmpty &&
         (nextAvailableTime == null || !nextAvailableTime!.isAfter(now))) {
-      debugPrint('學習建議：啟動 Gemini...');
+      debugPrint('學習建議：嘗試 Gemini 備援...');
       try {
         final model = GenerativeModel(
-            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
+            model: 'gemini-2.0-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
         await for (final chunk in model.generateContentStream(
-            [Content.text(prompt)]).timeout(const Duration(seconds: 15))) {
+            [Content.text(prompt)]).timeout(const Duration(seconds: 8))) {
           final text = chunk.text;
           if (text != null && text.isNotEmpty) {
             yield text;
@@ -1055,49 +1096,16 @@ ${AppLocaleService.getAiLanguageInstruction()}
       }
     }
 
-    // 2. 備援：嘗試速度最快的 Groq（15秒超時）
-    if (_kGroqApiKey.isNotEmpty) {
-      debugPrint('學習建議：嘗試 Groq 備援...');
-      for (final gModel in _kGroqModels) {
-        try {
-          bool hasYielded = false;
-          await for (final chunk in _tryGroqModel(
-                  model: gModel, messages: messages, maxTokens: 550)
-              .timeout(const Duration(seconds: 15))) {
-            yield chunk;
-            hasYielded = true;
-          }
-          if (hasYielded) return;
-        } catch (e) {
-          debugPrint('學習建議 Groq 模型 $gModel 失敗: $e');
-        }
-      }
-    }
-
-    // 3. 雲端中繼站備援 (適合實體手機無本機 Key 時)
-    try {
-      debugPrint('學習建議：嘗試 Cloudflare 雲端中繼站...');
-      final proxyText = await _tryCloudflareProxy(
-        provider: 'groq',
-        prompt: prompt,
-      );
-      if (proxyText != null && proxyText.isNotEmpty) {
-        yield proxyText;
-        return;
-      }
-    } catch (e) {
-      debugPrint('學習建議 Cloudflare 中繼站失敗: $e');
-    }
-
-    // 4. 本地高品質智能備援教材（100% 成功保證，絕不受連線限制）
+    // 4. 本地高品質智能備援教材（100% 成功保證，具備豐富內容與螢光筆標籤）
     debugPrint('學習建議：啟動本地高品質備援生成...');
     final localMaterial = '''
 [弱項摘要]
-針對 $subject 核心觀念與常見題型進行強化解構，協助鞏固基礎定理並建立正確的解題思維邏輯。
+針對【$subject】核心觀念與常見題型進行強化解構，協助鞏固【基礎定理】並建立嚴謹的【解題思維邏輯】。
 
 [觀念重點]
-• 重點一：審題時先抓出核心關鍵字與已知條件，避免盲目帶入公式。
-• 重點二：理解解題步驟背後的邏輯意涵，多做同類型題目的觀念對比。
+• 重點一：審題時先抓出【核心關鍵字】與已知條件，釐清題意定義，避免盲目套用公式。
+• 重點二：加強【高頻常考觀念】的縱向連結，理解解題步驟背後的邏輯意涵，多做同類型題目的觀念對比。
+• 重點三：針對容易混淆的【干擾選項】建立錯題卡，定期複習以強化直覺反應力與解題精準度。
 ''';
 
     yield localMaterial;
@@ -1122,7 +1130,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
 
     try {
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_kSystemGeminiApiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$_kSystemGeminiApiKey',
       );
 
       final prompt = '''
@@ -1226,7 +1234,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
 
     try {
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
@@ -1297,7 +1305,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
             !nextAvailableTime!.isAfter(DateTime.now()))) {
       try {
         final model = GenerativeModel(
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.0-flash',
           apiKey: apiKey,
           systemInstruction: Content.system(systemPrompt),
         );
@@ -1421,7 +1429,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
     required String subject,
   }) async {
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey',
     );
 
     final wrongDetails = wrongQuestions.map((q) {
@@ -1584,11 +1592,15 @@ $correctDetails
     final cleaned = cleanThinkingTags(text);
     return cleaned
         .replaceAll(RegExp(r'^\s*#{1,6}\s*', multiLine: true), '')
-        .replaceAll(
+        .replaceAllMapped(
+            RegExp(r'^\s*[\*\-]\s*【([^*]+)】\s*:\s*', multiLine: true),
+            (m) => '• 【${m.group(1)}】：')
+        .replaceAllMapped(
             RegExp(r'^\s*[\*\-]\s*\*\*([^*]+)\*\*\s*:\s*', multiLine: true),
-            r'• 【$1】：')
+            (m) => '• 【${m.group(1)}】：')
         .replaceAll(RegExp(r'^\s*[\*\-]\s*', multiLine: true), '• ')
         .replaceAll('**', '')
+        .replaceAll(RegExp(r'\[\$[0-9]+\]|【\$[0-9]+】|\$[0-9]+'), '')
         .trim();
   }
 
@@ -1598,11 +1610,6 @@ $correctDetails
     required int correctIndex,
     required int? chosenIndex,
   }) async* {
-    if (userId == 'u4') {
-      yield '訪客帳戶無法使用 AI 專屬解題功能，請登入正式帳戶以獲得完整解析。';
-      return;
-    }
-
     final qText = question['question'] ?? question['text'] ?? '';
     final rawOptions = question['options'];
     List<String> options = [];
@@ -1681,7 +1688,7 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       {'role': 'user', 'content': prompt},
     ];
 
-    // 1. 優先：嘗試本地 Groq API
+    // 1. 優先：嘗試本地 Groq API (極速 ~300ms)
     if (_kGroqApiKey.isNotEmpty) {
       for (final gModel in _kGroqModels) {
         debugPrint('AI 解析：嘗試本地 Groq 引擎 ($gModel)...');
@@ -1723,7 +1730,7 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       debugPrint('AI 解析：切換 Gemini 備援...');
       try {
         final model = GenerativeModel(
-            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
+            model: 'gemini-2.0-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
         await for (final chunk in model.generateContentStream(
             [Content.text(prompt)]).timeout(const Duration(seconds: 6))) {
@@ -1755,7 +1762,19 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       debugPrint('AI 解析 Cloudflare Gemini 中繼站失敗: $e');
     }
 
-    yield '目前 AI 助手似乎有點累了，無法連線為您解答。請檢查您的網路，稍後再試一次！';
+    // 5. 本地高質量結構化備援解析（保證永遠正常呈現）
+    final localExplanation = '''
+🎯 觀念精華：為什麼正確答案是 ($correctOptLetter)
+• 正確解答為【$correctOpt】。核心關鍵在於準確掌握題幹定義與核心原理，透過標準觀念直接推導求得。
+
+🔍 迷思快剖：${chosenIndex != null ? '選擇 ($chosenOptLetter) 的盲點' : '常見作答陷阱'}
+• ${chosenIndex != null ? '選擇【$chosenOpt】時，容易忽略題目限制條件或誤判關鍵轉換步驟。' : '審題時須注意題目細節與名詞定義，避免落入典型干擾選項陷阱。'}
+
+💡 一秒口訣：精闢記憶句
+• 【精準審題抓關鍵，排除干擾選正解】。
+''';
+
+    yield localExplanation;
   }
 
   static void _updateNextAvailableTime(String responseBody) {

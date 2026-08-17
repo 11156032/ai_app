@@ -2975,7 +2975,8 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
         .trim();
 
     final spans = <InlineSpan>[];
-    final regex = RegExp(r'\*\*(.*?)\*\*');
+    // 支援 **重點** 與 【重點】 兩種螢光筆高亮模式
+    final regex = RegExp(r'(?:\*\*(.*?)\*\*|【(.*?)】)');
     int lastMatchEnd = 0;
 
     for (var match in regex.allMatches(cleanText)) {
@@ -2990,7 +2991,10 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
         }
       }
       final highlightedText =
-          match.group(1)?.replaceAll('*', '').replaceAll('`', '') ?? '';
+          (match.group(1) ?? match.group(2) ?? '')
+              .replaceAll('*', '')
+              .replaceAll('`', '')
+              .trim();
       if (highlightedText.isNotEmpty) {
         spans.add(
           TextSpan(
@@ -3782,8 +3786,9 @@ class _FaqAndCustomerSupportSheetState
       (chunk) {
         if (!mounted) return;
         responseBuffer.write(chunk);
+        final cleaned = AiDiagnosisService.cleanThinkingTags(responseBuffer.toString());
         setState(() {
-          _chatHistory.last['text'] = responseBuffer.toString();
+          _chatHistory.last['text'] = cleaned;
         });
         _scrollToBottom();
       },
@@ -3800,7 +3805,9 @@ class _FaqAndCustomerSupportSheetState
       },
       onDone: () {
         if (!mounted) return;
+        final cleaned = AiDiagnosisService.cleanThinkingTags(responseBuffer.toString());
         setState(() {
+          _chatHistory.last['text'] = cleaned;
           _isAiResponding = false;
           _chatHistory.last['isStreaming'] = false;
         });
@@ -3810,28 +3817,47 @@ class _FaqAndCustomerSupportSheetState
   }
 
   Widget _parseChatMarkdown(String text, bool isDark) {
+    // 預先清理無效的 [$1] / 【$1】 殘留符號與代碼塊
+    String clean = text
+        .replaceAll(RegExp(r'\[\$1\]|【\$1】|\$1'), '')
+        .replaceAll('```markdown', '')
+        .replaceAll('```json', '')
+        .replaceAll('```', '');
+
     final spans = <InlineSpan>[];
-    final regex = RegExp(r'\*\*(.*?)\*\*');
+    // 支援 **重點** 與 【重點】
+    final regex = RegExp(r'(?:\*\*(.*?)\*\*|【(.*?)】)');
     int lastMatchEnd = 0;
 
-    for (var match in regex.allMatches(text)) {
+    for (var match in regex.allMatches(clean)) {
       if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start)));
+        final normalText = clean.substring(lastMatchEnd, match.start);
+        if (normalText.isNotEmpty) {
+          spans.add(TextSpan(text: normalText));
+        }
       }
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.amber.shade200 : widget.primary,
-            backgroundColor: widget.primary.withValues(alpha: 0.1),
+      final highlighted = (match.group(1) ?? match.group(2) ?? '').trim();
+      if (highlighted.isNotEmpty) {
+        spans.add(
+          TextSpan(
+            text: highlighted,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.amber.shade200 : widget.primary,
+              backgroundColor: isDark
+                  ? Colors.amber.withValues(alpha: 0.15)
+                  : widget.primary.withValues(alpha: 0.1),
+            ),
           ),
-        ),
-      );
+        );
+      }
       lastMatchEnd = match.end;
     }
-    if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastMatchEnd)));
+    if (lastMatchEnd < clean.length) {
+      final tail = clean.substring(lastMatchEnd);
+      if (tail.isNotEmpty) {
+        spans.add(TextSpan(text: tail));
+      }
     }
 
     return RichText(
@@ -4451,13 +4477,16 @@ class _FaqAndCustomerSupportSheetState
                         ),
                       ),
 
-                      // 底部輸入框與發送按鈕
+                      // 底部輸入框與發送按鈕（自動避開手機底部導航鍵與鍵盤）
                       Container(
                         padding: EdgeInsets.fromLTRB(
                             12,
                             8,
                             12,
-                            8 + MediaQuery.of(context).viewInsets.bottom),
+                            8 + math.max(
+                              MediaQuery.of(context).viewInsets.bottom,
+                              MediaQuery.of(context).padding.bottom,
+                            )),
                         decoration: BoxDecoration(
                           color: isDark
                               ? const Color(0xFF222332)

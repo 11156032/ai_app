@@ -1364,9 +1364,6 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
           ),
           const Divider(height: 1),
 
-          // Question Status Bar
-          _buildQuestionOverviewHeader(cs),
-
           // Explanation Content Body
           Flexible(
             child: SingleChildScrollView(
@@ -1374,9 +1371,37 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 題目與作答回顧卡片
+                  _buildQuestionPreview(cs),
+                  const SizedBox(height: 16),
+
+                  // AI 解析導師標題提示
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.psychology_rounded, size: 16, color: cs.primary),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'AI 導師觀念剖析',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
                   if (_isLoading && rawText.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      padding: const EdgeInsets.symmetric(vertical: 36),
                       child: Center(
                         child: Column(
                           children: [
@@ -1402,54 +1427,89 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
     );
   }
 
-  /// 頂部作答與正確答案提示對比列
-  Widget _buildQuestionOverviewHeader(ColorScheme cs) {
+  /// 題目內容、選項與作答狀況回顧卡片
+  Widget _buildQuestionPreview(ColorScheme cs) {
+    final qText = (widget.question['question'] ?? widget.question['text'] ?? '').toString();
+    final chapter = widget.question['chapter'] ?? widget.question['unit'];
+    final difficulty = widget.question['difficulty'];
+    final rawOptions = widget.question['options'];
+    List<String> options = [];
+    if (rawOptions is List) {
+      options = rawOptions.map((e) => e.toString()).toList();
+    } else if (rawOptions is String) {
+      try {
+        final decoded = jsonDecode(rawOptions);
+        if (decoded is List) {
+          options = decoded.map((e) => e.toString()).toList();
+        }
+      } catch (_) {
+        options = rawOptions
+            .replaceAll('[', '')
+            .replaceAll(']', '')
+            .replaceAll('"', '')
+            .split(',')
+            .map((e) => e.trim())
+            .toList();
+      }
+    }
+
     final correctOpt = String.fromCharCode(65 + widget.correctIndex);
     final chosenOpt = widget.chosenIndex != null ? String.fromCharCode(65 + widget.chosenIndex!) : '未作答';
     final isCorrect = widget.chosenIndex == widget.correctIndex;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 頂部章節與狀態列
           Row(
             children: [
-              const Text('正確解答：', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: Text(
-                  '選項 ($correctOpt)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade800,
+              if (chapter != null && chapter.toString().isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    chapter.toString(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Row(
-            children: [
-              const Text('您的作答：', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              if (difficulty != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '難度 $difficulty',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -1458,14 +1518,111 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                   border: Border.all(color: isCorrect ? Colors.green.shade200 : (widget.chosenIndex != null ? Colors.red.shade200 : Colors.grey.shade300)),
                 ),
                 child: Text(
-                  widget.chosenIndex != null ? '選項 ($chosenOpt)' : '未作答',
+                  isCorrect ? '✓ 答對' : (widget.chosenIndex != null ? '✗ 答錯' : '未作答'),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.bold,
                     color: isCorrect ? Colors.green.shade800 : (widget.chosenIndex != null ? Colors.red.shade700 : Colors.grey.shade700),
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 題目內文
+          if (qText.isNotEmpty)
+            Text(
+              qText,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
+                height: 1.5,
+              ),
+            ),
+          
+          if (options.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...options.asMap().entries.map((e) {
+              final idx = e.key;
+              final optText = e.value;
+              final isOptCorrect = idx == widget.correctIndex;
+              final isOptChosen = idx == widget.chosenIndex;
+
+              Color bgClr = const Color(0xFFF8FAFC);
+              Color borderClr = const Color(0xFFE2E8F0);
+              Color textClr = const Color(0xFF334155);
+
+              if (isOptCorrect) {
+                bgClr = const Color(0xFFF0FDF4);
+                borderClr = Colors.green.shade300;
+                textClr = Colors.green.shade900;
+              } else if (isOptChosen && !isOptCorrect) {
+                bgClr = const Color(0xFFFEF2F2);
+                borderClr = Colors.red.shade300;
+                textClr = Colors.red.shade900;
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: bgClr,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderClr),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isOptCorrect ? Colors.green : (isOptChosen ? Colors.red : Colors.grey.shade300),
+                      ),
+                      child: Center(
+                        child: Text(
+                          String.fromCharCode(65 + idx),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: (isOptCorrect || isOptChosen) ? Colors.white : Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        optText,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isOptCorrect ? FontWeight.bold : FontWeight.normal,
+                          color: textClr,
+                        ),
+                      ),
+                    ),
+                    if (isOptCorrect)
+                      const Icon(Icons.check_circle_rounded, size: 16, color: Colors.green)
+                    else if (isOptChosen)
+                      const Icon(Icons.cancel_rounded, size: 16, color: Colors.red),
+                  ],
+                ),
+              );
+            }),
+          ],
+
+          const SizedBox(height: 6),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 8),
+
+          // 正確解答 vs 學生作答提示
+          Row(
+            children: [
+              Text('正確答案：($correctOpt)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+              const Spacer(),
+              Text('您的作答：${widget.chosenIndex != null ? '($chosenOpt)' : '未作答'}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isCorrect ? Colors.green.shade800 : Colors.red.shade700)),
             ],
           ),
         ],
