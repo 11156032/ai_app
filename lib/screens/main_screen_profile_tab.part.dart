@@ -2907,8 +2907,6 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
   bool _showLoading = true;
   double _loadingTarget = 0.95;
   int _loadingDurationMs = 8000;
-  bool _isCached = false;
-  String? _savedUpdatedAt;
 
   @override
   void initState() {
@@ -2927,8 +2925,6 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
         setState(() {
           _buffer.clear();
           _buffer.write(saved['content']);
-          _savedUpdatedAt = saved['updated_at']?.toString();
-          _isCached = true;
           _showLoading = false;
           _isConnecting = false;
         });
@@ -2948,7 +2944,6 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
       _isConnecting = true;
       _loadingTarget = 0.95;
       _loadingDurationMs = 8000;
-      _isCached = false;
     });
 
     _sub = AiDiagnosisService.generateRemedialMaterialStream(
@@ -2999,17 +2994,8 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
             if (!content.contains('【連線異常】') &&
                 !content.contains('【系統提示】')) {
               // 自動持久化儲存至 SQLite，退出後仍可隨時重新閱覽
-              DatabaseHelper.instance
-                  .saveRemedialMaterial(
-                      widget.userId, widget.subjectName, content)
-                  .then((_) {
-                if (mounted) {
-                  setState(() {
-                    _savedUpdatedAt = DateTime.now().toIso8601String();
-                    _isCached = true;
-                  });
-                }
-              });
+              DatabaseHelper.instance.saveRemedialMaterial(
+                  widget.userId, widget.subjectName, content);
             }
           }
         }
@@ -3024,58 +3010,15 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
     super.dispose();
   }
 
-  Widget _buildCachedBanner(bool isDark) {
-    String formatted = '';
-    if (_savedUpdatedAt != null && _savedUpdatedAt!.isNotEmpty) {
-      try {
-        final dt = DateTime.parse(_savedUpdatedAt!);
-        formatted =
-            '${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-      } catch (_) {
-        formatted = _savedUpdatedAt ?? '';
-      }
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark
-            ? widget.primary.withValues(alpha: 0.15)
-            : widget.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: widget.primary.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.history_rounded, size: 16, color: widget.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              formatted.isNotEmpty
-                  ? '已載入前次生成的學習建議（$formatted），點擊右上角 🔄 可重新分析。'
-                  : '已載入前次生成的學習建議，點擊右上角 🔄 可重新分析。',
-              style: TextStyle(
-                fontSize: 11.5,
-                color: isDark ? Colors.white70 : Colors.black87,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _parseInlineFormatting(
       String text, TextStyle defaultStyle, bool isDark) {
-    // 清理無效代碼區塊符號
+    // 清理無效代碼區塊符號與提示括號殘留
     String cleanText = text
         .replaceAll('```markdown', '')
         .replaceAll('```json', '')
         .replaceAll('```', '')
+        .replaceAll(RegExp(r'重點[一二三四五1-5]\s*（[^）]*）\s*'), '')
+        .replaceAll(RegExp(r'重點[一二三四五1-5]\s*\([^)]*\)\s*'), '')
         .trim();
 
     final spans = <InlineSpan>[];
@@ -3136,138 +3079,196 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
   List<Widget> _buildRichText(String text, bool isDark) {
     if (text.isEmpty) return [];
 
+    // 分割區塊：弱項摘要 與 觀念重點
+    String summaryContent = '';
+    final List<String> bulletPoints = [];
+
     final lines = text.split('\n');
-    final widgets = <Widget>[];
+    String currentSection = '';
 
-    // 若為已儲存的紀錄，頂部顯示提示標籤
-    if (_isCached) {
-      widgets.add(_buildCachedBanner(isDark));
-    }
+    for (var rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line.startsWith('```')) continue;
 
-    for (var line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty ||
-          trimmed.startsWith('```') ||
-          trimmed == '{' ||
-          trimmed == '}') {
-        if (trimmed.isEmpty) widgets.add(const SizedBox(height: 8));
+      if (line.contains('弱項摘要') || line.contains('盲點診斷')) {
+        currentSection = 'summary';
+        continue;
+      } else if (line.contains('觀念重點') || line.contains('學習建議') || line.contains('解題技巧')) {
+        currentSection = 'points';
         continue;
       }
 
-      // 檢查是否為主要大標題（例如：【連線異常】、【系統提示】）
-      if ((trimmed.startsWith('【') && trimmed.contains('】')) ||
-          RegExp(r'^#\s+').hasMatch(trimmed)) {
-        final titleText = trimmed
-            .replaceAll('#', '')
-            .replaceAll('【', '')
-            .replaceAll('】', '')
-            .replaceAll('*', '')
-            .trim();
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 12, top: 4),
-          child: Text(
-            titleText,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: widget.primary,
-            ),
-          ),
-        ));
-      }
-      // 檢查是否為區塊標題（例如：[弱項摘要]、[觀念重點]、### 弱項摘要、**弱項摘要**等）
-      else if ((trimmed.startsWith('[') && trimmed.contains(']')) ||
-          RegExp(r'^#{2,4}\s*').hasMatch(trimmed) ||
-          trimmed.contains('弱項摘要') ||
-          trimmed.contains('觀念重點') ||
-          trimmed.contains('學習建議')) {
-        // 去除多餘 Markdown 符號與中括號
-        final cleanHeader = trimmed
+      if (currentSection == 'summary') {
+        final clean = line
             .replaceAll(RegExp(r'^#{1,6}\s*'), '')
             .replaceAll('[', '')
             .replaceAll(']', '')
-            .replaceAll('【', '')
-            .replaceAll('】', '')
-            .replaceAll('*', '')
-            .replaceAll('：', '')
-            .replaceAll(':', '')
+            .replaceAll('【弱項摘要】', '')
             .trim();
+        if (clean.isNotEmpty) {
+          if (summaryContent.isNotEmpty) summaryContent += '\n';
+          summaryContent += clean;
+        }
+      } else if (currentSection == 'points' || currentSection.isEmpty) {
+        if (RegExp(r'^\s*([•\-\*]|\d+[\.、\)])\s*').hasMatch(line)) {
+          final clean = line
+              .replaceFirst(RegExp(r'^\s*([•\-\*]|\d+[\.、\)])\s*'), '')
+              .replaceAll(RegExp(r'重點[一二三四五1-5]\s*（[^）]*）\s*'), '')
+              .replaceAll(RegExp(r'重點[一二三四五1-5]\s*\([^)]*\)\s*'), '')
+              .trim();
+          if (clean.isNotEmpty) bulletPoints.add(clean);
+        } else if (line.startsWith('【') && line.contains('】：')) {
+          bulletPoints.add(line);
+        } else if (line.isNotEmpty) {
+          if (summaryContent.isEmpty) {
+            summaryContent = line;
+          } else {
+            bulletPoints.add(line);
+          }
+        }
+      }
+    }
 
-        widgets.add(Container(
-          margin: const EdgeInsets.only(top: 16, bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    final widgets = <Widget>[];
+
+    // ─── 卡片 1: 弱項摘要診斷 ───
+    if (summaryContent.isNotEmpty) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.white10
-                : widget.primary.withValues(alpha: 0.08),
-            border: Border(left: BorderSide(color: widget.primary, width: 4)),
-            borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(6),
-              bottomRight: Radius.circular(6),
+                ? const Color(0xFF262738)
+                : const Color(0xFFF6F8FA),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.grey.shade200,
             ),
           ),
-          child: Text(
-            cleanHeader,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-        ));
-      }
-      // 檢查是否為條列點（•、-、*、1.、2.、1、2、等）
-      else if (RegExp(r'^\s*([•\-\*]|\d+[\.、\)])\s*').hasMatch(trimmed)) {
-        final contentText = trimmed
-            .replaceFirst(RegExp(r'^\s*([•\-\*]|\d+[\.、\)])\s*'), '')
-            .trim();
-
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 8),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('•',
-                  style: TextStyle(
-                      color: widget.primary,
-                      fontSize: 16,
-                      height: 1.4,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _parseInlineFormatting(
-                  contentText,
-                  TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.9)
-                        : Colors.black87,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.track_changes_rounded,
+                        color: Colors.orange, size: 16),
                   ),
-                  isDark,
+                  const SizedBox(width: 8),
+                  Text(
+                    '弱項盲點診斷',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _parseInlineFormatting(
+                summaryContent,
+                TextStyle(
+                  fontSize: 13.5,
+                  height: 1.6,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.9)
+                      : Colors.black87,
+                ),
+                isDark,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ─── 卡片 2: 觀念重點與解題技巧 ───
+    if (bulletPoints.isNotEmpty) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF262738)
+                : const Color(0xFFF6F8FA),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.grey.shade200,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: widget.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.lightbulb_outline_rounded,
+                        color: widget.primary, size: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '觀念補強與解題技巧',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              ...bulletPoints.map(
+                (point) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(Icons.check_circle_outline_rounded,
+                            size: 15, color: widget.primary),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _parseInlineFormatting(
+                          point,
+                          TextStyle(
+                            fontSize: 13.5,
+                            height: 1.55,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : Colors.black87,
+                          ),
+                          isDark,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-        ));
-      }
-      // 一般段落文字
-      else {
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: _parseInlineFormatting(
-            trimmed,
-            TextStyle(
-              fontSize: 14,
-              height: 1.6,
-              color:
-                  isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
-            ),
-            isDark,
-          ),
-        ));
-      }
+        ),
+      );
     }
+
     return widgets;
   }
 
@@ -3301,28 +3302,13 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                   Icon(Icons.auto_awesome, color: widget.primary, size: 22),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'AI 專屬學習建議 (${widget.subjectName})',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: widget.isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        if (_isCached)
-                          Text(
-                            '已儲存紀錄 · 隨時可再次閱覽',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: widget.isDark
-                                  ? Colors.white54
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                      ],
+                    child: Text(
+                      'AI 專屬學習建議 (${widget.subjectName})',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: widget.isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
                   ),
                   if (!_showLoading)
