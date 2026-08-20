@@ -6090,7 +6090,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         });
         return;
       }
-      // 簡單對話已全權交由後端的 OpenRouter/Qwen 免費模型處理，此處僅保留功能卡片與系統狀態控制指令
+      // 簡單對話已全權交由後端的 Groq / OpenRouter 極速免費模型處理 (思考模型後置)，此處僅保留功能卡片與系統狀態控制指令
 
       // 幫助指令處理
       if (inputLower == 'help' ||

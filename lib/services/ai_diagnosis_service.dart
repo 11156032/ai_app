@@ -88,11 +88,11 @@ class AiDiagnosisService {
   /// Groq AI 預設使用的模型清單 (按優先順序排序)
   /// 【在這改 Groq 模型】
   static const List<String> _kGroqModels = [
-    'llama-3.1-8b-instant', // 極速閃電主力模型 (~1000 tokens/s, 0.15s 回應)
-    'gemma2-9b-it', // Google Gemma 2 9B 備援模型
-    'mixtral-8x7b-32768', // 高速長上下文備援模型
-    'llama-3.2-3b-preview', // 輕量極速備援模型
-    'llama-3.2-1b-preview', // 超輕量備援模型
+    'groq/compound-mini', // Groq 極速直出旗艦 (無思考延遲、即時串流 ~0.3s)
+    'openai/gpt-oss-120b', // OpenAI 旗艦級高速模型
+    'openai/gpt-oss-20b', // OpenAI 極速輕量模型
+    'groq/compound', // Groq 完整版旗艦模型
+    'qwen/qwen3.6-27b', // Qwen 深度推導模型 (思考模型置於最後備援)
   ];
 
   static DateTime? nextAvailableTime;
@@ -422,7 +422,13 @@ class AiDiagnosisService {
           }
           if (hasYielded) return; // Groq 成功輸出，直接完成
         } catch (e) {
-          debugPrint('Groq 模型 $gModel 失敗/超時（$e），嘗試下一個 Groq 備援模型...');
+          final errStr = e.toString();
+          if (errStr.contains('model_decommissioned') ||
+              errStr.contains('model_not_found')) {
+            debugPrint('⚠️ Groq 模型 $gModel 已下架/不可用，無縫秒切下一個備援模型...');
+          } else {
+            debugPrint('Groq 模型 $gModel 失敗/超時（$e），嘗試下一個 Groq 備援模型...');
+          }
         }
       }
     }
@@ -436,9 +442,12 @@ class AiDiagnosisService {
       final fallbackModels = [
         if (customModel != null && customModel.isNotEmpty) customModel,
         'google/gemma-4-26b-a4b-it:free',
-        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-        'nvidia/nemotron-3-ultra-550b-a55b:free',
+        'google/gemma-4-31b-it:free',
         'poolside/laguna-s-2.1:free',
+        'openai/gpt-oss-20b:free',
+        'nvidia/nemotron-3-ultra-550b-a55b:free',
+        'nvidia/nemotron-3.5-lightning:free',
+        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
       ];
 
       for (final model in fallbackModels) {
@@ -618,10 +627,10 @@ class AiDiagnosisService {
     }));
 
     try {
-      // 連線 Timeout：8 秒（快速失敗，讓外層可在 45s 內嘗試多個模型）
+      // 連線 Timeout：12 秒（給予模型充足的連線與排隊時間）
       final response = await client.send(request).timeout(
-            const Duration(seconds: 8),
-            onTimeout: () => throw Exception('OpenRouter 請求逾時（8s）'),
+            const Duration(seconds: 12),
+            onTimeout: () => throw Exception('OpenRouter 請求逾時（12s）'),
           );
 
       if (response.statusCode != 200) {
@@ -634,8 +643,8 @@ class AiDiagnosisService {
       final byteStream = response.stream
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .timeout(const Duration(seconds: 12), onTimeout: (sink) {
-        sink.addError(Exception('OpenRouter 串流讀取逾時（12s）'));
+          .timeout(const Duration(seconds: 20), onTimeout: (sink) {
+        sink.addError(Exception('OpenRouter 串流讀取逾時（20s）'));
       });
 
       int chunkCount = 0;
@@ -692,8 +701,8 @@ class AiDiagnosisService {
 
     try {
       final response = await client.send(request).timeout(
-            const Duration(seconds: 4),
-            onTimeout: () => throw Exception('Groq 請求逾時（4s）'),
+            const Duration(seconds: 12),
+            onTimeout: () => throw Exception('Groq 請求逾時（12s）'),
           );
 
       if (response.statusCode != 200) {
@@ -706,8 +715,8 @@ class AiDiagnosisService {
       final byteStream = response.stream
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .timeout(const Duration(seconds: 8), onTimeout: (sink) {
-        sink.addError(Exception('Groq 串流讀取逾時（8s）'));
+          .timeout(const Duration(seconds: 20), onTimeout: (sink) {
+        sink.addError(Exception('Groq 串流讀取逾時（20s）'));
       });
 
       int chunkCount = 0;
