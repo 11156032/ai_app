@@ -88,11 +88,13 @@ class AiDiagnosisService {
   /// Groq AI 預設使用的模型清單 (按優先順序排序)
   /// 【在這改 Groq 模型】
   static const List<String> _kGroqModels = [
-    'groq/compound-mini', // Groq 極速直出旗艦 (無思考延遲、即時串流 ~0.3s)
-    'openai/gpt-oss-120b', // OpenAI 旗艦級高速模型
-    'openai/gpt-oss-20b', // OpenAI 極速輕量模型
-    'groq/compound', // Groq 完整版旗艦模型
+    'openai/gpt-oss-120b', // Groq 官方新旗艦替代模型 (高速直出、無思考延遲)
+    'gpt-oss-120b', // Groq 官方新旗艦 (相容無前綴 ID)
+    'openai/gpt-oss-20b', // Groq 極速輕量直出模型 (~1000 T/s、毫秒反應)
+    'gpt-oss-20b', // Groq 極速輕量 (相容無前綴 ID)
+    'llama-3.1-8b-instant', // Groq 經典極速模型
     'qwen/qwen3.6-27b', // Qwen 深度推導模型 (思考模型置於最後備援)
+    'qwen3.6-27b', // Qwen 相容 ID
   ];
 
   static DateTime? nextAvailableTime;
