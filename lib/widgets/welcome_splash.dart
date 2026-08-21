@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
+import 'tutorial_video_player.dart';
+
 // ─────────────────────────────────────────────────────────────────
 // WelcomeSplash — 新用戶首次登入全頁歡迎引導（3 slides）
 // ─────────────────────────────────────────────────────────────────
@@ -49,20 +51,38 @@ class _WelcomeSplashState extends State<WelcomeSplash>
       features: [],
     ),
     _SlideDef(
-      emoji: '🚀',
+      emoji: '📱',
       gradient: [Color(0xFF5D4037), Color(0xFF8D6E63)],
-      title: '三大核心功能',
-      subtitle: '全方位學習管理',
+      title: '底部導覽列操作導覽',
+      subtitle: '快速開啟與切換主要功能頁面',
       body: '',
-      features: [
-        _FeatureLine('🗓️', '日曆行程', '安排讀書計畫、待辦事項與日記'),
-        _FeatureLine('📚', '智慧題庫', '練習、錯題複習、自建考卷'),
-        _FeatureLine('🤝', '學習社群', '與同學交流筆記與學習心得'),
-      ],
+      videoAssetPath: 'assets/nav_bar_tutorial.mp4',
+      badgeLabel: '導覽列教學',
+      features: [],
+    ),
+    _SlideDef(
+      emoji: '📝',
+      gradient: [Color(0xFF4E342E), Color(0xFF795548)],
+      title: '題庫測驗與複習導覽',
+      subtitle: '題目作答、交卷與錯題診斷操作',
+      body: '',
+      videoAssetPath: 'assets/demo_tutorial.mp4',
+      badgeLabel: '題庫測驗教學',
+      features: [],
+    ),
+    _SlideDef(
+      emoji: '📦',
+      gradient: [Color(0xFF3E2723), Color(0xFF5D4037)],
+      title: '學習 Pack 製作與分享導覽',
+      subtitle: '彙整筆記與考卷一鍵發布',
+      body: '',
+      videoAssetPath: 'assets/learning_pack_tutorial.mp4',
+      badgeLabel: '學習 Pack 教學',
+      features: [],
     ),
     _SlideDef(
       emoji: '🤖',
-      gradient: [Color(0xFF4E342E), Color(0xFF8D6E63)],
+      gradient: [Color(0xFF2E1C18), Color(0xFF4E342E)],
       title: 'AI 助手上線了！',
       subtitle: '讓 AI 幫你更聰明地學習',
       body: '',
@@ -179,7 +199,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
                             setState(() => _currentPage = i);
                           },
                           itemBuilder: (ctx, i) =>
-                              _buildSlide(_slides[i]),
+                              _buildSlide(_slides[i], i),
                         ),
                       ),
 
@@ -251,7 +271,59 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     );
   }
 
-  Widget _buildSlide(_SlideDef slide) {
+  Widget _buildSlide(_SlideDef slide, int index) {
+    if (slide.videoAssetPath != null) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final maxPhoneHeight = constraints.maxHeight - 20;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 標題與副標題
+                Text(
+                  slide.title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  slide.subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 手機外框介面直接播放元件（最大化顯示）
+                Expanded(
+                  child: Center(
+                    child: TutorialVideoPlayer(
+                      assetPath: slide.videoAssetPath!,
+                      isActive: _currentPage == index,
+                      maxHeight: maxPhoneHeight,
+                      badgeLabel: slide.badgeLabel ?? '操作示範',
+                      initialMuted: false, // 預設開啟聲音
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -422,6 +494,8 @@ class _SlideDef {
   final String title;
   final String subtitle;
   final String body;
+  final String? videoAssetPath;
+  final String? badgeLabel;
   final List<_FeatureLine> features;
 
   const _SlideDef({
@@ -430,6 +504,8 @@ class _SlideDef {
     required this.title,
     required this.subtitle,
     required this.body,
+    this.videoAssetPath,
+    this.badgeLabel,
     required this.features,
   });
 }

@@ -2249,6 +2249,16 @@ extension MainScreenProfileTab on _MainScreenState {
           const Divider(height: 24),
           _buildProfileTile(
             context: context,
+            icon: Icons.ondemand_video_rounded,
+            label: '操作教學示範影片',
+            value: '觀看底部導覽列切換與題庫測驗完整教學影片',
+            onTap: () {
+              TutorialVideoPlayer.showTutorialChooserDialog(context);
+            },
+          ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
             icon: Icons.gavel_outlined,
             label: AppLocaleService.tr('terms_label', _appLanguage),
             value: AppLocaleService.tr('terms_value', _appLanguage),

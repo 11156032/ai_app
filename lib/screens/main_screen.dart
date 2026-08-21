@@ -26,6 +26,7 @@ import '../services/push_notification_service.dart';
 import '../services/app_locale_service.dart';
 import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
+import '../widgets/tutorial_video_player.dart';
 import 'tabs/group_detail_page.dart';
 import 'tabs/create_group_dialog.dart';
 import 'create_learning_pack_dialog.dart';
@@ -153,7 +154,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _weeklyMatrixData = []; // 知識掌握度矩陣資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.4.0';
+  String _appVersion = 'v1.5.0';
 
   // --- 排行榜資料 ---
   List<Map<String, dynamic>> _leaderboardList = [];
@@ -1112,6 +1113,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: null,
         title: '探索社群頁面',
         description: '歡迎來到社群頁面！在這裡你可以與同學交流學習進度，不同成員的動態將會一一呈現。',
+        tutorialVideoAsset: 'assets/nav_bar_tutorial.mp4',
+        tutorialVideoTitle: '觀看底部導覽列切換教學 🎬',
         onEnter: () {
           _socialFilter = '全部';
           _socialAuthorFilter = '';
@@ -1164,6 +1167,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: null,
         title: '進入題庫系統',
         description: '這裡是題庫系統，包含了豐富的題庫、自定題卷、錯題本和收藏功能。',
+        tutorialVideoAsset: 'assets/demo_tutorial.mp4',
+        tutorialVideoTitle: '觀看題庫測驗與診斷操作示範 🎬',
         onEnter: () {
           final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
@@ -1180,6 +1185,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: TourKeys.wrongQuestionsTabKey,
         title: '切換「錯題」分頁',
         description: '進入題庫後，切換至第三個「錯題」分頁，查看所有曾經答錯的題目紀錄。',
+        tutorialVideoAsset: 'assets/demo_tutorial.mp4',
+        tutorialVideoTitle: '觀看題庫測驗與診斷操作示範 🎬',
       ),
       TourStep(
         featureTitle: '📝 錯題考卷',
@@ -1190,6 +1197,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: TourKeys.startPracticeFabKey,
         title: '開始全錯題複習',
         description: '點擊右下角的「開始練習全部」，系統會為你將所有錯題彙整成考卷，馬上開始進行測驗！',
+        tutorialVideoAsset: 'assets/demo_tutorial.mp4',
+        tutorialVideoTitle: '觀看題庫測驗與診斷操作示範 🎬',
       ),
     ];
   }
