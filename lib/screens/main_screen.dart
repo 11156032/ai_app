@@ -34,6 +34,7 @@ import 'about_us_screen.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import '../utils/image_enhancer.dart';
+import 'ai_analysis_page.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
