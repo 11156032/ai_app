@@ -627,7 +627,10 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
   }
 
   Widget _buildRadarSection(Color textColor) {
-    final dims = _radarDimensions;
+    // 判斷資料是否足夠（至少需要 2 個科目且各科至少 3 題）
+    final hasEnoughData = _subjectStats.length >= 2 &&
+        _subjectStats.any((s) => (s['total'] as int) >= 3);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -637,50 +640,87 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
                 fontSize: 16,
                 fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
-        SizedBox(
-          height: 220,
-          child: RadarChart(
-            RadarChartData(
-              dataSets: [
-                RadarDataSet(
-                  fillColor:
-                      const Color(0xFF6D5448).withValues(alpha: 0.15),
-                  borderColor: const Color(0xFF6D5448),
-                  entryRadius: 5,
-                  dataEntries: dims
-                      .map((d) => RadarEntry(
-                          value:
-                              (d['value'] as double).clamp(1.0, 5.0)))
-                      .toList(),
-                  borderWidth: 2.5,
-                ),
-              ],
-              radarBackgroundColor: Colors.transparent,
-              borderData: FlBorderData(show: false),
-              radarBorderData:
-                  const BorderSide(color: Colors.transparent),
-              tickCount: 5,
-              ticksTextStyle: const TextStyle(
-                  color: Colors.transparent, fontSize: 10),
-              tickBorderData:
-                  BorderSide(color: Colors.grey.shade300, width: 1),
-              gridBorderData:
-                  BorderSide(color: Colors.grey.shade300, width: 1),
-              getTitle: (index, angle) {
-                return RadarChartTitle(
-                  text: dims[index]['label'] as String,
-                  angle: angle,
-                );
-              },
+        if (!hasEnoughData)
+          // ── Empty state ───────────────────────────────────────────
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6D5448).withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: const Color(0xFF6D5448).withValues(alpha: 0.15),
+                  width: 1.5,
+                  style: BorderStyle.solid),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.radar,
+                      size: 52,
+                      color: const Color(0xFF6D5448).withValues(alpha: 0.3)),
+                  const SizedBox(height: 14),
+                  Text('尚無足夠資料',
+                      style: TextStyle(
+                          color: textColor,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  const Text('請多完成幾次各科測驗',
+                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  const Text('雷達圖將自動更新為您的能力分佈 📊',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          )
+        else ...[
+          // ── Radar chart ───────────────────────────────────────────
+          SizedBox(
+            height: 260,
+            child: RadarChart(
+              RadarChartData(
+                dataSets: [
+                  RadarDataSet(
+                    fillColor:
+                        const Color(0xFF6D5448).withValues(alpha: 0.15),
+                    borderColor: const Color(0xFF6D5448),
+                    entryRadius: 5,
+                    dataEntries: _radarDimensions
+                        .map((d) => RadarEntry(
+                            value:
+                                (d['value'] as double).clamp(1.0, 5.0)))
+                        .toList(),
+                    borderWidth: 2.5,
+                  ),
+                ],
+                radarBackgroundColor: Colors.transparent,
+                borderData: FlBorderData(show: false),
+                radarBorderData:
+                    const BorderSide(color: Colors.transparent),
+                tickCount: 5,
+                ticksTextStyle: const TextStyle(
+                    color: Colors.transparent, fontSize: 10),
+                tickBorderData:
+                    BorderSide(color: Colors.grey.shade300, width: 1),
+                gridBorderData:
+                    BorderSide(color: Colors.grey.shade300, width: 1),
+                getTitle: (index, angle) {
+                  // angle: 0 讓所有標籤保持水平，不隨雷達圖旋轉
+                  return RadarChartTitle(
+                    text: _radarDimensions[index]['label'] as String,
+                    angle: 0,
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        if (_subjectStats.isNotEmpty) ...[
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 6,
-            children: dims.map((d) {
+            children: _radarDimensions.map((d) {
               final acc =
                   (((d['value'] as double) - 1) / 4 * 100).round();
               return Container(
@@ -702,6 +742,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       ],
     );
   }
+
 
   Widget _buildInsightSection(Color textColor) {
     return Column(
