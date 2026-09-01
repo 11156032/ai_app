@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
-import '../widgets/tour_overlay.dart';
 import 'question_set_detail_page.dart';
 import 'paper_builder_page.dart';
 import 'wrong_questions_page.dart';
 import 'subject_chapters_page.dart';
 import 'question_edit_page.dart';
+import 'ai_upload_paper_page.dart';
 
 class QuestionListPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -25,13 +25,12 @@ class QuestionListPage extends StatefulWidget {
 
 class _QuestionListPageState extends State<QuestionListPage> {
   bool _isLoading = true;
-  bool _isLoadingPapers = true;
   List<Map<String, dynamic>> _userPapers = [];
   Map<String, int> _subjectCounts = {};
   int _customQuestionCount = 0;
-  int _selectedTab = 0; // 0: 挑題庫, 1: 自訂題本, 2: 錯題本, 3: 我的收藏
-  final GlobalKey<WrongQuestionsPageState> _wrongQuestionsKey = GlobalKey<WrongQuestionsPageState>();
-  final GlobalKey<WrongQuestionsPageState> _favoritesKey = GlobalKey<WrongQuestionsPageState>();
+  int _wrongQuestionCount = 0;
+  int _favoriteQuestionCount = 0;
+  int _totalQuestionCount = 0;
 
   @override
   void initState() {
@@ -40,38 +39,20 @@ class _QuestionListPageState extends State<QuestionListPage> {
   }
 
   Future<void> _loadData() async {
-    await Future.wait([
-      _loadSubjects(),
-      _loadUserPapers(),
-    ]);
-  }
-
-  Future<void> _loadUserPapers() async {
-    try {
-      final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
-      final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
-      if (!mounted) return;
-      setState(() {
-        _userPapers = papers;
-        _isLoadingPapers = false;
-      });
-    } catch (e) {
-      debugPrint('載入考卷失敗: $e');
-      if (!mounted) return;
-      setState(() => _isLoadingPapers = false);
-    }
-  }
-
-  Future<void> _loadSubjects() async {
     try {
       final db = await DatabaseHelper.instance.database;
+      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+
+      // 1. Load User Papers
+      final papers = await DatabaseHelper.instance.getPapersForUser(uid);
+
+      // 2. Load Subject Counts
       final rows = await db.rawQuery('''
         SELECT subject, COUNT(id) as count
         FROM questions
         WHERE is_public = 1
         GROUP BY subject
       ''');
-      
       final counts = <String, int>{};
       for (final row in rows) {
         final subject = row['subject']?.toString() ?? '';
@@ -81,22 +62,46 @@ class _QuestionListPageState extends State<QuestionListPage> {
         }
       }
 
-      final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+      // 3. Load Custom Question Count
       final customRows = await db.rawQuery('''
         SELECT COUNT(id) as count
         FROM questions
         WHERE user_id = ? AND is_public = 0
-      ''', [uid.toString()]);
+      ''', [uid]);
       final customCount = int.tryParse(customRows.first['count']?.toString() ?? '0') ?? 0;
-      
+
+      // 4. Load Wrong Questions Count
+      final wrongRows = await db.rawQuery('''
+        SELECT COUNT(id) as count
+        FROM wrong_questions
+        WHERE user_id = ?
+      ''', [uid]);
+      final wrongCount = int.tryParse(wrongRows.first['count']?.toString() ?? '0') ?? 0;
+
+      // 5. Load Favorite Questions Count
+      final favRows = await db.rawQuery('''
+        SELECT COUNT(id) as count
+        FROM questions
+        WHERE bookmarked = 1
+      ''');
+      final favCount = int.tryParse(favRows.first['count']?.toString() ?? '0') ?? 0;
+
+      // 6. Load Total Questions
+      final totalQRows = await db.rawQuery('SELECT COUNT(id) as count FROM questions');
+      final totalQ = int.tryParse(totalQRows.first['count']?.toString() ?? '0') ?? 0;
+
       if (!mounted) return;
       setState(() {
+        _userPapers = papers;
         _subjectCounts = counts;
         _customQuestionCount = customCount;
+        _wrongQuestionCount = wrongCount;
+        _favoriteQuestionCount = favCount;
+        _totalQuestionCount = totalQ;
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('載入科目失敗: $e');
+      debugPrint('載入題庫資料失敗: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
@@ -106,8 +111,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('刪除考卷'),
-        content: const Text('確定要刪除這份考卷嗎？'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('刪除題本'),
+        content: const Text('確定要刪除這份自訂題本嗎？裡面的題目仍會保存在您的題庫中。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -115,7 +121,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('刪除', style: TextStyle(color: Colors.red)),
+            child: const Text('確認刪除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -125,9 +131,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
 
     try {
       await DatabaseHelper.instance.deletePaper(id);
-      await _loadUserPapers();
+      await _loadData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已刪除考卷')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已刪除題本')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('刪除失敗')));
@@ -143,17 +149,17 @@ class _QuestionListPageState extends State<QuestionListPage> {
           children: [
             Icon(Icons.cloud_upload_rounded, color: Colors.orange, size: 28),
             SizedBox(width: 12),
-            Text('雲端發佈功能', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('雲端分享功能', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         content: const Text(
-          '雲端發佈功能開發中！\n未來版本將支援一鍵備份同步，並將您的精選題本分享給社群其他使用者練習！',
+          '社群題本分享功能開發中！\n未來版本將支援一鍵將您的精選題本分享給同儕或群組同學共同練習！',
           style: TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('期待！', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('好的', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -173,350 +179,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
           subjectChapters: widget.subjectChapters,
         ),
       ),
-    ).then((_) {
-      // 重新載入以防有題目被刪除或收藏狀態變更
-      _loadData();
-      _wrongQuestionsKey.currentState?.loadWrongQuestions();
-      _favoritesKey.currentState?.loadWrongQuestions();
-    });
+    ).then((_) => _loadData());
   }
 
-  Widget _buildFolderCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-    VoidCallback? onEdit,
-    VoidCallback? onDelete,
-    VoidCallback? onPublish,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.outline.withValues(alpha: 0.1)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: color, size: 24),
-                  ),
-                  if (onEdit != null || onDelete != null || onPublish != null)
-                    PopupMenuButton<String>(
-                      icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant),
-                      onSelected: (val) {
-                        if (val == 'edit' && onEdit != null) onEdit();
-                        if (val == 'delete' && onDelete != null) onDelete();
-                        if (val == 'publish' && onPublish != null) onPublish();
-                      },
-                      itemBuilder: (context) => [
-                        if (onEdit != null)
-                          const PopupMenuItem(value: 'edit', child: Text('編輯考卷')),
-                        if (onPublish != null)
-                          const PopupMenuItem(value: 'publish', child: Text('發佈至公共題庫')),
-                        if (onDelete != null)
-                          const PopupMenuItem(value: 'delete', child: Text('刪除考卷', style: TextStyle(color: Colors.red))),
-                      ],
-                    ),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: cs.onSurface,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubjectBankContent(
-      BuildContext context, List<String> subjects, ColorScheme cs) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        if (subjects.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Text('目前沒有科目題目'),
-            ),
-          )
-        else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.92, // 調整寬高比以容納多行文字，防止底部溢出
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: subjects.length,
-            itemBuilder: (context, index) {
-              final subject = subjects[index];
-              final count = _subjectCounts[subject] ?? 0;
-              return _buildFolderCard(
-                title: subject,
-                subtitle: '共 $count 題',
-                icon: Icons.folder_rounded,
-                color: Colors.blue,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SubjectChaptersPage(
-                        currentUser: widget.currentUser,
-                        subject: subject,
-                        allSubjects: widget.allSubjects,
-                        subjectChapters: widget.subjectChapters,
-                      ),
-                    ),
-                  ).then((_) {
-                    _loadData();
-                    _wrongQuestionsKey.currentState?.loadWrongQuestions();
-                    _favoritesKey.currentState?.loadWrongQuestions();
-                  });
-                },
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _buildCustomPaperContent(BuildContext context, ColorScheme cs) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        Text(
-          '我的自訂內容',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: cs.onSurface,
-          ),
-        ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.92, // 調整寬高比以容納多行文字，防止底部溢出
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: _userPapers.length + 1,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return _buildFolderCard(
-                title: '自訂題目',
-                subtitle: '共 $_customQuestionCount 題',
-                icon: Icons.app_registration_rounded,
-                color: cs.primary,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => QuestionSetDetailPage(
-                        currentUser: widget.currentUser,
-                        title: '自訂題目',
-                        isCustomOnly: true,
-                        allSubjects: widget.allSubjects,
-                        subjectChapters: widget.subjectChapters,
-                      ),
-                    ),
-                  ).then((_) {
-                    _loadData();
-                    _wrongQuestionsKey.currentState?.loadWrongQuestions();
-                    _favoritesKey.currentState?.loadWrongQuestions();
-                  });
-                },
-              );
-            }
-
-            final p = _userPapers[index - 1];
-            final pid = int.tryParse(p['id'].toString()) ?? 0;
-            final name = p['name'] ?? '未命名考卷';
-            return _buildFolderCard(
-              title: name,
-              subtitle: '建立於 ${p['created_at'].toString().split(' ')[0]}',
-              icon: Icons.assignment_rounded,
-              color: Colors.orange,
-              onTap: () => _openSetDetail(paperId: pid, title: name),
-              onEdit: () async {
-                final result = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PaperBuilderPage(
-                      currentUser: widget.currentUser,
-                      paperId: pid,
-                    ),
-                  ),
-                );
-                if (result == true) await _loadUserPapers();
-              },
-              onDelete: () => _deletePaper(pid),
-              onPublish: () => _publishPaper(pid, name),
-            );
-          },
-        ),
-        if (_userPapers.isEmpty) ...[
-          const SizedBox(height: 30),
-          Center(
-            child: Column(
-              children: [
-                Icon(
-                  Icons.assignment_outlined,
-                  size: 48,
-                  color: cs.primary.withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '尚無自訂考卷',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '點擊右下角按鈕或下方連結建立考卷',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: () async {
-                    final result = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PaperBuilderPage(
-                          currentUser: widget.currentUser,
-                        ),
-                      ),
-                    );
-                    if (result == true) await _loadUserPapers();
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('建立自訂考卷'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        const SizedBox(height: 80), // 為 FloatingActionButton 留空
-      ],
-    );
-  }
-
-  Widget _buildTabItem(int index, String title, IconData icon, ColorScheme cs, {GlobalKey? key}) {
-    final isSelected = _selectedTab == index;
-    return Expanded(
-      child: GestureDetector(
-        key: key,
-        onTap: () {
-          if (_selectedTab != index) {
-            setState(() {
-              _selectedTab = index;
-            });
-            // 每次切換分頁時，如果切換到錯題本或我的收藏，自動重新載入最新資料，避免畫面快取沒有更新
-            if (index == 2) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _wrongQuestionsKey.currentState?.loadWrongQuestions();
-              });
-            } else if (index == 3) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _favoritesKey.currentState?.loadWrongQuestions();
-              });
-            }
-          }
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? cs.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: cs.primary.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ]
-                : [],
-          ),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
-                  size: 14,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showAddCustomContentBottomSheet(BuildContext context, ColorScheme cs) {
+  void _showCreateOptionsBottomSheet(BuildContext context, ColorScheme cs) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -526,13 +192,13 @@ class _QuestionListPageState extends State<QuestionListPage> {
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '新增自訂內容',
+                  '建立新內容',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -544,13 +210,43 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   leading: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
+                      color: Colors.purple.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.purple, size: 24),
+                  ),
+                  title: const Text('AI 智慧拍考卷匯入', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('上傳 PDF 或照片，AI 自動辨識並建立題本'),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final result = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AiUploadPaperPage(
+                          currentUser: widget.currentUser,
+                          allSubjects: widget.allSubjects,
+                          subjectChapters: widget.subjectChapters,
+                        ),
+                      ),
+                    );
+                    if (result == true) {
+                      _loadData();
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
                       color: cs.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.post_add_rounded, color: cs.primary, size: 24),
+                    child: Icon(Icons.edit_note_rounded, color: cs.primary, size: 24),
                   ),
-                  title: const Text('新增自訂題目', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('撰寫全新的自訂題目、選項與解析'),
+                  title: const Text('手動新增題目', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('撰寫全新題目、選項與解析'),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   onTap: () async {
                     Navigator.pop(context);
@@ -569,7 +265,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     }
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 ListTile(
                   leading: Container(
                     padding: const EdgeInsets.all(10),
@@ -577,10 +273,10 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       color: Colors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.assignment_rounded, color: Colors.orange, size: 24),
+                    child: const Icon(Icons.library_add_rounded, color: Colors.orange, size: 24),
                   ),
-                  title: const Text('建立自訂考卷', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('從題庫中挑選題目組裝成專屬考卷'),
+                  title: const Text('從題庫挑選組卷', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('從現有題目中自由勾選組合題本'),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   onTap: () async {
                     Navigator.pop(context);
@@ -593,7 +289,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       ),
                     );
                     if (result == true) {
-                      _loadUserPapers();
+                      _loadData();
                     }
                   },
                 ),
@@ -605,78 +301,647 @@ class _QuestionListPageState extends State<QuestionListPage> {
     );
   }
 
+  // Subject Theme Helper
+  Map<String, dynamic> _getSubjectStyle(String subject) {
+    switch (subject) {
+      case '數學':
+        return {
+          'icon': Icons.calculate_rounded,
+          'color': const Color(0xFF4F46E5),
+          'bg': const Color(0xFFEEF2FF),
+        };
+      case '英文':
+        return {
+          'icon': Icons.translate_rounded,
+          'color': const Color(0xFF059669),
+          'bg': const Color(0xFFECFDF5),
+        };
+      case '理化':
+      case '自然':
+        return {
+          'icon': Icons.science_rounded,
+          'color': const Color(0xFF0891B2),
+          'bg': const Color(0xFFECFEFF),
+        };
+      case '歷史':
+      case '社會':
+        return {
+          'icon': Icons.auto_stories_rounded,
+          'color': const Color(0xFFD97706),
+          'bg': const Color(0xFFFFFBEB),
+        };
+      case '地理':
+        return {
+          'icon': Icons.public_rounded,
+          'color': const Color(0xFF2563EB),
+          'bg': const Color(0xFFEFF6FF),
+        };
+      case '國文':
+        return {
+          'icon': Icons.history_edu_rounded,
+          'color': const Color(0xFFDB2777),
+          'bg': const Color(0xFFFDF2F8),
+        };
+      default:
+        return {
+          'icon': Icons.menu_book_rounded,
+          'color': const Color(0xFF7C3AED),
+          'bg': const Color(0xFFF5F3FF),
+        };
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final subjects = widget.allSubjects.where((s) => _subjectCounts.containsKey(s)).toList();
 
-    return Stack(
-      children: [
-        _isLoading || _isLoadingPapers
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 100),
                 children: [
-                  // 頂部切換按鈕
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildTabItem(0, '挑題庫', Icons.folder_open_rounded, cs),
-                        _buildTabItem(1, '自訂題本', Icons.assignment_outlined, cs),
-                        _buildTabItem(2, '錯題本', Icons.error_outline_rounded, cs, key: TourKeys.wrongQuestionsTabKey),
-                        _buildTabItem(3, '我的收藏', Icons.star_rounded, cs),
-                      ],
-                    ),
-                  ),
-                  // 內容區域
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: () async {
-                        if (_selectedTab == 2) {
-                          await _wrongQuestionsKey.currentState?.loadWrongQuestions();
-                        } else if (_selectedTab == 3) {
-                          await _favoritesKey.currentState?.loadWrongQuestions();
-                        } else {
-                          await _loadData();
-                        }
-                      },
-                      child: _selectedTab == 0
-                          ? _buildSubjectBankContent(context, subjects, cs)
-                          : _selectedTab == 1
-                              ? _buildCustomPaperContent(context, cs)
-                              : _selectedTab == 2
-                                  ? WrongQuestionsPage(
-                                      key: _wrongQuestionsKey,
-                                      currentUser: widget.currentUser,
-                                      embed: true,
-                                      mode: 0,
-                                    )
-                                  : WrongQuestionsPage(
-                                      key: _favoritesKey,
-                                      currentUser: widget.currentUser,
-                                      embed: true,
-                                      mode: 1,
-                                    ),
-                    ),
-                  ),
+                  // 1. Header & AI Quick Action
+                  _buildHeader(cs),
+                  const SizedBox(height: 20),
+
+                  // 2. Section: 快速複習 (錯題複習 & 精選收藏 雙卡)
+                  _buildQuickReviewSection(cs),
+                  const SizedBox(height: 24),
+
+                  // 3. Section: 我的題本 (Grouped List Style)
+                  _buildMyPapersGroupSection(cs),
+                  const SizedBox(height: 24),
+
+                  // 4. Section: 學科分類 (Grouped List Style)
+                  _buildSubjectsGroupSection(subjects, cs),
                 ],
               ),
-        if (_selectedTab == 1)
-          Positioned(
-            right: 16,
-            bottom: 80 + MediaQuery.of(context).padding.bottom,
-            child: FloatingActionButton.extended(
-              heroTag: 'custom_add_fab',
-              onPressed: () => _showAddCustomContentBottomSheet(context, cs),
-              icon: const Icon(Icons.add),
-              label: const Text('新增'),
-              backgroundColor: cs.primary,
-              foregroundColor: cs.onPrimary,
+            ),
+    );
+  }
+
+  // --- 1. Header ---
+  Widget _buildHeader(ColorScheme cs) {
+    final displayName = widget.currentUser['display_name'] ??
+        widget.currentUser['username'] ??
+        '學習者';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '你好，$displayName 👋',
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF111827),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '共收錄 $_totalQuestionCount 題 · 隨時開啟高效測驗',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          // AI Scan Quick Button
+          ElevatedButton.icon(
+            onPressed: () async {
+              final result = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AiUploadPaperPage(
+                    currentUser: widget.currentUser,
+                    allSubjects: widget.allSubjects,
+                    subjectChapters: widget.subjectChapters,
+                  ),
+                ),
+              );
+              if (result == true) {
+                _loadData();
+              }
+            },
+            icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+            label: const Text('AI 拍考卷', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- 2. Section: 快速複習 (雙卡片) ---
+  Widget _buildQuickReviewSection(ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '快速複習',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            // 錯題複習
+            Expanded(
+              child: _buildReviewCard(
+                title: '錯題複習',
+                count: '$_wrongQuestionCount 題',
+                icon: Icons.flash_on_rounded,
+                iconColor: const Color(0xFFEF4444),
+                bgColor: const Color(0xFFFEF2F2),
+                badgeColor: const Color(0xFFEF4444),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(title: const Text('錯題本複習')),
+                        body: WrongQuestionsPage(
+                          currentUser: widget.currentUser,
+                          embed: true,
+                          mode: 0,
+                        ),
+                      ),
+                    ),
+                  ).then((_) => _loadData());
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            // 精選收藏
+            Expanded(
+              child: _buildReviewCard(
+                title: '精選收藏',
+                count: '$_favoriteQuestionCount 題',
+                icon: Icons.star_rounded,
+                iconColor: const Color(0xFFF59E0B),
+                bgColor: const Color(0xFFFFFBEB),
+                badgeColor: const Color(0xFFF59E0B),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(title: const Text('精選收藏題目')),
+                        body: WrongQuestionsPage(
+                          currentUser: widget.currentUser,
+                          embed: true,
+                          mode: 1,
+                        ),
+                      ),
+                    ),
+                  ).then((_) => _loadData());
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReviewCard({
+    required String title,
+    required String count,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required Color badgeColor,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        count,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: badgeColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- 3. Section: 我的題本 (Grouped List Style) ---
+  Widget _buildMyPapersGroupSection(ColorScheme cs) {
+    final totalPapers = _userPapers.length + (_customQuestionCount > 0 ? 1 : 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  '我的題本',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$totalPapers',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                  ),
+                ),
+              ],
+            ),
+            TextButton.icon(
+              onPressed: () => _showCreateOptionsBottomSheet(context, cs),
+              icon: const Icon(Icons.add_rounded, size: 15),
+              label: const Text('新增題本', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        if (_userPapers.isEmpty && _customQuestionCount == 0)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.assignment_outlined, size: 36, color: Colors.grey.shade300),
+                const SizedBox(height: 8),
+                const Text(
+                  '尚未建立任何題本',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF374151)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '拍考卷或自訂題目，一鍵生成專屬題本！',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: totalPapers,
+                separatorBuilder: (context, index) => Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: 56,
+                  color: Colors.grey.shade100,
+                ),
+                itemBuilder: (context, index) {
+                  if (_customQuestionCount > 0 && index == 0) {
+                    // Custom Questions Total Deck Row
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.app_registration_rounded, color: cs.primary, size: 20),
+                      ),
+                      title: const Text(
+                        '自訂題目總庫',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF111827)),
+                      ),
+                      subtitle: Text(
+                        '所有自建題目精選',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '$_customQuestionCount 題',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: cs.primary),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 18),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => QuestionSetDetailPage(
+                              currentUser: widget.currentUser,
+                              title: '自訂題目總庫',
+                              isCustomOnly: true,
+                              allSubjects: widget.allSubjects,
+                              subjectChapters: widget.subjectChapters,
+                            ),
+                          ),
+                        ).then((_) => _loadData());
+                      },
+                    );
+                  }
+
+                  final pIndex = _customQuestionCount > 0 ? index - 1 : index;
+                  final paper = _userPapers[pIndex];
+                  final pid = int.tryParse(paper['id'].toString()) ?? 0;
+                  final name = paper['name'] ?? '未命名題本';
+                  final dateStr = (paper['created_at'] ?? '').toString().split(' ')[0];
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.assignment_rounded, color: Colors.orange, size: 20),
+                    ),
+                    title: Text(
+                      name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF111827)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      dateStr.isNotEmpty ? '建立於 $dateStr' : '專屬練習題本',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PopupMenuButton<String>(
+                          icon: Icon(Icons.more_vert, color: Colors.grey.shade400, size: 18),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onSelected: (val) {
+                            if (val == 'edit') {
+                              Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PaperBuilderPage(
+                                    currentUser: widget.currentUser,
+                                    paperId: pid,
+                                  ),
+                                ),
+                              ).then((res) {
+                                if (res == true) _loadData();
+                              });
+                            } else if (val == 'publish') {
+                              _publishPaper(pid, name);
+                            } else if (val == 'delete') {
+                              _deletePaper(pid);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 'edit', child: Text('編輯題本')),
+                            const PopupMenuItem(value: 'publish', child: Text('分享至社群')),
+                            const PopupMenuItem(value: 'delete', child: Text('刪除題本', style: TextStyle(color: Colors.redAccent))),
+                          ],
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 18),
+                      ],
+                    ),
+                    onTap: () => _openSetDetail(paperId: pid, title: name),
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // --- 4. Section: 學科分類 (Grouped List Style) ---
+  Widget _buildSubjectsGroupSection(List<String> subjects, ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '學科分類',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        if (subjects.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: const Center(child: Text('目前尚無科目題庫')),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: subjects.length,
+                separatorBuilder: (context, index) => Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: 56,
+                  color: Colors.grey.shade100,
+                ),
+                itemBuilder: (context, index) {
+                  final subject = subjects[index];
+                  final count = _subjectCounts[subject] ?? 0;
+                  final style = _getSubjectStyle(subject);
+                  final Color color = style['color'];
+                  final Color bg = style['bg'];
+                  final IconData icon = style['icon'];
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, color: color, size: 20),
+                    ),
+                    title: Text(
+                      subject,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    subtitle: Text(
+                      '按單元循序漸進練習',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '$count 題',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 18),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SubjectChaptersPage(
+                            currentUser: widget.currentUser,
+                            subject: subject,
+                            allSubjects: widget.allSubjects,
+                            subjectChapters: widget.subjectChapters,
+                          ),
+                        ),
+                      ).then((_) => _loadData());
+                    },
+                  );
+                },
+              ),
             ),
           ),
       ],
