@@ -131,22 +131,29 @@ class DatabaseHelper {
 
       var userCols = await db.rawQuery('PRAGMA table_info(users)');
       if (!userCols.any((c) => c['name'] == 'push_notifications_enabled')) {
-        await db.execute('ALTER TABLE users ADD COLUMN push_notifications_enabled INTEGER DEFAULT 1');
-        debugPrint('Dynamic migration: Added push_notifications_enabled column to users table.');
+        await db.execute(
+            'ALTER TABLE users ADD COLUMN push_notifications_enabled INTEGER DEFAULT 1');
+        debugPrint(
+            'Dynamic migration: Added push_notifications_enabled column to users table.');
       }
       if (!userCols.any((c) => c['name'] == 'language')) {
-        await db.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'zh_TW'");
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'zh_TW'");
         debugPrint('Dynamic migration: Added language column to users table.');
       }
 
       var quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
       if (!quizCols.any((c) => c['name'] == 'subject')) {
-        await db.execute("ALTER TABLE quiz_results ADD COLUMN subject TEXT DEFAULT ''");
-        debugPrint('Dynamic migration: Added subject column to quiz_results table.');
+        await db.execute(
+            "ALTER TABLE quiz_results ADD COLUMN subject TEXT DEFAULT ''");
+        debugPrint(
+            'Dynamic migration: Added subject column to quiz_results table.');
       }
       if (!quizCols.any((c) => c['name'] == 'paper_id')) {
-        await db.execute('ALTER TABLE quiz_results ADD COLUMN paper_id INTEGER DEFAULT NULL');
-        debugPrint('Dynamic migration: Added paper_id column to quiz_results table.');
+        await db.execute(
+            'ALTER TABLE quiz_results ADD COLUMN paper_id INTEGER DEFAULT NULL');
+        debugPrint(
+            'Dynamic migration: Added paper_id column to quiz_results table.');
       }
 
       // 社群群組相關資料表（防禦性建立）
@@ -825,7 +832,9 @@ class DatabaseHelper {
     try {
       final db = await database;
       await db.execute('UPDATE users SET is_currently_logged_in = 0');
-      await db.update('users', <String, Object?>{'is_currently_logged_in': 1},
+      await db.update(
+        'users',
+        <String, Object?>{'is_currently_logged_in': 1},
         where: 'id = ?',
         whereArgs: [userId],
       );
@@ -853,7 +862,9 @@ class DatabaseHelper {
   Future<void> setHasSeenTour(String userId) async {
     try {
       final db = await database;
-      await db.update('users', <String, Object?>{'has_seen_tour': 1},
+      await db.update(
+        'users',
+        <String, Object?>{'has_seen_tour': 1},
         where: 'id = ?',
         whereArgs: [userId],
       );
@@ -867,7 +878,9 @@ class DatabaseHelper {
   Future<void> clearLoggedInUser(String userId) async {
     try {
       final db = await database;
-      await db.update('users', <String, Object?>{'is_currently_logged_in': 0},
+      await db.update(
+        'users',
+        <String, Object?>{'is_currently_logged_in': 0},
         where: 'id = ?',
         whereArgs: [userId],
       );
@@ -1073,7 +1086,9 @@ class DatabaseHelper {
   Future<void> markGroupAsRead(int groupId, String userId) async {
     final db = await database;
     final now = DateTime.now().toIso8601String();
-    await db.update('group_members', <String, Object?>{'last_read_at': now},
+    await db.update(
+      'group_members',
+      <String, Object?>{'last_read_at': now},
       where: 'group_id = ? AND user_id = ?',
       whereArgs: [groupId, userId],
     );
@@ -1082,7 +1097,9 @@ class DatabaseHelper {
   /// 將指定群組標記為未讀（重置 last_read_at）
   Future<void> markGroupAsUnread(int groupId, String userId) async {
     final db = await database;
-    await db.update('group_members', <String, Object?>{'last_read_at': '1970-01-01 00:00:00'},
+    await db.update(
+      'group_members',
+      <String, Object?>{'last_read_at': '1970-01-01 00:00:00'},
       where: 'group_id = ? AND user_id = ?',
       whereArgs: [groupId, userId],
     );
@@ -1092,7 +1109,9 @@ class DatabaseHelper {
   Future<void> markAllGroupsAsRead(String userId) async {
     final db = await database;
     final now = DateTime.now().toIso8601String();
-    await db.update('group_members', <String, Object?>{'last_read_at': now},
+    await db.update(
+      'group_members',
+      <String, Object?>{'last_read_at': now},
       where: 'user_id = ? AND status = "active"',
       whereArgs: [userId],
     );
@@ -1108,7 +1127,9 @@ class DatabaseHelper {
     if (rows.isEmpty) return false;
     final currentMuted = (rows.first['is_muted'] as int? ?? 0) == 1;
     final newMuted = !currentMuted;
-    await db.update('group_members', <String, Object?>{'is_muted': newMuted ? 1 : 0},
+    await db.update(
+      'group_members',
+      <String, Object?>{'is_muted': newMuted ? 1 : 0},
       where: 'group_id = ? AND user_id = ?',
       whereArgs: [groupId, userId],
     );
@@ -1270,7 +1291,8 @@ class DatabaseHelper {
   Future<String> regenerateInviteToken(int groupId) async {
     final db = await database;
     final token = _generateToken();
-    await db.update('community_groups', <String, Object?>{'invite_token': token},
+    await db.update(
+        'community_groups', <String, Object?>{'invite_token': token},
         where: 'id = ?', whereArgs: [groupId]);
     return token;
   }
@@ -1278,14 +1300,16 @@ class DatabaseHelper {
   /// 設定邀請連結過期時間（null = 永久）
   Future<void> setTokenExpiry(int groupId, DateTime? expiresAt) async {
     final db = await database;
-    await db.update('community_groups', <String, Object?>{'token_expires_at': expiresAt?.toIso8601String()},
+    await db.update('community_groups',
+        <String, Object?>{'token_expires_at': expiresAt?.toIso8601String()},
         where: 'id = ?', whereArgs: [groupId]);
   }
 
   /// 開啟/關閉邀請連結
   Future<void> setInviteLinkActive(int groupId, bool active) async {
     final db = await database;
-    await db.update('community_groups', <String, Object?>{'invite_link_active': active ? 1 : 0},
+    await db.update('community_groups',
+        <String, Object?>{'invite_link_active': active ? 1 : 0},
         where: 'id = ?', whereArgs: [groupId]);
   }
 
@@ -1349,7 +1373,9 @@ class DatabaseHelper {
 
   Future<int> updatePaper(int id, String name, List<int> questionIds) async {
     final db = await database;
-    return await db.update('user_papers', <String, Object?>{
+    return await db.update(
+        'user_papers',
+        <String, Object?>{
           'name': name,
           'question_ids': jsonEncode(questionIds),
           'created_at': DateTime.now().toIso8601String(),
@@ -1369,7 +1395,9 @@ class DatabaseHelper {
     );
     if (existing.isNotEmpty) {
       if (note.isNotEmpty) {
-        await db.update('wrong_questions', <String, Object?>{'note': note},
+        await db.update(
+          'wrong_questions',
+          <String, Object?>{'note': note},
           where: 'user_id = ? AND question_id = ?',
           whereArgs: [userId, questionId],
         );
@@ -1419,7 +1447,9 @@ class DatabaseHelper {
 
   Future<void> _seedDatabase(Database db) async {
     // 1. Users
-    await db.insert('users', <String, Object?>{
+    await db.insert(
+        'users',
+        <String, Object?>{
           'id': 'u1',
           'username': 'Sharon',
           'email': 'sharon@gmail.com',
@@ -1427,7 +1457,9 @@ class DatabaseHelper {
           'display_name': 'Sharon',
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('users', <String, Object?>{
+    await db.insert(
+        'users',
+        <String, Object?>{
           'id': 'u2',
           'username': '陳教授',
           'email': 'prof@gmail.com',
@@ -1435,7 +1467,9 @@ class DatabaseHelper {
           'display_name': '陳教授',
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('users', <String, Object?>{
+    await db.insert(
+        'users',
+        <String, Object?>{
           'id': 'u3',
           'username': '系統',
           'email': 'sys@gmail.com',
@@ -1443,7 +1477,9 @@ class DatabaseHelper {
           'display_name': '系統',
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('users', <String, Object?>{
+    await db.insert(
+        'users',
+        <String, Object?>{
           'id': 'u4',
           'username': '訪客',
           'email': 'guest@gmail.com',
@@ -1452,7 +1488,9 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert('users', <String, Object?>{
+    await db.insert(
+        'users',
+        <String, Object?>{
           'id': 'u5',
           'username': '李同學',
           'email': 'lee@gmail.com',
@@ -1461,7 +1499,9 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert('users', <String, Object?>{
+    await db.insert(
+        'users',
+        <String, Object?>{
           'id': 'u6',
           'username': '陳助教',
           'email': 'ta@gmail.com',
@@ -1471,7 +1511,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 2. Calendar Event
-    await db.insert('calendar_events', <String, Object?>{
+    await db.insert(
+        'calendar_events',
+        <String, Object?>{
           'user_id': 'u1',
           'title': '專題討論會議',
           'start_time': '2026-03-30 09:10:00',
@@ -1481,7 +1523,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 3. Todo
-    await db.insert('todos', <String, Object?>{
+    await db.insert(
+        'todos',
+        <String, Object?>{
           'user_id': 'u1',
           'text': '確認 AutoCAD 圓角圖層',
           'done': 0,
@@ -1490,7 +1534,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 4. Posts (Seed a real functional post, but no hardcoded test strings from Sharon)
-    await db.insert('posts', <String, Object?>{
+    await db.insert(
+        'posts',
+        <String, Object?>{
           'id': 1,
           'user_id': 'u2',
           'content': '歡迎大家在社群分享學習心得與專題進度！',
@@ -1502,7 +1548,9 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert('posts', <String, Object?>{
+    await db.insert(
+        'posts',
+        <String, Object?>{
           'id': 2,
           'user_id': 'u5',
           'content': '我分享了我的學習筆記《測試》，歡迎點擊一鍵匯入！ 📝',
@@ -1522,7 +1570,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 5. Questions
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 1,
           'user_id': 'u2',
           'text': '下列何者不是關聯式資料庫的特性？',
@@ -1536,7 +1586,9 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 2,
           'user_id': 'u1',
           'text': '《師說》的作者是誰？',
@@ -1549,7 +1601,9 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 3,
           'user_id': 'u3',
           'text': '長方形長5寬4，面積為何？',
@@ -1570,16 +1624,21 @@ class DatabaseHelper {
     await db.insert('tags', <String, Object?>{'id': 3, 'name': '面積'},
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    await db.insert('question_tag_map', <String, Object?>{'question_id': 1, 'tag_id': 1},
+    await db.insert(
+        'question_tag_map', <String, Object?>{'question_id': 1, 'tag_id': 1},
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('question_tag_map', <String, Object?>{'question_id': 2, 'tag_id': 2},
+    await db.insert(
+        'question_tag_map', <String, Object?>{'question_id': 2, 'tag_id': 2},
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('question_tag_map', <String, Object?>{'question_id': 3, 'tag_id': 3},
+    await db.insert(
+        'question_tag_map', <String, Object?>{'question_id': 3, 'tag_id': 3},
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // TOEIC 題庫 (101-250: Part 5-7 試題)
     // Part 5: 101-130
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 4,
           'user_id': 'u2',
           'text':
@@ -1590,7 +1649,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 5,
           'user_id': 'u2',
           'text':
@@ -1602,7 +1663,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 6,
           'user_id': 'u2',
           'text':
@@ -1613,7 +1676,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 7,
           'user_id': 'u2',
           'text':
@@ -1624,7 +1689,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 8,
           'user_id': 'u2',
           'text':
@@ -1635,7 +1702,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 9,
           'user_id': 'u2',
           'text':
@@ -1646,7 +1715,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 10,
           'user_id': 'u2',
           'text':
@@ -1658,7 +1729,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 11,
           'user_id': 'u2',
           'text':
@@ -1670,7 +1743,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 12,
           'user_id': 'u2',
           'text':
@@ -1681,7 +1756,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 13,
           'user_id': 'u2',
           'text':
@@ -1692,7 +1769,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 14,
           'user_id': 'u2',
           'text':
@@ -1704,7 +1783,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 15,
           'user_id': 'u2',
           'text':
@@ -1715,7 +1796,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 16,
           'user_id': 'u2',
           'text':
@@ -1726,7 +1809,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 17,
           'user_id': 'u2',
           'text':
@@ -1738,7 +1823,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 18,
           'user_id': 'u2',
           'text':
@@ -1750,7 +1837,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 19,
           'user_id': 'u2',
           'text':
@@ -1761,7 +1850,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 20,
           'user_id': 'u2',
           'text':
@@ -1772,7 +1863,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 21,
           'user_id': 'u2',
           'text':
@@ -1784,7 +1877,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 22,
           'user_id': 'u2',
           'text':
@@ -1796,7 +1891,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 23,
           'user_id': 'u2',
           'text':
@@ -1807,7 +1904,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 24,
           'user_id': 'u2',
           'text':
@@ -1819,7 +1918,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 25,
           'user_id': 'u2',
           'text':
@@ -1830,7 +1931,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 26,
           'user_id': 'u2',
           'text':
@@ -1842,7 +1945,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 27,
           'user_id': 'u2',
           'text':
@@ -1853,7 +1958,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 28,
           'user_id': 'u2',
           'text':
@@ -1865,7 +1972,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 29,
           'user_id': 'u2',
           'text':
@@ -1876,7 +1985,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 30,
           'user_id': 'u2',
           'text':
@@ -1887,7 +1998,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 31,
           'user_id': 'u2',
           'text':
@@ -1903,7 +2016,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 32,
           'user_id': 'u2',
           'text':
@@ -1915,7 +2030,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 33,
           'user_id': 'u2',
           'text':
@@ -1929,7 +2046,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // Part 6: 131-146
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 34,
           'user_id': 'u2',
           'text':
@@ -1945,7 +2064,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 35,
           'user_id': 'u2',
           'text':
@@ -1961,7 +2082,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 36,
           'user_id': 'u2',
           'text':
@@ -1977,7 +2100,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 37,
           'user_id': 'u2',
           'text':
@@ -1988,7 +2113,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 38,
           'user_id': 'u2',
           'text':
@@ -2000,7 +2127,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 39,
           'user_id': 'u2',
           'text':
@@ -2012,7 +2141,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 40,
           'user_id': 'u2',
           'text':
@@ -2028,7 +2159,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 41,
           'user_id': 'u2',
           'text':
@@ -2040,7 +2173,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 42,
           'user_id': 'u2',
           'text': 'Part 6-139: Card renewal - What must be renewed?',
@@ -2050,7 +2185,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 43,
           'user_id': 'u2',
           'text':
@@ -2066,7 +2203,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 44,
           'user_id': 'u2',
           'text':
@@ -2077,7 +2216,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 45,
           'user_id': 'u2',
           'text':
@@ -2089,7 +2230,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 46,
           'user_id': 'u2',
           'text':
@@ -2105,7 +2248,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 47,
           'user_id': 'u2',
           'text':
@@ -2117,7 +2262,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 48,
           'user_id': 'u2',
           'text':
@@ -2129,7 +2276,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 49,
           'user_id': 'u2',
           'text':
@@ -2143,7 +2292,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // Part 7: 147-150
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 50,
           'user_id': 'u2',
           'text':
@@ -2155,7 +2306,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 51,
           'user_id': 'u2',
           'text':
@@ -2171,7 +2324,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 52,
           'user_id': 'u2',
           'text':
@@ -2187,7 +2342,9 @@ class DatabaseHelper {
           'bookmarked': 0
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('questions', <String, Object?>{
+    await db.insert(
+        'questions',
+        <String, Object?>{
           'id': 53,
           'user_id': 'u2',
           'text':
@@ -2205,7 +2362,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 7. Simulated wrong question records in quiz_results to match ui state isWrong: true
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u1',
           'total': 10,
           'correct': 8,
@@ -2214,7 +2373,9 @@ class DatabaseHelper {
           'timestamp': '2026-05-25 14:30:00'
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u1',
           'total': 15,
           'correct': 13,
@@ -2225,7 +2386,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 8. 排行榜種子資料：u2 陳教授
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u2',
           'total': 20,
           'correct': 20,
@@ -2234,7 +2397,9 @@ class DatabaseHelper {
           'timestamp': '2026-05-24 09:00:00'
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u2',
           'total': 25,
           'correct': 24,
@@ -2243,7 +2408,9 @@ class DatabaseHelper {
           'timestamp': '2026-05-26 10:30:00'
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u2',
           'total': 15,
           'correct': 15,
@@ -2254,7 +2421,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 9. 排行榜種子資料：u5 李同學
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u5',
           'total': 12,
           'correct': 9,
@@ -2263,7 +2432,9 @@ class DatabaseHelper {
           'timestamp': '2026-05-23 15:00:00'
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u5',
           'total': 18,
           'correct': 14,
@@ -2272,7 +2443,9 @@ class DatabaseHelper {
           'timestamp': '2026-05-25 11:00:00'
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u5',
           'total': 10,
           'correct': 8,
@@ -2283,7 +2456,9 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     // 10. 排行榜種子資料：u6 陳助教
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u6',
           'total': 30,
           'correct': 27,
@@ -2292,7 +2467,9 @@ class DatabaseHelper {
           'timestamp': '2026-05-22 10:00:00'
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u6',
           'total': 20,
           'correct': 19,
@@ -2301,7 +2478,9 @@ class DatabaseHelper {
           'timestamp': '2026-05-24 16:00:00'
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
-    await db.insert('quiz_results', <String, Object?>{
+    await db.insert(
+        'quiz_results',
+        <String, Object?>{
           'user_id': 'u6',
           'total': 25,
           'correct': 22,
@@ -2328,7 +2507,9 @@ class DatabaseHelper {
         physicsTag.isNotEmpty ? physicsTag.first['id'] as int : 0;
 
     // 插入測試題目
-    int q1Id = await db.insert('questions', <String, Object?>{
+    int q1Id = await db.insert(
+        'questions',
+        <String, Object?>{
           'user_id': 'u2',
           'text': '中國歷史上第一個大一統的帝國是？',
           'options': jsonEncode(['漢朝', '秦朝', '唐朝', '宋朝']),
@@ -2340,7 +2521,9 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    int q2Id = await db.insert('questions', <String, Object?>{
+    int q2Id = await db.insert(
+        'questions',
+        <String, Object?>{
           'user_id': 'u2',
           'text': '下列何者為牛頓第二運動定律公式？',
           'options': jsonEncode(['F = ma', 'E = mc²', 'V = IR', 'P = IV']),
@@ -2353,11 +2536,13 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
     if (historyTagId > 0 && q1Id > 0) {
-      await db.insert('question_tag_map', <String, Object?>{'question_id': q1Id, 'tag_id': historyTagId},
+      await db.insert('question_tag_map',
+          <String, Object?>{'question_id': q1Id, 'tag_id': historyTagId},
           conflictAlgorithm: ConflictAlgorithm.ignore);
     }
     if (physicsTagId > 0 && q2Id > 0) {
-      await db.insert('question_tag_map', <String, Object?>{'question_id': q2Id, 'tag_id': physicsTagId},
+      await db.insert('question_tag_map',
+          <String, Object?>{'question_id': q2Id, 'tag_id': physicsTagId},
           conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
@@ -2380,7 +2565,9 @@ class DatabaseHelper {
         'UPDATE posts SET likes = (SELECT COUNT(*) FROM post_likes WHERE post_likes.post_id = posts.id)');
 
     // 3. 重置訪客帳號的設定與基本資訊
-    await db.update('users', <String, Object?>{
+    await db.update(
+        'users',
+        <String, Object?>{
           'username': '訪客',
           'email': 'guest@gmail.com',
           'hashed_password': 'mock_password',
@@ -2412,7 +2599,9 @@ class DatabaseHelper {
     final tagId = tagRow.first['id'] as int;
 
     for (final item in mockData) {
-      final qId = await db.insert('questions', <String, Object?>{
+      final qId = await db.insert(
+          'questions',
+          <String, Object?>{
             'user_id': 'u2',
             'text': item['text'],
             'options': jsonEncode(item['options']),
@@ -2427,7 +2616,9 @@ class DatabaseHelper {
           conflictAlgorithm: ConflictAlgorithm.ignore);
 
       if (qId > 0) {
-        await db.insert('question_tag_map', <String, Object?>{
+        await db.insert(
+            'question_tag_map',
+            <String, Object?>{
               'question_id': qId,
               'tag_id': tagId,
             },

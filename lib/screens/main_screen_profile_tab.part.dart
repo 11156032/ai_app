@@ -162,47 +162,10 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   Widget _buildPersonalizedDashboard(BuildContext context) {
-    bool isFlipped = false;
-
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              isFlipped = !isFlipped;
-            });
-          },
-          child: TweenAnimationBuilder(
-            tween: Tween<double>(begin: 0, end: isFlipped ? 1 : 0),
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeOutBack,
-            builder: (context, double value, child) {
-              bool showBack = value > 0.5;
-              double angle = value * math.pi;
-
-              Widget content =
-                  showBack ? _buildDashboardBack() : _buildDashboardFront();
-
-              return Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001) // 透視效果
-                  ..rotateX(angle), // 沿 X 軸翻轉 (上下)
-                alignment: Alignment.center,
-                child: showBack
-                    ? Transform(
-                        transform: Matrix4.identity()..rotateX(math.pi),
-                        alignment: Alignment.center,
-                        child: content)
-                    : content,
-              );
-            },
-          ),
-        );
-      },
-    );
+    return _buildDashboardFront(context);
   }
 
-  Widget _buildDashboardFront() {
+  Widget _buildDashboardFront(BuildContext context) {
     final primaryColor = _currentPrimaryColor;
     return Container(
       padding: const EdgeInsets.all(20),
@@ -234,15 +197,26 @@ extension MainScreenProfileTab on _MainScreenState {
                     fontSize: 16,
                     fontWeight: FontWeight.bold),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+              GestureDetector(
+                onTap: () => _showAiAnalysisSheet(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'AI 分析',
+                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Text(
-                    AppLocaleService.tr('dashboard_tap_flip', _appLanguage),
-                    style: const TextStyle(color: Colors.white, fontSize: 10)),
               ),
             ],
           ),
@@ -268,74 +242,419 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  Widget _buildDashboardBack() {
-    final baseColor = _currentPrimaryColor;
-    final primaryColor = HSLColor.fromColor(baseColor)
-        .withHue((HSLColor.fromColor(baseColor).hue + 25) % 360)
-        .toColor();
+  void _showAiAnalysisSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildAiAnalysisContent(context),
+    );
+  }
 
-    int totalQuestions = 0;
-    int totalSeconds = 0;
-    for (var d in _weeklyMatrixData) {
-      totalQuestions += (d['total'] as num?)?.toInt() ?? 0;
-      totalSeconds += (d['duration'] as num?)?.toInt() ?? 0;
-    }
-    double weeklyHours = totalSeconds / 3600.0;
+  Widget _buildAiAnalysisContent(BuildContext context) {
+    final bgColor = _isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFFAFAFA);
+    final textColor = _isDarkMode ? Colors.white : Colors.black87;
+    
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: textColor),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                Expanded(
+                  child: Text(
+                    'AI 學習分析報告',
+                    style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  // Banner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9E8E81),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('✨', style: TextStyle(fontSize: 20)),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'AI 洞察已更新',
+                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '根據您本週的學習歷程，已產生最新能力評估。',
+                          style: TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Learning history chart
+                  _buildLearningHistoryCard(textColor),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(child: _buildStreakCard(textColor)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildProficiencyCard(textColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Radar Chart
+                  _buildRadarChartCard(textColor),
+                  const SizedBox(height: 20),
+                  // Smart Insights
+                  _buildSmartInsightsCard(textColor),
+                  const SizedBox(height: 30),
+                  // Action button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5D534A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('開始今日專屬特訓', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildLearningHistoryCard(Color textColor) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primaryColor, primaryColor.withValues(alpha: 0.7)],
-          begin: Alignment.bottomRight,
-          end: Alignment.topLeft,
-        ),
+        color: _isDarkMode ? const Color(0xFF2C2C2C) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: primaryColor.withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '本週學習數據',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text('點擊翻轉',
-                    style: TextStyle(color: Colors.white, fontSize: 10)),
-              ),
+              Text('學習歷程', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              const Text('(本週學習時數)', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _buildDashboardItem(Icons.timer_outlined, '本週時數',
-                  '${weeklyHours.toStringAsFixed(1)}h'),
-              _buildDashboardItem(
-                  Icons.library_books_outlined, '本週題目', '$totalQuestions 題'),
-              _buildDashboardItem(
-                  Icons.bar_chart, '總題數', '$_totalQuestionsAnswered 題'),
+              _buildBarChartItem('一', 40, const Color(0xFF4CAF50), textColor),
+              _buildBarChartItem('二', 15, const Color(0xFFF44336), textColor),
+              _buildBarChartItem('三', 25, const Color(0xFFFFC107), textColor, label: '1.5h'),
+              _buildBarChartItem('四', 8, Colors.grey.shade300, textColor),
+              _buildBarChartItem('五', 8, Colors.grey.shade300, textColor),
+              _buildBarChartItem('六', 8, Colors.grey.shade300, textColor),
+              _buildBarChartItem('日', 8, Colors.grey.shade300, textColor),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegend(const Color(0xFF4CAF50), '≥ 1h'),
+              const SizedBox(width: 16),
+              _buildLegend(const Color(0xFFFFC107), '0.5~1h'),
+              const SizedBox(width: 16),
+              _buildLegend(const Color(0xFFF44336), '< 0.5h'),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBarChartItem(String day, double height, Color color, Color textColor, {String? label}) {
+    return Column(
+      children: [
+        if (label != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF9E8E81),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10)),
+          ),
+          const SizedBox(height: 4),
+        ] else ...[
+          const SizedBox(height: 20),
+        ],
+        Container(
+          width: 20,
+          height: height,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(day, style: TextStyle(color: textColor, fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _buildLegend(Color color, String label) {
+    return Row(
+      children: [
+        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _buildStreakCard(Color textColor) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF2C2C2C) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('連續學習', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text('3 天', style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: 0.4,
+            backgroundColor: Colors.grey.shade300,
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9E8E81)),
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProficiencyCard(Color textColor) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF2C2C2C) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('AI 評估熟練度', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text('82%', style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: 0.82,
+            backgroundColor: Colors.grey.shade300,
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF5D534A)),
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRadarChartCard(Color textColor) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF2C2C2C) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('能力雷達圖', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 200,
+            child: RadarChart(
+              RadarChartData(
+                dataSets: [
+                  RadarDataSet(
+                    fillColor: const Color(0xFF9E8E81).withValues(alpha: 0.2),
+                    borderColor: const Color(0xFF5D534A),
+                    entryRadius: 4,
+                    dataEntries: const [
+                      RadarEntry(value: 5), // 語法基礎
+                      RadarEntry(value: 3), // 資料結構
+                      RadarEntry(value: 2), // 演算法
+                      RadarEntry(value: 1), // 物件導向
+                      RadarEntry(value: 4), // 邏輯思考
+                      RadarEntry(value: 3), // 除錯能力
+                    ],
+                    borderWidth: 2,
+                  ),
+                ],
+                radarBackgroundColor: Colors.transparent,
+                borderData: FlBorderData(show: false),
+                radarBorderData: const BorderSide(color: Colors.transparent),
+                tickCount: 5,
+                ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 10),
+                tickBorderData: BorderSide(color: Colors.grey.shade300, width: 1),
+                gridBorderData: BorderSide(color: Colors.grey.shade300, width: 1),
+                getTitle: (index, angle) {
+                  const titles = ['語法基礎', '資料結構', '演算法', '物件導向', '邏輯思考', '除錯能力'];
+                  return RadarChartTitle(text: titles[index]);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmartInsightsCard(Color textColor) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF2C2C2C) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('AI 智慧洞察', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          _buildInsightItem(
+            icon: Icons.track_changes,
+            iconColor: Colors.pink,
+            title: '強項：迴圈與條件判斷',
+            desc: '週一測驗正確率達 95%。建議挑戰難度較高的「雙重迴圈應用」。',
+            indicatorColor: Colors.green,
+            textColor: textColor,
+          ),
+          const SizedBox(height: 16),
+          _buildInsightItem(
+            icon: Icons.lightbulb,
+            iconColor: Colors.orange,
+            title: '建議加強：物件導向',
+            desc: '週二測驗顯示繼承觀念較弱，已為您準備 3 道專屬觀念鞏固題。',
+            indicatorColor: Colors.amber,
+            textColor: textColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String desc,
+    required Color indicatorColor,
+    required Color textColor,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF3C3C3C) : const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: indicatorColor,
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), bottomLeft: Radius.circular(16)),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(icon, color: iconColor, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          Text(desc, style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.5)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -618,14 +937,6 @@ extension MainScreenProfileTab on _MainScreenState {
             label: AppLocaleService.tr('profile_quiz_history', _appLanguage),
             value: _latestQuizScore,
             onTap: _showQuizHistoryPage,
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.leaderboard_rounded,
-            label: AppLocaleService.tr('profile_leaderboard', _appLanguage),
-            value: AppLocaleService.tr('profile_leaderboard_desc', _appLanguage),
-            onTap: () => _changePage(6, '排行榜'),
           ),
         ],
       ),
