@@ -74,7 +74,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       final userId = widget.currentUser['id']?.toString() ?? '';
       final now = DateTime.now();
       final monday = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: now.weekday - 1));
+          .subtract(Duration(days: now.weekday - 1)); // 本週一
 
       final rows = await db.rawQuery('''
         SELECT date(timestamp, 'localtime') as day,
@@ -107,15 +107,20 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       final db = await DatabaseHelper.instance.database;
       final userId = widget.currentUser['id']?.toString() ?? '';
 
+      final now30 = DateTime.now();
+      final thirtyDaysAgo = DateTime(now30.year, now30.month, now30.day)
+          .subtract(const Duration(days: 30));
+
       final rows = await db.rawQuery('''
         SELECT subject,
                SUM(correct) as cor,
                SUM(total) as tot
         FROM quiz_results
         WHERE user_id = ? AND total > 0
+          AND date(timestamp) >= ?
         GROUP BY subject
         ORDER BY SUM(total) DESC
-      ''', [userId]);
+      ''', [userId, thirtyDaysAgo.toIso8601String().substring(0, 10)]);
 
       final List<Map<String, dynamic>> stats = [];
       for (final r in rows) {
@@ -425,14 +430,12 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       children: [
         Row(
           children: [
-            Text('學習歷程',
+            Text('本週學習時數',
                 style: TextStyle(
                     color: textColor,
                     fontSize: 16,
                     fontWeight: FontWeight.bold)),
-            const SizedBox(width: 8),
-            const Text('(本週學習時數)',
-                style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(width: 8)
           ],
         ),
         const SizedBox(height: 24),
@@ -440,7 +443,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: List.generate(7, (i) {
-            final h = _dailyHours[i];
+            final h = _dailyHours.length > i ? _dailyHours[i] : 0.0;
             final barH = h > 0 ? (h * scale).clamp(8.0, 80.0) : 8.0;
             final isToday = i == DateTime.now().weekday - 1;
             return _buildBarItem(

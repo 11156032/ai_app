@@ -544,6 +544,7 @@ extension MainScreenProfileTab on _MainScreenState {
   Widget _buildLearningProgressModule(BuildContext context) {
     return _LearningProgressCard(
       matrixData: _weeklyMatrixData,
+      todayData: _todayQuizData,
       isDarkMode: _isDarkMode,
       primaryColor: _currentPrimaryColor,
       matrixChartWidget: _buildMatrixChart(context),
@@ -3371,6 +3372,7 @@ class _ClusterDotPainter extends FlDotPainter {
 
 class _LearningProgressCard extends StatefulWidget {
   final List<Map<String, dynamic>> matrixData;
+  final List<Map<String, dynamic>> todayData; // 今日資料
   final bool isDarkMode;
   final Color primaryColor;
   final Widget matrixChartWidget;
@@ -3380,6 +3382,7 @@ class _LearningProgressCard extends StatefulWidget {
 
   const _LearningProgressCard({
     required this.matrixData,
+    required this.todayData,
     required this.isDarkMode,
     required this.primaryColor,
     required this.matrixChartWidget,
@@ -3402,8 +3405,12 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
     super.dispose();
   }
 
-  Widget _buildRadarChart() {
-    if (widget.matrixData.isEmpty) {
+  Widget _buildTodayQuizOverview() {
+    final data = widget.todayData;
+    final textColor = widget.isDarkMode ? Colors.white : Colors.black87;
+    final cardBg = widget.isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFFF8F6F4);
+
+    if (data.isEmpty) {
       return Container(
         height: 180,
         alignment: Alignment.center,
@@ -3411,76 +3418,216 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           color: Colors.grey.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Text('暫無測驗資料', style: TextStyle(color: Colors.grey)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.quiz_outlined,
+                size: 40, color: widget.primaryColor.withValues(alpha: 0.4)),
+            const SizedBox(height: 10),
+            const Text('今日尚未完成任何測驗',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 4),
+            const Text('完成測驗後將顯示今日概況',
+                style: TextStyle(color: Colors.grey, fontSize: 11)),
+          ],
+        ),
       );
     }
 
-    // Extract subjects and accuracy
-    List<String> subjects = [];
-    List<double> accuracies = [];
+    // 統計今日總題數、總答對
+    final int totalQ = data.fold(0, (s, d) => s + ((d['total'] as num?)?.toInt() ?? 0));
+    final int totalC = data.fold(0, (s, d) => s + ((d['correct'] as num?)?.toInt() ?? 0));
+    final int totalW = totalQ - totalC;
+    final double overallAcc = totalQ > 0 ? totalC / totalQ : 0;
 
-    final data = widget.matrixData.take(8).toList();
-    for (var d in data) {
-      subjects.add(d['subject'].toString());
-      accuracies.add((d['accuracy'] as num).toDouble());
-    }
-
-    while (subjects.length < 3) {
-      subjects.add('維度 ${subjects.length + 1}');
-      accuracies.add(0.0);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: RadarChart(
-          RadarChartData(
-            dataSets: [
-              RadarDataSet(
-                fillColor: widget.primaryColor.withValues(alpha: 0.3),
-                borderColor: widget.primaryColor,
-                entryRadius: 4,
-                dataEntries:
-                    accuracies.map((e) => RadarEntry(value: e)).toList(),
-                borderWidth: 2,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── 今日總覽橫列
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryChip(
+                  icon: Icons.quiz_rounded,
+                  label: '總題數',
+                  value: '$totalQ 題',
+                  color: widget.primaryColor,
+                  bg: cardBg,
+                  textColor: textColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSummaryChip(
+                  icon: Icons.check_circle_rounded,
+                  label: '答對',
+                  value: '$totalC 題',
+                  color: Colors.green.shade600,
+                  bg: cardBg,
+                  textColor: textColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSummaryChip(
+                  icon: Icons.cancel_rounded,
+                  label: '答錯',
+                  value: '$totalW 題',
+                  color: Colors.red.shade400,
+                  bg: cardBg,
+                  textColor: textColor,
+                ),
               ),
             ],
-            radarBackgroundColor: Colors.transparent,
-            borderData: FlBorderData(show: false),
-            radarBorderData: const BorderSide(color: Colors.transparent),
-            titlePositionPercentageOffset: 0.08,
-            titleTextStyle: TextStyle(
-              color: widget.isDarkMode
-                  ? Colors.grey.shade300
-                  : Colors.grey.shade700,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-            getTitle: (index, angle) {
-              if (index >= subjects.length) {
-                return const RadarChartTitle(text: '');
-              }
-              return RadarChartTitle(text: subjects[index]);
-            },
-            tickCount: 5,
-            ticksTextStyle:
-                const TextStyle(color: Colors.transparent, fontSize: 0),
-            tickBorderData: BorderSide(
-              color: widget.isDarkMode
-                  ? Colors.grey.shade700
-                  : Colors.grey.shade300,
-              width: 1,
-            ),
-            gridBorderData: BorderSide(
-              color: widget.isDarkMode
-                  ? Colors.grey.shade700
-                  : Colors.grey.shade300,
-              width: 1,
-            ),
           ),
-        duration: const Duration(milliseconds: 250),
+          const SizedBox(height: 10),
+          // ── 整體正確率條
+          Row(
+            children: [
+              Text('整體正確率',
+                  style: TextStyle(
+                      color: Colors.grey.shade600, fontSize: 11)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: overallAcc.clamp(0.0, 1.0),
+                    backgroundColor: Colors.grey.withValues(alpha: 0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        overallAcc >= 0.7
+                            ? Colors.green.shade500
+                            : overallAcc >= 0.5
+                                ? Colors.orange
+                                : Colors.red.shade400),
+                    minHeight: 7,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('${(overallAcc * 100).round()}%',
+                  style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // ── 各科明細
+          ...data.map((d) {
+            final subj = (d['subject'] as String?) ?? '一般練習';
+            final int cor = (d['correct'] as num?)?.toInt() ?? 0;
+            final int tot = (d['total'] as num?)?.toInt() ?? 0;
+            final int wrong = tot - cor;
+            final double acc = tot > 0 ? cor / tot : 0.0;
+
+            final Color barColor = acc >= 0.7
+                ? Colors.green.shade500
+                : acc >= 0.5
+                    ? Colors.orange
+                    : Colors.red.shade400;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(subj,
+                            style: TextStyle(
+                                color: textColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded,
+                              size: 13, color: Colors.green.shade600),
+                          const SizedBox(width: 2),
+                          Text('$cor',
+                              style: TextStyle(
+                                  color: Colors.green.shade700,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                          Icon(Icons.cancel_rounded,
+                              size: 13, color: Colors.red.shade400),
+                          const SizedBox(width: 2),
+                          Text('$wrong',
+                              style: TextStyle(
+                                  color: Colors.red.shade500,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 10),
+                          Text('${(acc * 100).round()}%',
+                              style: TextStyle(
+                                  color: barColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: acc.clamp(0.0, 1.0),
+                      backgroundColor: Colors.grey.withValues(alpha: 0.15),
+                      valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                      minHeight: 5,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
+
+  Widget _buildSummaryChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required Color bg,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 4),
+          Text(value,
+              style: TextStyle(
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold)),
+          Text(label,
+              style:
+                  const TextStyle(color: Colors.grey, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -3493,10 +3640,11 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
       }
     }
 
-    final hasData = widget.matrixData.isNotEmpty;
+
+    // page 0 = 今日學習概況(測驗狀況), page 1 = 今日學習歷程(知識掌握度矩陣)
     final title = _currentIndex == 0
-        ? AppLocaleService.tr('chart_section_title_matrix', widget.appLanguage)
-        : AppLocaleService.tr('chart_section_title_radar', widget.appLanguage);
+        ? AppLocaleService.tr('chart_section_title_radar', widget.appLanguage)
+        : AppLocaleService.tr('chart_section_title_matrix', widget.appLanguage);
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final double pageViewHeight = (245.0 * textScale).clamp(245.0, 310.0);
 
@@ -3516,8 +3664,8 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
                 });
               },
               children: [
-                widget.matrixChartWidget,
-                _buildRadarChart(),
+                _buildTodayQuizOverview(),  // page 0: 今日學習概況
+                widget.matrixChartWidget,   // page 1: 今日學習歷程
               ],
             ),
           ),
@@ -3553,9 +3701,7 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           if (_currentIndex == 0)
             Center(
               child: Text(
-                hasData
-                    ? AppLocaleService.tr('chart_hint_tap_dot', widget.appLanguage)
-                    : AppLocaleService.tr('chart_hint_no_data', widget.appLanguage),
+                '💡 今日各科測驗詳情',
                 style: TextStyle(
                     color: widget.isDarkMode
                         ? Colors.grey.shade400
@@ -3567,9 +3713,9 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           else
             Center(
               child: Text(
-                hasData
-                    ? AppLocaleService.tr('chart_hint_radar', widget.appLanguage)
-                    : AppLocaleService.tr('chart_hint_radar_no_data', widget.appLanguage),
+                widget.matrixData.isNotEmpty
+                    ? AppLocaleService.tr('chart_hint_tap_dot', widget.appLanguage)
+                    : AppLocaleService.tr('chart_hint_no_data', widget.appLanguage),
                 style: TextStyle(
                     color: widget.isDarkMode
                         ? Colors.grey.shade400

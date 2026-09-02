@@ -153,6 +153,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _todayCompletedQuestions = 0;
   int _streakDays = 0;
   List<Map<String, dynamic>> _weeklyMatrixData = []; // 知識掌握度矩陣資料
+  List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
   String _appVersion = 'v1.5.0';
@@ -942,7 +943,41 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
       }
 
-      // 7. 排行榜資料（所有使用者的累積正確率與答題數）
+      // 6.6 今日測驗資料（按科目彙總）
+      final today = DateTime.now();
+      final todayStr = '${today.year}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
+      final todayMatrixRows = await db.rawQuery('''
+        SELECT 
+          subject,
+          SUM(correct) as correct,
+          SUM(total) as total,
+          SUM(duration_seconds) as duration_seconds
+        FROM quiz_results
+        WHERE user_id = ? AND total > 0
+          AND date(timestamp) = ?
+        GROUP BY subject
+      ''', [currentUserId, todayStr]);
+
+      List<Map<String, dynamic>> todayQuizData = [];
+      for (var row in todayMatrixRows) {
+        final int cor = (row['correct'] as num?)?.toInt() ?? 0;
+        final int tot = (row['total'] as num?)?.toInt() ?? 0;
+        final int dur = (row['duration_seconds'] as num?)?.toInt() ?? 0;
+        final String subj = (row['subject'] as String?) ?? '一般練習';
+        if (tot > 0) {
+          final double acc = (cor / tot) * 100.0;
+          final double avgTime = dur > 0 ? (dur / tot) : 12.0;
+          todayQuizData.add({
+            'accuracy': acc,
+            'avgTime': avgTime,
+            'total': tot,
+            'correct': cor,
+            'duration': dur,
+            'subject': subj.isNotEmpty ? subj : '綜合測驗',
+          });
+        }
+      }
+
       final leaderboardRows = await db.rawQuery('''
         SELECT
           u.id as uid,
@@ -1010,6 +1045,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _todayCompletedQuestions = todayCompletedQuestions;
           _streakDays = streakDays;
           _weeklyMatrixData = weeklyMatrixData;
+          _todayQuizData = todayQuizData;
           _totalQuestionsAnswered = totalQuestionsAnswered;
           _latestQuizScore = latestQuizScore;
           _leaderboardList = leaderboardList;
