@@ -1,6 +1,6 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../database/database_helper.dart';
 import '../services/ai_diagnosis_service.dart';
 import 'ai_training_page.dart';
@@ -232,27 +232,18 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
   }
 
   // ── Radar dimensions ────────────────────────────────────────────────
+  // 僅顯示有測驗過（總題數 > 0）的科目
   List<Map<String, dynamic>> get _radarDimensions {
-    const defaultDims = [
-      '語法基礎', '資料結構', '演算法', '物件導向', '邏輯思考', '除錯能力'
-    ];
-    if (_subjectStats.isEmpty) {
-      return List.generate(6, (i) => {'label': defaultDims[i], 'value': 1.0});
-    }
-    final dims = <Map<String, dynamic>>[];
-    for (int i = 0; i < _subjectStats.length && i < 6; i++) {
-      final acc = (_subjectStats[i]['accuracy'] as double).clamp(0.0, 1.0);
-      dims.add({
-        'label': _subjectStats[i]['subject'] as String,
-        'value': 1.0 + acc * 4.0,
-      });
-    }
-    int padIdx = 0;
-    while (dims.length < 6) {
-      dims.add({'label': defaultDims[padIdx % defaultDims.length], 'value': 1.0});
-      padIdx++;
-    }
-    return dims;
+    return _subjectStats.map((s) {
+      final acc = ((s['accuracy'] as num?)?.toDouble() ?? 0.0).clamp(0.0, 1.0);
+      return {
+        'label': s['subject'] as String,
+        'value': acc, // 0.0 ~ 1.0
+        'accuracy': acc,
+        'correct': s['correct'] as int,
+        'total': s['total'] as int,
+      };
+    }).toList();
   }
 
   Color _barColor(double hours) {
@@ -630,30 +621,37 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
   }
 
   Widget _buildRadarSection(Color textColor) {
-    // 判斷資料是否足夠（至少需要 2 個科目且各科至少 3 題）
-    final hasEnoughData = _subjectStats.length >= 2 &&
-        _subjectStats.any((s) => (s['total'] as int) >= 3);
+    // 繪製多邊形雷達圖至少需要 3 個有測驗記錄的科目
+    final testedSubjects = _radarDimensions;
+    final hasEnoughData = testedSubjects.length >= 3;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('能力雷達圖',
-            style: TextStyle(
-                color: textColor,
-                fontSize: 16,
-                fontWeight: FontWeight.bold)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('能力雷達圖',
+                style: TextStyle(
+                    color: textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
+            if (hasEnoughData)
+              Text('${testedSubjects.length} 個已測驗科目',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        ),
         const SizedBox(height: 20),
         if (!hasEnoughData)
           // ── Empty state ───────────────────────────────────────────
           Container(
-            height: 200,
+            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
             decoration: BoxDecoration(
               color: const Color(0xFF6D5448).withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                   color: const Color(0xFF6D5448).withValues(alpha: 0.15),
-                  width: 1.5,
-                  style: BorderStyle.solid),
+                  width: 1.5),
             ),
             child: Center(
               child: Column(
@@ -661,82 +659,88 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
                 children: [
                   Icon(Icons.radar,
                       size: 52,
-                      color: const Color(0xFF6D5448).withValues(alpha: 0.3)),
+                      color: const Color(0xFF6D5448).withValues(alpha: 0.35)),
                   const SizedBox(height: 14),
-                  Text('尚無足夠資料',
-                      style: TextStyle(
-                          color: textColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold)),
+                  Text(
+                    testedSubjects.isEmpty ? '尚無足夠資料' : '已測驗科目數量不足',
+                    style: TextStyle(
+                        color: textColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 6),
-                  const Text('請多完成幾次各科測驗',
-                      style: TextStyle(color: Colors.grey, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  const Text('雷達圖將自動更新為您的能力分佈 📊',
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text(
+                    testedSubjects.isEmpty
+                        ? '請多完成幾次各科測驗\n雷達圖將自動更新為您的能力分佈 📊'
+                        : '多邊形雷達圖需至少 3 個測驗科目（目前已有 ${testedSubjects.length} 科）\n請多完成其他科目的測驗！🎯',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey, fontSize: 13, height: 1.5),
+                  ),
                 ],
               ),
             ),
           )
         else ...[
-          // ── Radar chart ───────────────────────────────────────────
+          // ── Polygon Radar chart ───────────────────────────────────
           SizedBox(
-            height: 260,
-            child: RadarChart(
-              RadarChartData(
-                dataSets: [
-                  RadarDataSet(
-                    fillColor:
-                        const Color(0xFF6D5448).withValues(alpha: 0.15),
-                    borderColor: const Color(0xFF6D5448),
-                    entryRadius: 5,
-                    dataEntries: _radarDimensions
-                        .map((d) => RadarEntry(
-                            value:
-                                (d['value'] as double).clamp(1.0, 5.0)))
-                        .toList(),
-                    borderWidth: 2.5,
-                  ),
-                ],
-                radarBackgroundColor: Colors.transparent,
-                borderData: FlBorderData(show: false),
-                radarBorderData:
-                    const BorderSide(color: Colors.transparent),
-                tickCount: 5,
-                ticksTextStyle: const TextStyle(
-                    color: Colors.transparent, fontSize: 10),
-                tickBorderData:
-                    BorderSide(color: Colors.grey.shade300, width: 1),
-                gridBorderData:
-                    BorderSide(color: Colors.grey.shade300, width: 1),
-                getTitle: (index, angle) {
-                  // angle: 0 讓所有標籤保持水平，不隨雷達圖旋轉
-                  return RadarChartTitle(
-                    text: _radarDimensions[index]['label'] as String,
-                    angle: 0,
-                  );
-                },
+            height: 310,
+            child: PolygonRadarChart(
+              labels: testedSubjects.map((d) => d['label'] as String).toList(),
+              values: testedSubjects.map((d) => d['value'] as double).toList(),
+              tickCount: 5,
+              fillColor: const Color(0xFF6D5448).withValues(alpha: 0.18),
+              strokeColor: const Color(0xFF6D5448),
+              gridColor: Colors.grey.shade300,
+              labelStyle: TextStyle(
+                color: textColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          const SizedBox(height: 12),
+        ],
+        if (testedSubjects.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          // ── 各科正確率 chip ───────────────────────────────────────
           Wrap(
             spacing: 8,
             runSpacing: 6,
-            children: _radarDimensions.map((d) {
-              final acc =
-                  (((d['value'] as double) - 1) / 4 * 100).round();
+            children: testedSubjects.map((d) {
+              final acc = ((d['accuracy'] as double) * 100).round();
+              final Color chipColor = acc >= 70
+                  ? Colors.green.shade600
+                  : acc >= 50
+                      ? Colors.orange
+                      : const Color(0xFF6D5448);
               return Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6D5448).withValues(alpha: 0.1),
+                  color: chipColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: chipColor.withValues(alpha: 0.3), width: 1),
                 ),
-                child: Text(
-                  '${d['label']} $acc%',
-                  style: const TextStyle(
-                      color: Color(0xFF6D5448), fontSize: 11),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: chipColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${d['label']}  $acc%',
+                      style: TextStyle(
+                          color: chipColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ),
               );
             }).toList(),
@@ -745,6 +749,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       ],
     );
   }
+
 
 
   Widget _buildInsightSection(Color textColor) {
@@ -868,4 +873,198 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       ),
     );
   }
+}
+
+// ── Polygon Radar Chart Widget ────────────────────────────────────────────────
+
+class PolygonRadarChart extends StatelessWidget {
+  final List<String> labels;
+  final List<double> values; // 0.0 ~ 1.0
+  final int tickCount;
+  final Color fillColor;
+  final Color strokeColor;
+  final Color gridColor;
+  final TextStyle? labelStyle;
+
+  const PolygonRadarChart({
+    super.key,
+    required this.labels,
+    required this.values,
+    this.tickCount = 5,
+    this.fillColor = const Color(0x2E6D5448),
+    this.strokeColor = const Color(0xFF6D5448),
+    this.gridColor = const Color(0xFFCCCCCC),
+    this.labelStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _PolygonRadarPainter(
+        labels: labels,
+        values: values,
+        tickCount: tickCount,
+        fillColor: fillColor,
+        strokeColor: strokeColor,
+        gridColor: gridColor,
+        labelStyle: labelStyle ?? const TextStyle(fontSize: 12),
+      ),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _PolygonRadarPainter extends CustomPainter {
+  final List<String> labels;
+  final List<double> values;
+  final int tickCount;
+  final Color fillColor;
+  final Color strokeColor;
+  final Color gridColor;
+  final TextStyle labelStyle;
+
+  _PolygonRadarPainter({
+    required this.labels,
+    required this.values,
+    required this.tickCount,
+    required this.fillColor,
+    required this.strokeColor,
+    required this.gridColor,
+    required this.labelStyle,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final int n = labels.length;
+    if (n < 3) return;
+
+    // 留出四周標籤繪製空間
+    const double labelMargin = 38.0;
+    final double radius = (size.shortestSide / 2) - labelMargin;
+    final Offset center = Offset(size.width / 2, size.height / 2);
+
+    // 角度：從正上方（-π/2）開始順時針均分各維度
+    double angleFor(int i) => -math.pi / 2 + (2 * math.pi * i / n);
+
+    Offset pointAt(int i, double r) {
+      final a = angleFor(i);
+      return Offset(center.dx + r * math.cos(a), center.dy + r * math.sin(a));
+    }
+
+    // ── 1. 畫同心多邊形網格 ────────────────────────────────────────
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.9
+      ..style = PaintingStyle.stroke;
+
+    for (int t = 1; t <= tickCount; t++) {
+      final double r = radius * t / tickCount;
+      final path = Path();
+      for (int i = 0; i < n; i++) {
+        final p = pointAt(i, r);
+        if (i == 0) {
+          path.moveTo(p.dx, p.dy);
+        } else {
+          path.lineTo(p.dx, p.dy);
+        }
+      }
+      path.close();
+      canvas.drawPath(path, gridPaint);
+    }
+
+    // ── 2. 畫輻射軸線（從中心到最外層頂點）────────────────────────────
+    final axisPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.9;
+
+    for (int i = 0; i < n; i++) {
+      final p = pointAt(i, radius);
+      canvas.drawLine(center, p, axisPaint);
+    }
+
+    // ── 3. 畫資料填充多邊形與外框 ──────────────────────────────────────
+    final dataPath = Path();
+    for (int i = 0; i < n; i++) {
+      final v = values.length > i ? values[i].clamp(0.0, 1.0) : 0.0;
+      final p = pointAt(i, radius * v);
+      if (i == 0) {
+        dataPath.moveTo(p.dx, p.dy);
+      } else {
+        dataPath.lineTo(p.dx, p.dy);
+      }
+    }
+    dataPath.close();
+
+    // 填色區域
+    canvas.drawPath(
+      dataPath,
+      Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill,
+    );
+    // 外框線
+    canvas.drawPath(
+      dataPath,
+      Paint()
+        ..color = strokeColor
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    // ── 4. 畫頂點資料圓點 ──────────────────────────────────────────
+    final dotFillPaint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.fill;
+    final dotBorderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < n; i++) {
+      final v = values.length > i ? values[i].clamp(0.0, 1.0) : 0.0;
+      final p = pointAt(i, radius * v);
+      // 白底小圓圈
+      canvas.drawCircle(p, 5.0, dotBorderPaint);
+      // 主色圓點
+      canvas.drawCircle(p, 3.8, dotFillPaint);
+    }
+
+    // ── 5. 畫維度標籤 ────────────────────────────────────────────
+    for (int i = 0; i < n; i++) {
+      final a = angleFor(i);
+      final tp = TextPainter(
+        text: TextSpan(text: labels[i], style: labelStyle),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout(minWidth: 0, maxWidth: 90);
+
+      final cosVal = math.cos(a);
+      final sinVal = math.sin(a);
+
+      double lx = center.dx + (radius + 12) * cosVal;
+      double ly = center.dy + (radius + 12) * sinVal;
+
+      if (cosVal.abs() < 0.25) {
+        // 近似垂直軸
+        lx -= tp.width / 2;
+        if (sinVal < 0) {
+          // 正上方頂點
+          ly -= tp.height;
+        }
+      } else if (cosVal > 0.25) {
+        // 右側頂點
+        ly -= tp.height / 2;
+      } else {
+        // 左側頂點
+        lx -= tp.width;
+        ly -= tp.height / 2;
+      }
+
+      tp.paint(canvas, Offset(lx, ly));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PolygonRadarPainter old) =>
+      old.values != values || old.labels != labels;
 }
