@@ -143,7 +143,7 @@ class TutorialVideoPlayer extends StatefulWidget {
                 icon: Icons.quiz_rounded,
                 title: '📝 題庫測驗與錯題診斷教學',
                 desc: '示範題目作答、交卷與錯題弱點分析完整流程',
-                assetPath: 'assets/demo_tutorial.mp4',
+                assetPath: 'assets/learning_pack_tutorial.mp4',
                 videoTitle: '題庫測驗與錯題複習操作示範',
                 badgeLabel: '題庫測驗教學',
                 onClose: () => Navigator.of(ctx).pop(),

@@ -1202,7 +1202,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: null,
         title: '進入題庫系統',
         description: '這裡是題庫系統，包含了豐富的題庫、自定題卷、錯題本和收藏功能。',
-        tutorialVideoAsset: 'assets/demo_tutorial.mp4',
+        tutorialVideoAsset: 'assets/learning_pack_tutorial.mp4',
         tutorialVideoTitle: '觀看題庫測驗與診斷操作示範 🎬',
         onEnter: () {
           final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
@@ -1220,7 +1220,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: TourKeys.wrongQuestionsTabKey,
         title: '切換「錯題」分頁',
         description: '進入題庫後，切換至第三個「錯題」分頁，查看所有曾經答錯的題目紀錄。',
-        tutorialVideoAsset: 'assets/demo_tutorial.mp4',
+        tutorialVideoAsset: 'assets/learning_pack_tutorial.mp4',
         tutorialVideoTitle: '觀看題庫測驗與診斷操作示範 🎬',
       ),
       TourStep(
@@ -1232,7 +1232,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: TourKeys.startPracticeFabKey,
         title: '開始全錯題複習',
         description: '點擊右下角的「開始練習全部」，系統會為你將所有錯題彙整成考卷，馬上開始進行測驗！',
-        tutorialVideoAsset: 'assets/demo_tutorial.mp4',
+        tutorialVideoAsset: 'assets/learning_pack_tutorial.mp4',
         tutorialVideoTitle: '觀看題庫測驗與診斷操作示範 🎬',
       ),
     ];

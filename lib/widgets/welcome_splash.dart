@@ -56,7 +56,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
       title: '題庫測驗與複習導覽',
       subtitle: '題目作答、交卷與錯題診斷操作',
       body: '',
-      videoAssetPath: 'assets/demo_tutorial.mp4',
+      videoAssetPath: 'assets/learning_pack_tutorial.mp4',
       badgeLabel: '題庫測驗教學',
       features: [],
     ),

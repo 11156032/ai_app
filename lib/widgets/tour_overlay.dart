@@ -447,7 +447,7 @@ class _TourOverlayState extends State<TourOverlay>
                           child: InkWell(
                             onTap: () {
                               setState(() {
-                                _activeVideoAsset = step.tutorialVideoAsset ?? 'assets/demo_tutorial.mp4';
+                                _activeVideoAsset = step.tutorialVideoAsset ?? 'assets/learning_pack_tutorial.mp4';
                                 _activeVideoTitle = step.tutorialVideoTitle ?? '操作示範';
                                 _activeVideoBadge = step.featureIndex == 2 ? '題庫測驗教學' : '操作教學';
                               });
