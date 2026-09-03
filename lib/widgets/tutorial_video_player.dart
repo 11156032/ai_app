@@ -137,20 +137,7 @@ class TutorialVideoPlayer extends StatefulWidget {
               ),
               const SizedBox(height: 16),
 
-              // 選項 1：底部導覽列教學
-              _buildChooserTile(
-                context: context,
-                icon: Icons.navigation_rounded,
-                title: '📱 底部導覽列與切換教學',
-                desc: '示範如何開啟與使用底部導覽列快速切換功能',
-                assetPath: 'assets/nav_bar_tutorial.mp4',
-                videoTitle: '底部導覽列開啟與切換操作教學',
-                badgeLabel: '導覽列教學',
-                onClose: () => Navigator.of(ctx).pop(),
-              ),
-              const SizedBox(height: 10),
-
-              // 選項 2：題庫測驗教學
+              // 選項 1：題庫測驗教學
               _buildChooserTile(
                 context: context,
                 icon: Icons.quiz_rounded,
@@ -163,7 +150,7 @@ class TutorialVideoPlayer extends StatefulWidget {
               ),
               const SizedBox(height: 10),
 
-              // 選項 3：學習 Pack 教學
+              // 選項 2：學習 Pack 教學
               _buildChooserTile(
                 context: context,
                 icon: Icons.inventory_2_rounded,

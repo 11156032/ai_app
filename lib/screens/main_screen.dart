@@ -87,7 +87,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _userAvatarColor = 0;
   bool _userAvatarSelected = false;
   String? _userBio;
-  double _fontSizeFactor = 1.0;
+  double _fontSizeFactor = 1.2;
   int _themeColorIdx = 0;
   String _appLanguage = 'zh_TW';
   bool _isDarkMode = false;
@@ -1054,7 +1054,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           if (userRows.isNotEmpty) {
             _userBio = userRows.first['bio'] as String?;
             _fontSizeFactor =
-                ((userRows.first['font_size_factor'] ?? 1.0) as num).toDouble();
+                ((userRows.first['font_size_factor'] ?? 1.2) as num).toDouble();
             _themeColorIdx = (userRows.first['theme_color_idx'] ?? 0) as int;
             _isDarkMode = (userRows.first['is_dark_mode'] ?? 0) == 1;
             _calendarViewMode =
@@ -1150,8 +1150,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: null,
         title: '探索社群頁面',
         description: '歡迎來到社群頁面！在這裡你可以與同學交流學習進度，不同成員的動態將會一一呈現。',
-        tutorialVideoAsset: 'assets/nav_bar_tutorial.mp4',
-        tutorialVideoTitle: '觀看底部導覽列切換教學 🎬',
         onEnter: () {
           _socialFilter = '全部';
           _socialAuthorFilter = '';
@@ -1437,7 +1435,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _scrollToBottom() {
     if (_isDisposed) return;
-    Future.delayed(const Duration(milliseconds: 100), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_isDisposed) return;
       try {
         if (_chatScrollController.hasClients) {
@@ -1446,6 +1444,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
           );
+        }
+      } catch (_) {}
+    });
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (_isDisposed) return;
+      try {
+        if (_chatScrollController.hasClients) {
+          _chatScrollController.animateTo(
+            _chatScrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      } catch (_) {}
+    });
+  }
+
+  void _scrollToTop() {
+    if (_isDisposed) return;
+    try {
+      if (_chatScrollController.hasClients) {
+        _chatScrollController.jumpTo(0);
+      }
+    } catch (_) {}
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (_isDisposed) return;
+      try {
+        if (_chatScrollController.hasClients) {
+          _chatScrollController.jumpTo(0);
         }
       } catch (_) {}
     });
@@ -2664,7 +2691,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (context) {
-          _scrollToBottom();
+          _scrollToTop();
           return StatefulBuilder(
               builder: (BuildContext context, StateSetter setModalState) {
             return Container(
@@ -2746,6 +2773,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                           }
                                         ];
                                       });
+                                      _scrollToTop();
                                     },
                                   )
                                 : IconButton(
@@ -2772,6 +2800,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                         ];
                                         _aiFlowState = 'none';
                                       });
+                                      _scrollToTop();
                                     },
                                   )
                           ],
@@ -5598,6 +5627,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     void updateLogs(VoidCallback fn) {
       setModalState(fn); // 執行修改 chatLogs 並刷新彈窗
       if (mounted) setState(() {}); // 刷新主頁面
+      _scrollToBottom();
     }
 
     // 如果完全沒有意圖也沒有建議，才回傳 false 觸發後備清單
@@ -8941,7 +8971,7 @@ $strokePrompt
                   softWrap: false,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 13 * _fontSizeFactor,
+                    fontSize: 13,
                     color: isDark ? Colors.white54 : Colors.grey.shade600,
                   ),
                 ),
@@ -8952,7 +8982,7 @@ $strokePrompt
               child: Text(
                 '空閒時間 ($durationStr)',
                 style: TextStyle(
-                  fontSize: 14 * _fontSizeFactor,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: isDark ? Colors.white38 : Colors.grey.shade500,
                 ),
@@ -9485,7 +9515,7 @@ $strokePrompt
                       softWrap: false,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14 * _fontSizeFactor,
+                        fontSize: 14,
                         color: Colors.black87,
                       ),
                     ),
@@ -9497,7 +9527,7 @@ $strokePrompt
                     event['title'],
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 15 * _fontSizeFactor,
+                      fontSize: 15,
                       color: Colors.black87,
                     ),
                   ),
@@ -11073,9 +11103,9 @@ $strokePrompt
       builder: (ctx) => SimpleDialog(
         title: const Text('選擇字體大小'),
         children: [
-          _buildFontSizeOption(ctx, '標準 (預設)', 1.0, '範例文字 Aa'),
-          _buildFontSizeOption(ctx, '放大 (大)', 1.2, '範例文字 Aa'),
-          _buildFontSizeOption(ctx, '特大 (清晰)', 1.4, '範例文字 Aa'),
+          _buildFontSizeOption(ctx, '標準 (預設)', 1.2, '範例文字 Aa'),
+          _buildFontSizeOption(ctx, '放大 (大)', 1.35, '範例文字 Aa'),
+          _buildFontSizeOption(ctx, '特大 (清晰)', 1.5, '範例文字 Aa'),
         ],
       ),
     );
@@ -11118,8 +11148,9 @@ $strokePrompt
                   const SizedBox(height: 2),
                   Text(
                     sampleText,
+                    textScaler: TextScaler.linear(factor),
                     style: TextStyle(
-                      fontSize: 12 * factor,
+                      fontSize: 13,
                       color: Colors.grey.shade600,
                     ),
                   ),

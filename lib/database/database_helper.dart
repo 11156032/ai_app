@@ -399,7 +399,7 @@ class DatabaseHelper {
       }
       if (!userCols.any((c) => c['name'] == 'font_size_factor')) {
         await db.execute(
-            'ALTER TABLE users ADD COLUMN font_size_factor REAL DEFAULT 1.0');
+            'ALTER TABLE users ADD COLUMN font_size_factor REAL DEFAULT 1.2');
       }
       if (!userCols.any((c) => c['name'] == 'theme_color_idx')) {
         await db.execute(
@@ -566,7 +566,7 @@ class DatabaseHelper {
         avatar_selected INTEGER DEFAULT 0,
         nickname_updated_at DATETIME,
         is_email_verified INTEGER DEFAULT 0,
-        font_size_factor REAL DEFAULT 1.0,
+        font_size_factor REAL DEFAULT 1.2,
         theme_color_idx INTEGER DEFAULT 0,
         is_dark_mode INTEGER DEFAULT 0,
         gemini_api_key TEXT,
@@ -2579,7 +2579,7 @@ class DatabaseHelper {
           'avatar_selected': 0,
           'nickname_updated_at': null,
           'is_email_verified': 0,
-          'font_size_factor': 1.0,
+          'font_size_factor': 1.2,
           'theme_color_idx': 0,
           'is_dark_mode': 0,
           'gemini_api_key': null,

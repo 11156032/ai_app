@@ -352,9 +352,9 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.format_size,
             label: AppLocaleService.tr('settings_font_size', _appLanguage),
-            value: _fontSizeFactor <= 1.05
+            value: _fontSizeFactor <= 1.25
                 ? AppLocaleService.tr('font_size_std', _appLanguage)
-                : _fontSizeFactor <= 1.25
+                : _fontSizeFactor <= 1.40
                     ? AppLocaleService.tr('font_size_large', _appLanguage)
                     : AppLocaleService.tr('font_size_xlarge', _appLanguage),
             onTap: _showFontSizeDialog,
@@ -2161,7 +2161,7 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.ondemand_video_rounded,
             label: '操作教學示範影片',
-            value: '觀看底部導覽列切換與題庫測驗完整教學影片',
+            value: '觀看題庫測驗與學習 Pack 完整教學影片',
             onTap: () {
               TutorialVideoPlayer.showTutorialChooserDialog(context);
             },

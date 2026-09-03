@@ -449,9 +449,7 @@ class _TourOverlayState extends State<TourOverlay>
                               setState(() {
                                 _activeVideoAsset = step.tutorialVideoAsset ?? 'assets/demo_tutorial.mp4';
                                 _activeVideoTitle = step.tutorialVideoTitle ?? '操作示範';
-                                _activeVideoBadge = step.featureIndex == 0
-                                    ? '導覽列教學'
-                                    : (step.featureIndex == 2 ? '題庫測驗教學' : '操作教學');
+                                _activeVideoBadge = step.featureIndex == 2 ? '題庫測驗教學' : '操作教學';
                               });
                             },
                             borderRadius: BorderRadius.circular(12),

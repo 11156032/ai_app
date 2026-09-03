@@ -51,16 +51,6 @@ class _WelcomeSplashState extends State<WelcomeSplash>
       features: [],
     ),
     _SlideDef(
-      emoji: '📱',
-      gradient: [Color(0xFF5D4037), Color(0xFF8D6E63)],
-      title: '底部導覽列操作導覽',
-      subtitle: '快速開啟與切換主要功能頁面',
-      body: '',
-      videoAssetPath: 'assets/nav_bar_tutorial.mp4',
-      badgeLabel: '導覽列教學',
-      features: [],
-    ),
-    _SlideDef(
       emoji: '📝',
       gradient: [Color(0xFF4E342E), Color(0xFF795548)],
       title: '題庫測驗與複習導覽',

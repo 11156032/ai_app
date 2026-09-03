@@ -41,7 +41,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
   Future<void> _loadData() async {
     try {
       final db = await DatabaseHelper.instance.database;
-      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+      final uid =
+          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+              .toString();
 
       // 1. Load User Papers
       final papers = await DatabaseHelper.instance.getPapersForUser(uid);
@@ -68,7 +70,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
         FROM questions
         WHERE user_id = ? AND is_public = 0
       ''', [uid]);
-      final customCount = int.tryParse(customRows.first['count']?.toString() ?? '0') ?? 0;
+      final customCount =
+          int.tryParse(customRows.first['count']?.toString() ?? '0') ?? 0;
 
       // 4. Load Wrong Questions Count
       final wrongRows = await db.rawQuery('''
@@ -76,7 +79,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
         FROM wrong_questions
         WHERE user_id = ?
       ''', [uid]);
-      final wrongCount = int.tryParse(wrongRows.first['count']?.toString() ?? '0') ?? 0;
+      final wrongCount =
+          int.tryParse(wrongRows.first['count']?.toString() ?? '0') ?? 0;
 
       // 5. Load Favorite Questions Count
       final favRows = await db.rawQuery('''
@@ -84,11 +88,14 @@ class _QuestionListPageState extends State<QuestionListPage> {
         FROM questions
         WHERE bookmarked = 1
       ''');
-      final favCount = int.tryParse(favRows.first['count']?.toString() ?? '0') ?? 0;
+      final favCount =
+          int.tryParse(favRows.first['count']?.toString() ?? '0') ?? 0;
 
       // 6. Load Total Questions
-      final totalQRows = await db.rawQuery('SELECT COUNT(id) as count FROM questions');
-      final totalQ = int.tryParse(totalQRows.first['count']?.toString() ?? '0') ?? 0;
+      final totalQRows =
+          await db.rawQuery('SELECT COUNT(id) as count FROM questions');
+      final totalQ =
+          int.tryParse(totalQRows.first['count']?.toString() ?? '0') ?? 0;
 
       if (!mounted) return;
       setState(() {
@@ -121,7 +128,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('確認刪除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: const Text('確認刪除',
+                style: TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -133,10 +142,12 @@ class _QuestionListPageState extends State<QuestionListPage> {
       await DatabaseHelper.instance.deletePaper(id);
       await _loadData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已刪除題本')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已刪除題本')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('刪除失敗')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('刪除失敗')));
     }
   }
 
@@ -149,7 +160,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
           children: [
             Icon(Icons.cloud_upload_rounded, color: Colors.orange, size: 28),
             SizedBox(width: 12),
-            Text('雲端分享功能', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('雲端分享功能',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         content: const Text(
@@ -159,7 +171,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('好的', style: TextStyle(fontWeight: FontWeight.bold)),
+            child:
+                const Text('好的', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -213,11 +226,14 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       color: Colors.purple.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.purple, size: 24),
+                    child: const Icon(Icons.auto_awesome_rounded,
+                        color: Colors.purple, size: 24),
                   ),
-                  title: const Text('AI 智慧拍考卷匯入', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: const Text('AI 智慧拍考卷匯入',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: const Text('上傳 PDF 或照片，AI 自動辨識並建立題本'),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   onTap: () async {
                     Navigator.pop(context);
                     final result = await Navigator.push<bool>(
@@ -243,11 +259,14 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       color: cs.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.edit_note_rounded, color: cs.primary, size: 24),
+                    child: Icon(Icons.edit_note_rounded,
+                        color: cs.primary, size: 24),
                   ),
-                  title: const Text('手動新增題目', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: const Text('手動新增題目',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: const Text('撰寫全新題目、選項與解析'),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   onTap: () async {
                     Navigator.pop(context);
                     final result = await Navigator.push<bool>(
@@ -273,11 +292,14 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       color: Colors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.library_add_rounded, color: Colors.orange, size: 24),
+                    child: const Icon(Icons.library_add_rounded,
+                        color: Colors.orange, size: 24),
                   ),
-                  title: const Text('從題庫挑選組卷', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: const Text('從題庫挑選組卷',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: const Text('從現有題目中自由勾選組合題本'),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   onTap: () async {
                     Navigator.pop(context);
                     final result = await Navigator.push<bool>(
@@ -354,7 +376,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final subjects = widget.allSubjects.where((s) => _subjectCounts.containsKey(s)).toList();
+    final subjects =
+        widget.allSubjects.where((s) => _subjectCounts.containsKey(s)).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
@@ -396,29 +419,36 @@ class _QuestionListPageState extends State<QuestionListPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '你好，$displayName 👋',
-                style: const TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF111827),
-                  letterSpacing: -0.5,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '你好，$displayName 👋',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF111827),
+                    letterSpacing: -0.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '共收錄 $_totalQuestionCount 題 · 隨時開啟高效測驗',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 3),
+                Text(
+                  '共收錄 $_totalQuestionCount 題 · 隨測隨用',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           // AI Scan Quick Button
           ElevatedButton.icon(
             onPressed: () async {
@@ -436,14 +466,16 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 _loadData();
               }
             },
-            icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-            label: const Text('AI 拍考卷', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            icon: const Icon(Icons.auto_awesome_rounded, size: 15),
+            label: const Text('AI 拍考卷',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: cs.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
             ),
           ),
         ],
@@ -473,9 +505,11 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 title: '錯題複習',
                 count: '$_wrongQuestionCount 題',
                 icon: Icons.flash_on_rounded,
-                iconColor: const Color(0xFFEF4444),
-                bgColor: const Color(0xFFFEF2F2),
-                badgeColor: const Color(0xFFEF4444),
+                iconColor: cs.primary,
+                iconBgColor: Colors.white,
+                badgeColor: cs.primary,
+                cardBgColor: cs.primary.withValues(alpha: 0.08),
+                borderColor: cs.primary.withValues(alpha: 0.2),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -500,9 +534,11 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 title: '精選收藏',
                 count: '$_favoriteQuestionCount 題',
                 icon: Icons.star_rounded,
-                iconColor: const Color(0xFFF59E0B),
-                bgColor: const Color(0xFFFFFBEB),
-                badgeColor: const Color(0xFFF59E0B),
+                iconColor: cs.primary,
+                iconBgColor: Colors.white,
+                badgeColor: cs.primary,
+                cardBgColor: cs.primary.withValues(alpha: 0.08),
+                borderColor: cs.primary.withValues(alpha: 0.2),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -531,15 +567,17 @@ class _QuestionListPageState extends State<QuestionListPage> {
     required String count,
     required IconData icon,
     required Color iconColor,
-    required Color bgColor,
+    required Color iconBgColor,
     required Color badgeColor,
+    Color? cardBgColor,
+    Color? borderColor,
     required VoidCallback onTap,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBgColor ?? Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: borderColor ?? Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -560,7 +598,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: bgColor,
+                    color: iconBgColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(icon, color: iconColor, size: 20),
@@ -590,7 +628,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 18),
+                Icon(Icons.chevron_right_rounded,
+                    color: Colors.grey.shade400, size: 18),
               ],
             ),
           ),
@@ -609,35 +648,43 @@ class _QuestionListPageState extends State<QuestionListPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                const Text(
-                  '我的題本',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF6B7280),
+            Expanded(
+              child: Row(
+                children: [
+                  const Text(
+                    '我的題本',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF6B7280),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$totalPapers',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700),
+                    ),
                   ),
-                  child: Text(
-                    '$totalPapers',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
             TextButton.icon(
               onPressed: () => _showCreateOptionsBottomSheet(context, cs),
-              icon: const Icon(Icons.add_rounded, size: 15),
-              label: const Text('新增題本', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              icon: Icon(Icons.add_rounded, size: 15, color: cs.primary),
+              label: Text('新增題本',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: cs.primary)),
               style: TextButton.styleFrom(
+                foregroundColor: cs.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -646,7 +693,6 @@ class _QuestionListPageState extends State<QuestionListPage> {
           ],
         ),
         const SizedBox(height: 10),
-
         if (_userPapers.isEmpty && _customQuestionCount == 0)
           Container(
             width: double.infinity,
@@ -658,11 +704,15 @@ class _QuestionListPageState extends State<QuestionListPage> {
             ),
             child: Column(
               children: [
-                Icon(Icons.assignment_outlined, size: 36, color: Colors.grey.shade300),
+                Icon(Icons.assignment_outlined,
+                    size: 36, color: Colors.grey.shade300),
                 const SizedBox(height: 8),
                 const Text(
                   '尚未建立任何題本',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF374151)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF374151)),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -702,39 +752,50 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   if (_customQuestionCount > 0 && index == 0) {
                     // Custom Questions Total Deck Row
                     return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: cs.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.app_registration_rounded, color: cs.primary, size: 20),
+                        child: Icon(Icons.app_registration_rounded,
+                            color: cs.primary, size: 20),
                       ),
                       title: const Text(
                         '自訂題目總庫',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF111827)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14.5,
+                            color: Color(0xFF111827)),
                       ),
                       subtitle: Text(
                         '所有自建題目精選',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade500),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: cs.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               '$_customQuestionCount 題',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: cs.primary),
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: cs.primary),
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 18),
+                          Icon(Icons.chevron_right_rounded,
+                              color: Colors.grey.shade400, size: 18),
                         ],
                       ),
                       onTap: () {
@@ -758,33 +819,41 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   final paper = _userPapers[pIndex];
                   final pid = int.tryParse(paper['id'].toString()) ?? 0;
                   final name = paper['name'] ?? '未命名題本';
-                  final dateStr = (paper['created_at'] ?? '').toString().split(' ')[0];
+                  final dateStr =
+                      (paper['created_at'] ?? '').toString().split(' ')[0];
 
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.assignment_rounded, color: Colors.orange, size: 20),
+                      child: const Icon(Icons.assignment_rounded,
+                          color: Colors.orange, size: 20),
                     ),
                     title: Text(
                       name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF111827)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14.5,
+                          color: Color(0xFF111827)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
                       dateStr.isNotEmpty ? '建立於 $dateStr' : '專屬練習題本',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade500),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         PopupMenuButton<String>(
-                          icon: Icon(Icons.more_vert, color: Colors.grey.shade400, size: 18),
+                          icon: Icon(Icons.more_vert,
+                              color: Colors.grey.shade400, size: 18),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onSelected: (val) {
@@ -807,13 +876,19 @@ class _QuestionListPageState extends State<QuestionListPage> {
                             }
                           },
                           itemBuilder: (context) => [
-                            const PopupMenuItem(value: 'edit', child: Text('編輯題本')),
-                            const PopupMenuItem(value: 'publish', child: Text('分享至社群')),
-                            const PopupMenuItem(value: 'delete', child: Text('刪除題本', style: TextStyle(color: Colors.redAccent))),
+                            const PopupMenuItem(
+                                value: 'edit', child: Text('編輯題本')),
+                            const PopupMenuItem(
+                                value: 'publish', child: Text('分享至社群')),
+                            const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('刪除題本',
+                                    style: TextStyle(color: Colors.redAccent))),
                           ],
                         ),
                         const SizedBox(width: 4),
-                        Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 18),
+                        Icon(Icons.chevron_right_rounded,
+                            color: Colors.grey.shade400, size: 18),
                       ],
                     ),
                     onTap: () => _openSetDetail(paperId: pid, title: name),
@@ -840,7 +915,6 @@ class _QuestionListPageState extends State<QuestionListPage> {
           ),
         ),
         const SizedBox(height: 10),
-
         if (subjects.isEmpty)
           Container(
             width: double.infinity,
@@ -887,7 +961,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   final IconData icon = style['icon'];
 
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -906,24 +981,30 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     ),
                     subtitle: Text(
                       '按單元循序漸進練習',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade500),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             '$count 題',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                            style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade700),
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 18),
+                        Icon(Icons.chevron_right_rounded,
+                            color: Colors.grey.shade400, size: 18),
                       ],
                     ),
                     onTap: () {

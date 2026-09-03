@@ -88,13 +88,11 @@ class AiDiagnosisService {
   /// Groq AI 預設使用的模型清單 (按優先順序排序)
   /// 【在這改 Groq 模型】
   static const List<String> _kGroqModels = [
-    'openai/gpt-oss-120b', // Groq 官方新旗艦替代模型 (高速直出、無思考延遲)
-    'gpt-oss-120b', // Groq 官方新旗艦 (相容無前綴 ID)
-    'openai/gpt-oss-20b', // Groq 極速輕量直出模型 (~1000 T/s、毫秒反應)
-    'gpt-oss-20b', // Groq 極速輕量 (相容無前綴 ID)
-    'llama-3.1-8b-instant', // Groq 經典極速模型
-    'qwen/qwen3.6-27b', // Qwen 深度推導模型 (思考模型置於最後備援)
-    'qwen3.6-27b', // Qwen 相容 ID
+    'llama-3.3-70b-versatile', // Groq 官方 Llama 3.3 70B 旗艦模型
+    'llama-3.1-8b-instant', // Groq 官方 8B 極速模型
+    'mixtral-8x7b-32768', // Groq 官方 Mixtral 8x7B 模型
+    'gemma2-9b-it', // Groq 官方 Gemma 2 9B 模型
+    'deepseek-r1-distill-llama-70b', // Groq DeepSeek R1 蒸餾 70B 模型
   ];
 
   static DateTime? nextAvailableTime;
@@ -321,9 +319,7 @@ class AiDiagnosisService {
         .replaceAllMapped(
             RegExp(r'^\s*\*\*\s*([^*]+?)\s*\*\*\s*$', multiLine: true),
             (m) => '【${m.group(1)}】')
-        .replaceAllMapped(
-            RegExp(r'\*\*([^*]+?)\*\*'),
-            (m) => '【${m.group(1)}】')
+        .replaceAllMapped(RegExp(r'\*\*([^*]+?)\*\*'), (m) => '【${m.group(1)}】')
         .replaceAll('**', '')
         .replaceAll(RegExp(r'^\s*[\*\-]\s+', multiLine: true), '• ')
         .replaceAll(RegExp(r'\[\$[0-9]+\]|【\$[0-9]+】|\$[0-9]+'), '');
@@ -344,25 +340,26 @@ class AiDiagnosisService {
     // 系統提示詞：定義導覽員的角色與對答規則
     final systemInstruction = customSystemPrompt ??
         '''
-你是「YeBang 家教學習 APP」的個人智慧特助「代理人助理」。你是一位精練有禮、親切友好、直擊重點的學習好夥伴。
+你是「YeBang 家教學習 APP」的專屬個人智慧特助「代理人助理」，是一位親切專業、直擊核心的學習夥伴。你熟悉 APP 內的所有功能操作流程，能協助使用者高效學習與解惑。
 
-【回答核心原則：精簡扼要、直擊核心】
-- 字數嚴格控制在【80 ~ 120 字以內】，精闢講重點，拒絕冗長鋪墊與廢話。
-- 先用 1 句精華定義核心概念，再用 2~3 點簡短重點（• ）說明關鍵要素，讓使用者 10 秒內快速吸收。
-- 語氣友好親切大方（稱呼「你」），使用台灣繁體中文習慣用語（例如：「低程式碼 (Low-Code)」）。
-- 嚴禁在句首生硬堆疊「喔😊」等做作語氣詞，直接自然切入重點。
+【回答核心原則】
+- 極簡扼要：整體回覆長度嚴格控制在【120 字以內】，直擊重點，嚴禁冗長開場白或過度客套。
+- 結構化吸收：先以 1 句話回答核心問題，後續若有需要，最多搭配 2～3 個簡短要點（• ）輔助說明。
+- 語氣與習慣：語氣親切自然（稱呼「你」），使用台灣繁體中文習慣用語。嚴禁在句首生硬堆疊「喔😊」、「好的呢」等做作語助詞。
+- 嚴禁簡體字：一律輸出台灣繁體中文（正體中文）。
 
-【功能操作引導】
-當使用者詢問或想執行 APP 功能時，1~2 句簡要說明並提示觸發關鍵字：
-1. 📓 個人筆記本（關鍵字：「新增筆記」、「查看筆記本」、「整理筆記」）
-2. ⚙️ 個人設定（關鍵字：「修改密碼」、「修改暱稱」、「更換頭像」、「個人檔案」）
-3. 📅 日曆與待辦（關鍵字：「新增行程」、「新增待辦」、「修改行程」）
-4. 📚 題庫測驗（關鍵字：「練習題庫」、「做測驗」）
-5. 💬 社群交流（關鍵字：「發貼文」、「看動態」）
+【APP 功能導引規則】
+當使用者想操作功能或詢問流程時，直接 1 句說明並引導點擊或輸入觸發詞：
+• 📓 個人筆記本：觸發詞「新增筆記」、「查看筆記本」、「整理筆記」
+• ⚙️ 個人設定：觸發詞「修改密碼」、「修改暱稱」、「更換頭像」、「個人檔案」
+• 📅 行事曆與待辦：觸發詞「新增行程」、「新增待辦」、「查看行程」
+• 📚 題庫與測驗：觸發詞「練習題庫」、「做測驗」、「AI拍考卷」、「錯題複習」
+• 🎯 找家教名師：觸發詞「找家教」、「預約課程」、「名師推薦」
+• 💬 社群交流：觸發詞「發貼文」、「看動態」
 
-【排版與語言】
-- 永遠使用繁體中文（Traditional Chinese），絕不使用簡體字。
-- 條列使用標準符號（• ），Emoji 適度點綴 1-2 個，保持版面清爽好讀。
+【安全與邊界守則】
+- 聚焦學習與 APP 服務：若使用者詢問與學習、教育或 APP 功能完全無關的話題（如政治、投機炒股、娛樂八卦），禮貌用 1 句話婉拒並帶回學習主軸。
+- 符號與排版：Emoji 單次回答限制 1~2 個，點綴即可；條列統一使用「• 」，確保介面清爽好讀。
 ''';
 
     // 組建對話訊息
@@ -380,35 +377,68 @@ class AiDiagnosisService {
     }
     messages.add({'role': 'user', 'content': userInput});
 
-    // 0. 若本地無設定 Key（例如實體手機 / 打包 APK），直接優先使用 Cloudflare 雲端中繼站 (避免空 Key 逾時卡住)
-    if (_kGroqApiKey.trim().isEmpty &&
-        _kOpenRouterApiKey.trim().isEmpty &&
-        _kSystemGeminiApiKey.trim().isEmpty) {
-      debugPrint('代理人助理：未偵測到本地 Key，直接優先使用 Cloudflare 雲端中繼站...');
-      final fullPrompt = '$systemInstruction\n\n【使用者對話歷史與提問】\n$userInput';
-      try {
-        String? proxyText = await _tryCloudflareProxy(
+    final historyStr = messages
+        .map((m) => '${m['role'] == 'user' ? '使用者' : '助理'}: ${m['content']}')
+        .join('\n');
+    final fullPrompt = '$systemInstruction\n\n【使用者對話歷史與提問】\n$historyStr';
+
+    // 1. 優先使用 Cloudflare 雲端中繼站 (依序：Groq -> OpenRouter -> Gemini)
+    try {
+      // 順位 1：Cloudflare Groq 引擎 (compound-beta 極速直出模型)
+      debugPrint('代理人助理：優先啟動 Cloudflare 雲端中繼站 (Groq / compound-beta)...');
+      String? proxyText = await _tryCloudflareProxy(
+        provider: 'groq',
+        model: 'compound-beta',
+        prompt: fullPrompt,
+        timeoutSeconds: 15,
+      );
+      if (proxyText == null || proxyText.trim().isEmpty) {
+        debugPrint('代理人助理：切換 Cloudflare Groq 深度模型 (qwen/qwen3.6-27b)...');
+        proxyText = await _tryCloudflareProxy(
           provider: 'groq',
+          model: 'qwen/qwen3.6-27b',
           prompt: fullPrompt,
+          timeoutSeconds: 25,
         );
-        if (proxyText == null || proxyText.trim().isEmpty) {
-          debugPrint('代理人助理：Groq 中繼失敗，切換 Gemini 中繼...');
-          proxyText = await _tryCloudflareProxy(
-            provider: 'gemini',
-            prompt: fullPrompt,
-          );
-        }
-        if (proxyText != null && proxyText.trim().isNotEmpty) {
-          debugPrint('代理人助理：成功取得 Cloudflare 回應');
-          yield AssistantResponseChunk(proxyText, 'proxy');
-          return;
-        }
-      } catch (e) {
-        debugPrint('Cloudflare 雲端中繼站直連失敗: $e');
       }
+
+      // 順位 2：Cloudflare OpenRouter 引擎
+      if (proxyText == null || proxyText.trim().isEmpty) {
+        debugPrint('代理人助理：切換 Cloudflare OpenRouter 引擎中繼...');
+        proxyText = await _tryCloudflareProxy(
+          provider: 'openrouter',
+          prompt: fullPrompt,
+          timeoutSeconds: 6,
+        );
+      }
+
+      // 順位 3：Cloudflare Gemini 引擎 (排在最後進行旗艦保底)
+      if (proxyText == null || proxyText.trim().isEmpty) {
+        debugPrint('代理人助理：切換 Cloudflare Gemini 旗艦保底中繼...');
+        proxyText = await _tryCloudflareProxy(
+          provider: 'gemini',
+          prompt: fullPrompt,
+          timeoutSeconds: 12,
+        );
+      }
+      if (proxyText != null && proxyText.trim().isNotEmpty) {
+        debugPrint('代理人助理：成功取得 Cloudflare 雲端中繼站回應');
+        final cleaned = cleanThinkingTags(proxyText);
+        // 模擬細緻打字機串流效果
+        const chunkSize = 12;
+        for (int i = 0; i < cleaned.length; i += chunkSize) {
+          final end =
+              (i + chunkSize < cleaned.length) ? i + chunkSize : cleaned.length;
+          yield AssistantResponseChunk(cleaned.substring(i, end), 'proxy');
+          await Future.delayed(const Duration(milliseconds: 15));
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('Cloudflare 雲端中繼站例外: $e');
     }
 
-    // 1. 嘗試本地 Groq (具備雙模型備援)
+    // 2. 備援：嘗試本地 Groq (具備多模型備援)
     if (_kGroqApiKey.trim().isNotEmpty) {
       for (final gModel in _kGroqModels) {
         debugPrint('代理人助理：啟動 Groq 超高速引擎 ($gModel)...');
@@ -443,13 +473,11 @@ class AiDiagnosisService {
     if (_kOpenRouterApiKey.trim().isNotEmpty) {
       final fallbackModels = [
         if (customModel != null && customModel.isNotEmpty) customModel,
-        'google/gemma-4-26b-a4b-it:free',
-        'google/gemma-4-31b-it:free',
-        'poolside/laguna-s-2.1:free',
-        'openai/gpt-oss-20b:free',
-        'nvidia/nemotron-3-ultra-550b-a55b:free',
-        'nvidia/nemotron-3.5-lightning:free',
-        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+        'google/gemini-2.0-flash-lite-001:free',
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'deepseek/deepseek-r1:free',
+        'qwen/qwen-2.5-72b-instruct:free',
+        'mistralai/mistral-7b-instruct:free',
       ];
 
       for (final model in fallbackModels) {
@@ -487,7 +515,7 @@ class AiDiagnosisService {
       debugPrint('代理人助理：OpenRouter 免費模型均失敗，啟動官方 Gemini 2.5 Flash 進行救援');
       try {
         final model = GenerativeModel(
-          model: 'gemini-2.0-flash',
+          model: 'gemini-2.5-flash',
           apiKey: _kSystemGeminiApiKey,
           systemInstruction: Content.system(systemInstruction),
         );
@@ -703,8 +731,8 @@ class AiDiagnosisService {
 
     try {
       final response = await client.send(request).timeout(
-            const Duration(seconds: 12),
-            onTimeout: () => throw Exception('Groq 請求逾時（12s）'),
+            const Duration(seconds: 6),
+            onTimeout: () => throw Exception('Groq 請求逾時（6s）'),
           );
 
       if (response.statusCode != 200) {
@@ -897,7 +925,7 @@ $correctDetails
 
       // 3. Gemini 直連
       final model = GenerativeModel(
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
@@ -1111,7 +1139,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
       debugPrint('學習建議：嘗試 Gemini 備援...');
       try {
         final model = GenerativeModel(
-            model: 'gemini-2.0-flash', apiKey: _kSystemGeminiApiKey);
+            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
         await for (final chunk in model.generateContentStream(
             [Content.text(prompt)]).timeout(const Duration(seconds: 8))) {
@@ -1225,7 +1253,9 @@ ${AppLocaleService.getAiLanguageInstruction()}
 • 【解題思維】：經濟學考題善用【供需曲線圖】分析價格管制與市場均衡，釐清機會成本概念。
 • 【精準突破】：注意日常時事新聞中的【法制改革與公共議題】，結合公民核心概念進行論證。
 ''';
-    } else if (sub.contains('資訊') || sub.contains('計算機') || sub.contains('程式')) {
+    } else if (sub.contains('資訊') ||
+        sub.contains('計算機') ||
+        sub.contains('程式')) {
       return '''
 [弱項摘要]
 針對【$sub】核心系統架構、網路通訊與演算法概念，強化【技術架構與邏輯應用思維】。
@@ -1267,7 +1297,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
 
     try {
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$_kSystemGeminiApiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_kSystemGeminiApiKey',
       );
 
       final prompt = '''
@@ -1371,7 +1401,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
 
     try {
       final model = GenerativeModel(
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
@@ -1442,7 +1472,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
             !nextAvailableTime!.isAfter(DateTime.now()))) {
       try {
         final model = GenerativeModel(
-          model: 'gemini-2.0-flash',
+          model: 'gemini-2.5-flash',
           apiKey: apiKey,
           systemInstruction: Content.system(systemPrompt),
         );
@@ -1566,7 +1596,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
     required String subject,
   }) async {
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
 
     final wrongDetails = wrongQuestions.map((q) {
@@ -1867,7 +1897,7 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       debugPrint('AI 解析：切換 Gemini 備援...');
       try {
         final model = GenerativeModel(
-            model: 'gemini-2.0-flash', apiKey: _kSystemGeminiApiKey);
+            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
         await for (final chunk in model.generateContentStream(
             [Content.text(prompt)]).timeout(const Duration(seconds: 6))) {
