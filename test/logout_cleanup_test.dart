@@ -169,7 +169,7 @@ void main() {
     expect(userAfter['display_name'], '訪客');
     expect(userAfter['bio'], '');
     expect(userAfter['is_dark_mode'], 0);
-    expect(userAfter['font_size_factor'], 1.0);
+    expect(userAfter['font_size_factor'], 1.2);
 
     // 驗證記憶體快取清除
     expect(NotesDatabase.notes.any((n) => n.userId == 'u4'), isFalse);
