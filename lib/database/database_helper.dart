@@ -2385,7 +2385,7 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    // 8. 排行榜種子資料：u2 陳教授
+    // 8. 測驗成績種子資料：u2 陳教授
     await db.insert(
         'quiz_results',
         <String, Object?>{
@@ -2420,7 +2420,7 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    // 9. 排行榜種子資料：u5 李同學
+    // 9. 測驗成績種子資料：u5 李同學
     await db.insert(
         'quiz_results',
         <String, Object?>{
@@ -2455,7 +2455,7 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    // 10. 排行榜種子資料：u6 陳助教
+    // 10. 測驗成績種子資料：u6 陳助教
     await db.insert(
         'quiz_results',
         <String, Object?>{

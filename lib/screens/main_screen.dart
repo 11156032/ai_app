@@ -39,7 +39,6 @@ import 'ai_analysis_page.dart';
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
 part 'main_screen_activity_tab.part.dart';
-part 'main_screen_leaderboard_tab.part.dart';
 
 // 移除原本在這裡的 kPresetAvatars 與 _buildAvatar，已移至 common_widgets.dart
 
@@ -157,10 +156,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
   String _appVersion = 'v1.5.0';
-
-  // --- 排行榜資料 ---
-  List<Map<String, dynamic>> _leaderboardList = [];
-  String _leaderboardSortType = 'accuracy'; // 'accuracy' | 'total'
   late DateTime _sessionStartTime;
 
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分', '歷史', '理化'];
@@ -978,40 +973,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
       }
 
-      final leaderboardRows = await db.rawQuery('''
-        SELECT
-          u.id as uid,
-          u.display_name as name,
-          u.avatar_blob,
-          u.avatar_color,
-          u.avatar_selected,
-          COALESCE(SUM(qr.total), 0) as total_answered,
-          COALESCE(SUM(qr.correct), 0) as total_correct
-        FROM users u
-        LEFT JOIN quiz_results qr ON u.id = qr.user_id AND qr.total > 0
-        WHERE u.id != 'u4'
-        GROUP BY u.id
-        ORDER BY
-          CASE WHEN COALESCE(SUM(qr.total), 0) = 0 THEN 1 ELSE 0 END,
-          (CAST(COALESCE(SUM(qr.correct), 0) AS REAL) / NULLIF(COALESCE(SUM(qr.total), 0), 0)) DESC
-      ''');
-
-      List<Map<String, dynamic>> leaderboardList = leaderboardRows.map((r) {
-        final int tot = (r['total_answered'] as num?)?.toInt() ?? 0;
-        final int cor = (r['total_correct'] as num?)?.toInt() ?? 0;
-        final double acc = tot > 0 ? (cor / tot * 100) : 0.0;
-        return {
-          'userId': r['uid'],
-          'name': r['name'],
-          'avatarBlob': r['avatar_blob'],
-          'avatarColor': (r['avatar_color'] as int?) ?? 0,
-          'avatarSelected': (r['avatar_selected'] as int?) ?? 0,
-          'totalAnswered': tot,
-          'totalCorrect': cor,
-          'accuracy': double.parse(acc.toStringAsFixed(1)),
-        };
-      }).toList();
-
       // ── 載入群組資料 ──────────────────────────────────────────────
       List<Map<String, dynamic>> myGroupsList = [];
       List<Map<String, dynamic>> allGroupsList = [];
@@ -1048,7 +1009,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _todayQuizData = todayQuizData;
           _totalQuestionsAnswered = totalQuestionsAnswered;
           _latestQuizScore = latestQuizScore;
-          _leaderboardList = leaderboardList;
 
           // 個人化設定：安全處理資料類型並觸發 UI 更新
           if (userRows.isNotEmpty) {
@@ -2522,14 +2482,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     _changePage(4, AppLocaleService.tr('nav_profile', _appLanguage));
                     Navigator.pop(context);
                   }),
-              ListTile(
-                  leading: Icon(Icons.leaderboard_rounded,
-                      color: Theme.of(context).primaryColor),
-                  title: Text(AppLocaleService.tr('nav_leaderboard', _appLanguage)),
-                  onTap: () {
-                    _changePage(6, AppLocaleService.tr('nav_leaderboard', _appLanguage));
-                    Navigator.pop(context);
-                  }),
             ]))),
             body: Stack(
               children: [
@@ -2546,7 +2498,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         _buildSocialActivityTab(),
                         _buildPersonalProfileTab(context),
                         NotesScreen(currentUser: widget.currentUser),
-                        _buildLeaderboardTab(),
                       ])),
                       if (!_showFloatingNavBar && (_currentIndex != 1 || _quizStep == 0)) _buildAIChatBar(),
                       if (_showFloatingNavBar) SizedBox(height: 75 + MediaQuery.of(context).padding.bottom), // Padding for floating nav bar
@@ -11177,8 +11128,6 @@ $strokePrompt
         return AppLocaleService.tr('nav_profile', _appLanguage);
       case 5:
         return AppLocaleService.tr('nav_notes', _appLanguage);
-      case 6:
-        return AppLocaleService.tr('nav_leaderboard', _appLanguage);
       default:
         return _appBarTitle;
     }

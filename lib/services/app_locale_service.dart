@@ -69,7 +69,6 @@ class AppLocaleService {
     'nav_community': {zhTW: '社群', ja: 'コミュニティ', ko: '커뮤니티'},
     'nav_social_feed': {zhTW: '社群動態', ja: 'タイムライン', ko: '피드'},
     'nav_profile': {zhTW: '個人檔案', ja: 'マイページ', ko: '마이페이지'},
-    'nav_leaderboard': {zhTW: '排行榜', ja: 'ランキング', ko: '랭킹'},
     'nav_notes': {zhTW: '筆記本', ja: 'ノート', ko: '노트'},
 
     // 個人檔案 分頁標籤
@@ -96,8 +95,6 @@ class AppLocaleService {
     'profile_my_posts': {zhTW: '我的貼文', ja: 'マイ投稿', ko: '내 게시글'},
     'profile_posts_count': {zhTW: '已發佈 {0} 篇貼文與筆記', ja: '{0} 件の投稿・ノートを公開中', ko: '{0}개의 게시글 및 노트 발행됨'},
     'profile_quiz_history': {zhTW: '測驗歷史', ja: 'テスト履歴', ko: '테스트 기록'},
-    'profile_leaderboard': {zhTW: '排行榜', ja: 'ランキング', ko: '랭킹'},
-    'profile_leaderboard_desc': {zhTW: '查看所有使用者的測驗成績排名', ja: '全ユーザーの成績ランキングを確認', ko: '전체 사용자의 성적 랭킹 확인'},
     'profile_support_title': {zhTW: '系統與協助', ja: 'サポートとお問い合わせ', ko: '고객지원 및 도움말'},
     'feedback_and_help': {zhTW: '客服與意見回饋', ja: 'お問い合わせとフィードバック', ko: '문의 및 피드백'},
     'feedback_and_help_sub': {zhTW: '回報問題或提供功能建議', ja: '不具合報告・ご意見・サポート', ko: '문제 신고, 피드백 및 고객센터'},
