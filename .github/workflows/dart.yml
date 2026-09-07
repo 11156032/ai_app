@@ -16,7 +16,7 @@ jobs:
         with:
           flutter-version: '3.x'
           cache: true
-
+          
       # 快取 Android Gradle 依賴
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -28,26 +28,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      # ----------------------------------------
+      # [新增] 動態生成 keys.env (安全性處理)
+      # ----------------------------------------
+      - name: Generate keys.env file
+        env:
+          KEYS_ENV_CONTENT: ${{ secrets.KEYS_ENV_CONTENT }}
+        run: |
+          mkdir -p assets
+          echo "$KEYS_ENV_CONTENT" > assets/keys.env
+
       - name: Install dependencies
         run: flutter pub get
-
+        
       - name: Analyze project source
         run: flutter analyze
-
+        
       - name: Run tests
         run: flutter test
-
+        
       - name: Build Android APK
         if: github.ref == 'refs/heads/main'
         run: flutter build apk --release --split-per-abi
-
+        
       - name: Upload APK Artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: app-arm64-v8a-release-apk
           path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-
+          
       - name: Upload to Firebase App Distribution
         if: github.ref == 'refs/heads/main'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
