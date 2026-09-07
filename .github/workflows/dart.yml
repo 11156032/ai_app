@@ -39,22 +39,21 @@ jobs:
 
       - name: Build Android APK
         if: github.ref == 'refs/heads/main'
-        run: flutter build apk --release
+        run: flutter build apk --release --split-per-abi
 
       - name: Upload APK Artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: app-arm64-v8a-release-apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
-      # ===== 新增：自動上傳至 Firebase App Distribution =====
       - name: Upload to Firebase App Distribution
         if: github.ref == 'refs/heads/main'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: "1:789026077383:android:5fd946ddc995cb3f761ce2"
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          file: build/app/outputs/flutter-apk/app-release.apk
+          file: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           releaseNotes: "Commit: ${{ github.event.head_commit.message }}"
           testers: "adenlee36@gmail.com"
