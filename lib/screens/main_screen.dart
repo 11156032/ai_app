@@ -1395,27 +1395,28 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _scrollToBottom() {
     if (_isDisposed) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    void doScroll() {
       if (_isDisposed) return;
       try {
         if (_chatScrollController.hasClients) {
+          final max = _chatScrollController.position.maxScrollExtent;
           _chatScrollController.animateTo(
-            _chatScrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
+            max,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
           );
         }
       } catch (_) {}
-    });
-    Future.delayed(const Duration(milliseconds: 150), () {
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => doScroll());
+    Future.delayed(const Duration(milliseconds: 80), doScroll);
+    Future.delayed(const Duration(milliseconds: 250), doScroll);
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (_isDisposed) return;
       try {
         if (_chatScrollController.hasClients) {
-          _chatScrollController.animateTo(
-            _chatScrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-          );
+          _chatScrollController.jumpTo(_chatScrollController.position.maxScrollExtent);
         }
       } catch (_) {}
     });

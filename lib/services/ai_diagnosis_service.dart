@@ -105,7 +105,7 @@ class AiDiagnosisService {
     } catch (_) {}
     const envSecret = String.fromEnvironment('APP_CLIENT_SECRET');
     if (envSecret.isNotEmpty) return envSecret;
-    return 'ai_app_secure_client_secret_2026_key';
+    return 'K/Qk9-gt2P.E9qa';
   }
 
   static const String _kCloudflareProxyUrl =
