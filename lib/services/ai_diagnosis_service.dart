@@ -97,6 +97,17 @@ class AiDiagnosisService {
 
   static DateTime? nextAvailableTime;
 
+  static const String _kAppSecretHeader = 'x-app-secret';
+  static String get _kAppClientSecret {
+    try {
+      final secret = dotenv.env['APP_CLIENT_SECRET'];
+      if (secret != null && secret.isNotEmpty) return secret;
+    } catch (_) {}
+    const envSecret = String.fromEnvironment('APP_CLIENT_SECRET');
+    if (envSecret.isNotEmpty) return envSecret;
+    return 'ai_app_secure_client_secret_2026_key';
+  }
+
   static const String _kCloudflareProxyUrl =
       'https://ai-app-proxy.adenlee36.workers.dev';
 
@@ -111,7 +122,10 @@ class AiDiagnosisService {
       final response = await http
           .post(
             Uri.parse(_kCloudflareProxyUrl),
-            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              _kAppSecretHeader: _kAppClientSecret,
+            },
             body: jsonEncode({
               'provider': provider,
               if (model != null) 'model': model,
@@ -1295,10 +1309,6 @@ ${AppLocaleService.getAiLanguageInstruction()}
     }
 
     try {
-      final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_kSystemGeminiApiKey',
-      );
-
       final prompt = '''
 你是一個專業的學習筆記整理小助手。請閱讀使用者的筆記內容，並將其整理為一份簡短、精煉且結構分明的重點大綱。
 你不需要進行強制字元裁切，但請以你的專業判斷，用最精簡、通順且完整的句子來陳述核心要點，並避免照抄原文的大段落。
@@ -1324,47 +1334,28 @@ $noteContent
 ${AppLocaleService.getAiLanguageInstruction()}
 ''';
 
-      final response = await http
-          .post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'contents': [
-                {
-                  'parts': [
-                    {'text': prompt},
-                  ],
-                },
-              ],
-              'generationConfig': {'responseMimeType': 'application/json'},
-            }),
-          )
-          .timeout(const Duration(seconds: 20));
+      String? responseText = await _tryCloudflareProxy(
+        provider: 'gemini',
+        prompt: prompt,
+      );
 
-      if (response.statusCode == 200) {
-        final resJson = jsonDecode(response.body);
-        final text = resJson['candidates']?[0]?['content']?['parts']?[0]
-            ?['text'] as String?;
-        if (text != null && text.trim().isNotEmpty) {
-          final decoded = jsonDecode(text.trim());
-          final List<String> points = List<String>.from(
-            decoded['points'] ?? [],
-          );
-          final List<String> actions = List<String>.from(
-            decoded['actions'] ?? [],
-          );
-          return {'points': points, 'actions': actions, 'isAiGenerated': true};
-        }
-      } else {
-        if (response.statusCode == 429) {
-          _updateNextAvailableTime(response.body);
-        }
-        debugPrint(
-          'Gemini note summary error: ${response.statusCode} ${response.body}',
+      responseText ??= await _tryCloudflareProxy(
+        provider: 'groq',
+        prompt: prompt,
+      );
+
+      if (responseText != null && responseText.trim().isNotEmpty) {
+        final decoded = jsonDecode(responseText.trim());
+        final List<String> points = List<String>.from(
+          decoded['points'] ?? [],
         );
+        final List<String> actions = List<String>.from(
+          decoded['actions'] ?? [],
+        );
+        return {'points': points, 'actions': actions, 'isAiGenerated': true};
       }
     } catch (e) {
-      debugPrint('Error calling Gemini for note summary: $e');
+      debugPrint('Error generating note summary via Cloudflare Proxy: $e');
     }
 
     return _generateLocalNoteSummaryMap(noteContent);

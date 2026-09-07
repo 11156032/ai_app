@@ -59,7 +59,7 @@ class AIIntentService {
     UserIntent.changeTheme: {'label': '切換主題', 'keywords': ['切換主題', '換主題', '深色模式', '深色主題', '改顏色', '換顏色', '主題顏色']},
     UserIntent.changeFontSize: {'label': '字體大小', 'keywords': ['字體大小', '改字型', '字體設定', '調整字體', '字較大', '字較小', '文字大小']},
     UserIntent.verifyEmail: {'label': 'Email 驗證', 'keywords': ['驗證信箱', 'email驗證', '信箱驗證', '驗證email', '驗證郵件']},
-    UserIntent.changePassword: {'label': '修改密碼', 'keywords': ['密碼', '改密碼', '修改密碼', '更改密碼', '密碼修改', '換密碼']},
+    UserIntent.changePassword: {'label': '修改密碼', 'keywords': ['改密碼', '修改密碼', '更改密碼', '密碼修改', '換密碼', '重設密碼', '變更密碼']},
     UserIntent.help: {'label': '幫助', 'keywords': ['幫助', '說明', 'help', '指令清單', '可以幫什麼', '你能幫什麼', '功能說明']},
     UserIntent.viewNotes: {'label': '查看筆記本', 'keywords': ['筆記本', '看筆記', '切換筆記本', '打開筆記', '我的筆記', '查看筆記']},
     UserIntent.createNote: {'label': '新增筆記', 'keywords': ['新增筆記', '寫筆記', '記筆記', '加筆記', '建立筆記', '我想記筆記']},
