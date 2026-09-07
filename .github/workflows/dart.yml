@@ -17,16 +17,7 @@ jobs:
           flutter-version: '3.x'
           cache: true
 
-      # 新增：快取 Dart 套件
-      - name: Cache Pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
-
-      # 新增：快取 Android Gradle 依賴 (大幅優化編譯速度)
+      # 快取 Android Gradle 依賴
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -56,3 +47,14 @@ jobs:
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      # ===== 新增：自動上傳至 Firebase App Distribution =====
+      - name: Upload to Firebase App Distribution
+        if: github.ref == 'refs/heads/main'
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: "1:789026077383:android:5fd946ddc995cb3f761ce2"
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          file: build/app/outputs/flutter-apk/app-release.apk
+          releaseNotes: "Commit: ${{ github.event.head_commit.message }}"
+          testers: "adenlee36@gmail.com"
