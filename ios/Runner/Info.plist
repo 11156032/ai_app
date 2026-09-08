@@ -75,6 +75,8 @@
 	<key>NSCameraUsageDescription</key>
 	<string>此應用程式需要存取您的相機，以便您在客服與意見回饋中拍攝並附加圖片。</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>此應用程式需要存取您的麥克風，以便錄製帶有聲音的影片。</string>
+	<string>此應用程式需要存取您的麥克風，以支援助理語音即時輸入與錄製影片。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>此應用程式需要語音辨識權限，以支援代理人助理的即時語音轉文字功能。</string>
 </dict>
 </plist>

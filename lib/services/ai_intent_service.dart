@@ -26,6 +26,8 @@ enum UserIntent {
   searchNote,
   deleteNote,
   organizeNote,
+  viewCustomerSupport,
+  viewFeedback,
   none,
 }
 
@@ -66,6 +68,8 @@ class AIIntentService {
     UserIntent.searchNote: {'label': '搜尋筆記', 'keywords': ['搜尋筆記', '找筆記', '尋找筆記', '查筆記', '筆記搜尋']},
     UserIntent.deleteNote: {'label': '刪除筆記', 'keywords': ['刪除筆記', '丟棄筆記', '刪筆記', '刪掉筆記', '移除筆記']},
     UserIntent.organizeNote: {'label': '整理筆記', 'keywords': ['整理筆記', '筆記摘要', '重點整理筆記', 'AI摘要', '幫我整理筆記', '筆記重點']},
+    UserIntent.viewCustomerSupport: {'label': '常見問題與線上客服', 'keywords': ['聯絡客服', '找客服', '線上客服', '客服專員', '人工客服', '客服人員', '聯繫客服', '怎麼找客服', '如何聯絡客服', '客服在哪', '客服中心', '客服幫助', '客服支援', '客服']},
+    UserIntent.viewFeedback: {'label': '客服與意見回饋', 'keywords': ['意見回饋', '問題回報', '回報問題', '回報bug', '回饋建議', '功能建議', '提供建議', '填寫回饋', '回饋表單', '問題反應']},
   };
 
   static ParseResult parse(String userInput) {

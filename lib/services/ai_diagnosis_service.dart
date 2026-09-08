@@ -354,25 +354,39 @@ class AiDiagnosisService {
     // 系統提示詞：定義導覽員的角色與對答規則
     final systemInstruction = customSystemPrompt ??
         '''
-你是「YeBang 家教學習 APP」的專屬個人智慧特助「代理人助理」，是一位親切專業、直擊核心的學習夥伴。你熟悉 APP 內的所有功能操作流程，能協助使用者高效學習與解惑。
+你是「YeBang 家教學習 APP」的專屬個人智慧特助「代理人助理」，是一位親切專業、熟悉全站介面與功能操作的學習夥伴。你的任務是給出 100% 正確的介面路徑指引，嚴禁自行憑空捏造不存在的按鈕或頁面名稱（例如：本 APP 沒有右上角齒輪，所有設定與客服都在底部的「個人檔案」中）。
+
+【APP 完整功能架構與介面路徑】
+1. 👤 個人檔案（底部導航「個人檔案」）：包含頂部三大分頁（Tab）：
+   • 📊「概覽」：學習歷程統計、知識掌握度矩陣圖、學科能力雷達圖、一鍵 AI 生成弱項補強教材。
+   • ⚙️「設定與安全」：修改暱稱、頭像、個人簡介、修改密碼、深淺色主題切換、主題主色調選擇、字體大小調整、推播通知開關、多國語言切換、登出帳號。
+   • 💡「系統協助」（重要！客服與系統資訊皆在此）：
+     -「常見問題與線上客服」：各功能常見問答與 24H 智慧線上客服專員對談。
+     -「客服與意見回饋」：填寫表單回報 Bug 或功能建議，支援上傳截圖。
+     -「關於我們」：了解 App 核心技術、品牌理念與版本資訊。
+     -「互動式功能引導」：重新體驗新手操作教學。
+     -「服務條款」與「隱私權政策」。
+2. 📚 題庫（底部導航「題庫」）：
+   • 各學科單元測驗、模擬試卷、AI 拍照出題與步驟詳解、自動記錄答錯題目的「錯題本」。
+3. 📓 個人筆記本（底部導航「筆記」）：
+   • 支援「打字筆記」（Markdown 語法）與「手寫塗鴉」、標籤分類、一鍵 AI 摘要重點、社群筆記分享與一鍵匯入。
+4. 📅 行事曆（底部導航「行事曆」）：
+   • 日曆讀書計畫、待辦清單 (Todo)、提醒通知設定。
+5. 💬 社群交流：
+   • 同學發佈貼文、讀書心得分享與社群討論。
+
+【常見詢問標準回答指引】
+• 詢問「如何聯絡客服 / 客服在哪 / 怎麼找客服」：
+  引導路徑：點擊底部「個人檔案」 ➜ 切換至上方「系統協助」分頁 ➜ 點選「常見問題與線上客服」（可進行 24H 智慧線上客服對答）或「客服與意見回饋」（填寫表單回報問題）。
+• 詢問「如何改密碼 / 改暱稱 / 換頭像 / 改主題 / 改字體」：
+  引導路徑：點擊底部「個人檔案」 ➜ 切換至上方「設定與安全」分頁進行修改。
+• 詢問「如何看診斷 / 弱項分析 / 學習進度」：
+  引導路徑：點擊底部「個人檔案」 ➜ 上方「概覽」分頁查看雷達圖與矩陣圖。
 
 【回答核心原則】
-- 極簡扼要：整體回覆長度嚴格控制在【120 字以內】，直擊重點，嚴禁冗長開場白或過度客套。
-- 結構化吸收：先以 1 句話回答核心問題，後續若有需要，最多搭配 2～3 個簡短要點（• ）輔助說明。
-- 語氣與習慣：語氣親切自然（稱呼「你」），使用台灣繁體中文習慣用語。嚴禁在句首生硬堆疊「喔😊」、「好的呢」等做作語助詞。
-- 嚴禁簡體字：一律輸出台灣繁體中文（正體中文）。
-
-【APP 功能導引規則】
-當使用者想操作功能或詢問流程時，直接 1 句說明並引導點擊或輸入觸發詞：
-• 📓 個人筆記本：觸發詞「新增筆記」、「查看筆記本」、「整理筆記」
-• ⚙️ 個人設定：觸發詞「修改密碼」、「修改暱稱」、「更換頭像」、「個人檔案」
-• 📅 行事曆與待辦：觸發詞「新增行程」、「新增待辦」、「查看行程」
-• 📚 題庫與測驗：觸發詞「練習題庫」、「做測驗」、「AI拍考卷」、「錯題複習」
-• 💬 社群交流：觸發詞「發貼文」、「看動態」
-
-【安全與邊界守則】
-- 聚焦學習與 APP 服務：若使用者詢問與學習、教育或 APP 功能完全無關的話題（如政治、投機炒股、娛樂八卦），禮貌用 1 句話婉拒並帶回學習主軸。
-- 符號與排版：Emoji 單次回答限制 1~2 個，點綴即可；條列統一使用「• 」，確保介面清爽好讀。
+- 精確不瞎編：嚴格根據上述 APP 實際路徑引導，名詞以「**」粗體標示（例如：**個人檔案** ➜ **系統協助** ➜ **常見問題與線上客服**）。
+- 結構清晰、極簡扼要：整體回覆控制在 120~180 字以內，先以 1 句話正面回答，再以 2~3 個要點（• ）清楚列出步驟。
+- 語氣自然：親切溫暖（稱呼「你」），使用台灣繁體中文（正體中文），嚴禁簡體字。
 ''';
 
     // 組建對話訊息
@@ -1447,92 +1461,6 @@ ${AppLocaleService.getAiLanguageInstruction()}
     };
   }
 
-  /// 分身對話串流：支援 Gemini SDK 及 Cloudflare 雲端中繼站備援（實體機無 Key 自動降級）
-  static Stream<String> generateCloneStream({
-    required String systemPrompt,
-    required String userInput,
-    required List<Map<String, dynamic>> history,
-  }) async* {
-    final String apiKey = _kSystemGeminiApiKey.trim();
-    bool geminiSuccess = false;
-
-    // 1. 若本地有 API Key，優先嘗試 Gemini SDK
-    if (apiKey.isNotEmpty &&
-        (nextAvailableTime == null ||
-            !nextAvailableTime!.isAfter(DateTime.now()))) {
-      try {
-        final model = GenerativeModel(
-          model: 'gemini-2.5-flash',
-          apiKey: apiKey,
-          systemInstruction: Content.system(systemPrompt),
-        );
-
-        final List<Content> contents = [];
-        for (final msg in history) {
-          final text = (msg['text'] as String? ?? '').trim();
-          if (text.isEmpty) continue;
-          final role = (msg['isAI'] as bool? ?? false) ? 'model' : 'user';
-          contents.add(Content(role, [TextPart(text)]));
-        }
-        contents.add(Content.text(userInput));
-
-        final contentStream = model.generateContentStream(contents).timeout(
-              const Duration(seconds: 15),
-              onTimeout: (sink) => sink.addError(Exception('Gemini 回應逾時（15s）')),
-            );
-
-        await for (final chunk in contentStream) {
-          final text = chunk.text;
-          if (text != null && text.isNotEmpty) {
-            geminiSuccess = true;
-            yield text;
-          }
-        }
-        if (geminiSuccess) return;
-      } catch (e) {
-        debugPrint(
-            'Gemini clone stream error, switching to Cloudflare Proxy: $e');
-        if (e.toString().contains('429') ||
-            e.toString().contains('RESOURCE_EXHAUSTED')) {
-          nextAvailableTime = DateTime.now().add(const Duration(seconds: 60));
-        }
-      }
-    }
-
-    // 2. 本地無 Key 或 Gemini 連線失敗，自動無縫切換 Cloudflare 雲端中繼站 (Gemini / Groq)
-    debugPrint('召喚分身：無本地 Key 或 Gemini 失敗，使用 Cloudflare 雲端中繼站...');
-
-    final StringBuffer fullPrompt = StringBuffer();
-    fullPrompt.writeln(systemPrompt);
-    fullPrompt.writeln('\n【對話歷史與使用者提問】');
-    for (final msg in history) {
-      final text = (msg['text'] as String? ?? '').trim();
-      if (text.isEmpty) continue;
-      final role = (msg['isAI'] as bool? ?? false) ? '作者' : '使用者';
-      fullPrompt.writeln('$role: $text');
-    }
-    fullPrompt.writeln('使用者: $userInput');
-    fullPrompt.writeln('作者:');
-
-    // 優先嘗試 Cloudflare Gemini
-    String? responseText = await _tryCloudflareProxy(
-      provider: 'gemini',
-      prompt: fullPrompt.toString(),
-    );
-
-    // 備援：若 Cloudflare Gemini 失敗，嘗試 Cloudflare Groq
-    responseText ??= await _tryCloudflareProxy(
-      provider: 'groq',
-      prompt: fullPrompt.toString(),
-    );
-
-    if (responseText != null && responseText.isNotEmpty) {
-      yield responseText;
-      return;
-    }
-
-    throw Exception('所有 AI 分身服務均無法回應，請檢查網路連線。');
-  }
 
   static Map<String, dynamic> _generateLocalNoteSummaryMap(String content) {
     String cleanContent = content

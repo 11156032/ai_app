@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import '../services/ai_diagnosis_service.dart';
+import '../services/voice_recognition_service.dart';
 
 class AIAssistantPanel extends StatefulWidget {
   final List<Map<String, dynamic>> chatLogs;
@@ -28,6 +29,104 @@ class AIAssistantPanel extends StatefulWidget {
 
 class _AIAssistantPanelState extends State<AIAssistantPanel> {
   final TextEditingController _modalController = TextEditingController();
+  bool _isVoiceListening = false;
+  String _voiceBaseText = '';
+  double _voiceSoundLevel = 0.0;
+
+  @override
+  void dispose() {
+    if (_isVoiceListening) {
+      VoiceRecognitionService.instance.stopListening();
+    }
+    _modalController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleVoice() async {
+    if (_isVoiceListening) {
+      await VoiceRecognitionService.instance.stopListening();
+      if (mounted) {
+        setState(() {
+          _isVoiceListening = false;
+        });
+      }
+    } else {
+      FocusScope.of(context).unfocus();
+      _voiceBaseText = _modalController.text;
+      if (mounted) {
+        setState(() {
+          _isVoiceListening = true;
+          _voiceSoundLevel = 0.0;
+        });
+      }
+      final started = await VoiceRecognitionService.instance.startListening(
+        onResult: (words, isFinal) {
+          if (mounted) {
+            setState(() {
+              final prefix = _voiceBaseText.isNotEmpty ? '$_voiceBaseText ' : '';
+              _modalController.text = '$prefix$words';
+              _modalController.selection = TextSelection.collapsed(
+                offset: _modalController.text.length,
+              );
+            });
+            if (isFinal) {
+              setState(() {
+                _isVoiceListening = false;
+              });
+            }
+          }
+        },
+        onSoundLevelChange: (level) {
+          if (mounted) {
+            setState(() {
+              _voiceSoundLevel = level;
+            });
+          }
+        },
+        onStatusChange: (status) {
+          if (status == 'done' || status == 'notListening') {
+            if (mounted) {
+              setState(() {
+                _isVoiceListening = false;
+              });
+            }
+          } else if (status == 'listening') {
+            if (mounted) {
+              setState(() {
+                _isVoiceListening = true;
+              });
+            }
+          }
+        },
+        onError: (errMsg) {
+          if (mounted) {
+            setState(() {
+              _isVoiceListening = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.mic_off_rounded,
+                        color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(errMsg)),
+                  ],
+                ),
+                duration: const Duration(seconds: 3),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+      );
+      if (!started && mounted) {
+        setState(() {
+          _isVoiceListening = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1257,82 +1356,217 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
     final double paddingBottom = bottomInset > 0
         ? bottomInset + 12.0
         : math.max(systemBottom, 12.0) + 8.0;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, paddingBottom),
-      child: Row(
-        children: [
-          Expanded(
-            child: Focus(
-              onKeyEvent: (FocusNode node, KeyEvent event) {
-                final isMobile =
-                    !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-                if (isMobile) {
-                  return KeyEventResult.ignored;
-                }
-                final isEnter = event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.numpadEnter;
-                if (event is KeyDownEvent && isEnter) {
-                  if (HardwareKeyboard.instance.isShiftPressed) {
-                    final text = _modalController.text;
-                    final selection = _modalController.selection;
-                    if (selection.start >= 0) {
-                      final newText = text.replaceRange(
-                          selection.start, selection.end, '\n');
-                      _modalController.value = TextEditingValue(
-                        text: newText,
-                        selection: TextSelection.collapsed(
-                            offset: selection.start + 1),
-                      );
-                    } else {
-                      _modalController.text = '$text\n';
-                    }
-                    return KeyEventResult.handled;
-                  } else {
-                    widget.onHandleSubmit(
-                      _modalController.text,
-                      _modalController,
-                      (fn) {
-                        if (mounted) setState(fn);
-                      },
-                    );
-                    return KeyEventResult.handled;
-                  }
-                }
-                return KeyEventResult.ignored;
-              },
-              child: TextField(
-                controller: _modalController,
-                minLines: 1,
-                maxLines: 5,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  hintText: '請輸入您的問題或指令...',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide.none),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_isVoiceListening)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF3E2723) : const Color(0xFFFBE9E7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.deepOrangeAccent.withValues(alpha: 0.5),
+                width: 1,
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          CircleAvatar(
-            backgroundColor: Theme.of(context).primaryColor,
-            child: IconButton(
-              icon: const Icon(Icons.send, color: Colors.white),
-              onPressed: () => widget.onHandleSubmit(
-                  _modalController.text, _modalController, (fn) {
-                if (mounted) setState(fn);
-              }),
+            child: Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrangeAccent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.deepOrangeAccent.withValues(alpha: 0.7),
+                        blurRadius: 6 + (_voiceSoundLevel.clamp(0, 10) * 0.8),
+                        spreadRadius: 1 + (_voiceSoundLevel.clamp(0, 10) * 0.4),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '🎙️ 正在即時語音轉文字... 請說話',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? Colors.orange.shade200
+                          : Colors.deepOrange.shade800,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _toggleVoice,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.deepOrangeAccent.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.stop_rounded,
+                            size: 14, color: Colors.deepOrangeAccent),
+                        SizedBox(width: 4),
+                        Text(
+                          '完成',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepOrangeAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, 4, 16, paddingBottom),
+          child: Row(
+            children: [
+              Expanded(
+                child: Focus(
+                  onKeyEvent: (FocusNode node, KeyEvent event) {
+                    final isMobile =
+                        !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+                    if (isMobile) {
+                      return KeyEventResult.ignored;
+                    }
+                    final isEnter = event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                    if (event is KeyDownEvent && isEnter) {
+                      if (HardwareKeyboard.instance.isShiftPressed) {
+                        final text = _modalController.text;
+                        final selection = _modalController.selection;
+                        if (selection.start >= 0) {
+                          final newText = text.replaceRange(
+                              selection.start, selection.end, '\n');
+                          _modalController.value = TextEditingValue(
+                            text: newText,
+                            selection: TextSelection.collapsed(
+                                offset: selection.start + 1),
+                          );
+                        } else {
+                          _modalController.text = '$text\n';
+                        }
+                        return KeyEventResult.handled;
+                      } else {
+                        FocusScope.of(context).unfocus();
+                        if (_isVoiceListening) {
+                          VoiceRecognitionService.instance.stopListening();
+                          setState(() {
+                            _isVoiceListening = false;
+                          });
+                        }
+                        widget.onHandleSubmit(
+                          _modalController.text,
+                          _modalController,
+                          (fn) {
+                            if (mounted) setState(fn);
+                          },
+                        );
+                        widget.onScrollToBottom();
+                        return KeyEventResult.handled;
+                      }
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: TextField(
+                    controller: _modalController,
+                    minLines: 1,
+                    maxLines: 5,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      hintText: _isVoiceListening
+                          ? '正在聆聽語音中，請說話...'
+                          : '請輸入您的問題或指令...',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: _toggleVoice,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _isVoiceListening
+                          ? Colors.deepOrangeAccent
+                          : Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _isVoiceListening
+                              ? Colors.deepOrangeAccent.withValues(alpha: 0.5)
+                              : Colors.black.withValues(alpha: 0.06),
+                          blurRadius: _isVoiceListening ? 8 : 2,
+                          spreadRadius: _isVoiceListening ? 2 : 0,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _isVoiceListening
+                          ? Icons.mic_rounded
+                          : Icons.mic_none_rounded,
+                      color: _isVoiceListening
+                          ? Colors.white
+                          : Theme.of(context).primaryColor,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              CircleAvatar(
+                backgroundColor: Theme.of(context).primaryColor,
+                child: IconButton(
+                  icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    if (_isVoiceListening) {
+                      VoiceRecognitionService.instance.stopListening();
+                      setState(() {
+                        _isVoiceListening = false;
+                      });
+                    }
+                    widget.onHandleSubmit(
+                        _modalController.text, _modalController, (fn) {
+                      if (mounted) setState(fn);
+                    });
+                    widget.onScrollToBottom();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/ai_diagnosis_service.dart';
+import '../services/voice_recognition_service.dart';
 import 'notes_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:http/http.dart' as http;
@@ -237,7 +238,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   String _aiFlowState = 'none';
   Map<String, dynamic> _aiFlowData = {};
-  Map<String, dynamic>? _cloneContext;
 
   int _aiReplyPostIndex = 0;
   List<Map<String, dynamic>> _aiPendingReplyPosts = [];
@@ -1393,33 +1393,38 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom([bool forceJump = false]) {
     if (_isDisposed) return;
-    void doScroll() {
+    void doScroll([bool jump = false]) {
       if (_isDisposed) return;
       try {
         if (_chatScrollController.hasClients) {
           final max = _chatScrollController.position.maxScrollExtent;
-          _chatScrollController.animateTo(
-            max,
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutCubic,
-          );
+          if (jump) {
+            _chatScrollController.jumpTo(max);
+          } else {
+            _chatScrollController.animateTo(
+              max,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+            );
+          }
         }
-      } catch (_) {}
+      } catch (_) {
+        try {
+          if (_chatScrollController.hasClients) {
+            _chatScrollController
+                .jumpTo(_chatScrollController.position.maxScrollExtent);
+          }
+        } catch (_) {}
+      }
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => doScroll());
-    Future.delayed(const Duration(milliseconds: 80), doScroll);
-    Future.delayed(const Duration(milliseconds: 250), doScroll);
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (_isDisposed) return;
-      try {
-        if (_chatScrollController.hasClients) {
-          _chatScrollController.jumpTo(_chatScrollController.position.maxScrollExtent);
-        }
-      } catch (_) {}
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => doScroll(forceJump));
+    Future.delayed(const Duration(milliseconds: 60), () => doScroll(false));
+    Future.delayed(const Duration(milliseconds: 180), () => doScroll(false));
+    Future.delayed(const Duration(milliseconds: 350), () => doScroll(false));
+    Future.delayed(const Duration(milliseconds: 550), () => doScroll(true));
   }
 
   void _scrollToTop() {
@@ -2638,12 +2643,96 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void _openChatModal() {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     TextEditingController modalController = TextEditingController();
+    bool isVoiceListening = false;
+    String voiceBaseText = '';
+    double voiceSoundLevel = 0.0;
+
+    Future<void> toggleVoice(StateSetter setModalState) async {
+      if (isVoiceListening) {
+        await VoiceRecognitionService.instance.stopListening();
+        setModalState(() {
+          isVoiceListening = false;
+        });
+      } else {
+        FocusScope.of(context).unfocus();
+        voiceBaseText = modalController.text;
+        setModalState(() {
+          isVoiceListening = true;
+          voiceSoundLevel = 0.0;
+        });
+        final started = await VoiceRecognitionService.instance.startListening(
+          languageCode: _appLanguage,
+          onResult: (words, isFinal) {
+            setModalState(() {
+              final prefix = voiceBaseText.isNotEmpty ? '$voiceBaseText ' : '';
+              modalController.text = '$prefix$words';
+              modalController.selection = TextSelection.collapsed(
+                offset: modalController.text.length,
+              );
+            });
+            if (isFinal) {
+              setModalState(() {
+                isVoiceListening = false;
+              });
+            }
+          },
+          onSoundLevelChange: (level) {
+            setModalState(() {
+              voiceSoundLevel = level;
+            });
+          },
+          onStatusChange: (status) {
+            if (status == 'done' || status == 'notListening') {
+              setModalState(() {
+                isVoiceListening = false;
+              });
+            } else if (status == 'listening') {
+              setModalState(() {
+                isVoiceListening = true;
+              });
+            }
+          },
+          onError: (errMsg) {
+            setModalState(() {
+              isVoiceListening = false;
+            });
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.mic_off_rounded,
+                          color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(errMsg)),
+                    ],
+                  ),
+                  duration: const Duration(seconds: 3),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          },
+        );
+        if (!started) {
+          setModalState(() {
+            isVoiceListening = false;
+          });
+        }
+      }
+    }
+
+    final bool hasUserChat = chatLogs.any((m) => m['isAI'] == false);
+    if (hasUserChat) {
+      _scrollToBottom();
+    } else {
+      _scrollToTop();
+    }
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (context) {
-          _scrollToTop();
           return StatefulBuilder(
               builder: (BuildContext context, StateSetter setModalState) {
             return Container(
@@ -2662,101 +2751,48 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         decoration: BoxDecoration(
                             color: Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(10))),
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: _cloneContext != null
-                            ? LinearGradient(
-                                colors: isDark
-                                    ? [
-                                        const Color(0xFF311B92).withValues(alpha: 0.35),
-                                        const Color(0xFF4A148C).withValues(alpha: 0.35),
-                                      ]
-                                    : [
-                                        const Color(0xFFE8EAF6),
-                                        const Color(0xFFF3E5F5),
-                                      ],
-                              )
-                            : null,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(25),
-                          topRight: Radius.circular(25),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            SizedBox(width: 40),
-                            Text(
-                              _cloneContext != null
-                                  ? '🔮 ${_cloneContext!['author']} 的 AI 分身'
-                                  : '代理人助理',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _cloneContext != null
-                                    ? Color(0xFF6A1B9A)
-                                    : Theme.of(context).primaryColor,
-                                fontSize: 16,
-                              ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const SizedBox(width: 40),
+                          Text(
+                            '代理人助理',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).primaryColor,
+                              fontSize: 16,
                             ),
-                            _cloneContext != null
-                                ? IconButton(
-                                    icon: const Icon(Icons.exit_to_app_rounded,
-                                        size: 20, color: Colors.redAccent),
-                                    tooltip: '結束分身對話',
-                                    onPressed: () {
-                                      setModalState(() {
-                                        _cloneContext = null;
-                                        _aiFlowState = 'none';
-                                        chatLogs = [
-                                          {
-                                            'isAI': true,
-                                            'text':
-                                                '已結束分身對話。我是您的代理人助理，隨時準備為您提供協助！😊',
-                                            'isCard': false
-                                          },
-                                          {
-                                            'isAI': true,
-                                            'text': '',
-                                            'isCard': false,
-                                            'widgetType': 'help_options'
-                                          }
-                                        ];
-                                      });
-                                      _scrollToTop();
-                                    },
-                                  )
-                                : IconButton(
-                                    icon: const Icon(
-                                        Icons.cleaning_services_outlined,
-                                        size: 20,
-                                        color: Colors.grey),
-                                    tooltip: '開啟新對話',
-                                    onPressed: () {
-                                      setModalState(() {
-                                        chatLogs = [
-                                          {
-                                            'isAI': true,
-                                            'text':
-                                                '好的，已為您重啟對話！😊\n我是您的代理人，請問今天有什麼我可以幫您的嗎？',
-                                            'isCard': false
-                                          },
-                                          {
-                                            'isAI': true,
-                                            'text': '',
-                                            'isCard': false,
-                                            'widgetType': 'help_options'
-                                          }
-                                        ];
-                                        _aiFlowState = 'none';
-                                      });
-                                      _scrollToTop();
-                                    },
-                                  )
-                          ],
-                        ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                                Icons.cleaning_services_outlined,
+                                size: 20,
+                                color: Colors.grey),
+                            tooltip: '開啟新對話',
+                            onPressed: () {
+                              setModalState(() {
+                                chatLogs = [
+                                  {
+                                    'isAI': true,
+                                    'text':
+                                        '好的，已為您重啟對話！😊\n我是您的代理人，請問今天有什麼我可以幫您的嗎？',
+                                    'isCard': false
+                                  },
+                                  {
+                                    'isAI': true,
+                                    'text': '',
+                                    'isCard': false,
+                                    'widgetType': 'help_options'
+                                  }
+                                ];
+                                _aiFlowState = 'none';
+                              });
+                              _scrollToTop();
+                            },
+                          )
+                        ],
                       ),
                     ),
                     const Divider(),
@@ -5153,86 +5189,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             );
                           }
 
-                          if (msg['widgetType'] == 'rag_processing_log') {
-                            final steps = List<String>.from(msg['logSteps'] ?? []);
-                            final isDone = msg['isDone'] == true;
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12, left: 16, right: 8),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF3E5F5),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFCE93D8), width: 0.5),
-                              ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          isDone ? Icons.check_circle_outline_rounded : Icons.sync_rounded,
-                                          size: 16,
-                                          color: isDone ? Colors.green : const Color(0xFF9C27B0),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          isDone ? '個人化 RAG 檢索完成' : '啟動「AI 鏡像分身」個人化 RAG 檢索...',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: isDone ? Colors.green.shade700 : const Color(0xFF7B1FA2),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: isDone ? 1.0 : null,
-                                        minHeight: 4,
-                                        backgroundColor: isDark ? Colors.white10 : Colors.black12,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          isDone ? Colors.green.shade400 : const Color(0xFFBA68C8)
-                                        ),
-                                      ),
-                                    ),
-                                    if (steps.isNotEmpty) const SizedBox(height: 10),
-                                    ...steps.map((step) => Padding(
-                                      padding: const EdgeInsets.only(left: 2, bottom: 6),
-                                      child: Text(
-                                        step,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                    )),
-                                  ],
-                                ),
-                            );
-                          }
-
                           if (msg['text'] == null || msg['text'].isEmpty) {
                             return const SizedBox();
                           }
 
-                          final authorName = msg['author'] as String?;
-                          final avatarColorVal = msg['avatarColor'] as int?;
-                          final noteTitle = msg['noteTitle'] as String?;
-
                           Widget messageWidget = Container(
                             margin: const EdgeInsets.only(bottom: 12),
-                            padding: EdgeInsets.all(14),
+                            padding: const EdgeInsets.all(14),
                             constraints: BoxConstraints(
                                 maxWidth:
                                     MediaQuery.of(context).size.width * 0.65),
                             decoration: BoxDecoration(
                                 color: msg['isAI']
-                                    ? (authorName != null
-                                        ? Color(0xFFF3E5F5)
-                                        : Colors.white)
+                                    ? Colors.white
                                     : Theme.of(context).primaryColor,
                                 borderRadius: BorderRadius.circular(18),
                                 boxShadow: msg['isAI']
@@ -5243,44 +5212,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                             blurRadius: 5)
                                       ]
                                     : []),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (msg['isAI'] && noteTitle != null) ...[
-                                  Container(
-                                    margin: const EdgeInsets.only(bottom: 6),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE1BEE7),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.bookmark_added_rounded,
-                                            size: 11, color: Color(0xFF4A148C)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '依據筆記：$noteTitle',
-                                          style: const TextStyle(
-                                            fontSize: 9.5,
-                                            color: Color(0xFF4A148C),
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                Text(msg['text'],
-                                    style: TextStyle(
-                                        fontSize: 14,
-                                        color: msg['isAI']
-                                            ? Colors.black87
-                                            : Colors.white)),
-                              ],
-                            ),
+                            child: Text(msg['text'],
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: msg['isAI']
+                                        ? Colors.black87
+                                        : Colors.white)),
                           );
 
                           if (msg['isAI'] == true && msg['modelUsed'] == 'gemini') {
@@ -5408,45 +5345,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             );
                           }
 
-                          if (msg['isAI'] && authorName != null) {
-                            return Align(
-                              alignment: Alignment.centerLeft,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: avatarColorVal != null
-                                        ? Color(avatarColorVal)
-                                        : const Color(0xFF9C27B0),
-                                    child: Text(
-                                      authorName.substring(0, 1),
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '$authorName 的 AI 分身',
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade600,
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      messageWidget,
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
                           return Align(
                             alignment: msg['isAI']
                                 ? Alignment.centerLeft
@@ -5463,6 +5361,79 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           style: TextStyle(
                               color: Colors.grey.shade400, fontSize: 11)),
                     ),
+                    if (isVoiceListening)
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF3E2723)
+                              : const Color(0xFFFBE9E7),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.deepOrangeAccent.withValues(alpha: 0.5),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Colors.deepOrangeAccent,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.deepOrangeAccent.withValues(alpha: 0.7),
+                                    blurRadius: 6 + (voiceSoundLevel.clamp(0, 10) * 0.8),
+                                    spreadRadius: 1 + (voiceSoundLevel.clamp(0, 10) * 0.4),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '🎙️ 正在即時語音轉文字... 請說話',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.orange.shade200 : Colors.deepOrange.shade800,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => toggleVoice(setModalState),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepOrangeAccent.withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.stop_rounded,
+                                        size: 14, color: Colors.deepOrangeAccent),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      '完成',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.deepOrangeAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     Builder(builder: (context) {
                       final bottomInset = MediaQuery.of(context).viewInsets.bottom;
                       final systemBottom = MediaQuery.of(context).padding.bottom;
@@ -5505,14 +5476,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     return KeyEventResult.handled;
                                   } else {
                                     FocusScope.of(context).unfocus();
-                                    if (_cloneContext != null) {
-                                      final text = modalController.text;
-                                      modalController.clear();
-                                      _handleCloneChatSubmit(text, setModalState);
-                                    } else {
-                                      _handleAISubmit(modalController.text,
-                                          modalController, setModalState);
+                                    if (isVoiceListening) {
+                                      VoiceRecognitionService.instance.stopListening();
+                                      setModalState(() {
+                                        isVoiceListening = false;
+                                      });
                                     }
+                                    _handleAISubmit(modalController.text,
+                                        modalController, setModalState);
                                     return KeyEventResult.handled;
                                   }
                                 }
@@ -5525,39 +5496,74 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 keyboardType: TextInputType.multiline,
                                 textInputAction: TextInputAction.newline,
                                 decoration: InputDecoration(
-                                    hintText: _cloneContext != null
-                                        ? '以分身視角向作者問問題...'
+                                    hintText: isVoiceListening
+                                        ? '正在聆聽語音中，請說話...'
                                         : '請輸入您的問題或指令...',
                                     filled: true,
                                     fillColor: Colors.white,
                                     border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(20),
                                         borderSide: BorderSide.none),
-                                    contentPadding: EdgeInsets.symmetric(
+                                    contentPadding: const EdgeInsets.symmetric(
                                         horizontal: 20, vertical: 10)),
                               ),
                             ),
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(22),
+                              onTap: () => toggleVoice(setModalState),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isVoiceListening
+                                      ? Colors.deepOrangeAccent
+                                      : Colors.white,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isVoiceListening
+                                          ? Colors.deepOrangeAccent.withValues(alpha: 0.5)
+                                          : Colors.black.withValues(alpha: 0.06),
+                                      blurRadius: isVoiceListening ? 8 : 2,
+                                      spreadRadius: isVoiceListening ? 2 : 0,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  isVoiceListening
+                                      ? Icons.mic_rounded
+                                      : Icons.mic_none_rounded,
+                                  color: isVoiceListening
+                                      ? Colors.white
+                                      : Theme.of(context).primaryColor,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           CircleAvatar(
-                              backgroundColor: _cloneContext != null
-                                  ? Color(0xFF6A1B9A)
-                                  : Theme.of(context).primaryColor,
+                              backgroundColor: Theme.of(context).primaryColor,
                               child: IconButton(
                                   icon: const Icon(Icons.send,
                                       color: Colors.white, size: 20),
                                   onPressed: () {
                                     FocusScope.of(context).unfocus();
-                                    if (_cloneContext != null) {
-                                      final text = modalController.text;
-                                      modalController.clear();
-                                      _handleCloneChatSubmit(text, setModalState);
-                                    } else {
-                                      _handleAISubmit(
-                                          modalController.text,
-                                          modalController,
-                                          setModalState);
+                                    if (isVoiceListening) {
+                                      VoiceRecognitionService.instance.stopListening();
+                                      setModalState(() {
+                                        isVoiceListening = false;
+                                      });
                                     }
+                                    _handleAISubmit(
+                                        modalController.text,
+                                        modalController,
+                                        setModalState);
                                   })),
                         ],
                       ),
@@ -5568,6 +5574,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ),
             );
           });
+        }).whenComplete(() {
+          if (isVoiceListening) {
+            VoiceRecognitionService.instance.stopListening();
+          }
         });
   }
 
@@ -5964,6 +5974,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             'text': '',
             'isCard': false,
             'widgetType': 'organize_note_picker'
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.viewCustomerSupport:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({
+            'isAI': true,
+            'text':
+                '你可以透過以下兩種方式聯絡客服：\n\n1. **常見問題與 24H 線上客服**：\n   • 前往底部 **「個人檔案」** ➜ 切換至上方 **「系統協助」** 分頁 ➜ 點選 **「常見問題與線上客服」**。\n2. **客服與意見回饋表單**：\n   • 點選 **「客服與意見回饋」** 填寫表單回報 Bug 或功能建議。',
+            'isCard': false,
+          });
+          _scrollToBottom();
+        });
+        return true;
+      case UserIntent.viewFeedback:
+        updateLogs(() {
+          chatLogs.add({'isAI': false, 'text': userInput});
+          chatLogs.add({
+            'isAI': true,
+            'text':
+                '您可以前往底部 **「個人檔案」** ➜ 切換至上方 **「系統協助」** 分頁 ➜ 點選 **「客服與意見回饋」** 填寫表單回報問題或功能建議！',
+            'isCard': false,
           });
           _scrollToBottom();
         });
@@ -7367,162 +7401,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
-  // ── 鏡像分身對話處理 ──────────────────────────────────────────────
-  Future<void> _handleCloneChatSubmit(String text, StateSetter setModalState) async {
-    if (_cloneContext == null) {
-      setModalState(() {
-        _aiFlowState = 'none';
-      });
-      return;
-    }
 
-    final historyContext = chatLogs
-        .where((m) => m['widgetType'] == null && m['text'] != null && m['text'].isNotEmpty)
-        .toList();
-
-    // 1. 顯示使用者輸入，並顯示 RAG 查詢進度
-    setModalState(() {
-      chatLogs.add({'isAI': false, 'text': text});
-      chatLogs.add({
-        'isAI': true,
-        'text': '',
-        'isCard': false,
-        'widgetType': 'rag_processing_log', // 顯示 RAG 流程日誌動畫
-        'logSteps': [
-          '🔍 正在檢索「${_cloneContext!['title']}」筆記內容...',
-          '⏳ 載入作者「${_cloneContext!['author']}」個性風格標籤...',
-        ],
-        'isDone': false,
-      });
-      chatLogs.add({
-        'isAI': true,
-        'text': '⏳ 正在思考中...',
-        'isCard': false,
-      });
-      _scrollToBottom();
-    });
-
-    final int logIndex = chatLogs.length - 2;
-    final int responseIndex = chatLogs.length - 1;
-
-    // 2. 查詢作者的微數據 (bio / tags)
-    String authorBio = '';
-    List<String> authorTags = [];
-    if (_cloneContext!['userId'] != null && _cloneContext!['userId'].toString().isNotEmpty) {
-      try {
-        final db = await DatabaseHelper.instance.database;
-        final users = await db.query('users', where: 'id = ?', whereArgs: [_cloneContext!['userId'].toString()]);
-        if (users.isNotEmpty) {
-          authorBio = (users.first['bio'] as String? ?? '').trim();
-          final tagsRaw = users.first['tags'] as String? ?? '[]';
-          final decodedTags = jsonDecode(tagsRaw);
-          if (decodedTags is List) {
-            authorTags = decodedTags.map((e) => e.toString()).toList();
-          }
-        }
-      } catch (e) {
-        debugPrint('Querying clone author profile failed: $e');
-      }
-    }
-
-    // 3. 更新 RAG 控制台，顯示查詢完成
-    final authorName = _cloneContext!['author'] ?? '作者';
-    final noteTitle = _cloneContext!['title'] ?? '無標題筆記';
-    final noteContent = _cloneContext!['content'] ?? '';
-    final int strokeCount = _cloneContext!['strokeCount'] as int? ?? 0;
-    
-    await Future.delayed(const Duration(milliseconds: 500)); // 故意留一點展示動畫時間
-
-    setModalState(() {
-      chatLogs[logIndex] = {
-        'isAI': true,
-        'text': '',
-        'isCard': false,
-        'widgetType': 'rag_processing_log',
-        'logSteps': [
-          '✅ 已成功檢索「$noteTitle」筆記文本！',
-          if (strokeCount > 0) '🎨 偵測到 $strokeCount 條手寫筆跡軌跡，已加載至 RAG Context。' else '📝 此筆記無手寫軌跡，僅檢索文字內容。',
-          if (authorTags.isNotEmpty) '👤 已讀取作者個性風格標籤：${authorTags.join('、')}' else '👤 使用預設作者個性風格。',
-          '🔮 成功重組個人化 RAG 提示詞，送出請求...',
-        ],
-        'isDone': true,
-      };
-      _scrollToBottom();
-    });
-
-    // 4. 構建 System Prompt
-    String stylePrompt = '';
-    if (authorBio.isNotEmpty) {
-      stylePrompt += '\n原作者簡介：$authorBio';
-    }
-    if (authorTags.isNotEmpty) {
-      stylePrompt += '\n原作者個性與學習風格標籤：${authorTags.join('、')}';
-    }
-    
-    String strokePrompt = '';
-    if (strokeCount > 0) {
-      strokePrompt = '\n這篇筆記在「手寫塗鴉」分頁中存有 $strokeCount 條手寫/繪圖軌跡。當同學問到圖形、重點標記或對照時，請用第一人稱引導同學，例如說：「我在這篇筆記的手寫塗鴉（🎨 頁籤）中畫了一些圖示與重點標記，你可以切換過去對照觀看喔！」以利對照。';
-    }
-
-    final customSystemPrompt = '''
-你現在是這份學習筆記的作者 $authorName。請完全依據以下筆記的邏輯、知識點與思路，用 $authorName 的口吻與角色來回答使用者的問題。
-請用第一人稱（例如：「我寫這篇筆記時...」、「我的理解是...」）、親切、溫馨且有耐心的學霸/專家語氣進行解說。
-如果同學詢問了與筆記內容無關的話題，請溫柔地提醒他你目前是該筆記的作者分身，請儘量圍繞筆記的主題進行交流。
-
-【筆記標題】: $noteTitle
-【筆記內容】:
-$noteContent
-$stylePrompt
-$strokePrompt
-
-重要規則：
-- 永遠使用繁體中文 (Traditional Chinese) 回覆，絕不使用簡體字。
-- 回答請保持親切、簡明，控制在 3-5 句以內，避免長篇大論。
-- 不要提及你是 AI、Gemini 或 GPT，你此時此刻就是這份筆記的作者本身。
-''';
-
-    // 5. 呼叫 Gemini 串流（直接使用 Gemini SDK，穩定且無需 OpenRouter）
-    String buffer = '';
-    try {
-      final stream = AiDiagnosisService.generateCloneStream(
-        systemPrompt: customSystemPrompt,
-        userInput: text,
-        history: historyContext,
-      ).timeout(
-        const Duration(seconds: 45),
-        onTimeout: (sink) => sink.addError(Exception('AI 回應逾時（45s），請稍後再試')),
-      );
-
-      await for (final chunk in stream) {
-        buffer += chunk;
-        final cleanedText = AiDiagnosisService.cleanThinkingTags(buffer);
-        setModalState(() {
-          chatLogs[responseIndex] = {
-            'isAI': true,
-            'text': cleanedText.isNotEmpty ? cleanedText : '⏳ 正在思考中...',
-            'isCard': false,
-            'author': authorName,
-            'avatarColor': _cloneContext!['avatarColor'],
-            'noteTitle': noteTitle, // 用於渲染 "依據筆記" 標籤
-            'modelUsed': 'gemini',
-          };
-        });
-        _scrollToBottom();
-      }
-    } catch (e) {
-      debugPrint('分身對話服務異常: $e');
-      setModalState(() {
-        chatLogs[responseIndex] = {
-          'isAI': true,
-          'text': '哎呀，我（分身）目前好像暫時沒辦法回應你... 😅\n請稍等一下再試試看！',
-          'isCard': false,
-          'author': authorName,
-          'avatarColor': _cloneContext!['avatarColor'],
-        };
-      });
-      _scrollToBottom();
-    }
-  }
 
 
   // ── 風格選擇按鈕 ────────────────────────────────────────────────────────
