@@ -156,7 +156,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.5.0';
+  String _appVersion = 'v1.6.0';
   late DateTime _sessionStartTime;
 
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分', '歷史', '理化'];

@@ -508,13 +508,13 @@ class _AboutUsScreenState extends State<AboutUsScreen>
           const Color(0xFF54C5F8)),
       _TechItem('Dart', 'Programming Language', Icons.code_rounded,
           const Color(0xFF0175C2)),
-      _TechItem('Gemini AI', 'Intelligent Engine', Icons.auto_awesome_rounded,
+      _TechItem('Gemini & Groq', 'Multi-Agent AI', Icons.auto_awesome_rounded,
           const Color(0xFF8E24AA)),
-      _TechItem('SQLite', 'Local Database', Icons.storage_rounded,
+      _TechItem('Speech-to-Text', 'Live Voice Engine', Icons.mic_rounded,
+          const Color(0xFFFF7043)),
+      _TechItem('SQLite', 'Local-First Database', Icons.storage_rounded,
           const Color(0xFF43A047)),
-      _TechItem('fl_chart', 'Data Visualization', Icons.bar_chart_rounded,
-          const Color(0xFFEF6C00)),
-      _TechItem('Material 3', 'Design System', Icons.palette_outlined,
+      _TechItem('fl_chart & M3', 'Data & Design System', Icons.bar_chart_rounded,
           primaryColor),
     ];
 
@@ -611,12 +611,20 @@ class _AboutUsScreenState extends State<AboutUsScreen>
   // ✏️ [修改處 6 項目] 核心功能 — 奇偶項交錯左右飛入
   List<Widget> _buildFeatureList(Color primaryColor, bool isDark) {
     final List<(IconData, String, String)> features = [
-      (Icons.auto_awesome_rounded, 'AI 智能解答',
-          '長按文字即可呼叫 Gemini AI 解釋任何概念'),
-      (Icons.menu_book_rounded, '題庫', '分類題目、錯題本與個人化複習排程'),
-      (Icons.forum_rounded, '學習社群', '分享心得、互動交流，與同學共同進步'),
-      (Icons.calendar_month_rounded, '行程規劃', '自然語言輸入即可新增與管理學習行程'),
-      (Icons.bar_chart_rounded, '學習歷程分析', '視覺化圖表追蹤每週答題正確率'),
+      (Icons.mic_rounded, 'AI 代理人助理 (語音即時輸入)',
+          '支援邊講話邊即時文字轉寫、自然語言意圖排程與全站智慧導覽'),
+      (Icons.menu_book_rounded, '題庫測驗與錯題本',
+          '學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習'),
+      (Icons.draw_rounded, '雙模個人筆記 (Markdown & 手寫塗鴉)',
+          '支援豐富文字排版與手寫畫布繪圖，並提供一鍵 AI 重點摘要整理'),
+      (Icons.bar_chart_rounded, '學習歷程與弱項診斷',
+          '知識掌握度矩陣圖、能力雷達圖與一鍵生成客製化弱項補強教材'),
+      (Icons.calendar_month_rounded, '智慧行事曆與待辦排程',
+          '自然語言直覺新增行程與待辦事項 (Todo)，並支援推播提醒'),
+      (Icons.forum_rounded, '學習社群與筆記分享',
+          '同學學習心得貼文交流、優質筆記一鍵匯入與按讚互動'),
+      (Icons.support_agent_rounded, '24H 智慧線上客服',
+          '各功能常見問答教學、在線智慧客服專員與問題意見回饋表單'),
     ];
 
     return features.indexed.map((entry) {
@@ -680,55 +688,86 @@ class _AboutUsScreenState extends State<AboutUsScreen>
   }
 
   Widget _buildMissionCard(Color primaryColor, bool isDark) {
-    return _ShimmerCard(
-      shimmerController: _shimmerController,
-      primaryColor: primaryColor,
-      borderRadius: 20,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              primaryColor.withValues(alpha: 0.18),
-              primaryColor.withValues(alpha: 0.06),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: primaryColor.withValues(alpha: 0.28)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Column(
+      children: [
+        _ShimmerCard(
+          shimmerController: _shimmerController,
+          primaryColor: primaryColor,
+          borderRadius: 20,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  primaryColor.withValues(alpha: 0.18),
+                  primaryColor.withValues(alpha: 0.06),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: primaryColor.withValues(alpha: 0.28)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.flag_rounded, color: primaryColor, size: 20),
-                const SizedBox(width: 8),
-                Text('我們所打造的目標',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor)),
+                Row(
+                  children: [
+                    Icon(Icons.flag_rounded, color: primaryColor, size: 20),
+                    const SizedBox(width: 8),
+                    Text('我們所打造的目標',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TypewriterText(
+                  text: _missionText,
+                  controller: _typewriterController,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.8,
+                    fontStyle: FontStyle.italic,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.75)
+                        : Colors.black.withValues(alpha: 0.65),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-            TypewriterText(
-              text: _missionText,
-              controller: _typewriterController,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.8,
-                fontStyle: FontStyle.italic,
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.75)
-                    : Colors.black.withValues(alpha: 0.65),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 24),
+        // 版本資訊徽章
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? Colors.white10 : Colors.grey.shade300,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.verified_outlined, size: 16, color: primaryColor),
+              const SizedBox(width: 8),
+              Text(
+                '版本 v1.6.0  |  2026 年 9 月 9 日 最新發布',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
