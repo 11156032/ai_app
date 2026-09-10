@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import '../database/database_helper.dart';
+import '../widgets/voice_note_sheet.dart';
 
 // ==========================================
 // 1. 繪圖軌跡資料模型 (Stroke)
@@ -379,6 +380,7 @@ class NotesScreen extends StatefulWidget {
 
 class _NotesScreenState extends State<NotesScreen> {
   String _selectedCategory = '全部';
+  bool _showVoiceFab = false;
 
   @override
   void initState() {
@@ -388,6 +390,58 @@ class _NotesScreenState extends State<NotesScreen> {
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  // ──────────────────────────────────────────────────
+  // 語音速記整理 BottomSheet
+  // ──────────────────────────────────────────────────
+  Future<void> _showVoiceNoteSheet() async {
+    final userId = widget.currentUser['id']?.toString() ?? '';
+    if (userId == 'u4') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('訪客帳戶無法使用語音筆記功能，請先登入！')),
+      );
+      return;
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      enableDrag: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.45,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => VoiceNoteSheet(
+          onNoteReady: (title, category, markdownContent) {
+            // 確保分類存在
+            if (!NotesDatabase.categories.contains(category)) {
+              NotesDatabase.categories.add(category);
+            }
+            final newNote = Note(
+              id: 'note_${DateTime.now().millisecondsSinceEpoch}',
+              userId: userId,
+              title: title.isEmpty ? '語音速記筆記' : title,
+              content: markdownContent,
+              category: category.isEmpty ? '未分類' : category,
+              strokes: [],
+              updatedAt: DateTime.now(),
+            );
+            NotesDatabase.notes.insert(0, newNote);
+            _refresh();
+            // 跳轉至筆記編輯器
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NoteEditorScreen(note: newNote),
+              ),
+            ).then((_) => _refresh());
+          },
+        ),
+      ),
+    );
   }
 
   List<Note> get _filteredNotes {
@@ -881,31 +935,111 @@ class _NotesScreenState extends State<NotesScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: () async {
-          final newNote = Note(
-            id: 'note_${DateTime.now().millisecondsSinceEpoch}',
-            userId: widget.currentUser['id'],
-            title: '',
-            content: '',
-            category: _selectedCategory == '全部' ? '未分類' : _selectedCategory,
-            strokes: [],
-            updatedAt: DateTime.now(),
-          );
-          NotesDatabase.notes.insert(0, newNote);
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => NoteEditorScreen(note: newNote),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // 語音速記整理 FAB（長按主 FAB 後展開）
+          AnimatedSlide(
+            offset: _showVoiceFab ? Offset.zero : const Offset(0, 0.3),
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            child: AnimatedOpacity(
+              opacity: _showVoiceFab ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 220),
+              child: IgnorePointer(
+                ignoring: !_showVoiceFab,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 標籤泡泡
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A148C),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Text(
+                        '🎙️ 語音速記整理',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    FloatingActionButton(
+                      heroTag: 'voice_fab',
+                      backgroundColor: const Color(0xFF4A148C),
+                      foregroundColor: Colors.white,
+                      elevation: 4,
+                      mini: true,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      onPressed: () {
+                        setState(() => _showVoiceFab = false);
+                        _showVoiceNoteSheet();
+                      },
+                      child: const Icon(Icons.mic_rounded, size: 22),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          );
-          _refresh();
-        },
-        child: const Icon(Icons.add, size: 28),
+          ),
+          const SizedBox(height: 10),
+          // 主 FAB：單擊 → 建立普通筆記；長按 → 展開語音選項
+          GestureDetector(
+            onLongPress: () {
+              setState(() => _showVoiceFab = !_showVoiceFab);
+            },
+            child: FloatingActionButton(
+              heroTag: 'main_fab',
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              onPressed: () async {
+                if (_showVoiceFab) {
+                  setState(() => _showVoiceFab = false);
+                  return;
+                }
+                // 建立普通空白筆記
+                final newNote = Note(
+                  id: 'note_${DateTime.now().millisecondsSinceEpoch}',
+                  userId: widget.currentUser['id'],
+                  title: '',
+                  content: '',
+                  category: _selectedCategory == '全部' ? '未分類' : _selectedCategory,
+                  strokes: [],
+                  updatedAt: DateTime.now(),
+                );
+                NotesDatabase.notes.insert(0, newNote);
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => NoteEditorScreen(note: newNote),
+                  ),
+                );
+                _refresh();
+              },
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _showVoiceFab
+                    ? const Icon(Icons.close, size: 26, key: ValueKey('close'))
+                    : const Icon(Icons.add, size: 28, key: ValueKey('add')),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1179,6 +1313,56 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     }
 
     return true;
+  }
+
+  // ==========================================
+  // 語音速記整理（編輯器版）
+  // ==========================================
+  Future<void> _openVoiceNoteSheetForEditor() async {
+    _autoSave(); // 先自動儲存
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      enableDrag: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.45,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => VoiceNoteSheet(
+          existingContent: _contentController.text,
+          onNoteReady: (title, category, markdownContent) {
+            // 插入至目前筆記內容末端
+            final currentText = _contentController.text;
+            final separator = currentText.isNotEmpty && !currentText.endsWith('\n') ? '\n\n' : '';
+            _contentController.text = '$currentText$separator$markdownContent';
+            // 自動更新標題（若原標題為空）
+            if (_titleController.text.trim().isEmpty) {
+              _titleController.text = title;
+            }
+            // 儲存
+            _autoSave();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white, size: 18),
+                      SizedBox(width: 8),
+                      Text('語音筆記已插入！'),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFF4A148C),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+            }
+          },
+        ),
+      ),
+    );
   }
 
   // ==========================================
@@ -1524,6 +1708,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             ),
           ),
           actions: [
+            // 語音速記整理按鈕
+            IconButton(
+              icon: Icon(Icons.mic_rounded, color: const Color(0xFF7B1FA2)),
+              tooltip: '語音速記整理',
+              onPressed: _openVoiceNoteSheetForEditor,
+            ),
             IconButton(
               icon: Icon(Icons.share, color: Theme.of(context).primaryColor),
               tooltip: '分享至社群',
@@ -1781,6 +1971,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                     color: Color(0xFF5D4037), size: 20),
                 tooltip: '縮排',
                 onPressed: _toggleIndent,
+              ),
+              // 語音補充按鈕
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.mic_rounded, color: Color(0xFF7B1FA2), size: 20),
+                tooltip: '語音補充內容',
+                onPressed: _openVoiceNoteSheetForEditor,
               ),
             ],
           ),
