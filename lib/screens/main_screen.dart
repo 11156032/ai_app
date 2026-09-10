@@ -156,7 +156,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.6.0';
+  String _appVersion = 'v1.6.2';
   late DateTime _sessionStartTime;
 
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分', '歷史', '理化'];
@@ -2652,6 +2652,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         await VoiceRecognitionService.instance.stopListening();
         setModalState(() {
           isVoiceListening = false;
+          modalController.text = VoiceRecognitionService.cleanFillerWords(modalController.text);
+          modalController.selection = TextSelection.collapsed(
+            offset: modalController.text.length,
+          );
         });
       } else {
         FocusScope.of(context).unfocus();
@@ -2663,18 +2667,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final started = await VoiceRecognitionService.instance.startListening(
           languageCode: _appLanguage,
           onResult: (words, isFinal) {
+            if (words.trim().isEmpty && !isFinal) return;
             setModalState(() {
               final prefix = voiceBaseText.isNotEmpty ? '$voiceBaseText ' : '';
-              modalController.text = '$prefix$words';
+              if (isFinal) {
+                final cleaned = VoiceRecognitionService.cleanFillerWords('$prefix$words');
+                modalController.text = cleaned;
+                voiceBaseText = cleaned;
+              } else {
+                modalController.text = '$prefix$words';
+              }
               modalController.selection = TextSelection.collapsed(
                 offset: modalController.text.length,
               );
             });
-            if (isFinal) {
-              setModalState(() {
-                isVoiceListening = false;
-              });
-            }
           },
           onSoundLevelChange: (level) {
             setModalState(() {
@@ -2685,6 +2691,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             if (status == 'done' || status == 'notListening') {
               setModalState(() {
                 isVoiceListening = false;
+                modalController.text = VoiceRecognitionService.cleanFillerWords(modalController.text);
               });
             } else if (status == 'listening') {
               setModalState(() {

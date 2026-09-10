@@ -138,20 +138,23 @@ class VoiceRecognitionService {
     try {
       await _speech.listen(
         onResult: (SpeechRecognitionResult result) {
-          // 即時傳送部分結果或最終結果
-          onResult(result.recognizedWords, result.finalResult);
+          final words = result.recognizedWords;
+          // 即時傳送部分結果或最終結果 (忽略空白雜訊)
+          if (words.isNotEmpty || result.finalResult) {
+            onResult(words, result.finalResult);
+          }
         },
         onSoundLevelChange: onSoundLevelChange,
         listenOptions: SpeechListenOptions(
           listenMode: ListenMode.dictation,
-          cancelOnError: true,
+          cancelOnError: false,
           partialResults: true,
           onDevice: false,
           autoPunctuation: true,
           sampleRate: 0,
           localeId: localeId,
-          pauseFor: const Duration(seconds: 3),
-          listenFor: const Duration(seconds: 60),
+          pauseFor: const Duration(seconds: 15), // 提高停頓容忍時間至 15 秒，避免講話中途換氣被中斷
+          listenFor: const Duration(minutes: 5),  // 提高最長單次收音時間
         ),
       );
       return true;
@@ -160,6 +163,56 @@ class VoiceRecognitionService {
       onError?.call('無法啟動語音辨識: $e');
       return false;
     }
+  }
+
+  /// 智慧過濾去除語音常見贅字、語助詞與口吃重複詞 (如「痾」、「呃」、「那個」、「就是說」等)
+  static String cleanFillerWords(String text) {
+    if (text.trim().isEmpty) return text;
+    String cleaned = text;
+
+    // 1. 去除單字 3 次以上的嚴重口吃 (例如：「我我我」->「我」、「對對對」->「對」)
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'([\u4e00-\u9fa5])\1{2,}'),
+      (match) => match.group(1) ?? '',
+    );
+
+    // 2. 去除 2~3 字詞連續重複的口吃 (例如：「這個這個」->「這個」、「然後然後」->「然後」)
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'([\u4e00-\u9fa5]{2,3})\1+'),
+      (match) => match.group(1) ?? '',
+    );
+
+    // 3. 去除口語語助詞與停頓音 (痾、呃、唔)
+    cleaned = cleaned.replaceAll(RegExp(r'[痾呃唔]'), '');
+
+    // 4. 去除常見口語贅語 (如：「就是說」、「然後呢」、「應該是說」、「基本上就是」)
+    cleaned = cleaned.replaceAll(
+      RegExp(r'(就是說|然後呢|應該是說|基本上就是|基本上說|總之就是)'),
+      '',
+    );
+
+    // 5. 去除句首或標點前後的「那個」
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(^|[\s，,。！？\n])那個+([\s，,。！？\n]|$)'),
+      (match) => '${match.group(1) ?? ''}${match.group(2) ?? ''}',
+    );
+
+    // 6. 去除句首的停頓嘆詞 (如：「嗯、啊、欸、喔」)
+    cleaned = cleaned.replaceAll(
+      RegExp(r'^[嗯啊欸喔捏啦嘛]+[\s，,。！？]*'),
+      '',
+    );
+
+    // 6. 清理多餘的標點符號與空白
+    cleaned = cleaned
+        .replaceAll(RegExp(r'[，,]{2,}'), '，')
+        .replaceAll(RegExp(r'[。]{2,}'), '。')
+        .replaceAll(RegExp(r'^[，,。！？\s]+'), '')
+        .replaceAll(RegExp(r'[ \t]+'), ' ')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+
+    return cleaned;
   }
 
   /// 停止語音辨識（保留目前已辨識內容）

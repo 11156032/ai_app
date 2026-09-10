@@ -410,11 +410,12 @@ class _NotesScreenState extends State<NotesScreen> {
       backgroundColor: Colors.transparent,
       enableDrag: true,
       builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
+        initialChildSize: 0.85,
         minChildSize: 0.45,
         maxChildSize: 0.95,
         expand: false,
         builder: (_, scrollController) => VoiceNoteSheet(
+          scrollController: scrollController,
           onNoteReady: (title, category, markdownContent) {
             // 確保分類存在
             if (!NotesDatabase.categories.contains(category)) {
@@ -1326,11 +1327,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
       backgroundColor: Colors.transparent,
       enableDrag: true,
       builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
+        initialChildSize: 0.85,
         minChildSize: 0.45,
         maxChildSize: 0.95,
         expand: false,
         builder: (_, scrollController) => VoiceNoteSheet(
+          scrollController: scrollController,
           existingContent: _contentController.text,
           onNoteReady: (title, category, markdownContent) {
             // 插入至目前筆記內容末端

@@ -2588,7 +2588,7 @@ extension MainScreenProfileTab on _MainScreenState {
                     '本條款之解釋、效力及爭議解決，均依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。'),
                 const SizedBox(height: 8),
                 Text(
-                  '版本：v1.6.0  |  最後更新日期：2026 年 9 月 9 日',
+                  '版本：v1.6.2  |  最後更新日期：2026 年 9 月 10 日',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],
@@ -2647,7 +2647,7 @@ extension MainScreenProfileTab on _MainScreenState {
                     '我們可能因法律要求或服務擴充而不定期修訂本隱私權政策。更新後將於 App 內公告並更新生效日期。若對本政策有任何疑問，歡迎透過「常見問題與 24H 線上客服」或「客服與意見回饋」與我們聯繫。'),
                 const SizedBox(height: 8),
                 Text(
-                  '版本：v1.6.0  |  最後更新日期：2026 年 9 月 9 日',
+                  '版本：v1.6.2  |  最後更新日期：2026 年 9 月 10 日',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],

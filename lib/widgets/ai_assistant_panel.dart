@@ -48,6 +48,10 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       if (mounted) {
         setState(() {
           _isVoiceListening = false;
+          _modalController.text = VoiceRecognitionService.cleanFillerWords(_modalController.text);
+          _modalController.selection = TextSelection.collapsed(
+            offset: _modalController.text.length,
+          );
         });
       }
     } else {
@@ -61,20 +65,22 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       }
       final started = await VoiceRecognitionService.instance.startListening(
         onResult: (words, isFinal) {
-          if (mounted) {
-            setState(() {
-              final prefix = _voiceBaseText.isNotEmpty ? '$_voiceBaseText ' : '';
-              _modalController.text = '$prefix$words';
-              _modalController.selection = TextSelection.collapsed(
-                offset: _modalController.text.length,
-              );
-            });
+          if (!mounted) return;
+          if (words.trim().isEmpty && !isFinal) return;
+
+          setState(() {
+            final prefix = _voiceBaseText.isNotEmpty ? '$_voiceBaseText ' : '';
             if (isFinal) {
-              setState(() {
-                _isVoiceListening = false;
-              });
+              final cleaned = VoiceRecognitionService.cleanFillerWords('$prefix$words');
+              _modalController.text = cleaned;
+              _voiceBaseText = cleaned;
+            } else {
+              _modalController.text = '$prefix$words';
             }
-          }
+            _modalController.selection = TextSelection.collapsed(
+              offset: _modalController.text.length,
+            );
+          });
         },
         onSoundLevelChange: (level) {
           if (mounted) {
@@ -88,6 +94,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             if (mounted) {
               setState(() {
                 _isVoiceListening = false;
+                _modalController.text = VoiceRecognitionService.cleanFillerWords(_modalController.text);
               });
             }
           } else if (status == 'listening') {

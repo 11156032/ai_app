@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_app/services/voice_note_service.dart';
+import 'package:ai_app/services/voice_recognition_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -73,6 +74,27 @@ void main() {
         expect(result.markdownContent.isNotEmpty, isTrue);
         expect(result.rawTranscript, sampleTranscript);
       }
+    });
+  });
+
+  group('VoiceRecognitionService Filler Word Cleaning Tests', () {
+    test('Cleans common filler words, stutters, and hesitation sounds', () {
+      expect(
+        VoiceRecognitionService.cleanFillerWords('痾今天天氣很好'),
+        '今天天氣很好',
+      );
+      expect(
+        VoiceRecognitionService.cleanFillerWords('我想說呃要去找老師'),
+        '我想說要去找老師',
+      );
+      expect(
+        VoiceRecognitionService.cleanFillerWords('然後然後這個就是說基本上就是牛頓定律'),
+        '然後這個牛頓定律',
+      );
+      expect(
+        VoiceRecognitionService.cleanFillerWords('我我我想問這個問題，那個，請幫忙解答'),
+        '我想問這個問題，請幫忙解答',
+      );
     });
   });
 }

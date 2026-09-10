@@ -1296,7 +1296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       _buildInlineSection('4. AI 生成內容與語音輔助聲明',
                           'AI 智慧特助與語音辨識由尖端模型（含 Gemini、Groq、Speech-to-Text 等）提供支援，其回覆內容為學習輔助參考資料，不構成考試唯一標準或專業法律保證。'),
                       _buildInlineSection('5. 免責聲明與管轄法院',
-                          '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.6.0（最後修訂：2026 年 9 月 9 日）。'),
+                          '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.6.2（最後修訂：2026 年 9 月 10 日）。'),
                     ]
                   : [
                       _buildInlineSection('1. 蒐集的資料類型',
@@ -1308,7 +1308,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       _buildInlineSection('4. 使用者自主權益',
                           '您可隨時查詢、修改個人資料，或申請註銷刪除帳號（或訪客一鍵清除本機暫存）。'),
                       _buildInlineSection('5. 第三方服務供應商',
-                          '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 OpenRouter 等服務，相關資料依各隱私規範與當次推理處理。版本：v1.6.0（最後修訂：2026 年 9 月 9 日）。'),
+                          '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 OpenRouter 等服務，相關資料依各隱私規範與當次推理處理。版本：v1.6.2（最後修訂：2026 年 9 月 10 日）。'),
                     ],
             ),
           ),
