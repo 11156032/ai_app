@@ -99,7 +99,7 @@ class AppLocaleService {
     'feedback_and_help': {zhTW: '客服與意見回饋', ja: 'お問い合わせとフィードバック', ko: '문의 및 피드백'},
     'feedback_and_help_sub': {zhTW: '回報問題或提供功能建議', ja: '不具合報告・ご意見・サポート', ko: '문제 신고, 피드백 및 고객센터'},
     'about_us': {zhTW: '關於我們', ja: 'アプリについて', ko: '앱 정보'},
-    'about_us_sub': {zhTW: '了解 App 技術運用、核心功能與品牌故事', ja: 'チーム紹介・プライバシーポリシー', ko: '팀 소개 및 이용약관'},
+    'about_us_sub': {zhTW: '團隊理念、核心功能與技術運用', ja: 'アプリの理念・コア機能・技術紹介', ko: '팀 소개, 핵심 기능 및 기술 아키텍처'},
     'app_version': {zhTW: '版本資訊', ja: 'バージョン情報', ko: '버전 정보'},
 
     // 今日摘要卡片
@@ -163,8 +163,8 @@ class AppLocaleService {
     'quiz_score': {zhTW: '答對/總數', ja: '正答数/総数', ko: '정답/총 문제'},
     'quiz_review_schedule': {zhTW: '排入複習行程 ({0})', ja: '復習スケジュールに追加 ({0})', ko: '복습 일정 추가 ({0})'},
     'schedule_time_pick': {zhTW: '選擇複習行程時間', ja: '復習予定時間を選択', ko: '복습 시간 선택'},
-    'quiz_review_title': {zhTW: '複習：{0}', ja: '復習：{0}', ko: '복습: {0}'},
-    'quiz_scheduled_msg': {zhTW: '已將「複習：{0}」排入今日 {1} 行程！', ja: '「復習：{0}」を本日 {1} の予定に追加しました！', ko: '오늘 {1}에 「복습: {0}」 일정이 등록되었습니다!'},
+    'quiz_review_title': {zhTW: '複習：{0}', ja: '複習：{0}', ko: '복습: {0}'},
+    'quiz_scheduled_msg': {zhTW: '已將「複習：{0}」排入今日 {1} 行程！', ja: '「複習：{0}」を本日 {1} の予定に追加しました！', ko: '오늘 {1}에 「복습: {0}」 일정이 등록되었습니다!'},
     'ai_suggestion_button': {zhTW: '一鍵 AI 生成學習建議', ja: 'AI学習アドバイスを生成', ko: 'AI 맞춤 학습 제안 생성'},
 
     // 模擬貼文與星期
@@ -229,13 +229,21 @@ class AppLocaleService {
     'chart_blindspot_warn': {zhTW: '本週偵測到 {0} 筆嚴重盲點！建議及早複習。', ja: '今週 {0} 件の重大な盲点が検出されました！早めの復習をおすすめします。', ko: '이번 주 {0}개의 심각한 취약점이 발견되었습니다! 빠른 복습을 권장합니다.'},
     'chart_blindspot_btn': {zhTW: 'AI 學習建議', ja: 'AIアドバイス', ko: 'AI 학습 제안'},
 
-    // 系統協助 - 未翻譯項目
+    // 系統協助 - 分類與項目
+    'support_cat_all': {zhTW: '全部', ja: 'すべて', ko: '전체'},
+    'support_cat_product': {zhTW: '📢 產品與教學', ja: '📢 プロダクト・ガイド', ko: '📢 제품 및 가이드'},
+    'support_cat_service': {zhTW: '🎧 客服與支援', ja: '🎧 サポート・相談', ko: '🎧 고객지원 및 피드백'},
+    'support_cat_legal': {zhTW: '📜 條款與資訊', ja: '📜 規約・アプリ情報', ko: '📜 약관 및 정보'},
+    'tutorial_video_label': {zhTW: '操作教學示範影片', ja: '操作デモ動画', ko: '사용법 동영상 가이드'},
+    'tutorial_video_sub': {zhTW: '學習 Pack 製作與分享示範影片', ja: '学習Packの作成・共有動画', ko: '학습 팩 제작 및 공유 튜토리얼'},
+    'announcements_label': {zhTW: '系統公告與更新日誌', ja: 'お知らせ・更新履歴', ko: '공지사항 및 업데이트 내역'},
+    'announcements_sub': {zhTW: '最新功能亮點與版本更新紀錄', ja: '最新機能とバージョン更新履歴', ko: '최신 기능 및 버전 릴리즈 노트'},
     'tour_label': {zhTW: '互動式功能引導', ja: 'インタラクティブガイド', ko: '인터랙티브 가이드'},
-    'tour_value': {zhTW: '操作引導：AI 功能、題庫功能逐步體驗', ja: 'AI機能・問題集機能のステップガイド', ko: 'AI 기능・문제은행 기능 단계별 안내'},
+    'tour_value': {zhTW: 'AI 與題庫核心功能互動導覽', ja: 'AIと問題集のステップガイド', ko: 'AI 및 문제은행 단계별 가이드'},
     'terms_label': {zhTW: '服務條款', ja: '利用規約', ko: '이용약관'},
-    'terms_value': {zhTW: '查看使用者協議與隱私政策', ja: 'ユーザー規約とプライバシーポリシーを確認', ko: '이용약관 및 개인정보 처리방침 확인'},
+    'terms_value': {zhTW: '使用者協議與服務規範', ja: '利用規約とサービス規定', ko: '서비스 이용약관 및 운영 규정'},
     'privacy_label': {zhTW: '隱私權政策', ja: 'プライバシーポリシー', ko: '개인정보 처리방침'},
-    'privacy_value': {zhTW: '了解我們如何蒐集與保護您的個人資料', ja: '個人情報の収集・保護方針について', ko: '개인 정보 수집 및 보호 방법 안내'},
+    'privacy_value': {zhTW: '個人資料保護與隱私權承諾', ja: '個人情報保護とプライバシー方針', ko: '개인 정보 수집 및 보호 방법 안내'},
 
     // 常見問題彈窗
     'faq_sheet_subtitle': {zhTW: '快速解答操作疑問・24H 專員即時對話', ja: '操作の疑問を素早く解決・24H専任サポート', ko: '빠른 문제 해결・24H 전담 상담원 실시간 대화'},

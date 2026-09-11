@@ -1266,49 +1266,135 @@ class _LoginScreenState extends State<LoginScreen> {
     required IconData icon,
   }) {
     final isTerms = title == '服務條款';
+    final themeColor = isTerms ? const Color(0xFFD97706) : const Color(0xFF0D9488);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
         title: Row(
           children: [
-            Icon(icon, color: Color(0xFF8D6E63)),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: themeColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isTerms ? Icons.gavel_rounded : Icons.security_rounded,
+                color: themeColor,
+                size: 20,
+              ),
+            ),
             const SizedBox(width: 10),
-            Text(title,
-                style:
-                    const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E2022),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: themeColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'v1.6.5',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: themeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isTerms ? '法定權益與平台使用規範' : '本機優先加密與個資保護承諾',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         content: SizedBox(
           width: double.maxFinite,
-          height: 320,
+          height: 380,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: isTerms
                   ? [
-                      _buildInlineSection('1. 接受條款與服務範疇',
-                          '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、錯題複習、AI 代理人助理（即時語音輸入）、學科能力診斷、弱項補強、雙模筆記（Markdown與手寫）、智慧行事曆排程與 24H 線上客服等功能。'),
-                      _buildInlineSection('2. 帳號責任與資安',
-                          '您有責任妥善保管帳號與密碼，並對帳號下發生的所有活動負責。如發現遭未經授權使用，請立即通知我們。'),
-                      _buildInlineSection('3. 行為規範與智慧財產權',
-                          '不得散佈違法、騷擾或侵權內容；不得傳播惡意程式或以自動化工具濫用系統。本軟體所有設計與題庫資料庫均受著作權法保護。'),
-                      _buildInlineSection('4. AI 生成內容與語音輔助聲明',
-                          'AI 智慧特助與語音辨識由尖端模型（含 Gemini、Groq、Speech-to-Text 等）提供支援，其回覆內容為學習輔助參考資料，不構成考試唯一標準或專業法律保證。'),
-                      _buildInlineSection('5. 免責聲明與管轄法院',
-                          '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.6.2（最後修訂：2026 年 9 月 10 日）。'),
+                      _buildInlineSection(
+                        '1. 接受條款與服務範疇',
+                        '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、AI 步驟詳解、AI 語音速記（4 大整理風格）、互動心智圖、學科能力診斷、弱項補強教材、雙模筆記（Markdown與手寫畫布）、智慧行事曆排程與 24H 線上客服等多元功能。',
+                        themeColor,
+                      ),
+                      _buildInlineSection(
+                        '2. 帳號責任與資安保護',
+                        '您有責任妥善保管帳號憑證（Email、密碼或 Google 授權），並對帳號下發生的所有活動負完全責任。禁止共用或轉讓帳號；如發現遭未經授權使用，請立即通知我們。',
+                        themeColor,
+                      ),
+                      _buildInlineSection(
+                        '3. 行為規範與智慧財產權',
+                        '嚴禁散佈違法、侵權、騷擾或不當內容；嚴禁傳播惡意程式碼、爬蟲抓取或以自動化工具濫用系統與 AI 資源。本軟體所有設計、程式碼與題庫資料庫均受著作權法保護；個人筆記著作權歸屬本人。',
+                        themeColor,
+                      ),
+                      _buildInlineSection(
+                        '4. AI 生成內容與語音輔助聲明',
+                        'AI 智慧特助、語音辨識、詳解與診斷由尖端模型（含 Gemini、Groq、Speech-to-Text 等）提供支援，其回覆內容為「學習輔助參考資料」，不構成考試唯一標準或專業法律保證。',
+                        themeColor,
+                      ),
+                      _buildInlineSection(
+                        '5. 免責聲明與管轄法院',
+                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.6.5（修訂發布：2026 年 9 月 11 日）。',
+                        themeColor,
+                      ),
                     ]
                   : [
-                      _buildInlineSection('1. 蒐集的資料類型',
-                          '帳號資訊（姓名、Email）、學習歷程（測驗紀錄、正確率、錯題本、手寫與文字筆記、行事曆待辦）、即時語音輸入串流（不永久保存於伺服器）及系統偏好（深淺色、主題色、語系）。'),
-                      _buildInlineSection('2. 資料使用目的與承諾',
-                          '僅用於提供與維護功能、計算能力掌握度矩陣並生成客製化學習建議。【承諾絕不出售個人資料給任何第三方】。'),
-                      _buildInlineSection('3. 本機優先儲存與傳輸安全',
-                          '學習資料主要加密儲存於本機 SQLite 資料庫中；雲端功能傳輸全面採用 HTTPS / TLS 1.3 傳輸層加密。'),
-                      _buildInlineSection('4. 使用者自主權益',
-                          '您可隨時查詢、修改個人資料，或申請註銷刪除帳號（或訪客一鍵清除本機暫存）。'),
-                      _buildInlineSection('5. 第三方服務供應商',
-                          '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 OpenRouter 等服務，相關資料依各隱私規範與當次推理處理。版本：v1.6.2（最後修訂：2026 年 9 月 10 日）。'),
+                      _buildInlineSection(
+                        '1. 蒐集的資料類型（最小化原則）',
+                        '帳號資訊（姓名、Email、頭像）、學習歷程（測驗紀錄、正確率、錯題本、手寫與文字筆記、心智圖、行事曆待辦）、即時語音輸入串流（僅主動點擊錄音時轉換，不持久保存錄音）及系統偏好（深淺色、主題色、語系）。',
+                        themeColor,
+                      ),
+                      _buildInlineSection(
+                        '2. 資料使用目的與【絕不出售承諾】',
+                        '僅用於提供功能、運算能力掌握度矩陣並生成客製化學習建議。【嚴格承諾絕不販售、出租或出借個人資料給任何第三方】。',
+                        themeColor,
+                      ),
+                      _buildInlineSection(
+                        '3. 本機優先儲存與傳輸安全',
+                        '學習歷程與筆記主要加密儲存於本機 SQLite 資料庫中；雲端功能傳輸全面採用標準 HTTPS / TLS 1.3 傳輸層加密。',
+                        themeColor,
+                      ),
+                      _buildInlineSection(
+                        '4. 使用者完整個資自主權利',
+                        '您可隨時查詢、修改個人資料，或申請註銷刪除帳號（或訪客一鍵清除本機暫存），徹底清除關聯資料。',
+                        themeColor,
+                      ),
+                      _buildInlineSection(
+                        '5. 第三方服務安全規範',
+                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.6.5（修訂發布：2026 年 9 月 11 日）。',
+                        themeColor,
+                      ),
                     ],
             ),
           ),
@@ -1316,34 +1402,54 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF8D6E63),
+              backgroundColor: themeColor,
               foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 42),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 0,
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('我已了解'),
+            child: const Text(
+              '我已完整閱讀並了解',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInlineSection(String title, String content) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+  Widget _buildInlineSection(String title, String content, Color themeColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF8D6E63))),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: themeColor,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(content,
-              style: TextStyle(
-                  fontSize: 12.5, color: Colors.grey.shade700, height: 1.5)),
+          Text(
+            content,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF4A4A4A),
+              height: 1.45,
+            ),
+          ),
         ],
       ),
     );

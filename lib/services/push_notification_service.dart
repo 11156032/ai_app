@@ -8,7 +8,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 class PushNotificationService {
-  static final PushNotificationService _instance = PushNotificationService._internal();
+  static final PushNotificationService _instance =
+      PushNotificationService._internal();
 
   factory PushNotificationService() {
     return _instance;
@@ -17,7 +18,8 @@ class PushNotificationService {
   PushNotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
@@ -33,7 +35,8 @@ class PushNotificationService {
     if (_initialized) return;
     try {
       // 註冊背景處理器
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+          _firebaseMessagingBackgroundHandler);
 
       // 設定前景顯示選項 (iOS)
       await _fcm.setForegroundNotificationPresentationOptions(
@@ -45,7 +48,8 @@ class PushNotificationService {
       // 初始化本地通知套件（用於 Android 前景彈出系統橫幅）
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
-      const InitializationSettings initializationSettings = InitializationSettings(
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
         android: initializationSettingsAndroid,
         iOS: DarwinInitializationSettings(),
       );
@@ -54,7 +58,8 @@ class PushNotificationService {
 
       // 建立 Android 高優先級通知頻道
       await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(_channel);
 
       // 請求通知權限
@@ -70,7 +75,8 @@ class PushNotificationService {
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         debugPrint('使用者已授權推播通知');
-      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+      } else if (settings.authorizationStatus ==
+          AuthorizationStatus.provisional) {
         debugPrint('使用者已授權臨時推播通知');
       } else {
         debugPrint('使用者拒絕或尚未授權推播通知');
@@ -91,7 +97,8 @@ class PushNotificationService {
 
       // 處理前景接收到的通知（當 App 開著時，主動跳出本地系統橫幅通知）
       FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-        debugPrint('前景收到推播: ${message.notification?.title} - ${message.notification?.body}');
+        debugPrint(
+            '前景收到推播: ${message.notification?.title} - ${message.notification?.body}');
         RemoteNotification? notification = message.notification;
         if (notification != null && !kIsWeb) {
           try {

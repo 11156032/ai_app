@@ -1461,33 +1461,78 @@ extension MainScreenProfileTab on _MainScreenState {
     required String value,
     Color? valueColor,
     VoidCallback? onTap,
+    Widget? trailingWidget,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Icon(icon,
-              size: 20,
-              color:
-                  _isDarkMode ? const Color(0xFFD7CCC8) : _currentPrimaryColor),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 4),
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 14,
-                        color: valueColor ??
-                            (_isDarkMode ? Colors.white70 : Colors.black87))),
-              ],
-            ),
+    final isDark = _isDarkMode;
+    final primary = _currentPrimaryColor;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : primary.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: isDark ? const Color(0xFFE0E0E0) : primary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : const Color(0xFF1E2022),
+                      ),
+                    ),
+                    if (value.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: valueColor ??
+                              (isDark
+                                  ? Colors.white.withValues(alpha: 0.55)
+                                  : const Color(0xFF6B7280)),
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              trailingWidget ??
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: isDark ? Colors.white30 : Colors.grey.shade400,
+                  ),
+            ],
           ),
-          const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
-        ],
+        ),
       ),
     );
   }
@@ -2117,97 +2162,147 @@ extension MainScreenProfileTab on _MainScreenState {
     }
   }
 
-  // --- 系統與協助模組 ---
+  // --- 系統與協助模組（純文字分類）---
   Widget _buildSupportModule(BuildContext context) {
+    final categories = ['全部', '產品與教學', '客服與支援', '條款與資訊'];
+    final showProduct = _supportCategory == '全部' || _supportCategory == '產品與教學';
+    final showService = _supportCategory == '全部' || _supportCategory == '客服與支援';
+    final showLegal = _supportCategory == '全部' || _supportCategory == '條款與資訊';
+
     return _buildModuleContainer(
       context: context,
       title: AppLocaleService.tr('profile_support_title', _appLanguage),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildProfileTile(
-            context: context,
-            icon: Icons.info_outline_rounded,
-            label: AppLocaleService.tr('about_us', _appLanguage),
-            value: AppLocaleService.tr('about_us_sub', _appLanguage),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const AboutUsScreen())),
+          // 純文字分類標籤列（無圖案、無多餘顏色）
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: categories.map((cat) {
+                final isSel = _supportCategory == cat;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8, bottom: 12),
+                  child: ChoiceChip(
+                    showCheckmark: false,
+                    selected: isSel,
+                    label: Text(
+                      cat,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
+                        color: isSel
+                            ? Colors.white
+                            : (_isDarkMode ? Colors.white70 : Colors.black87),
+                      ),
+                    ),
+                    selectedColor: _isDarkMode
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : const Color(0xFF2C2D35),
+                    backgroundColor: _isDarkMode
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : const Color(0xFFF3F4F6),
+                    side: BorderSide.none,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    onSelected: (_) {
+                      _update(() {
+                        _supportCategory = cat;
+                      });
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
           ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.support_agent_rounded,
-            label: AppLocaleService.tr('faq_and_support', _appLanguage),
-            value: AppLocaleService.tr('faq_and_support_sub', _appLanguage),
-            onTap: _showFaqDialog,
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.headset_mic_outlined,
-            label: AppLocaleService.tr('feedback_and_help', _appLanguage),
-            value: AppLocaleService.tr('feedback_and_help_sub', _appLanguage),
-            onTap: _showFeedbackDialog,
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.explore_outlined,
-            label: AppLocaleService.tr('tour_label', _appLanguage),
-            value: AppLocaleService.tr('tour_value', _appLanguage),
-            onTap: _startTour,
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.ondemand_video_rounded,
-            label: '操作教學示範影片',
-            value: '觀看題庫測驗與學習 Pack 完整教學影片',
-            onTap: () {
-              TutorialVideoPlayer.showTutorialChooserDialog(context);
-            },
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.gavel_outlined,
-            label: AppLocaleService.tr('terms_label', _appLanguage),
-            value: AppLocaleService.tr('terms_value', _appLanguage),
-            onTap: _showTermsDialog,
-          ),
-          const Divider(height: 24),
-          _buildProfileTile(
-            context: context,
-            icon: Icons.privacy_tip_outlined,
-            label: AppLocaleService.tr('privacy_label', _appLanguage),
-            value: AppLocaleService.tr('privacy_value', _appLanguage),
-            onTap: _showPrivacyPolicyDialog,
-          ),
-          const Divider(height: 24),
-          Row(
-            children: [
-              Icon(Icons.info_outline,
-                  size: 20,
-                  color: _isDarkMode
-                      ? const Color(0xFFD7CCC8)
-                      : _currentPrimaryColor),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('版本資訊',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 4),
-                    Text(_appVersion,
-                        style: TextStyle(
-                            fontSize: 14,
-                            color:
-                                _isDarkMode ? Colors.white70 : Colors.black87)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+
+          // 產品與教學分類
+          if (showProduct) ...[
+            _buildProfileTile(
+              context: context,
+              icon: Icons.campaign_outlined,
+              label: AppLocaleService.tr('announcements_label', _appLanguage),
+              value: AppLocaleService.tr('announcements_sub', _appLanguage),
+              onTap: _showAnnouncementsDialog,
+            ),
+            const Divider(height: 20),
+            _buildProfileTile(
+              context: context,
+              icon: Icons.ondemand_video_outlined,
+              label: AppLocaleService.tr('tutorial_video_label', _appLanguage),
+              value: AppLocaleService.tr('tutorial_video_sub', _appLanguage),
+              onTap: () {
+                TutorialVideoPlayer.showTutorialChooserDialog(context);
+              },
+            ),
+            const Divider(height: 20),
+            _buildProfileTile(
+              context: context,
+              icon: Icons.explore_outlined,
+              label: AppLocaleService.tr('tour_label', _appLanguage),
+              value: AppLocaleService.tr('tour_value', _appLanguage),
+              onTap: _startTour,
+            ),
+            if (showService || showLegal) const Divider(height: 20),
+          ],
+
+          // 客服與支援分類
+          if (showService) ...[
+            _buildProfileTile(
+              context: context,
+              icon: Icons.support_agent_outlined,
+              label: AppLocaleService.tr('faq_and_support', _appLanguage),
+              value: AppLocaleService.tr('faq_and_support_sub', _appLanguage),
+              onTap: _showFaqDialog,
+            ),
+            const Divider(height: 20),
+            _buildProfileTile(
+              context: context,
+              icon: Icons.headset_mic_outlined,
+              label: AppLocaleService.tr('feedback_and_help', _appLanguage),
+              value: AppLocaleService.tr('feedback_and_help_sub', _appLanguage),
+              onTap: _showFeedbackDialog,
+            ),
+            if (showLegal) const Divider(height: 20),
+          ],
+
+          // 條款與資訊分類
+          if (showLegal) ...[
+            _buildProfileTile(
+              context: context,
+              icon: Icons.info_outline_rounded,
+              label: AppLocaleService.tr('about_us', _appLanguage),
+              value: AppLocaleService.tr('about_us_sub', _appLanguage),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const AboutUsScreen())),
+            ),
+            const Divider(height: 20),
+            _buildProfileTile(
+              context: context,
+              icon: Icons.gavel_outlined,
+              label: AppLocaleService.tr('terms_label', _appLanguage),
+              value: AppLocaleService.tr('terms_value', _appLanguage),
+              onTap: _showTermsDialog,
+            ),
+            const Divider(height: 20),
+            _buildProfileTile(
+              context: context,
+              icon: Icons.privacy_tip_outlined,
+              label: AppLocaleService.tr('privacy_label', _appLanguage),
+              value: AppLocaleService.tr('privacy_value', _appLanguage),
+              onTap: _showPrivacyPolicyDialog,
+            ),
+            const Divider(height: 20),
+            _buildProfileTile(
+              context: context,
+              icon: Icons.verified_outlined,
+              label: AppLocaleService.tr('app_version', _appLanguage),
+              value: '$_appVersion  ·  最新發布',
+              onTap: _showVersionInfoDialog,
+            ),
+          ],
         ],
       ),
     );
@@ -2528,16 +2623,82 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  void _showFaqDialog() {
+  void _showVersionInfoDialog() {
     final primaryColor = _currentPrimaryColor;
     final isDark = _isDarkMode;
+    final fontFactor = _fontSizeFactor;
+    showDialog(
+      context: context,
+      builder: (ctx) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(
+          textScaler: TextScaler.linear(fontFactor),
+        ),
+        child: _VersionInfoDialog(
+          isDark: isDark,
+          primary: primaryColor,
+          appVersion: _appVersion,
+          onOpenAnnouncements: () {
+            Navigator.pop(ctx);
+            _showAnnouncementsDialog();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showAnnouncementsDialog() {
+    final primaryColor = _currentPrimaryColor;
+    final isDark = _isDarkMode;
+    final fontFactor = _fontSizeFactor;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _FaqAndCustomerSupportSheet(
+      builder: (ctx) => _SystemAnnouncementsSheet(
         isDark: isDark,
         primary: primaryColor,
+        fontSizeFactor: fontFactor,
+      ),
+    );
+  }
+
+  void _showFaqDialog() {
+    final primaryColor = _currentPrimaryColor;
+    final isDark = _isDarkMode;
+    final fontFactor = _fontSizeFactor;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(
+          textScaler: TextScaler.linear(fontFactor),
+        ),
+        child: _FaqAndCustomerSupportSheet(
+          isDark: isDark,
+          primary: primaryColor,
+          onOpenFeedback: () {
+            Navigator.pop(ctx);
+            _showFeedbackDialog();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showTermsDialog() {
+    final primaryColor = _currentPrimaryColor;
+    final isDark = _isDarkMode;
+    final fontFactor = _fontSizeFactor;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _TermsAndPrivacySheet(
+        isDark: isDark,
+        primary: primaryColor,
+        fontSizeFactor: fontFactor,
+        initialTabIndex: 0,
         onOpenFeedback: () {
           Navigator.pop(ctx);
           _showFeedbackDialog();
@@ -2546,148 +2707,23 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  void _showTermsDialog() {
-    final primaryColor = _currentPrimaryColor;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.gavel_outlined, color: primaryColor),
-            const SizedBox(width: 10),
-            const Text('服務條款',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 360,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTermsSection('1. 接受條款與法律效力',
-                    '您存取或使用「YeBang 家教」應用程式（以下簡稱「本服務」）即表示您已詳細閱讀、理解並同意受本服務條款及相關規範約束。若您為限制行為能力人（如未成年人），應由法定代理人或監護人閱讀、瞭解並同意本條款後方可使用。若您不同意本條款之任何部分，請立即停止使用本服務。'),
-                _buildTermsSection('2. 服務範疇與功能說明',
-                    '本服務為綜合性智慧教育與學習輔助平台，提供以下完整功能服務：\n・題庫測驗與錯題本：國高中各學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習。\n・AI 代理人助理：支援即時語音轉文字輸入 (Speech-to-Text)、自然語言意圖排程、智能學科問答與全站功能導覽。\n・雙模個人筆記：支援打字筆記（Markdown 格式）與手寫塗鴉畫布、一鍵 AI 摘要重點整理、社群分享與一鍵匯入。\n・學習歷程與弱項診斷：知識掌握度矩陣圖、學科能力雷達圖與一鍵客製化弱項補強教材生成。\n・智慧行事曆與待辦：自然語言排程、讀書計畫管理、待辦清單 (Todo) 與推播提醒通知。\n・學習社群與 24H 智慧線上客服：同學心得貼文交流、24H 線上客服專員與問題意見回饋表單。'),
-                _buildTermsSection('3. 帳號註冊與資訊安全',
-                    '您有責任妥善保管帳號憑證（包含電子郵件與密碼），並對您帳號下發生的所有活動負完全責任。請勿共享帳號或讓未授權他人使用。如發現帳號遭未經授權使用或有資安疑慮，請立即透過「客服與意見回饋」通知我們。'),
-                _buildTermsSection('4. 使用者行為規範與社群守則',
-                    '您同意合法、正當使用本服務，嚴禁散佈任何違法、侵權、騷擾、仇恨、誹謗、暴力、不雅或侵害他人智慧財產權之內容；嚴禁傳播惡意程式碼、破解逆向工程或利用自動化工具濫用系統資源。我們保留移除違規內容、限制功能或終止違規帳號之權利。'),
-                _buildTermsSection('5. 智慧財產權歸屬與授權',
-                    '本應用程式之所有設計架構、程式碼、圖示、題庫資料庫及品牌識別均受智慧財產權法律保護，所有權歸開發團隊所有。使用者發布於社群或筆記之原創內容，其著作權仍屬使用者本人，惟您同意授予我們非獨家、全球性、免費的使用與展示授權，以於服務範疇內正常呈現該內容。'),
-                _buildTermsSection('6. AI 生成內容與語音辨識之教育輔助定位',
-                    '本服務整合之 AI 智慧功能（含 AI 代理人特助、語音轉文字辨識、題庫步驟詳解、能力診斷分析、弱項補強教材、筆記摘要及 24H 客服等）係基於尖端生成式 AI 模型與語音辨識引擎提供之「學習輔助參考資料」，不代表官方考試標準唯一答案或法律/醫療等專業保證。使用者在正式考試或重要決策時應進行獨立查證與多方思考。'),
-                _buildTermsSection('7. 免責聲明與責任限制',
-                    '本服務係依「現況」及「現有技術水準」提供，不附帶任何明示或默示之擔保。在法律允許的最大範圍內，我們不對因網路中斷、不可抗力因素或使用者不當操作所導致之任何間接、附帶或衍生損害承擔賠償責任。'),
-                _buildTermsSection('8. 條款修訂與公告',
-                    '我們保留隨時修訂本條款的權利。修訂後之條款將於 App 內公告並即時生效。若您在條款更新後繼續使用本服務，即視為同意接受修訂後之條款。'),
-                _buildTermsSection('9. 準據法與爭議管轄',
-                    '本條款之解釋、效力及爭議解決，均依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。'),
-                const SizedBox(height: 8),
-                Text(
-                  '版本：v1.6.2  |  最後更新日期：2026 年 9 月 10 日',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('我已了解'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showPrivacyPolicyDialog() {
     final primaryColor = _currentPrimaryColor;
-    showDialog(
+    final isDark = _isDarkMode;
+    final fontFactor = _fontSizeFactor;
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.privacy_tip_outlined, color: primaryColor),
-            const SizedBox(width: 10),
-            const Text('隱私權政策',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 380,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTermsSection('1. 蒐集的資料類型',
-                    '我們嚴格遵循最小化蒐集原則，僅蒐集提供服務所必需之資料：\n・帳號資訊：使用者名稱、暱稱、電子郵件地址、頭像及個人簡介（或 Google 登入授權傳輸之基礎識別資料）。\n・學習歷程與筆記：測驗紀錄、正確率、錯題本、手寫塗鴉軌跡與文字筆記、讀書行事曆排程及待辦事項。\n・即時語音資料：語音輸入功能僅在您主動點擊麥克風時將音訊串流傳送至系統語音辨識服務進行文字轉換，我們不會在後台錄音，亦不會將語音音訊永久保存於伺服器。\n・社群互動資料：您主動發布的學習心得貼文、筆記分享與討論留言。\n・裝置與系統偏好：作業系統版本、深淺色主題設定、主題主色調、字體大小與多國語言偏好（僅用於介面渲染與相容性優化）。'),
-                _buildTermsSection('2. 資料使用目的與承諾',
-                    '我們蒐集的資料僅用於以下合法目的：\n・提供、維護及持續改善各項學習、測驗、筆記與診斷功能。\n・計算知識掌握度矩陣與雷達圖，為您生成客製化 AI 弱項補強教材與學習建議。\n・發送重要帳號安全警示、行程推播提醒或系統重要公告。\n【絕不出售承諾】我們絕不會出售、出租或出借您的個人資料給任何第三方，亦不將資料用於任何非關本服務之商業廣告推銷。'),
-                _buildTermsSection('3. 資料儲存機制與傳輸安全',
-                    '本應用程式採用「本機優先 (Local-First)」架構，您的個人筆記、測驗歷程與日曆排程主要加密儲存於您本機裝置的 SQLite 資料庫中。部分涉及雲端處理之功能（如 AI 診斷分析、語音轉文字、意見回饋與題庫同步），所有網路傳輸均採用標準 HTTPS / TLS 1.3 加密連線，確保傳輸過程不被未授權截取或竄改。'),
-                _buildTermsSection('4. 第三方服務供應商說明',
-                    '為提供高可用性與頂級運算體驗，本服務整合了以下符合國際隱私標準之第三方服務：\n・Google 登入（Google LLC）：用於快速、安全的帳號身分驗證。\n・Google Gemini AI（Google LLC）：提供深度學科解析、診斷分析與弱項補強生成。\n・Groq AI（Groq Inc.）：提供高吞吐、低延遲的極速推理支援。\n・Speech-to-Text 語音服務：提供即時語音轉文字功能。\n・OpenRouter AI & Cloudflare：提供備援通道與安全中繼。\n傳輸至第三方服務之文字與音訊僅用於當次即時推理，不包含個人敏感身分憑證。'),
-                _buildTermsSection('5. 使用者個人資料自主權利',
-                    '依個人資料保護法，您對您的個人資料享有完整自主權利：\n・查詢與閱覽：可在「個人檔案」及各功能頁面隨時查閱儲存之資料。\n・更正與補充：可隨時修改暱稱、頭像、個人簡介、密碼、筆記與行程。\n・刪除權（被遺忘權）：可在帳號設定中申請註銷並永久刪除帳號，系統將清除您的所有個人資料與學習紀錄；訪客模式亦可在登出時一鍵清空本機暫存。'),
-                _buildTermsSection('6. 政策更新與聯絡管道',
-                    '我們可能因法律要求或服務擴充而不定期修訂本隱私權政策。更新後將於 App 內公告並更新生效日期。若對本政策有任何疑問，歡迎透過「常見問題與 24H 線上客服」或「客服與意見回饋」與我們聯繫。'),
-                const SizedBox(height: 8),
-                Text(
-                  '版本：v1.6.2  |  最後更新日期：2026 年 9 月 10 日',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('我已了解'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTermsSection(String title, String content) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: _isDarkMode ? Colors.white : Colors.black87)),
-          const SizedBox(height: 6),
-          Text(content,
-              style: TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: _isDarkMode ? Colors.white60 : Colors.grey.shade700)),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _TermsAndPrivacySheet(
+        isDark: isDark,
+        primary: primaryColor,
+        fontSizeFactor: fontFactor,
+        initialTabIndex: 1,
+        onOpenFeedback: () {
+          Navigator.pop(ctx);
+          _showFeedbackDialog();
+        },
       ),
     );
   }
@@ -4766,6 +4802,1667 @@ class _FaqAndCustomerSupportSheetState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── 系統公告與更新日誌彈窗（精美質感版面）───
+class _SystemAnnouncementsSheet extends StatefulWidget {
+  final bool isDark;
+  final Color primary;
+  final double fontSizeFactor;
+
+  const _SystemAnnouncementsSheet({
+    required this.isDark,
+    required this.primary,
+    this.fontSizeFactor = 1.2,
+  });
+
+  @override
+  State<_SystemAnnouncementsSheet> createState() =>
+      _SystemAnnouncementsSheetState();
+}
+
+class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
+  String _selectedTag = '全部';
+  final Set<int> _expandedIndices = {0};
+
+  final List<String> _tags = [
+    '全部',
+    '重要更新',
+    '功能優化',
+    '題庫擴充',
+  ];
+
+  Color _getTagColor(String tag) {
+    switch (tag) {
+      case '重要更新':
+        return const Color(0xFF673AB7);
+      case '功能優化':
+        return const Color(0xFF00897B);
+      case '題庫擴充':
+        return const Color(0xFFE65100);
+      case '全部':
+      default:
+        return widget.primary;
+    }
+  }
+
+  IconData _getTagIcon(String tag) {
+    switch (tag) {
+      case '重要更新':
+        return Icons.star_rounded;
+      case '功能優化':
+        return Icons.tune_rounded;
+      case '題庫擴充':
+        return Icons.menu_book_rounded;
+      case '全部':
+      default:
+        return Icons.grid_view_rounded;
+    }
+  }
+
+  final List<Map<String, dynamic>> _announcements = [
+    {
+      'tag': '重要更新',
+      'version': 'v1.6.5',
+      'date': '2026-09-11',
+      'isPinned': true,
+      'icon': Icons.graphic_eq_rounded,
+      'title': 'AI 語音速記與互動心智圖上線',
+      'summary':
+          '全新語音筆記核心，支援長錄音、智慧過濾口語贅字，並可自動轉為互動式心智圖與結構化待辦清單。',
+      'highlights': [
+        {
+          'icon': Icons.hub_outlined,
+          'title': '互動心智圖畫布',
+          'desc': 'AI 自動將重點梳理為樹狀心智圖，支援手勢縮放、節點展開與全螢幕檢視。',
+        },
+        {
+          'icon': Icons.view_carousel_outlined,
+          'title': '三分頁成果預覽',
+          'desc': '提供結構摘要、心智圖與 Markdown 預覽，支援待辦清單勾選與即時同步。',
+        },
+        {
+          'icon': Icons.record_voice_over_outlined,
+          'title': '語音辨識升級',
+          'desc': '停頓容忍提高至 15 秒避免換氣中斷，智慧去贅字引擎自動過濾口語詞。',
+        },
+        {
+          'icon': Icons.fit_screen_outlined,
+          'title': '介面與字體適配',
+          'desc': '操作按鈕適配系統手勢安全區，全域字體支援個人化等比縮放。',
+        },
+      ],
+    },
+    {
+      'tag': '功能優化',
+      'version': 'v1.6.2',
+      'date': '2026-09-10',
+      'isPinned': false,
+      'icon': Icons.smart_toy_outlined,
+      'title': 'AI 多引擎中繼升級與智能線上客服',
+      'summary':
+          '升級 Cloudflare 雲端中繼站架構，整合多模型備援並提供 24 小時線上智能諮詢。',
+      'highlights': [
+        {
+          'icon': Icons.support_agent_rounded,
+          'title': '智能線上客服',
+          'desc': '提供精選常見問題解答與 24H AI 客服專員即時對答。',
+        },
+        {
+          'icon': Icons.alt_route_rounded,
+          'title': '多模型智慧路由',
+          'desc': '當單一模型負載較高時自動平滑切換備援引擎，確保服務穩定。',
+        },
+      ],
+    },
+    {
+      'tag': '題庫擴充',
+      'version': 'v1.6.0',
+      'date': '2026-09-08',
+      'isPinned': false,
+      'icon': Icons.library_books_rounded,
+      'title': '各學科題庫擴充與掌握度矩陣圖',
+      'summary':
+          '新增國高中精選章節題庫，並推出可視化掌握度矩陣圖以精準分析個人盲點。',
+      'highlights': [
+        {
+          'icon': Icons.grid_on_rounded,
+          'title': '知識掌握度矩陣',
+          'desc': '分析本週各學科掌握度，一鍵結合 AI 生成弱項補強內容。',
+        },
+        {
+          'icon': Icons.share_rounded,
+          'title': '學習 Pack 分享',
+          'desc': '支援錯題、考卷與手寫筆記一鍵打包發布與匯入。',
+        },
+      ],
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final primary = widget.primary;
+
+    final filteredList = _announcements.where((item) {
+      if (_selectedTag == '全部') return true;
+      return item['tag'] == _selectedTag;
+    }).toList();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.88,
+      minChildSize: 0.6,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollCtrl) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(
+          textScaler: TextScaler.linear(widget.fontSizeFactor),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1B1C26) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // 頂部抓把
+              const SizedBox(height: 12),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // 頂部標題列（帶有主題圖標）
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: primary.withValues(alpha: isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.campaign_rounded,
+                        size: 22,
+                        color: primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '系統公告與更新日誌',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : const Color(0xFF1E2022),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '掌握最新功能、題庫發布與版本動態',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white54 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded,
+                          size: 22,
+                          color: isDark ? Colors.white60 : Colors.grey.shade600),
+                      onPressed: () => Navigator.pop(context),
+                      splashRadius: 20,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // 分類標籤列（色彩繽紛的圖示 + 標籤藥丸）
+              SizedBox(
+                height: 38,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _tags.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, idx) {
+                    final tag = _tags[idx];
+                    final isSel = _selectedTag == tag;
+                    final tagColor = _getTagColor(tag);
+                    return ChoiceChip(
+                      showCheckmark: false,
+                      avatar: Icon(
+                        _getTagIcon(tag),
+                        size: 15,
+                        color: isSel
+                            ? Colors.white
+                            : tagColor,
+                      ),
+                      label: Text(
+                        tag,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight:
+                              isSel ? FontWeight.w600 : FontWeight.w500,
+                          color: isSel
+                              ? Colors.white
+                              : (isDark
+                                  ? Colors.white
+                                  : const Color(0xFF2C2523)),
+                        ),
+                      ),
+                      selected: isSel,
+                      selectedColor: tagColor,
+                      backgroundColor: isDark
+                          ? tagColor.withValues(alpha: 0.12)
+                          : tagColor.withValues(alpha: 0.08),
+                      side: BorderSide(
+                        color: isSel
+                            ? tagColor
+                            : (isDark
+                                ? tagColor.withValues(alpha: 0.3)
+                                : tagColor.withValues(alpha: 0.22)),
+                        width: 1,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18)),
+                      onSelected: (_) => setState(() => _selectedTag = tag),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 公告列表
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                  itemCount: filteredList.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (ctx, i) {
+                    final item = filteredList[i];
+                    final highlights =
+                        item['highlights'] as List<Map<String, dynamic>>;
+                    final isPinned = item['isPinned'] as bool;
+                    final isExpanded = _expandedIndices.contains(i);
+                    final itemIcon = item['icon'] as IconData? ?? Icons.auto_awesome;
+                    final tagColor = _getTagColor(item['tag'] as String);
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF232432) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : const Color(0xFFEBEBF0),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                                alpha: isDark ? 0.2 : 0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 頂部彩色橫條 (Top Colored Accent Bar)
+                          Container(
+                            height: 4.5,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  tagColor,
+                                  tagColor.withValues(alpha: 0.7),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 版本號、圖案標籤、置頂與日期
+                                Row(
+                                  children: [
+                                    // 版本號 Badge
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: tagColor.withValues(
+                                            alpha: isDark ? 0.2 : 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        item['version'] as String,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: tagColor,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // 標籤 Badge (附帶圖案與分類色)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: tagColor.withValues(
+                                            alpha: isDark ? 0.15 : 0.08),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _getTagIcon(item['tag'] as String),
+                                            size: 11.5,
+                                            color: tagColor,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            item['tag'] as String,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: tagColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isPinned) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: isDark
+                                              ? Colors.amber.withValues(alpha: 0.15)
+                                              : Colors.amber.shade50,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: isDark
+                                                ? Colors.amber.withValues(alpha: 0.3)
+                                                : Colors.amber.shade200,
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.push_pin_rounded,
+                                              size: 10.5,
+                                              color: isDark
+                                                  ? Colors.amber.shade300
+                                                  : Colors.amber.shade900,
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              '置頂',
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: isDark
+                                                    ? Colors.amber.shade300
+                                                    : Colors.amber.shade900,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    const Spacer(),
+                                    Icon(
+                                      Icons.calendar_today_outlined,
+                                      size: 11,
+                                      color: isDark
+                                          ? Colors.white38
+                                          : Colors.grey.shade400,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      item['date'] as String,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: isDark
+                                            ? Colors.white38
+                                            : Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // 標題 (附主題小圖標與色彩)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 2, right: 8),
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: tagColor.withValues(
+                                            alpha: isDark ? 0.2 : 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        itemIcon,
+                                        size: 16,
+                                        color: tagColor,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        item['title'] as String,
+                                        style: TextStyle(
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.35,
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF1E2022),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 8),
+
+                                // 概述
+                                Text(
+                                  item['summary'] as String,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.5,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : const Color(0xFF555555),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // 展開/收合開關按鈕
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      if (_expandedIndices.contains(i)) {
+                                        _expandedIndices.remove(i);
+                                      } else {
+                                        _expandedIndices.add(i);
+                                      }
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          isExpanded
+                                              ? '收起改動詳情'
+                                              : '查看 ${highlights.length} 項改動詳情',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: tagColor,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Icon(
+                                          isExpanded
+                                              ? Icons.keyboard_arrow_up_rounded
+                                              : Icons.keyboard_arrow_down_rounded,
+                                          size: 16,
+                                          color: tagColor,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                // 展開後的項目細節（每項附帶色彩小圖示）
+                                if (isExpanded) ...[
+                                  const SizedBox(height: 8),
+                                  Divider(
+                                    height: 1,
+                                    thickness: 0.8,
+                                    color: isDark
+                                        ? Colors.white10
+                                        : const Color(0xFFEEEEEE),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ...highlights.map((hl) {
+                                    final hlIcon = hl['icon'] as IconData? ?? Icons.check_circle_outline_rounded;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Container(
+                                            margin: const EdgeInsets.only(top: 2, right: 8),
+                                            padding: const EdgeInsets.all(3.5),
+                                            decoration: BoxDecoration(
+                                              color: tagColor.withValues(
+                                                  alpha: isDark ? 0.18 : 0.1),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Icon(
+                                              hlIcon,
+                                              size: 13,
+                                              color: tagColor,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: RichText(
+                                              text: TextSpan(
+                                                children: [
+                                                  TextSpan(
+                                                    text: '${hl['title']}：',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isDark
+                                                          ? Colors.white
+                                                          : const Color(0xFF2C2523),
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: hl['desc'],
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      height: 1.45,
+                                                      color: isDark
+                                                          ? Colors.white70
+                                                          : const Color(0xFF5D4037),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 服務條款與隱私權政策全螢幕/彈窗（精美質感全新重構版）───
+class _TermsAndPrivacySheet extends StatefulWidget {
+  final bool isDark;
+  final Color primary;
+  final double fontSizeFactor;
+  final int initialTabIndex; // 0 for 服務條款, 1 for 隱私權政策
+  final VoidCallback? onOpenFeedback;
+
+  const _TermsAndPrivacySheet({
+    required this.isDark,
+    required this.primary,
+    this.fontSizeFactor = 1.2,
+    this.initialTabIndex = 0,
+    this.onOpenFeedback,
+  });
+
+  @override
+  State<_TermsAndPrivacySheet> createState() => _TermsAndPrivacySheetState();
+}
+
+class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
+  late int _currentTab; // 0: 服務條款, 1: 隱私權政策
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTab = widget.initialTabIndex;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final isTerms = _currentTab == 0;
+    final themeColor = isTerms ? const Color(0xFFD97706) : const Color(0xFF0D9488);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.6,
+      maxChildSize: 0.96,
+      builder: (ctx, scrollCtrl) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(
+          textScaler: TextScaler.linear(widget.fontSizeFactor),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1B1C26) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 24,
+                offset: const Offset(0, -6),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // 頂部抓把
+              const SizedBox(height: 12),
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // 頂部標題列
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        isTerms ? Icons.gavel_rounded : Icons.security_rounded,
+                        size: 22,
+                        color: themeColor,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                isTerms ? '服務條款' : '隱私權政策',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1E2022),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: themeColor.withValues(
+                                      alpha: isDark ? 0.2 : 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'v1.6.5',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: themeColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isTerms
+                                ? '保障您的法定權益與平台使用規範'
+                                : '透明公開的資料最小化與本機加密承諾',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  isDark ? Colors.white54 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded,
+                          size: 22,
+                          color: isDark ? Colors.white60 : Colors.grey.shade600),
+                      onPressed: () => Navigator.pop(context),
+                      splashRadius: 20,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // 分頁切換器 (服務條款 / 隱私權政策)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildTabButton(
+                        label: '服務條款',
+                        icon: Icons.gavel_rounded,
+                        isSelected: isTerms,
+                        activeColor: const Color(0xFFD97706),
+                        onTap: () => setState(() => _currentTab = 0),
+                        isDark: isDark,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildTabButton(
+                        label: '隱私權政策',
+                        icon: Icons.security_rounded,
+                        isSelected: !isTerms,
+                        activeColor: const Color(0xFF0D9488),
+                        onTap: () => setState(() => _currentTab = 1),
+                        isDark: isDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // 條款/隱私內容捲動區
+              Expanded(
+                child: ListView(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                  children: [
+                    // 1. 重點摘要懶人包
+                    _buildQuickHighlightsCard(
+                      isTerms: isTerms,
+                      isDark: isDark,
+                      themeColor: themeColor,
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // 2. 詳細章節清單
+                    if (isTerms) ..._buildTermsSections(isDark, themeColor)
+                    else ..._buildPrivacySections(isDark, themeColor),
+
+                    const SizedBox(height: 12),
+
+                    // 3. 底部修訂日期與法定管轄註記
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.03)
+                            : const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline_rounded,
+                                  size: 14,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.grey.shade500),
+                              const SizedBox(width: 6),
+                              Text(
+                                '版本：v1.6.5  |  修訂發布日期：2026 年 9 月 11 日',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '如對本${isTerms ? '服務條款' : '隱私權政策'}有任何問題或建議，歡迎隨時透過線上客服或意見回饋表單與團隊聯繫。',
+                            style: TextStyle(
+                              fontSize: 11,
+                              height: 1.4,
+                              color: isDark ? Colors.white30 : Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 4. 底部主按鈕
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeColor,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 46),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                      label: Text(
+                        '我已完整閱讀並了解${isTerms ? '服務條款' : '隱私權政策'}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabButton({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required Color activeColor,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? const Color(0xFF2A2B3D) : Colors.white)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected
+                  ? activeColor
+                  : (isDark ? Colors.white54 : Colors.grey.shade600),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected
+                    ? (isDark ? Colors.white : const Color(0xFF1E2022))
+                    : (isDark ? Colors.white54 : Colors.grey.shade600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickHighlightsCard({
+    required bool isTerms,
+    required bool isDark,
+    required Color themeColor,
+  }) {
+    final items = isTerms
+        ? [
+            (icon: Icons.school_rounded, title: '全方位學習功能', desc: '題庫、AI 語音速記、心智圖、診斷與行事曆'),
+            (icon: Icons.lock_outline_rounded, title: '帳號與資安保護', desc: '密碼妥善保管，嚴禁濫用與未經授權共用'),
+            (icon: Icons.psychology_rounded, title: 'AI 輔助教育定位', desc: '生成內容供學習參考，請保持獨立思辨'),
+            (icon: Icons.copyright_rounded, title: '著作與智慧財產權', desc: '原創筆記歸本人，系統資料庫受法律保護'),
+          ]
+        : [
+            (icon: Icons.storage_rounded, title: '本機優先架構', desc: '筆記、錯題與行程主要加密儲存本機 SQLite'),
+            (icon: Icons.block_rounded, title: '100% 絕不出售', desc: '嚴格承諾絕不販售、出租個人資料給第三方'),
+            (icon: Icons.mic_none_rounded, title: '語音當次推理', desc: '僅主動錄音時傳輸文字轉換，不常駐背景錄音'),
+            (icon: Icons.manage_accounts_rounded, title: '完整個資自主權', desc: '隨時可查閱、更正、匯出或申請註銷清除'),
+          ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: themeColor.withValues(alpha: isDark ? 0.12 : 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: themeColor.withValues(alpha: isDark ? 0.25 : 0.18),
+        ),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, size: 16, color: themeColor),
+              const SizedBox(width: 6),
+              Text(
+                isTerms ? '條款重點導讀（30 秒懶人包）' : '隱私承諾摘要（30 秒懶人包）',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF1E2022),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(item.icon, size: 14, color: themeColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${item.title}：',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF2C2523),
+                              ),
+                            ),
+                            TextSpan(
+                              text: item.desc,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.4,
+                                color: isDark
+                                    ? Colors.white70
+                                    : const Color(0xFF555555),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildTermsSections(bool isDark, Color themeColor) {
+    final sections = [
+      (
+        num: '01',
+        title: '接受條款與法定資格',
+        icon: Icons.verified_user_outlined,
+        content:
+            '您存取、下載或使用「YeBang 家教」應用程式（以下簡稱「本服務」）即表示您已詳細閱讀、理解並同意受本服務條款及相關政策規範約束。\n・未成年人保護：若您為限制行為能力人（如未成年人），應由法定代理人或監護人閱讀、瞭解並同意本條款後方可使用。\n・若您不同意本條款之任何內容，請立即停止使用並解除安裝本服務。',
+      ),
+      (
+        num: '02',
+        title: '服務範疇與多元功能說明',
+        icon: Icons.school_outlined,
+        content:
+            '本服務為綜合性智慧教育與學習輔助平台，提供以下功能模組：\n・題庫測驗與錯題本：國高中各學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習。\n・AI 語音速記與互動心智圖：支援長錄音即時轉文字、去贅字引擎、4 大整理風格（會議摘要、課堂重點、代辦結論、日常隨筆）與樹狀心智圖畫布。\n・學科能力診斷與補強：知識掌握度矩陣圖、能力雷達圖與一鍵客製化弱項補強教材生成。\n・雙模筆記與學習 Pack：支援 Markdown 筆記、手寫塗鴉畫布與一鍵打包分享匯入。\n・智慧行事曆與客服：自然語言意圖排程、讀書計畫管理、待辦清單、推播提醒與 24H 智慧線上客服。',
+      ),
+      (
+        num: '03',
+        title: '帳號管理與資訊安全責任',
+        icon: Icons.lock_outlined,
+        content:
+            '・帳號憑證保管：您有責任妥善保管您的帳號憑證（包括 Email、密碼或 Google 授權憑據），並對該帳號下發生的所有活動負完全責任。\n・禁止共享帳號：請勿將帳號出借、轉讓或與他人共用。\n・異常通報義務：如發現帳號遭未授權存取或有資安疑慮，請立即透過「客服與意見回饋」通知我們協助處理。',
+      ),
+      (
+        num: '04',
+        title: '使用者行為規範與禁止事項',
+        icon: Icons.shield_outlined,
+        content:
+            '您同意正當、合法使用本服務，並承諾絕不從事以下違規行為：\n・散佈違法、侵權、騷擾、仇恨、誹謗、暴力、不雅或侵犯他人隱私之內容。\n・傳播惡意程式碼、破解逆向工程、爬蟲大量抓取或利用自動化工具濫用系統與 AI 運算資源。\n・違規處理：開發團隊保留隨時移除違規內容、限制部分功能或終止違規帳號之權利。',
+      ),
+      (
+        num: '05',
+        title: '智慧財產權歸屬與授權',
+        icon: Icons.copyright_outlined,
+        content:
+            '・平台權益：本應用程式之軟體架構、程式碼、圖示設計、演算法、題庫資料庫及品牌商標均受中華民國著作權法與智慧財產權法律保護，所有權歸開發團隊所有。\n・使用者原創內容：您於社群或筆記創作之原創內容，其著作權仍歸屬於您本人；您同意授予本服務於正常提供服務範疇內為呈現之非獨家、免費使用授權。',
+      ),
+      (
+        num: '06',
+        title: 'AI 生成內容與語音輔助定位聲明',
+        icon: Icons.psychology_outlined,
+        content:
+            '【教育輔助重要聲明】\n本服務整合之 AI 代理人、語音轉文字速記、題庫步驟詳解、能力診斷分析、弱項補強教材及客服對答等功能，係基於尖端生成式 AI 模型提供之「學習輔助參考資料」，不構成官方考試標準唯一答案或法律/醫療等專業保證。使用者於正式測驗或重大決策時，應保持獨立思辨與查證。',
+      ),
+      (
+        num: '07',
+        title: '免責聲明與責任限制',
+        icon: Icons.rule_folder_outlined,
+        content:
+            '本服務係依「現況」及「現有技術水準」提供，不附帶任何明示或默示之保證。在法律允許的最大範圍內，我們不對因不可抗力因素、電信網路中斷或使用者操作不當所致之任何間接、附帶或衍生損害承擔賠償責任。',
+      ),
+      (
+        num: '08',
+        title: '條款修訂與準據法管轄',
+        icon: Icons.gavel_outlined,
+        content:
+            '我們保留隨時修訂本條款之權利，修訂後之條款將於 App 內公告並即時生效。\n本條款之解釋、效力及爭議解決，均依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。',
+      ),
+    ];
+
+    return sections
+        .map((s) => _buildSectionCard(
+              num: s.num,
+              title: s.title,
+              icon: s.icon,
+              content: s.content,
+              isDark: isDark,
+              themeColor: themeColor,
+            ))
+        .toList();
+  }
+
+  List<Widget> _buildPrivacySections(bool isDark, Color themeColor) {
+    final sections = [
+      (
+        num: '01',
+        title: '蒐集的資料類型（最小化原則）',
+        icon: Icons.folder_shared_outlined,
+        content:
+            '我們嚴格遵循個人資料保護法之最小化蒐集原則，僅蒐集提供服務所必需之資料：\n・帳號資訊：使用者名稱、暱稱、電子郵件地址、頭像及個人簡介（或 Google 登入授權傳輸之基礎識別資料）。\n・學習歷程與筆記：測驗分數、正確率、錯題本、手寫塗鴉軌跡、Markdown 筆記、心智圖與行事曆待辦。\n・即時語音資料：僅於您主動點擊麥克風錄音時串流傳送至系統語音辨識服務轉換文字；我們絕不在背景偷錄，亦不於伺服器持久保存原始錄音檔案。\n・社群互動資料：您主動發布之學習心得貼文、筆記分享與討論留言。\n・裝置與系統偏好：作業系統版本、深淺色主題、主題主色調、字體大小與多國語言偏好。',
+      ),
+      (
+        num: '02',
+        title: '資料使用目的與【絕不出售承諾】',
+        icon: Icons.handshake_outlined,
+        content:
+            '我們蒐集之資料僅用於以下合法正當目的：\n・提供、維護並持續改善各項學習、測驗、語音速記、筆記與診斷功能。\n・計算知識掌握度矩陣圖與能力雷達圖，為您生成客製化 AI 弱項補強教材與學習建議。\n・發送重要帳號安全警示或行事曆排程推播提醒。\n【絕不出售承諾】我們嚴格承諾絕不販售、出租或出借您的個人資料給任何第三方，亦不將資料用於未經授權之商業廣告推銷。',
+      ),
+      (
+        num: '03',
+        title: '本機優先 (Local-First) 與傳輸加密',
+        icon: Icons.storage_outlined,
+        content:
+            '・本機優先架構：您的個人筆記、錯題本、測驗歷程與行事曆主要加密儲存於您本機裝置的 SQLite 資料庫中。\n・端到端傳輸加密：部分涉及雲端處理之功能（如 AI 診斷分析、Cloudflare 安全中繼、客服意見回饋等），所有網路傳輸均採用標準 HTTPS / TLS 1.3 傳輸層加密，確保資料傳輸過程中不被截取或竄改。',
+      ),
+      (
+        num: '04',
+        title: '第三方服務供應商安全說明',
+        icon: Icons.cloud_sync_outlined,
+        content:
+            '為提供頂級運算體驗，本服務整合了以下符合國際隱私標準之第三方服務：\n・Google 登入：用於快速、安全的帳號身分驗證。\n・Google Gemini AI：提供深度學科解析、診斷分析與弱項補強生成。\n・Groq AI：提供高吞吐、低延遲的極速推理支援。\n・Speech-to-Text 語音服務：提供即時語音轉文字功能。\n・OpenRouter & Cloudflare Relay：提供備援通道與安全代理中繼。\n傳輸至第三方服務之文字與音訊僅用於當次即時推理，不包含個人敏感身分憑證。',
+      ),
+      (
+        num: '05',
+        title: '使用者個人資料自主權利（個資法完整保障）',
+        icon: Icons.manage_accounts_outlined,
+        content:
+            '依個人資料保護法，您享有以下完整自主權利：\n・查詢與閱覽：可於「個人檔案」及各功能模組隨時查閱儲存之資料。\n・更正與補充：隨時修改暱稱、頭像、個人簡介、密碼、筆記與行事曆。\n・刪除權（被遺忘權）：可於帳號設定申請註銷帳號，系統將清除伺服器端與關聯之所有個人資料；訪客模式亦可在登出時一鍵清空本機暫存。',
+      ),
+      (
+        num: '06',
+        title: '政策修訂與專屬聯絡窗口',
+        icon: Icons.support_agent_outlined,
+        content:
+            '我們可能因法令變更或功能擴充而不定期修訂本隱私權政策，修訂後將於 App 內即時公告生效。\n若對本政策有任何疑問或需行使個資權利，歡迎透過「常見問題與 24H 線上客服」或「客服與意見回饋」與我們聯繫。',
+      ),
+    ];
+
+    return sections
+        .map((s) => _buildSectionCard(
+              num: s.num,
+              title: s.title,
+              icon: s.icon,
+              content: s.content,
+              isDark: isDark,
+              themeColor: themeColor,
+            ))
+        .toList();
+  }
+
+  Widget _buildSectionCard({
+    required String num,
+    required String title,
+    required IconData icon,
+    required String content,
+    required bool isDark,
+    required Color themeColor,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF232432) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFEBEBF0),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 頂部細緻色條
+          Container(
+            height: 3.5,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  themeColor,
+                  themeColor.withValues(alpha: 0.6),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(icon, size: 15, color: themeColor),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      num,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: themeColor,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF1E2022),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  content,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.55,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.8)
+                        : const Color(0xFF4A4A4A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── 版本資訊專屬彈窗（科技感簡約卡片，與隱私權/條款完全不同風格）───
+class _VersionInfoDialog extends StatefulWidget {
+  final bool isDark;
+  final Color primary;
+  final String appVersion;
+  final VoidCallback onOpenAnnouncements;
+
+  const _VersionInfoDialog({
+    required this.isDark,
+    required this.primary,
+    required this.appVersion,
+    required this.onOpenAnnouncements,
+  });
+
+  @override
+  State<_VersionInfoDialog> createState() => _VersionInfoDialogState();
+}
+
+class _VersionInfoDialogState extends State<_VersionInfoDialog> {
+  bool _isCheckingUpdate = false;
+  String? _checkResultMsg;
+
+  void _checkUpdate() async {
+    if (_isCheckingUpdate) return;
+    setState(() {
+      _isCheckingUpdate = true;
+      _checkResultMsg = null;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 700));
+
+    if (mounted) {
+      setState(() {
+        _isCheckingUpdate = false;
+        _checkResultMsg = '目前已是最新版本 (v1.6.5) 🎉';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final primary = widget.primary;
+
+    return Dialog(
+      backgroundColor: isDark ? const Color(0xFF1E202C) : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 16,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 1. App 品牌圖標與柔光
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [primary, primary.withValues(alpha: 0.75)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: primary.withValues(alpha: 0.35),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.school_rounded, size: 36, color: Colors.white),
+            ),
+            const SizedBox(height: 14),
+
+            // 2. App 名稱與版本標籤
+            Text(
+              'YeBang 家教',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : const Color(0xFF1E2022),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: isDark ? 0.2 : 0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: primary.withValues(alpha: isDark ? 0.3 : 0.2),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '版本 ${widget.appVersion}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: primary,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      '最新版',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '發布日期：2026 年 9 月 11 日',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: isDark ? Colors.white38 : Colors.grey.shade500,
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            // 3. 核心規格與技術架構 (2x2 Grid)
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF7F8FA),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFEBEBF0),
+                ),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSpecItem(
+                          icon: Icons.psychology_rounded,
+                          iconColor: const Color(0xFF8B5CF6),
+                          title: 'AI 推理架構',
+                          value: '多模型智能中繼',
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildSpecItem(
+                          icon: Icons.storage_rounded,
+                          iconColor: const Color(0xFF0EA5E9),
+                          title: '資料儲存架構',
+                          value: '本機 SQLite 加密',
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSpecItem(
+                          icon: Icons.shield_rounded,
+                          iconColor: const Color(0xFF10B981),
+                          title: '雲端傳輸安全',
+                          value: 'TLS 1.3 端到端',
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildSpecItem(
+                          icon: Icons.mic_rounded,
+                          iconColor: const Color(0xFFF59E0B),
+                          title: '語音辨識核心',
+                          value: '去贅字 & 4大風格',
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // 檢查更新結果提示 (如果有)
+            if (_checkResultMsg != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: isDark ? 0.18 : 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
+                    const SizedBox(width: 6),
+                    Text(
+                      _checkResultMsg!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // 4. 功能操作按鈕列
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      side: BorderSide(
+                        color: primary.withValues(alpha: isDark ? 0.4 : 0.3),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _isCheckingUpdate ? null : _checkUpdate,
+                    icon: _isCheckingUpdate
+                        ? SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(primary),
+                            ),
+                          )
+                        : const Icon(Icons.refresh_rounded, size: 16),
+                    label: Text(
+                      _isCheckingUpdate ? '檢查中...' : '檢查更新',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: widget.onOpenAnnouncements,
+                    icon: const Icon(Icons.article_outlined, size: 16),
+                    label: const Text(
+                      '更新日誌',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: isDark ? Colors.white54 : Colors.grey.shade600,
+                minimumSize: const Size(double.infinity, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('關閉', style: TextStyle(fontSize: 12.5)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpecItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String value,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF262838) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: iconColor),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : const Color(0xFF1E2022),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

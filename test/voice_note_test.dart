@@ -16,10 +16,10 @@ void main() {
     });
 
     test('Style labels match expected descriptions', () {
-      expect(VoiceNoteStyle.studyOutline.label, '學習重點大綱');
-      expect(VoiceNoteStyle.examReview.label, '考試複習考點');
-      expect(VoiceNoteStyle.meetingMinutes.label, '會議課堂紀錄');
-      expect(VoiceNoteStyle.ideaOrganize.label, '靈感整理');
+      expect(VoiceNoteStyle.meetingSummary.label, '會議摘要');
+      expect(VoiceNoteStyle.classKeyPoints.label, '課堂重點');
+      expect(VoiceNoteStyle.actionConclusion.label, '代辦結論');
+      expect(VoiceNoteStyle.dailyJournal.label, '日常隨筆');
     });
   });
 
@@ -52,7 +52,7 @@ void main() {
     test('Empty transcript returns empty VoiceNoteResult', () async {
       final result = await VoiceNoteService.instance.organizeTranscript(
         transcript: '   ',
-        style: VoiceNoteStyle.studyOutline,
+        style: VoiceNoteStyle.classKeyPoints,
       );
 
       expect(result.title, '空白語音筆記');

@@ -137,20 +137,7 @@ class TutorialVideoPlayer extends StatefulWidget {
               ),
               const SizedBox(height: 16),
 
-              // 選項 1：題庫測驗教學
-              _buildChooserTile(
-                context: context,
-                icon: Icons.quiz_rounded,
-                title: '📝 題庫測驗與錯題診斷教學',
-                desc: '示範題目作答、交卷與錯題弱點分析完整流程',
-                assetPath: 'assets/learning_pack_tutorial.mp4',
-                videoTitle: '題庫測驗與錯題複習操作示範',
-                badgeLabel: '題庫測驗教學',
-                onClose: () => Navigator.of(ctx).pop(),
-              ),
-              const SizedBox(height: 10),
-
-              // 選項 2：學習 Pack 教學
+              // 學習 Pack 教學
               _buildChooserTile(
                 context: context,
                 icon: Icons.inventory_2_rounded,

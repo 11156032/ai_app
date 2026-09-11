@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/voice_recognition_service.dart';
 import '../services/voice_note_service.dart';
+import 'mindmap_node.dart';
+import 'mindmap_canvas.dart';
 
 // ============================================================
 // 語音速記整理面板 (VoiceNoteSheet)
-// 支援即時聲波視覺化、即時逐字稿反饋、暫停/繼續、四大 AI 風格整理與直接儲存
+// 支援即時聲波視覺化、即時逐字稿反饋、暫停/繼續、四大 AI 風格整理、心智圖與富文本 Markdown 預覽
 // ============================================================
 class VoiceNoteSheet extends StatefulWidget {
   /// 整理完成後回調：傳回標題、分類、Markdown 內容
@@ -35,7 +39,7 @@ class VoiceNoteSheet extends StatefulWidget {
 enum _SheetStep {
   recording,    // 錄音中 / 暫停 / 逐字稿預覽與風格選擇
   generating,   // AI 智慧整理中
-  preview,      // 整理成果預覽與編輯
+  preview,      // 整理成果預覽與編輯 (三分頁：摘要 / 心智圖 / Markdown)
 }
 
 class _VoiceNoteSheetState extends State<VoiceNoteSheet>
@@ -56,7 +60,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   final ScrollController _transcriptScrollController = ScrollController();
 
   // 風格選擇
-  VoiceNoteStyle _selectedStyle = VoiceNoteStyle.studyOutline;
+  VoiceNoteStyle _selectedStyle = VoiceNoteStyle.classKeyPoints;
 
   // AI 整理結果
   VoiceNoteResult? _result;
@@ -66,6 +70,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   late TextEditingController _titleEditController;
   late TextEditingController _contentEditController;
   String _editableCategory = '學習';
+
+  // 預覽三分頁控制器與狀態
+  TabController? _previewTabController;
+  int _previewTabIndex = 0;
+  bool _isMarkdownEditing = false;
+  List<ActionItem> _editableActionItems = [];
+  MindMapNode? _mindmapRootNode;
 
   // 動畫控制器
   late AnimationController _waveController;
@@ -78,6 +89,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     _transcriptController = TextEditingController();
     _titleEditController = TextEditingController();
     _contentEditController = TextEditingController();
+
+    _previewTabController = TabController(length: 3, vsync: this);
+    _previewTabController?.addListener(() {
+      if (mounted && _previewTabController != null) {
+        setState(() => _previewTabIndex = _previewTabController!.index);
+      }
+    });
 
     _waveController = AnimationController(
       vsync: this,
@@ -107,6 +125,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     _waveController.dispose();
     _pulseController.dispose();
     _starController.dispose();
+    _previewTabController?.dispose();
     _transcriptController.dispose();
     _transcriptScrollController.dispose();
     _titleEditController.dispose();
@@ -308,10 +327,35 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       if (!mounted) return;
       _titleEditController.text = result.title;
       _contentEditController.text = result.markdownContent;
+
+      // 複製 action items 為可編輯副本
+      _editableActionItems = result.actionItems
+              ?.map((a) => ActionItem(
+                    task: a.task,
+                    owner: a.owner,
+                    dueDate: a.dueDate,
+                    isCompleted: a.isCompleted,
+                  ))
+              .toList() ??
+          [];
+
+      // 建構心智圖模型 (從 AI JSON 或從重點與摘要 fallback)
+      if (result.mindmapJson != null) {
+        try {
+          _mindmapRootNode = MindMapNode.fromJson(result.mindmapJson!);
+        } catch (e) {
+          debugPrint('MindMapNode parse error: $e');
+          _mindmapRootNode = _buildFallbackMindMap(result);
+        }
+      } else {
+        _mindmapRootNode = _buildFallbackMindMap(result);
+      }
+
       setState(() {
         _result = result;
         _editableCategory = result.category;
         _step = _SheetStep.preview;
+        _isMarkdownEditing = false;
         _starController.stop();
         _starController.reset();
       });
@@ -325,6 +369,66 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         _starController.reset();
       });
     }
+  }
+
+  /// 建立備份心智圖樹狀結構
+  MindMapNode _buildFallbackMindMap(VoiceNoteResult result) {
+    final colors = [
+      const Color(0xFF673AB7),
+      const Color(0xFF3F51B5),
+      const Color(0xFF2196F3),
+      const Color(0xFF009688),
+      const Color(0xFFFF9800),
+      const Color(0xFFE91E63),
+    ];
+
+    if (result.keyPoints != null && result.keyPoints!.isNotEmpty) {
+      return MindMapNode(
+        id: 'root',
+        label: result.title.isNotEmpty ? result.title : '主題筆記',
+        color: const Color(0xFF4A148C),
+        children: result.keyPoints!.asMap().entries.map((entry) {
+          return MindMapNode(
+            id: 'node_${entry.key}',
+            label: entry.value,
+            color: colors[entry.key % colors.length],
+          );
+        }).toList(),
+      );
+    } else {
+      return MindMapNode(
+        id: 'root',
+        label: result.title.isNotEmpty ? result.title : '主題筆記',
+        color: const Color(0xFF4A148C),
+        children: [
+          MindMapNode(
+            id: 'node_summary',
+            label: result.summary ?? '核心內容重點',
+            color: const Color(0xFF3F51B5),
+          ),
+        ],
+      );
+    }
+  }
+
+  /// 當勾選/取消待辦事項時，同步更新 Markdown 內容
+  void _syncActionItemsToMarkdown() {
+    if (_editableActionItems.isEmpty) return;
+    String content = _contentEditController.text;
+    for (final item in _editableActionItems) {
+      final checkedBox = '- [x] ${item.task}';
+      final uncheckedBox = '- [ ] ${item.task}';
+      if (item.isCompleted) {
+        if (content.contains(uncheckedBox)) {
+          content = content.replaceAll(uncheckedBox, checkedBox);
+        }
+      } else {
+        if (content.contains(checkedBox)) {
+          content = content.replaceAll(checkedBox, uncheckedBox);
+        }
+      }
+    }
+    _contentEditController.text = content;
   }
 
   // ============================================================
@@ -360,6 +464,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   // 完成預覽 - 提交筆記
   // ============================================================
   void _applyNote() {
+    _syncActionItemsToMarkdown();
     final title = _titleEditController.text.trim().isEmpty
         ? _result?.title ?? '語音速記筆記'
         : _titleEditController.text.trim();
@@ -377,45 +482,53 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   // ============================================================
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 頂部拖曳把手
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            width: 44,
-            height: 4.5,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final safeBottom = math.max(bottomInset, bottomPadding) + 20.0;
 
-          // 頂部標題列
-          _buildHeader(),
-
-          const Divider(height: 1),
-
-          // 主滾動區域
-          Flexible(
-            child: SingleChildScrollView(
-              controller: widget.scrollController,
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 8,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+    return SafeArea(
+      top: false,
+      bottom: true,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 頂部拖曳把手
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 44,
+              height: 4.5,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(3),
               ),
-              child: _buildStepContent(),
             ),
-          ),
-        ],
+
+            // 頂部標題列
+            _buildHeader(),
+
+            const Divider(height: 1),
+
+            // 主滾動區域
+            Flexible(
+              child: SingleChildScrollView(
+                controller: widget.scrollController,
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 8,
+                  bottom: safeBottom,
+                ),
+                child: _buildStepContent(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -555,7 +668,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
 
               const SizedBox(height: 16),
 
-              // 控制按鈕群組 (暫停 / 繼續 / 停止 / 清除 / 智慧去贅字)
+              // 控制按鈕群組 (暫停 / 繼續 / 停止 / 清除)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -777,13 +890,19 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         // ============================================================
         // 風格選擇卡片區
         // ============================================================
-        const Text(
-          '✨ 選擇 AI 整理風格',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF3E2723),
-          ),
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome_rounded, size: 15, color: Color(0xFF4A148C)),
+            const SizedBox(width: 6),
+            const Text(
+              '選擇 AI 整理風格',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3E2723),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
 
@@ -814,12 +933,12 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(style.emoji, style: const TextStyle(fontSize: 16)),
+                    Text(style.emoji, style: const TextStyle(fontSize: 15)),
                     const SizedBox(width: 6),
                     Text(
                       style.label,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12.5,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                         color: isSelected ? const Color(0xFF4A148C) : const Color(0xFF5D4037),
                       ),
@@ -831,10 +950,34 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           }).toList(),
         ),
 
-        const SizedBox(height: 6),
-        Text(
-          _selectedStyle.description,
-          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF4A148C).withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: const Color(0xFF4A148C).withValues(alpha: 0.1),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF7B1FA2)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _selectedStyle.description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: Color(0xFF5D4037),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
 
         if (_aiErrorMsg != null) ...[
@@ -1026,7 +1169,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   }
 
   // ============================================================
-  // STEP 3: 整理成果預覽與編輯
+  // STEP 3: 整理成果預覽 - 三分頁設計
   // ============================================================
   Widget _buildPreviewStep() {
     if (_result == null) return const SizedBox();
@@ -1037,7 +1180,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       children: [
         const SizedBox(height: 12),
 
-        // AI 生成標籤
+        // AI 生成標籤列
         Row(
           children: [
             Container(
@@ -1059,14 +1202,18 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   Icon(
                     _result!.isAiGenerated ? Icons.auto_awesome : Icons.offline_bolt,
                     size: 13,
-                    color: _result!.isAiGenerated ? const Color(0xFF4A148C) : Colors.orange.shade800,
+                    color: _result!.isAiGenerated
+                        ? const Color(0xFF4A148C)
+                        : Colors.orange.shade800,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     _result!.isAiGenerated ? 'AI 智慧整理完成' : '離線版型整理',
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: _result!.isAiGenerated ? const Color(0xFF4A148C) : Colors.orange.shade800,
+                      color: _result!.isAiGenerated
+                          ? const Color(0xFF4A148C)
+                          : Colors.orange.shade800,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1075,24 +1222,15 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             ),
             const Spacer(),
             Text(
-              '風格：${_selectedStyle.label}',
+              '${_selectedStyle.emoji} ${_selectedStyle.label}',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         // 筆記標題編輯
-        const Text(
-          '筆記標題',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 6),
         TextField(
           controller: _titleEditController,
           style: const TextStyle(
@@ -1113,18 +1251,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           ),
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
 
         // 分類選擇
-        const Text(
-          '筆記分類',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 6),
         Wrap(
           spacing: 8,
           children: categories.map((cat) {
@@ -1137,7 +1266,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               labelStyle: TextStyle(
                 color: isSelected ? const Color(0xFF4A148C) : Colors.black54,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 13,
+                fontSize: 12.5,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -1152,86 +1281,113 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           }).toList(),
         ),
 
-        const SizedBox(height: 14),
-
-        // 標籤顯示
         if (_result!.tags.isNotEmpty) ...[
-          const Text(
-            '關鍵標籤',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 6,
             runSpacing: 4,
             children: _result!.tags.map((tag) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0xFF8D6E63).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '#$tag',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF5D4037),
-                  ),
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF5D4037)),
                 ),
               );
             }).toList(),
           ),
-          const SizedBox(height: 14),
         ],
 
-        // 筆記內容編輯
-        const Text(
-          '筆記內容 (Markdown 格式)',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 14),
+
+        // ============================================================
+        // 三分頁切換器 (結構化摘要 | 心智圖 | Markdown)
+        // ============================================================
         Container(
           decoration: BoxDecoration(
+            color: const Color(0xFFF5F2EF),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE5DCD3)),
-            color: const Color(0xFFFBF9F7),
           ),
-          child: TextField(
-            controller: _contentEditController,
-            maxLines: null,
-            minLines: 6,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.6,
-              color: Colors.black87,
-              fontFamily: 'monospace',
+          padding: const EdgeInsets.all(3),
+          child: TabBar(
+            controller: _previewTabController,
+            indicator: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
-            decoration: const InputDecoration(
-              hintText: '（AI 整理後的筆記內容）',
-              contentPadding: EdgeInsets.all(12),
-              border: InputBorder.none,
-            ),
+            labelColor: const Color(0xFF4A148C),
+            unselectedLabelColor: Colors.grey.shade600,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
+            dividerColor: Colors.transparent,
+            tabs: const [
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.view_agenda_outlined, size: 15),
+                    SizedBox(width: 4),
+                    Text('結構摘要'),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.hub_outlined, size: 15),
+                    SizedBox(width: 4),
+                    Text('心智圖'),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.edit_note_rounded, size: 16),
+                    SizedBox(width: 4),
+                    Text('Markdown'),
+                  ],
+                ),
+              ),
+            ],
           ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // 分頁內容
+        IndexedStack(
+          index: _previewTabIndex,
+          children: [
+            _buildSummaryTab(),
+            _buildMindmapTab(),
+            _buildMarkdownTab(),
+          ],
         ),
 
         const SizedBox(height: 18),
 
-        // 操作按鈕列
+        // 底部操作按鈕列
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => setState(() => _step = _SheetStep.recording),
                 icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('重新錄音/風格'),
+                label: const Text('重錄/換風格'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF5D4037),
                   side: const BorderSide(color: Color(0xFF8D6E63)),
@@ -1265,6 +1421,470 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // TAB 1: 結構化摘要
+  // ============================================================
+  Widget _buildSummaryTab() {
+    final hasSummary = _result?.summary != null && _result!.summary!.trim().isNotEmpty;
+    final hasKeyPoints = _result?.keyPoints != null && _result!.keyPoints!.isNotEmpty;
+    final hasActionItems = _editableActionItems.isNotEmpty;
+
+    if (!hasSummary && !hasKeyPoints && !hasActionItems) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFDFBF9),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5DCD3)),
+        ),
+        child: MarkdownBody(
+          data: _contentEditController.text,
+          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+            p: const TextStyle(fontSize: 13.5, height: 1.6, color: Color(0xFF2C2523)),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 核心摘要 Callout 卡片
+        if (hasSummary) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3E5F5).withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(14),
+              border: const Border(
+                left: BorderSide(color: Color(0xFF673AB7), width: 4),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline_rounded, size: 16, color: Color(0xFF673AB7)),
+                    SizedBox(width: 6),
+                    Text(
+                      '核心情境摘要',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4A148C),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _result!.summary!,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    height: 1.55,
+                    color: Color(0xFF2C2523),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+
+        // 核心重點條列
+        if (hasKeyPoints) ...[
+          Row(
+            children: [
+              const Icon(Icons.format_list_bulleted_rounded, size: 16, color: Color(0xFF5D4037)),
+              const SizedBox(width: 6),
+              Text(
+                '重點提煉 (${_result!.keyPoints!.length})',
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3E2723),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ..._result!.keyPoints!.asMap().entries.map((entry) {
+            final idx = entry.key + 1;
+            final point = entry.value;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAF7F5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFEFE8E1)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A148C).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$idx',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4A148C),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      point,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: Color(0xFF2C2523),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 14),
+        ],
+
+        // 待辦行動清單
+        if (hasActionItems) ...[
+          Row(
+            children: [
+              const Icon(Icons.checklist_rounded, size: 16, color: Color(0xFF2E7D32)),
+              const SizedBox(width: 6),
+              Text(
+                '待辦行動 (${_editableActionItems.where((a) => a.isCompleted).length}/${_editableActionItems.length})',
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3E2723),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ..._editableActionItems.asMap().entries.map((entry) {
+            final item = entry.value;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: item.isCompleted ? const Color(0xFFF1F8E9) : const Color(0xFFFDFDFD),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: item.isCompleted ? Colors.green.shade200 : const Color(0xFFE5DCD3),
+                ),
+              ),
+              child: CheckboxListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                dense: true,
+                value: item.isCompleted,
+                activeColor: const Color(0xFF2E7D32),
+                title: Text(
+                  item.task,
+                  style: TextStyle(
+                    fontSize: 13,
+                    decoration: item.isCompleted ? TextDecoration.lineThrough : null,
+                    color: item.isCompleted ? Colors.grey.shade600 : const Color(0xFF2C2523),
+                    fontWeight: item.isCompleted ? FontWeight.normal : FontWeight.w500,
+                  ),
+                ),
+                subtitle: (item.owner != '未指定' || item.dueDate != '無')
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            if (item.owner != '未指定')
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '👤 ${item.owner}',
+                                  style: TextStyle(fontSize: 10.5, color: Colors.blue.shade800),
+                                ),
+                              ),
+                            if (item.dueDate != '無')
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '⏰ ${item.dueDate}',
+                                  style: TextStyle(fontSize: 10.5, color: Colors.orange.shade800),
+                                ),
+                              ),
+                          ],
+                        ),
+                      )
+                    : null,
+                onChanged: (val) {
+                  setState(() {
+                    item.isCompleted = val ?? false;
+                  });
+                },
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  // ============================================================
+  // TAB 2: 心智圖畫布
+  // ============================================================
+  Widget _buildMindmapTab() {
+    if (_mindmapRootNode == null) {
+      return Container(
+        height: 260,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9F7F5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5DCD3)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.hub_outlined, size: 40, color: Colors.grey.shade400),
+            const SizedBox(height: 8),
+            Text(
+              '尚未生成心智圖',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // 工具列（全螢幕展開按鈕與說明）
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.touch_app_rounded, size: 14, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  '支援雙指縮放與拖曳移動',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+            TextButton.icon(
+              onPressed: _openFullscreenMindmap,
+              icon: const Icon(Icons.fullscreen_rounded, size: 16),
+              label: const Text('全螢幕畫布', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF4A148C),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+
+        // 心智圖畫布容器
+        Container(
+          height: 320,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9F7F5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5DCD3)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InteractiveMindMapView(
+            root: _mindmapRootNode!,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 打開全螢幕心智圖檢視 Dialog
+  void _openFullscreenMindmap() {
+    if (_mindmapRootNode == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(_titleEditController.text.isNotEmpty
+                ? _titleEditController.text
+                : '心智圖全螢幕檢視'),
+            backgroundColor: const Color(0xFF4A148C),
+            foregroundColor: Colors.white,
+            leading: IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
+          body: Container(
+            color: const Color(0xFFF9F7F5),
+            child: InteractiveMindMapView(
+              root: _mindmapRootNode!,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // TAB 3: Markdown 富文本預覽與編輯
+  // ============================================================
+  Widget _buildMarkdownTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 頂部切換與工具列
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  label: Text('富文本預覽', style: TextStyle(fontSize: 11.5)),
+                  icon: Icon(Icons.visibility_outlined, size: 14),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text('編輯原始碼', style: TextStyle(fontSize: 11.5)),
+                  icon: Icon(Icons.edit_outlined, size: 14),
+                ),
+              ],
+              selected: {_isMarkdownEditing},
+              onSelectionChanged: (set) {
+                setState(() => _isMarkdownEditing = set.first);
+              },
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                padding: WidgetStateProperty.all(
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              tooltip: '複製 Markdown 內容',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: _contentEditController.text));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已複製 Markdown 內容至剪貼簿 📋')),
+                );
+              },
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // 內容區域
+        _isMarkdownEditing
+            ? Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5DCD3)),
+                  color: const Color(0xFFFBF9F7),
+                ),
+                child: TextField(
+                  controller: _contentEditController,
+                  maxLines: null,
+                  minLines: 8,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.6,
+                    color: Colors.black87,
+                    fontFamily: 'monospace',
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: '（AI 整理後的筆記內容）',
+                    contentPadding: EdgeInsets.all(12),
+                    border: InputBorder.none,
+                  ),
+                ),
+              )
+            : Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5DCD3)),
+                  color: const Color(0xFFFBF9F7),
+                ),
+                child: MarkdownBody(
+                  data: _contentEditController.text,
+                  selectable: true,
+                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                    h1: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3E2723),
+                      height: 1.5,
+                    ),
+                    h2: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4A148C),
+                      height: 1.5,
+                    ),
+                    h3: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF5D4037),
+                    ),
+                    p: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.6,
+                      color: Color(0xFF2C2523),
+                    ),
+                    listBullet: const TextStyle(color: Color(0xFF4A148C)),
+                    blockquoteDecoration: BoxDecoration(
+                      color: const Color(0xFFF3E5F5).withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: const Border(
+                        left: BorderSide(color: Color(0xFF673AB7), width: 3.5),
+                      ),
+                    ),
+                    codeblockDecoration: BoxDecoration(
+                      color: const Color(0xFF2E2A27),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    code: const TextStyle(
+                      backgroundColor: Color(0xFFEDE7F6),
+                      color: Color(0xFF4A148C),
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+              ),
       ],
     );
   }

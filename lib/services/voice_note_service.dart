@@ -10,75 +10,115 @@ import 'app_locale_service.dart';
 // 1. 整理風格列舉
 // ============================================================
 enum VoiceNoteStyle {
-  studyOutline,    // 📌 學習重點大綱
-  examReview,      // 🎯 考試複習考點
-  meetingMinutes,  // 📋 會議/課堂紀錄
-  ideaOrganize,    // 💡 靈感整理
+  meetingSummary,   // 會議摘要
+  classKeyPoints,   // 課堂重點
+  actionConclusion, // 代辦結論
+  dailyJournal,     // 日常隨筆
 }
 
 extension VoiceNoteStyleExtension on VoiceNoteStyle {
   String get label {
     switch (this) {
-      case VoiceNoteStyle.studyOutline:
-        return '學習重點大綱';
-      case VoiceNoteStyle.examReview:
-        return '考試複習考點';
-      case VoiceNoteStyle.meetingMinutes:
-        return '會議課堂紀錄';
-      case VoiceNoteStyle.ideaOrganize:
-        return '靈感整理';
+      case VoiceNoteStyle.meetingSummary:
+        return '會議摘要';
+      case VoiceNoteStyle.classKeyPoints:
+        return '課堂重點';
+      case VoiceNoteStyle.actionConclusion:
+        return '代辦結論';
+      case VoiceNoteStyle.dailyJournal:
+        return '日常隨筆';
     }
   }
 
   String get emoji {
     switch (this) {
-      case VoiceNoteStyle.studyOutline:
-        return '📌';
-      case VoiceNoteStyle.examReview:
-        return '🎯';
-      case VoiceNoteStyle.meetingMinutes:
+      case VoiceNoteStyle.meetingSummary:
         return '📋';
-      case VoiceNoteStyle.ideaOrganize:
-        return '💡';
+      case VoiceNoteStyle.classKeyPoints:
+        return '🎓';
+      case VoiceNoteStyle.actionConclusion:
+        return '✅';
+      case VoiceNoteStyle.dailyJournal:
+        return '📝';
     }
   }
 
   String get description {
     switch (this) {
-      case VoiceNoteStyle.studyOutline:
-        return '提煉核心主題、層級清晰的條列重點與觀念摘要';
-      case VoiceNoteStyle.examReview:
-        return '整理關鍵定義、核心考點標籤與易混淆辨析';
-      case VoiceNoteStyle.meetingMinutes:
-        return '記錄議題、結論與待辦 TODO 行動清單';
-      case VoiceNoteStyle.ideaOrganize:
-        return '聚類相關概念、延伸脈絡、靈感激發';
+      case VoiceNoteStyle.meetingSummary:
+        return '提煉會議核心議題、討論重點與關鍵共識，條理清晰';
+      case VoiceNoteStyle.classKeyPoints:
+        return '提煉課堂核心觀念脈絡、章節重點與觀念解析';
+      case VoiceNoteStyle.actionConclusion:
+        return '整理重要結論、待確認項目與明確的行動代辦清單';
+      case VoiceNoteStyle.dailyJournal:
+        return '記錄日常隨想、生活心得與概念脈絡延伸';
     }
   }
 
   String get suggestedCategory {
     switch (this) {
-      case VoiceNoteStyle.studyOutline:
-      case VoiceNoteStyle.examReview:
+      case VoiceNoteStyle.classKeyPoints:
         return '學習';
-      case VoiceNoteStyle.meetingMinutes:
+      case VoiceNoteStyle.meetingSummary:
+      case VoiceNoteStyle.actionConclusion:
         return '工作';
-      case VoiceNoteStyle.ideaOrganize:
+      case VoiceNoteStyle.dailyJournal:
         return '生活';
     }
   }
 }
 
 // ============================================================
-// 2. 整理結果資料類別
+// 2. 待辦事項資料類別
+// ============================================================
+class ActionItem {
+  final String task;
+  final String owner;    // 負責人（無則 "未指定"）
+  final String dueDate;  // 期限（無則 "無"）
+  bool isCompleted;
+
+  ActionItem({
+    required this.task,
+    this.owner = '未指定',
+    this.dueDate = '無',
+    this.isCompleted = false,
+  });
+
+  factory ActionItem.fromJson(Map<String, dynamic> json) {
+    return ActionItem(
+      task: json['task'] as String? ?? '',
+      owner: json['owner'] as String? ?? '未指定',
+      dueDate: json['due_date'] as String? ?? '無',
+      isCompleted: json['is_completed'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'task': task,
+    'owner': owner,
+    'due_date': dueDate,
+    'is_completed': isCompleted,
+  };
+}
+
+// ============================================================
+// 3. 整理結果資料類別（向前相容升級）
 // ============================================================
 class VoiceNoteResult {
+  // 原有欄位（保持不變）
   final String title;
   final String category;
   final String markdownContent;
   final List<String> tags;
   final String rawTranscript;
   final bool isAiGenerated;
+
+  // 新增欄位（nullable，向前相容）
+  final String? summary;                   // 核心摘要 1~2 句
+  final List<String>? keyPoints;           // 條列重點
+  final List<ActionItem>? actionItems;     // 待辦清單（含負責人/期限）
+  final Map<String, dynamic>? mindmapJson; // 心智圖樹狀 JSON
 
   const VoiceNoteResult({
     required this.title,
@@ -87,6 +127,10 @@ class VoiceNoteResult {
     required this.tags,
     required this.rawTranscript,
     required this.isAiGenerated,
+    this.summary,
+    this.keyPoints,
+    this.actionItems,
+    this.mindmapJson,
   });
 
   VoiceNoteResult copyWith({
@@ -96,6 +140,10 @@ class VoiceNoteResult {
     List<String>? tags,
     String? rawTranscript,
     bool? isAiGenerated,
+    String? summary,
+    List<String>? keyPoints,
+    List<ActionItem>? actionItems,
+    Map<String, dynamic>? mindmapJson,
   }) {
     return VoiceNoteResult(
       title: title ?? this.title,
@@ -104,6 +152,10 @@ class VoiceNoteResult {
       tags: tags ?? this.tags,
       rawTranscript: rawTranscript ?? this.rawTranscript,
       isAiGenerated: isAiGenerated ?? this.isAiGenerated,
+      summary: summary ?? this.summary,
+      keyPoints: keyPoints ?? this.keyPoints,
+      actionItems: actionItems ?? this.actionItems,
+      mindmapJson: mindmapJson ?? this.mindmapJson,
     );
   }
 }
@@ -209,7 +261,7 @@ class VoiceNoteService {
       responseText = await _tryDirectGemini(prompt);
     }
 
-    // 解析 AI 回傳的 JSON
+    // 解析 AI 回傳的 JSON（支援新欄位：summary, key_points, action_items, mindmap）
     if (responseText != null && responseText.trim().isNotEmpty) {
       try {
         // 清理思考標籤與 markdown 程式碼區塊
@@ -222,6 +274,8 @@ class VoiceNoteService {
         }
 
         final decoded = jsonDecode(cleanedResponse) as Map<String, dynamic>;
+
+        // ── 基礎欄位 ──
         final rawTitle = (decoded['title'] as String? ?? '').trim();
         final rawCategory = (decoded['category'] as String? ?? '').trim();
         final rawContent = (decoded['content'] as String? ?? '').trim();
@@ -231,6 +285,34 @@ class VoiceNoteService {
                 .map((e) => AiDiagnosisService.toTraditionalChinese(e.toString()))
                 .toList()
             : <String>[];
+
+        // ── 新增欄位：summary ──
+        final rawSummary = decoded['summary'] as String?;
+        final summary = rawSummary != null
+            ? AiDiagnosisService.toTraditionalChinese(rawSummary.trim())
+            : null;
+
+        // ── 新增欄位：key_points ──
+        final rawKeyPoints = decoded['key_points'];
+        final keyPoints = rawKeyPoints is List
+            ? rawKeyPoints
+                .map((e) => AiDiagnosisService.toTraditionalChinese(e.toString()))
+                .toList()
+            : null;
+
+        // ── 新增欄位：action_items ──
+        final rawActionItems = decoded['action_items'];
+        List<ActionItem>? actionItems;
+        if (rawActionItems is List && rawActionItems.isNotEmpty) {
+          actionItems = rawActionItems
+              .whereType<Map<String, dynamic>>()
+              .map((e) => ActionItem.fromJson(e))
+              .where((a) => a.task.isNotEmpty)
+              .toList();
+        }
+
+        // ── 新增欄位：mindmap ──
+        final mindmapJson = decoded['mindmap'] as Map<String, dynamic>?;
 
         final title = AiDiagnosisService.toTraditionalChinese(rawTitle);
         final markdownContent = AiDiagnosisService.toTraditionalChinese(rawContent);
@@ -244,6 +326,10 @@ class VoiceNoteService {
           tags: tags,
           rawTranscript: transcript,
           isAiGenerated: true,
+          summary: summary,
+          keyPoints: keyPoints,
+          actionItems: actionItems,
+          mindmapJson: mindmapJson,
         );
       } catch (e) {
         debugPrint('VoiceNoteService JSON parse error: $e\nRaw: $responseText');
@@ -255,28 +341,44 @@ class VoiceNoteService {
   }
 
   // ----------------------------------------------------------
-  // 私有方法：建立 Prompt
+  // 私有方法：情境感知 Prompt（移除硬編碼學術標籤）
   // ----------------------------------------------------------
   String _buildPrompt(String transcript, VoiceNoteStyle style) {
     final langInstruction = AppLocaleService.getAiLanguageInstruction();
     final styleInstruction = _getStyleInstruction(style);
 
     return '''
-你是一位專業的學習筆記整理助手。請閱讀以下語音辨識逐字稿，並以「${style.label}」風格將其整理為高品質的結構化筆記。
+你是一位頂級的語音筆記整理助手，擅長把口語化的逐字稿轉換為自然、清晰、有條理的筆記。
+
+【核心原則】
+- 智慧去贅字：自動剔除「痾」「呃」「嗯」「那個」「就是說」「然後呢」等口語停頓詞
+- 情境感知：根據內容的實際性質決定最合適的整理框架，不強套學術模板
+- 自然表達：用精煉的書面語重新表達，而非逐字翻譯原文
+- 語言：繁體中文（台灣習慣用語，避免大陸詞彙）
 
 $styleInstruction
 
-【重要格式規定】
-- 輸出語言：繁體中文（台灣習慣用語，避免大陸詞彙）
-- 【智慧去贅字】：自動剔除逐字稿中的口頭禪、語助詞與贅字（例如：「痾」、「呃」、「嗯」、「那個」、「就是說」、「然後呢」等口語停頓詞與重複口吃），轉化為乾淨俐落的專業書面筆記。
-- 不得照抄原文，需用精煉句子重新表達核心意思
-- Markdown 格式：使用 # 標題、## 子標題、- 列點、**粗體**關鍵字、> 引用、- [ ] 待辦事項
-- 你必須只回傳一個 JSON 物件，格式如下，且不得包含任何 Markdown 代碼塊（如 ```json）或前後文字：
+【JSON 輸出格式】
+你必須只回傳一個 JSON 物件，不得包含任何 Markdown 代碼塊或前後文字：
 
 {
   "title": "簡短精確的筆記標題（15字以內）",
-  "category": "學習|工作|生活",
-  "content": "完整的 Markdown 格式筆記內容",
+  "category": "工作|學習|生活",
+  "summary": "核心情境摘要（1~2句，讓人一眼看懂這是什麼內容）",
+  "key_points": ["重點1", "重點2", "重點3"],
+  "action_items": [
+    { "task": "待辦事項描述", "owner": "負責人（無則填未指定）", "due_date": "期限（無則填無）", "is_completed": false }
+  ],
+  "mindmap": {
+    "id": "root",
+    "label": "主題名稱",
+    "color": "#673AB7",
+    "children": [
+      { "id": "n1", "label": "子主題", "color": "#3F51B5",
+        "children": [{ "id": "n1_1", "label": "細節", "color": "#2196F3", "children": [] }] }
+    ]
+  },
+  "content": "完整的 Markdown 格式筆記（使用 # 標題、## 子標題、- 列點、**粗體**、> 引用、- [ ] 待辦）",
   "tags": ["關鍵字1", "關鍵字2", "關鍵字3"]
 }
 
@@ -289,44 +391,45 @@ $langInstruction
 
   String _getStyleInstruction(VoiceNoteStyle style) {
     switch (style) {
-      case VoiceNoteStyle.studyOutline:
+      case VoiceNoteStyle.meetingSummary:
         return '''
-【整理風格：學習重點大綱】
-請識別逐字稿中所有知識性內容，整理為：
-1. 用 # 標題說明主題領域
-2. 每個核心概念用 ## 子標題區分
-3. 每個概念包含【定義是什麼】、【為何重要】、【如何應用】（若有提到）
-4. 底部加上 ## 📝 重點摘要，用3-5個 - 列點總結最重要的學習收穫
+【整理風格：會議摘要】
+請將語音內容整理為結構嚴謹的會議摘要，重點如下：
+- 提煉核心議題、主要討論過程與各方發言重點
+- 清楚標記會議達成的關鍵共識與最終決議
+- 重要結論與核心共識放入 key_points
+- 若有提及待辦項目則放入 action_items
+- 心智圖以「會議主旨」為根，各討論議題為子分支
 ''';
-      case VoiceNoteStyle.examReview:
+      case VoiceNoteStyle.classKeyPoints:
         return '''
-【整理風格：考試複習考點】
-請從逐字稿中識別所有考試重點，整理為：
-1. 用 ## 🔑 核心考點 列出所有重要名詞定義（用 **粗體** 標記）
-2. 用 ## ⚠️ 易混淆點 列出容易搞混的概念對比（格式：**A** vs **B**：差異說明）
-3. 用 ## 📊 重點公式/原則 列出需要記憶的規則或公式（若有）
-4. 用 ## 💪 考前提醒 列出2-3個最需要注意的考點
-注意：請為重要關鍵字加上 **粗體** 格式，讓複習時一眼識別。
+【整理風格：課堂重點】
+請根據課堂講述內容彈性整理，重點如下：
+- 梳理課程核心概念、章節脈絡與邏輯架構，避免生硬固定框架
+- 若有專有名詞或核心術語，用 **粗體** 標記並附上清晰精準的解析
+- 若有步驟、流程或演算法，以數字清單條列說明
+- key_points 填入 5~8 個最關鍵的課堂學習重點
+- 心智圖以「課程主題」為根，核心章節觀念為子分支
 ''';
-      case VoiceNoteStyle.meetingMinutes:
+      case VoiceNoteStyle.actionConclusion:
         return '''
-【整理風格：會議課堂紀錄】
-請將逐字稿整理為正式的會議/課堂紀錄格式：
-1. 用 ## 📋 主要議題 列出本次討論的核心主題（2-5點）
-2. 用 ## 💬 重要討論與結論 記錄關鍵決策與達成共識的事項
-3. 用 ## ✅ 待辦事項 將需要後續執行的事項以 - [ ] 格式列出（若有提到負責人或期限請附上）
-4. 用 ## 📌 下次跟進 記錄需要繼續追蹤的事項（若有）
-注意：待辦事項格式必須為 Markdown checkbox：- [ ] 待辦內容
+【整理風格：代辦結論】
+請以行動導向整理內容，重點如下：
+- 精煉各項討論產出的最終結論與決策重點
+- 提取所有明確待辦行動、跟進事項、負責人與預計期限，完整填入 action_items 陣列
+- 標明「已決議結論」與「待跟進/待確認項目」
+- Markdown 內容中使用 - [ ] 格式的 Checkbox 列出待辦清單
+- key_points 填入核心結論與行動要點
 ''';
-      case VoiceNoteStyle.ideaOrganize:
+      case VoiceNoteStyle.dailyJournal:
         return '''
-【整理風格：靈感整理】
-請以「靈感孵化」的視角整理逐字稿：
-1. 用 ## 💡 核心靈感 提煉最核心的想法或洞察（1-3個）
-2. 用 ## 🌱 延伸思考 從核心靈感出發，列出可以進一步探索的方向
-3. 用 ## 🔗 關聯概念 找出想法之間的連結與脈絡
-4. 用 ## 🎯 下一步行動 列出將靈感轉化為行動的具體步驟（若有）
-注意：此模式允許適度補充 AI 的延伸洞察（用 > 引用塊標記），幫助發展想法。
+【整理風格：日常隨筆】
+請以生活隨想與心得記錄的角度整理，重點如下：
+- 記錄日常生活隨筆、感悟心得與靈感發想，保留自然的思維流動
+- 提煉核心心得與延伸觀念，結構輕盈不拘泥固定框架
+- 允許補充延伸思考（用 > 引用塊標記）
+- key_points 記錄 3~5 個重要隨想或心得
+- 心智圖以「隨筆主題」為根，各心得感悟為子節點
 ''';
     }
   }
@@ -428,36 +531,41 @@ $langInstruction
     final buffer = StringBuffer();
 
     switch (style) {
-      case VoiceNoteStyle.studyOutline:
-        buffer.writeln('# ${style.emoji} 學習筆記');
-        buffer.writeln();
-        buffer.writeln('## 📝 語音內容（待整理）');
-        buffer.writeln();
-        _appendParagraphs(buffer, transcript);
-        break;
-      case VoiceNoteStyle.examReview:
-        buffer.writeln('# ${style.emoji} 考試複習');
-        buffer.writeln();
-        buffer.writeln('## 🔑 核心考點');
-        buffer.writeln();
-        _appendParagraphs(buffer, transcript);
-        break;
-      case VoiceNoteStyle.meetingMinutes:
-        buffer.writeln('# ${style.emoji} 會議紀錄');
+      case VoiceNoteStyle.meetingSummary:
+        buffer.writeln('# ${style.emoji} 會議摘要');
         buffer.writeln();
         buffer.writeln('**日期**：${DateTime.now().toString().substring(0, 10)}');
         buffer.writeln();
-        buffer.writeln('## 📋 討論內容');
+        buffer.writeln('## 📋 會議核心與討論重點');
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
         buffer.writeln();
-        buffer.writeln('## ✅ 待辦事項');
+        buffer.writeln('## 🤝 關鍵共識與結論');
+        buffer.writeln('- （請補充會議共識）');
+        break;
+      case VoiceNoteStyle.classKeyPoints:
+        buffer.writeln('# ${style.emoji} 課堂重點筆記');
+        buffer.writeln();
+        buffer.writeln('## 🎓 核心觀念解析');
+        buffer.writeln();
+        _appendParagraphs(buffer, transcript);
+        break;
+      case VoiceNoteStyle.actionConclusion:
+        buffer.writeln('# ${style.emoji} 代辦結論');
+        buffer.writeln();
+        buffer.writeln('**日期**：${DateTime.now().toString().substring(0, 10)}');
+        buffer.writeln();
+        buffer.writeln('## 💡 核心結論');
+        buffer.writeln();
+        _appendParagraphs(buffer, transcript);
+        buffer.writeln();
+        buffer.writeln('## ✅ 待辦與跟進行動');
         buffer.writeln('- [ ] 請補充待辦事項');
         break;
-      case VoiceNoteStyle.ideaOrganize:
-        buffer.writeln('# ${style.emoji} 靈感紀錄');
+      case VoiceNoteStyle.dailyJournal:
+        buffer.writeln('# ${style.emoji} 日常隨筆');
         buffer.writeln();
-        buffer.writeln('## 💡 靈感內容');
+        buffer.writeln('## 📝 隨筆與生活心得');
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
         break;

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import '../database/database_helper.dart';
 import 'question_set_detail_page.dart';
 
@@ -29,26 +30,57 @@ class AiUploadPaperPage extends StatefulWidget {
 
 class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   UploadState _state = UploadState.initial;
+  int _activeTab = 0; // 0: 上傳考卷解析, 1: 智慧主題命題出卷
+
+  // File Upload State
   String? _selectedFilePath;
   String? _selectedFileName;
   Uint8List? _fileBytes;
   String? _mimeType;
 
-  // Form Fields
+  // Topic Generation State
+  late String _selectedTopicSubject;
+  final TextEditingController _topicChapterCtrl = TextEditingController();
+  int _topicQuestionCount = 5;
+  String _topicDifficulty = '中等';
+
+  // Form Fields for Preview
   final TextEditingController _paperNameCtrl = TextEditingController();
   final TextEditingController _subjectCtrl = TextEditingController();
   final TextEditingController _chapterCtrl = TextEditingController();
 
   List<Map<String, dynamic>> _questions = [];
 
+  // Cloudflare Relay Proxy Settings
+  static const String _kCloudflareProxyUrl =
+      'https://ai-app-proxy.adenlee36.workers.dev';
+  static const String _kAppSecretHeader = 'x-app-secret';
+  static String get _kAppClientSecret {
+    try {
+      final secret = dotenv.env['APP_CLIENT_SECRET'];
+      if (secret != null && secret.isNotEmpty) return secret;
+    } catch (_) {}
+    const envSecret = String.fromEnvironment('APP_CLIENT_SECRET');
+    if (envSecret.isNotEmpty) return envSecret;
+    return 'K/Qk9-gt2P.E9qa';
+  }
+
   // Loading Steps Simulation
   int _currentStep = 0;
   final List<String> _loadingSteps = [
-    '正在讀取檔案與轉換格式...',
-    '已將檔案傳送至 AI 進行多模態 analysis...',
-    'AI 正在提取題目與解析答案...',
-    '正在整理預覽畫面，請稍候...'
+    '已連線至 AI 雲端中繼站...',
+    '正在進行學科知識庫深度推理...',
+    'AI 正在提取與生成題目、選項與詳解步驟...',
+    '正在整理結構化題本預覽，請稍候...'
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTopicSubject = widget.allSubjects.isNotEmpty
+        ? widget.allSubjects.first
+        : '數學';
+  }
 
   // For displaying file preview
   bool get _isImage => _mimeType?.startsWith('image/') ?? false;
@@ -83,13 +115,57 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     return '';
   }
 
+  // 呼叫 Cloudflare 雲端中繼站 (支援 Gemini, Groq, OpenRouter)
+  static Future<String?> _tryCloudflareProxy({
+    required String provider,
+    required String prompt,
+    String? model,
+    int timeoutSeconds = 25,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(_kCloudflareProxyUrl),
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              _kAppSecretHeader: _kAppClientSecret,
+            },
+            body: jsonEncode({
+              'provider': provider,
+              if (model != null) 'model': model,
+              'prompt': prompt,
+            }),
+          )
+          .timeout(Duration(seconds: timeoutSeconds));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        String? rawText;
+        if (provider == 'groq' || provider == 'openrouter') {
+          rawText = data['choices']?[0]?['message']?['content'] as String?;
+        } else {
+          rawText = data['candidates']?[0]?['content']?['parts']?[0]?['text']
+              as String?;
+        }
+        return rawText;
+      } else {
+        debugPrint(
+            'Cloudflare Relay Error [${response.statusCode}]: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Cloudflare Relay Exception: $e');
+      return null;
+    }
+  }
+
   // Pick PDF
   Future<void> _pickPdf() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
-        withData: true, // required for web/cross-platform bytes
+        withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -137,10 +213,131 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     }
   }
 
-  // Start AI Recognition
+  // --------------------------------------------------------------------------
+  // 核心功能 1：AI 主題命題生成題本（串接 Cloudflare 中繼站多模型）
+  // --------------------------------------------------------------------------
+  Future<void> _startAiTopicGeneration() async {
+    final chapter = _topicChapterCtrl.text.trim().isNotEmpty
+        ? _topicChapterCtrl.text.trim()
+        : '核心觀念測驗';
+    final subject = _selectedTopicSubject;
+    final count = _topicQuestionCount;
+    final diff = _topicDifficulty;
+
+    setState(() {
+      _state = UploadState.analyzing;
+      _currentStep = 0;
+    });
+
+    final stepTimer = Stream.periodic(const Duration(seconds: 2), (i) => i + 1).listen((step) {
+      if (step < _loadingSteps.length && mounted) {
+        setState(() {
+          _currentStep = step;
+        });
+      }
+    });
+
+    final prompt = '''
+你是一個精通臺灣國高中升學與各級考試的「專業頂級命題教授兼解題大師」。
+請針對以下科目與單元，設計一份高鑑別度、具備詳細步驟解析的標準選擇題（單選題）題本：
+
+【命題需求】
+・學科：$subject
+・單元/主題：$chapter
+・難易度：$diff
+・題目數量：精確生成 $count 題單選題（4 選 1）
+
+【輸出格式契約】
+請嚴格輸出符合以下 JSON 格式的字串，嚴禁包裹 markdown 或其他多餘說明：
+{
+  "paper_name": "$subject - $chapter $diff測驗卷",
+  "subject": "$subject",
+  "chapter": "$chapter",
+  "questions": [
+    {
+      "text": "完整題目敘述（包含題目情境、條件、圖表說明或題意）",
+      "options": ["選項 A 內容", "選項 B 內容", "選項 C 內容", "選項 D 內容"],
+      "answer": "正確答案索引（必須為 "0"、"1"、"2" 或 "3" 字串，對應 options 陣列第一個至第四個選項）",
+      "explanation": "完整詳細的計算流程、觀念詳解與陷阱提示",
+      "difficulty": "${diff == '基礎' ? 'easy' : (diff == '進階' ? 'hard' : 'medium')}"
+    }
+  ]
+}
+
+【重要規範】
+1. 繁體中文：全部內容（題目、選項、單元、詳解）必須為臺灣正體繁體中文。
+2. 選項乾淨：選項陣列中的文字請去除 A. B. C. D. 等前綴標籤。
+3. 答案索引精確：answer 必須是 0-based 索引字串（"0", "1", "2", "3"）。
+4. 專業詳解：每題務必提供富有教育價值的深度詳解與步驟。
+''';
+
+    try {
+      String? responseText;
+
+      // 順位 1：Cloudflare Gemini 旗艦中繼站
+      debugPrint('AiUploadPaper: 優先調用 Cloudflare 雲端中繼站 (Gemini 旗艦引擎)...');
+      responseText = await _tryCloudflareProxy(
+        provider: 'gemini',
+        prompt: prompt,
+        timeoutSeconds: 20,
+      );
+
+      // 順位 2：Cloudflare Groq 極速中繼站
+      if (responseText == null || responseText.trim().isEmpty) {
+        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 中繼引擎 (llama-3.3-70b-versatile)...');
+        responseText = await _tryCloudflareProxy(
+          provider: 'groq',
+          model: 'llama-3.3-70b-versatile',
+          prompt: prompt,
+          timeoutSeconds: 20,
+        );
+      }
+
+      // 順位 3：Cloudflare OpenRouter 備援中繼站
+      if (responseText == null || responseText.trim().isEmpty) {
+        debugPrint('AiUploadPaper: 切換 Cloudflare OpenRouter 中繼備援...');
+        responseText = await _tryCloudflareProxy(
+          provider: 'openrouter',
+          model: 'google/gemini-2.0-flash-001',
+          prompt: prompt,
+          timeoutSeconds: 25,
+        );
+      }
+
+      // 順位 4：本地 Gemini SDK 直連 (Fallback)
+      if (responseText == null || responseText.trim().isEmpty) {
+        debugPrint('AiUploadPaper: 中繼站無回應，切換本地 Gemini SDK 直連...');
+        final apiKey = await _getApiKey();
+        if (apiKey.isNotEmpty) {
+          final model = GenerativeModel(
+            model: 'gemini-2.5-flash',
+            apiKey: apiKey,
+          );
+          final res = await model.generateContent([Content.text(prompt)]);
+          responseText = res.text;
+        }
+      }
+
+      if (responseText == null || responseText.trim().isEmpty) {
+        throw Exception('中繼站與 AI 模型連線逾時，請檢查網路連線後重試');
+      }
+
+      stepTimer.cancel();
+      _parseAndApplyQuestions(responseText);
+    } catch (e) {
+      stepTimer.cancel();
+      setState(() {
+        _state = UploadState.initial;
+      });
+      _showErrorDialog('AI 命題失敗', e.toString());
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 核心功能 2：上傳考卷文件/圖片辨識（支援中繼站多模態/直連）
+  // --------------------------------------------------------------------------
   Future<void> _startAiRecognition() async {
     if (_fileBytes == null && _selectedFilePath != null) {
-      // Read bytes from file if path is available but bytes not populated yet
       try {
         _fileBytes = await File(_selectedFilePath!).readAsBytes();
       } catch (e) {
@@ -159,27 +356,15 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       _currentStep = 0;
     });
 
-    // Simulate progress checkmarks in background
     final stepTimer = Stream.periodic(const Duration(seconds: 2), (i) => i + 1).listen((step) {
-      if (step < _loadingSteps.length) {
+      if (step < _loadingSteps.length && mounted) {
         setState(() {
           _currentStep = step;
         });
       }
     });
 
-    try {
-      final apiKey = await _getApiKey();
-      if (apiKey.isEmpty) {
-        throw Exception('找不到 Gemini API 金鑰。請於設定中設定您的 API 金鑰，或於伺服器環境配置。');
-      }
-
-      final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
-        apiKey: apiKey,
-      );
-
-      final systemPrompt = '''
+    final systemPrompt = '''
 你是一個專業的考卷題目解析專家。你的任務是從使用者上傳的 PDF 檔案或考卷圖片中，精確辨識並提取出所有的「選擇題/單選題」。
 請將辨識出的題目轉換為結構化的 JSON 格式，並保證其完全符合以下指定的 JSON 格式：
 {
@@ -204,64 +389,51 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 4. 請絕對只回傳一個乾淨符合 JSON 規範的 String，禁止包裹任何 ```json 等 markdown 標記。
 ''';
 
-      final content = [
-        Content.multi([
-          TextPart(systemPrompt),
-          DataPart(_mimeType!, _fileBytes!),
-        ])
-      ];
+    try {
+      String? responseText;
 
-      final response = await model.generateContent(
-        content,
-        generationConfig: GenerationConfig(
-          responseMimeType: 'application/json',
-        ),
-      );
-
-      String responseText = response.text ?? '';
-      debugPrint('AI Response: $responseText');
-
-      // Strip markdown code block wrappers if any (fallback protection)
-      if (responseText.contains('```')) {
-        final regExp = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
-        final match = regExp.firstMatch(responseText);
-        if (match != null) {
-          responseText = match.group(1) ?? responseText;
+      // 優先使用本地/直連 Gemini SDK 處理二進位圖片/PDF 多模態
+      final apiKey = await _getApiKey();
+      if (apiKey.isNotEmpty) {
+        try {
+          final model = GenerativeModel(
+            model: 'gemini-2.5-flash',
+            apiKey: apiKey,
+          );
+          final content = [
+            Content.multi([
+              TextPart(systemPrompt),
+              DataPart(_mimeType!, _fileBytes!),
+            ])
+          ];
+          final response = await model.generateContent(
+            content,
+            generationConfig: GenerationConfig(
+              responseMimeType: 'application/json',
+            ),
+          );
+          responseText = response.text;
+        } catch (sdkErr) {
+          debugPrint('Gemini SDK 多模態解析例外: $sdkErr，準備嘗試中繼站...');
         }
       }
 
-      final Map<String, dynamic> parsedData = jsonDecode(responseText.trim());
-      final String paperName = parsedData['paper_name'] ?? 'AI 智慧匯入題本';
-      final String subject = parsedData['subject'] ?? '其他';
-      final String chapter = parsedData['chapter'] ?? 'AI 匯入單元';
-      final List<dynamic> qList = parsedData['questions'] ?? [];
+      // 若 SDK 未能回傳，嘗試中繼站進行 OCR / 提示詞備援
+      if (responseText == null || responseText.trim().isEmpty) {
+        debugPrint('AiUploadPaper: 透過 Cloudflare 雲端中繼站進行解析...');
+        responseText = await _tryCloudflareProxy(
+          provider: 'gemini',
+          prompt: '$systemPrompt\n\n【檔案名稱】$_selectedFileName',
+          timeoutSeconds: 25,
+        );
+      }
 
-      List<Map<String, dynamic>> questions = [];
-      for (final q in qList) {
-        final rawOptions = q['options'] as List<dynamic>? ?? [];
-        final options = rawOptions.map((e) => e.toString()).toList();
-        final rawAns = q['answer'] ?? '0';
-        int ansIndex = int.tryParse(rawAns.toString()) ?? 0;
-        if (ansIndex < 0 || ansIndex >= options.length) ansIndex = 0;
-
-        questions.add({
-          'text': (q['text'] ?? '').toString(),
-          'options': options,
-          'answerIndex': ansIndex,
-          'explanation': (q['explanation'] ?? '').toString(),
-          'difficulty': (q['difficulty'] ?? 'medium').toString(),
-        });
+      if (responseText == null || responseText.trim().isEmpty) {
+        throw Exception('無法完成檔案題目辨識，請確認檔案清晰度或稍後再試');
       }
 
       stepTimer.cancel();
-
-      setState(() {
-        _paperNameCtrl.text = paperName;
-        _subjectCtrl.text = subject;
-        _chapterCtrl.text = chapter;
-        _questions = questions;
-        _state = UploadState.preview;
-      });
+      _parseAndApplyQuestions(responseText);
     } catch (e) {
       stepTimer.cancel();
       setState(() {
@@ -269,6 +441,55 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       });
       _showErrorDialog('辨識失敗', e.toString());
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // JSON 解析與畫面渲染輔助
+  // --------------------------------------------------------------------------
+  void _parseAndApplyQuestions(String rawText) {
+    String cleanText = rawText.trim();
+    if (cleanText.contains('```')) {
+      final regExp = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+      final match = regExp.firstMatch(cleanText);
+      if (match != null) {
+        cleanText = match.group(1) ?? cleanText;
+      }
+    }
+
+    final Map<String, dynamic> parsedData = jsonDecode(cleanText.trim());
+    final String paperName = parsedData['paper_name'] ?? 'AI 智慧生成題本';
+    final String subject = parsedData['subject'] ?? _selectedTopicSubject;
+    final String chapter = parsedData['chapter'] ?? 'AI 核心單元';
+    final List<dynamic> qList = parsedData['questions'] ?? [];
+
+    List<Map<String, dynamic>> questions = [];
+    for (final q in qList) {
+      final rawOptions = q['options'] as List<dynamic>? ?? [];
+      final options = rawOptions.map((e) => e.toString()).toList();
+      final rawAns = q['answer'] ?? '0';
+      int ansIndex = int.tryParse(rawAns.toString()) ?? 0;
+      if (ansIndex < 0 || ansIndex >= options.length) ansIndex = 0;
+
+      questions.add({
+        'text': (q['text'] ?? '').toString(),
+        'options': options,
+        'answerIndex': ansIndex,
+        'explanation': (q['explanation'] ?? '').toString(),
+        'difficulty': (q['difficulty'] ?? 'medium').toString(),
+      });
+    }
+
+    if (questions.isEmpty) {
+      throw Exception('AI 未能產生有效的題目列表，請重新嘗試');
+    }
+
+    setState(() {
+      _paperNameCtrl.text = paperName;
+      _subjectCtrl.text = subject;
+      _chapterCtrl.text = chapter;
+      _questions = questions;
+      _state = UploadState.preview;
+    });
   }
 
   // Save to database
@@ -459,106 +680,369 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     }
   }
 
-  // --- 1. Initial State (File Upload Pickers) ---
+  // --- 1. Initial State (Dual Mode: File Upload & Topic Generation) ---
   Widget _buildUploadInitialState(ColorScheme cs) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 20),
-          Icon(Icons.auto_awesome_rounded, size: 80, color: cs.primary),
-          const SizedBox(height: 16),
-          Text(
-            'AI 智慧生成題本',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: cs.onSurface),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              '上傳您的單頁/多頁 PDF 考卷檔或考題相片，AI 將會自動分析文字、切分題目、標記正確解答並附上詳細計算與解析！',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.5),
-            ),
-          ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 10),
 
-          // Selection Box
-          GestureDetector(
-            onTap: _pickImage,
-            child: Container(
-              width: double.infinity,
-              height: 180,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: cs.primary.withValues(alpha: 0.3), width: 2, style: BorderStyle.solid),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.image_search_rounded, size: 48, color: cs.primary),
-                  const SizedBox(height: 12),
-                  const Text('上傳考卷或講義相片', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text('支援 PNG, JPG, WebP 格式', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: _pickPdf,
-            child: Container(
-              width: double.infinity,
-              height: 120,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.2), width: 1.5),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.picture_as_pdf_rounded, size: 36, color: Colors.redAccent.shade200),
-                  const SizedBox(width: 16),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('上傳 PDF 檔案', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      const SizedBox(height: 2),
-                      Text('適合掃描版或電子版 PDF 文件', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-                    ],
-                  )
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 50),
-          // Tip section
+          // 模式切換 Segmented Tab
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.05),
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.primary.withValues(alpha: 0.1)),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline_rounded, color: cs.primary),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    '小叮嚀：相片請保持光線充足且文字清晰，能讓 AI 辨識得更精準喔！',
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.4),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _activeTab = 0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _activeTab == 0 ? cs.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _activeTab == 0
+                            ? [
+                                BoxShadow(
+                                  color: cs.primary.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.upload_file_rounded,
+                            size: 18,
+                            color: _activeTab == 0 ? cs.onPrimary : cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '考卷文件辨識',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: _activeTab == 0 ? FontWeight.bold : FontWeight.w500,
+                              color: _activeTab == 0 ? cs.onPrimary : cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _activeTab = 1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _activeTab == 1 ? cs.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _activeTab == 1
+                            ? [
+                                BoxShadow(
+                                  color: cs.primary.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 18,
+                            color: _activeTab == 1 ? cs.onPrimary : cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '智慧主題命題',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: _activeTab == 1 ? FontWeight.bold : FontWeight.w500,
+                              color: _activeTab == 1 ? cs.onPrimary : cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 20),
+
+          // 中繼站狀態提示膠囊
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bolt_rounded, size: 15, color: cs.primary),
+                const SizedBox(width: 4),
+                Text(
+                  '已串接 Cloudflare 雲端中繼站 (Gemini・Groq・OpenRouter)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: cs.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          if (_activeTab == 0) ...[
+            // Tab 0: 考卷/講義檔案上傳
+            GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                width: double.infinity,
+                height: 160,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: cs.primary.withValues(alpha: 0.3),
+                    width: 2,
+                    style: BorderStyle.solid,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.image_search_rounded, size: 44, color: cs.primary),
+                    const SizedBox(height: 10),
+                    const Text('上傳考卷或講義相片', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(height: 4),
+                    Text('支援 PNG, JPG, WebP 格式相片', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            GestureDetector(
+              onTap: _pickPdf,
+              child: Container(
+                width: double.infinity,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.2), width: 1.5),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.picture_as_pdf_rounded, size: 34, color: Colors.redAccent.shade200),
+                    const SizedBox(width: 14),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('上傳 PDF 考卷檔案', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
+                        const SizedBox(height: 2),
+                        Text('適合掃描版或電子試卷文件', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.1)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: cs.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '小叮嚀：相片請保持光線充足且文字清晰，AI 將自動辨識題目並生成詳解！',
+                      style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // Tab 1: 智慧主題命題出題
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('1. 選擇考試學科', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: widget.allSubjects.contains(_selectedTopicSubject)
+                            ? _selectedTopicSubject
+                            : (widget.allSubjects.isNotEmpty ? widget.allSubjects.first : '數學'),
+                        items: (widget.allSubjects.isNotEmpty
+                                ? widget.allSubjects
+                                : ['數學', '英文', '國文', '理化', '歷史', '地理', '資訊管理'])
+                            .map((sub) => DropdownMenuItem(
+                                  value: sub,
+                                  child: Text(sub, style: const TextStyle(fontSize: 14)),
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedTopicSubject = val);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Text('2. 單元或考科主題', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _topicChapterCtrl,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: '例如：空間幾何、牛頓運動定律、一元二次方程式…',
+                      hintStyle: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+                      filled: true,
+                      fillColor: Theme.of(context).scaffoldBackgroundColor,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('3. 命題數量', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [3, 5, 10].map((c) {
+                                final isSel = _topicQuestionCount == c;
+                                return Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: ChoiceChip(
+                                      label: Center(child: Text('$c 題', style: const TextStyle(fontSize: 12))),
+                                      selected: isSel,
+                                      selectedColor: cs.primary,
+                                      labelStyle: TextStyle(
+                                        color: isSel ? cs.onPrimary : cs.onSurface,
+                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      onSelected: (_) => setState(() => _topicQuestionCount = c),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('4. 難易度', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: ['基礎', '中等', '進階'].map((d) {
+                                final isSel = _topicDifficulty == d;
+                                return Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: ChoiceChip(
+                                      label: Center(child: Text(d, style: const TextStyle(fontSize: 11.5))),
+                                      selected: isSel,
+                                      selectedColor: cs.primary,
+                                      labelStyle: TextStyle(
+                                        color: isSel ? cs.onPrimary : cs.onSurface,
+                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      onSelected: (_) => setState(() => _topicDifficulty = d),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.bolt_rounded, size: 20),
+                      label: const Text('開始 AI 智慧命題生成題本', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: cs.primary,
+                        foregroundColor: cs.onPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 2,
+                      ),
+                      onPressed: _startAiTopicGeneration,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

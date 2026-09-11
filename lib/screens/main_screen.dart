@@ -156,7 +156,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.6.2';
+  String _appVersion = 'v1.6.5';
+  String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
   List<String> allSubjects = ['資訊管理', '作業系統', '國文', '數學', '微積分', '歷史', '理化'];
@@ -1207,9 +1208,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       builder: (_) => TourOverlay(
         steps: _buildTourSteps(),
         isGuest: widget.currentUser['id'] == 'u4',
-        onSkip: _stopTour,
+        onSkip: () => _stopTour(navigateToProfile: true),
         onComplete: () async {
-          _stopTour();
+          _stopTour(navigateToProfile: true);
           if (widget.currentUser['id'] != 'u4') {
             await DatabaseHelper.instance
                 .setHasSeenTour(widget.currentUser['id'].toString());
@@ -1229,11 +1230,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     overlay.insert(_tourOverlayEntry!);
   }
 
-  void _stopTour() {
+  void _stopTour({bool navigateToProfile = false}) {
     if (!_isTourActive) return;
     _tourOverlayEntry?.remove();
     _tourOverlayEntry = null;
-    if (mounted) setState(() => _isTourActive = false);
+    if (mounted) {
+      setState(() => _isTourActive = false);
+      if (navigateToProfile) {
+        _changePage(4, '個人檔案');
+      }
+    }
   }
 
   void _changePage(int index, String title) {
