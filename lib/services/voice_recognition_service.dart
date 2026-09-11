@@ -195,11 +195,11 @@ class VoiceRecognitionService {
     }
   }
 
-  void _scheduleAutoRestart() {
+  void _scheduleAutoRestart([int delayMs = 350]) {
     _restartTimer?.cancel();
     if (!_shouldKeepListening) return;
 
-    _restartTimer = Timer(const Duration(milliseconds: 300), () {
+    _restartTimer = Timer(Duration(milliseconds: delayMs), () {
       if (_shouldKeepListening) {
         debugPrint('VoiceRecognitionService: 自動續接持續收音...');
         _executeListen();
@@ -213,6 +213,7 @@ class VoiceRecognitionService {
     try {
       if (_speech.isListening) {
         await _speech.stop();
+        await Future.delayed(const Duration(milliseconds: 50));
       }
 
       final localeId = resolveLocaleId(_currentLanguageCode);
@@ -244,7 +245,7 @@ class VoiceRecognitionService {
     } catch (e) {
       debugPrint('啟動語音辨識異常: $e');
       if (_shouldKeepListening) {
-        _scheduleAutoRestart();
+        _scheduleAutoRestart(500);
       } else {
         _onErrorCallback?.call('無法啟動語音辨識: $e');
       }
@@ -269,7 +270,7 @@ class VoiceRecognitionService {
     } catch (_) {}
   }
 
-  /// 智慧過濾去除語音常見贅字、語助詞與口吃重複詞 (如「痾」、「呃」、「那個」、「就是說」等)
+  /// 智慧過濾去除語音常見贅字、語助詞 (如「痾」、「呃」、「唔」與嚴重口吃)
   static String cleanFillerWords(String text) {
     if (text.trim().isEmpty) return text;
     String cleaned = text;
@@ -280,34 +281,16 @@ class VoiceRecognitionService {
       (match) => match.group(1) ?? '',
     );
 
-    // 2. 去除 2~3 字詞連續重複的口吃 (例如：「這個這個」->「這個」、「然後然後」->「然後」)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'([\u4e00-\u9fa5]{2,3})\1+'),
-      (match) => match.group(1) ?? '',
-    );
-
-    // 3. 去除口語語助詞與停頓音 (痾、呃、唔)
+    // 2. 去除口語停頓語助詞 (痾、呃、唔)
     cleaned = cleaned.replaceAll(RegExp(r'[痾呃唔]'), '');
 
-    // 4. 去除常見口語贅語 (如：「就是說」、「然後呢」、「應該是說」、「基本上就是」)
+    // 3. 去除常見純停頓口頭贅詞 (如：「就是說」、「然後呢」、「基本上就是」、「總之就是」)
     cleaned = cleaned.replaceAll(
-      RegExp(r'(就是說|然後呢|應該是說|基本上就是|基本上說|總之就是)'),
+      RegExp(r'(就是說|然後呢|基本上就是|基本上說|總之就是)'),
       '',
     );
 
-    // 5. 去除句首或標點前後的「那個」
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(^|[\s，,。！？\n])那個+([\s，,。！？\n]|$)'),
-      (match) => '${match.group(1) ?? ''}${match.group(2) ?? ''}',
-    );
-
-    // 6. 去除句首的停頓嘆詞 (如：「嗯、啊、欸、喔」)
-    cleaned = cleaned.replaceAll(
-      RegExp(r'^[嗯啊欸喔捏啦嘛]+[\s，,。！？]*'),
-      '',
-    );
-
-    // 6. 清理多餘的標點符號與空白
+    // 4. 清理多餘的標點符號與空白
     cleaned = cleaned
         .replaceAll(RegExp(r'[，,]{2,}'), '，')
         .replaceAll(RegExp(r'[。]{2,}'), '。')

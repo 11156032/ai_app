@@ -13,8 +13,14 @@ import 'mindmap_canvas.dart';
 // 支援即時聲波視覺化、即時逐字稿反饋、暫停/繼續、四大 AI 風格整理、心智圖與富文本 Markdown 預覽
 // ============================================================
 class VoiceNoteSheet extends StatefulWidget {
-  /// 整理完成後回調：傳回標題、分類、Markdown 內容
-  final void Function(String title, String category, String markdownContent)? onNoteReady;
+  /// 整理完成後回調：傳回標題、分類、Markdown 內容、心智圖 JSON、待辦行動清單
+  final void Function(
+    String title,
+    String category,
+    String markdownContent,
+    Map<String, dynamic>? mindmapJson,
+    List<ActionItem>? actionItems,
+  )? onNoteReady;
 
   /// 若為 null，則為「新增筆記」模式；若帶值，則為「插入至編輯器」模式
   final String? existingContent;
@@ -483,7 +489,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         : rawText;
     final formattedContent = '## 🎙️ 語音逐字稿記錄\n\n$rawText\n\n---\n*記錄時間：${DateTime.now().toString().substring(0, 16)}*';
 
-    widget.onNoteReady?.call(defaultTitle, _selectedStyle.suggestedCategory, formattedContent);
+    widget.onNoteReady?.call(
+      defaultTitle,
+      _selectedStyle.suggestedCategory,
+      formattedContent,
+      null,
+      null,
+    );
     if (mounted) {
       Navigator.pop(context);
     }
@@ -502,7 +514,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         : _contentEditController.text;
     final category = _editableCategory;
 
-    widget.onNoteReady?.call(title, category, content);
+    widget.onNoteReady?.call(
+      title,
+      category,
+      content,
+      _result?.mindmapJson,
+      _editableActionItems,
+    );
     Navigator.pop(context);
   }
 
@@ -678,17 +696,21 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     Text(
                       _isListening
                           ? '正在收音中 · ${_formatDuration(_recordDuration)}'
-                          : hasContent
+                          : _isPaused
                               ? '錄音已暫停 · 共 $charCount 字'
-                              : '點擊下方麥克風開始說話',
+                              : hasContent
+                                  ? '收音已完成 · 共 $charCount 字'
+                                  : '點擊下方麥克風開始說話',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: _isListening
                             ? Colors.red.shade700
-                            : hasContent
-                                ? const Color(0xFF4A148C)
-                                : Colors.grey.shade700,
+                            : _isPaused
+                                ? Colors.orange.shade800
+                                : hasContent
+                                    ? const Color(0xFF4A148C)
+                                    : Colors.grey.shade700,
                       ),
                     ),
                   ],
@@ -716,37 +738,46 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     const SizedBox(width: 14),
                   ],
 
-                  // 核心主按鈕（錄音中為暫停；暫停中為繼續收音）
-                  GestureDetector(
-                    onTap: _isListening ? _pauseListening : _startListening,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: _isListening ? 74 : 68,
-                      height: _isListening ? 74 : 68,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: _isListening
-                              ? [Colors.red.shade400, Colors.red.shade700]
-                              : [const Color(0xFF7B1FA2), const Color(0xFF4A148C)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (_isListening
-                                    ? Colors.red.shade400
-                                    : const Color(0xFF4A148C))
-                                .withValues(alpha: 0.35),
-                            blurRadius: _isListening ? 18 : 12,
-                            spreadRadius: _isListening ? 3 : 0,
+                  // 核心主按鈕（錄音中為暫停；暫停中為繼續收音；結束後為追加收音）
+                  Tooltip(
+                    message: _isListening
+                        ? '暫停收音'
+                        : _isPaused
+                            ? '繼續收音'
+                            : hasContent
+                                ? '追加錄音'
+                                : '開始錄音',
+                    child: GestureDetector(
+                      onTap: _isListening ? _pauseListening : _startListening,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: _isListening ? 74 : 68,
+                        height: _isListening ? 74 : 68,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: _isListening
+                                ? [Colors.red.shade400, Colors.red.shade700]
+                                : [const Color(0xFF7B1FA2), const Color(0xFF4A148C)],
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        _isListening ? Icons.pause_rounded : Icons.mic_rounded,
-                        color: Colors.white,
-                        size: 34,
+                          boxShadow: [
+                            BoxShadow(
+                              color: (_isListening
+                                      ? Colors.red.shade400
+                                      : const Color(0xFF4A148C))
+                                  .withValues(alpha: 0.35),
+                              blurRadius: _isListening ? 18 : 12,
+                              spreadRadius: _isListening ? 3 : 0,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _isListening ? Icons.pause_rounded : Icons.mic_rounded,
+                          color: Colors.white,
+                          size: 34,
+                        ),
                       ),
                     ),
                   ),
@@ -774,7 +805,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     : _isPaused
                         ? '已暫停，點擊繼續收音'
                         : hasContent
-                            ? '點擊繼續收音'
+                            ? '收音已完成，點擊可追加錄音'
                             : '點擊開始錄音',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),

@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import '../database/database_helper.dart';
 import '../widgets/voice_note_sheet.dart';
+import '../services/voice_note_service.dart';
+import '../widgets/mindmap_node.dart';
+import '../widgets/mindmap_canvas.dart';
 
 // ==========================================
 // 1. 繪圖軌跡資料模型 (Stroke)
@@ -61,6 +64,8 @@ class Note {
   String? authorName;       // 原作者顯示名稱
   String? authorUserId;     // 原作者的 userId
   int? authorAvatarColor;   // 原作者頭像顏色索引
+  Map<String, dynamic>? mindmapJson; // 🧠 關聯心智圖 JSON
+  List<ActionItem>? actionItems;    // ✅ 關聯待辦行動清單
 
   Note({
     required this.id,
@@ -73,6 +78,8 @@ class Note {
     this.authorName,
     this.authorUserId,
     this.authorAvatarColor,
+    this.mindmapJson,
+    this.actionItems,
   });
 }
 
@@ -416,7 +423,7 @@ class _NotesScreenState extends State<NotesScreen> {
         expand: false,
         builder: (_, scrollController) => VoiceNoteSheet(
           scrollController: scrollController,
-          onNoteReady: (title, category, markdownContent) {
+          onNoteReady: (title, category, markdownContent, mindmapJson, actionItems) {
             // 確保分類存在
             if (!NotesDatabase.categories.contains(category)) {
               NotesDatabase.categories.add(category);
@@ -429,6 +436,8 @@ class _NotesScreenState extends State<NotesScreen> {
               category: category.isEmpty ? '未分類' : category,
               strokes: [],
               updatedAt: DateTime.now(),
+              mindmapJson: mindmapJson,
+              actionItems: actionItems,
             );
             NotesDatabase.notes.insert(0, newNote);
             _refresh();
@@ -865,9 +874,28 @@ class _NotesScreenState extends State<NotesScreen> {
                                     ),
                                   ),
                                   const Spacer(),
+                                  if (note.mindmapJson != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 6.0),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF4A148C).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.hub_outlined, size: 11, color: Color(0xFF4A148C)),
+                                            SizedBox(width: 2),
+                                            Text('心智圖', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF4A148C))),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   if (note.strokes.isNotEmpty)
                                     Padding(
-                                      padding: EdgeInsets.only(right: 4.0),
+                                      padding: const EdgeInsets.only(right: 4.0),
                                       child: Icon(Icons.palette_outlined,
                                           size: 14, color: Theme.of(context).primaryColor),
                                     ),
@@ -1089,10 +1117,26 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     const Color(0xFF4DB6AC), // 灰湖綠
   ];
 
+  // 🧠 心智圖模型
+  MindMapNode? _mindmapRootNode;
+  bool get _hasMindMap => _mindmapRootNode != null;
+
+  void _initMindMap() {
+    if (widget.note.mindmapJson != null) {
+      try {
+        _mindmapRootNode = MindMapNode.fromJson(widget.note.mindmapJson!);
+      } catch (e) {
+        debugPrint('Failed to parse note mindmapJson: $e');
+        _mindmapRootNode = null;
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _initMindMap();
+    _tabController = TabController(length: _hasMindMap ? 3 : 2, vsync: this);
     _titleController = TextEditingController(text: widget.note.title);
     _contentController = MarkdownTextController()..text = widget.note.content;
     _currentCategory = NotesDatabase.categories.contains(widget.note.category)
@@ -1334,7 +1378,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         builder: (_, scrollController) => VoiceNoteSheet(
           scrollController: scrollController,
           existingContent: _contentController.text,
-          onNoteReady: (title, category, markdownContent) {
+          onNoteReady: (title, category, markdownContent, mindmapJson, actionItems) {
             // 插入至目前筆記內容末端
             final currentText = _contentController.text;
             final separator = currentText.isNotEmpty && !currentText.endsWith('\n') ? '\n\n' : '';
@@ -1343,9 +1387,20 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             if (_titleController.text.trim().isEmpty) {
               _titleController.text = title;
             }
+            // 若原筆記沒有心智圖但本次生成了心智圖，自動更新
+            if (mindmapJson != null) {
+              widget.note.mindmapJson = mindmapJson;
+              widget.note.actionItems = actionItems;
+              _initMindMap();
+              if (_hasMindMap && _tabController.length == 2) {
+                _tabController.dispose();
+                _tabController = TabController(length: 3, vsync: this);
+              }
+            }
             // 儲存
             _autoSave();
             if (mounted) {
+              setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: const Row(
@@ -1741,8 +1796,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             indicatorSize: TabBarIndicatorSize.label,
             labelStyle:
                 const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            tabs: const [
-              Tab(
+            tabs: [
+              const Tab(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1752,7 +1807,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   ],
                 ),
               ),
-              Tab(
+              const Tab(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1762,6 +1817,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   ],
                 ),
               ),
+              if (_hasMindMap)
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.hub_outlined, size: 16, color: Color(0xFF4A148C)),
+                      SizedBox(width: 4),
+                      Text('心智圖', style: TextStyle(color: Color(0xFF4A148C))),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -1909,6 +1975,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                         ],
                       ),
                     ),
+
+                    // --- C. 🧠 心智圖互動畫布頁面 ---
+                    if (_hasMindMap) _buildMindMapTab(),
                   ],
                 ),
               ),
@@ -1921,6 +1990,45 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
   ),
 );
 }
+
+  // ==========================================
+  // 🧠 C. 心智圖互動畫布 Tab
+  // ==========================================
+  Widget _buildMindMapTab() {
+    if (_mindmapRootNode == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.hub_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text('此筆記尚無關聯心智圖', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+            const SizedBox(height: 8),
+            Text('可透過上方 🎙️ 語音速記生成結構化心智圖', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+    return Container(
+      margin: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF8F5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5DCD3), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InteractiveMindMapView(
+        root: _mindmapRootNode!,
+      ),
+    );
+  }
 
   // ==========================================
   // 🛠 A. 打字格式工具列 Widget

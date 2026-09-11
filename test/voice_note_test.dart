@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_app/services/voice_note_service.dart';
 import 'package:ai_app/services/voice_recognition_service.dart';
+import 'package:ai_app/screens/notes_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +47,34 @@ void main() {
       expect(modified.rawTranscript, '原始語音');
       expect(modified.isAiGenerated, isTrue);
     });
+
+    test('Note model holds mindmapJson and actionItems properly', () {
+      final note = Note(
+        id: 'note_123',
+        userId: 'u1',
+        title: '物理第一章重點',
+        content: '# 慣性定律',
+        category: '學習',
+        strokes: [],
+        updatedAt: DateTime.now(),
+        mindmapJson: {
+          'id': 'root',
+          'label': '牛頓第一定律',
+          'color': 0xFF4A148C,
+          'children': [
+            {'id': 'c1', 'label': '等速運動', 'color': 0xFF1976D2}
+          ],
+        },
+        actionItems: [
+          ActionItem(task: '複習觀念題', isCompleted: false),
+        ],
+      );
+
+      expect(note.mindmapJson != null, isTrue);
+      expect(note.mindmapJson!['label'], '牛頓第一定律');
+      expect(note.actionItems?.length, 1);
+      expect(note.actionItems?.first.task, '複習觀念題');
+    });
   });
 
   group('VoiceNoteService Tests', () {
@@ -88,12 +117,17 @@ void main() {
         '我想說要去找老師',
       );
       expect(
-        VoiceRecognitionService.cleanFillerWords('然後然後這個就是說基本上就是牛頓定律'),
-        '然後這個牛頓定律',
+        VoiceRecognitionService.cleanFillerWords('這個基本上就是牛頓定律'),
+        '這個牛頓定律',
       );
       expect(
-        VoiceRecognitionService.cleanFillerWords('我我我想問這個問題，那個，請幫忙解答'),
+        VoiceRecognitionService.cleanFillerWords('我我我想問這個問題，請幫忙解答'),
         '我想問這個問題，請幫忙解答',
+      );
+      // 保留正常複疊詞
+      expect(
+        VoiceRecognitionService.cleanFillerWords('我們來研究研究這個題目'),
+        '我們來研究研究這個題目',
       );
     });
 
