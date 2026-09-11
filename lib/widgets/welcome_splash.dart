@@ -51,16 +51,6 @@ class _WelcomeSplashState extends State<WelcomeSplash>
       features: [],
     ),
     _SlideDef(
-      emoji: '📝',
-      gradient: [Color(0xFF4E342E), Color(0xFF795548)],
-      title: '題庫測驗與複習導覽',
-      subtitle: '題目作答、交卷與錯題診斷操作',
-      body: '',
-      videoAssetPath: 'assets/learning_pack_tutorial.mp4',
-      badgeLabel: '題庫測驗教學',
-      features: [],
-    ),
-    _SlideDef(
       emoji: '📦',
       gradient: [Color(0xFF3E2723), Color(0xFF5D4037)],
       title: '學習 Pack 製作與分享導覽',

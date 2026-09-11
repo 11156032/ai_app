@@ -15,7 +15,6 @@ class VoiceRecognitionService {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
   bool get isAvailable => _speech.isAvailable;
-  bool get isListening => _speech.isListening;
 
   List<LocaleName> _systemLocales = [];
   List<LocaleName> get systemLocales => _systemLocales;
@@ -25,17 +24,22 @@ class VoiceRecognitionService {
     Function(String status)? onStatus,
     Function(SpeechRecognitionError error)? onError,
   }) async {
+    if (onStatus != null) _onStatusCallback = onStatus;
+    if (onError != null) {
+      _onErrorCallback = (msg) => onError(SpeechRecognitionError(msg, true));
+    }
+
     if (_isInitialized) return _speech.isAvailable;
 
     try {
       _isInitialized = await _speech.initialize(
         onStatus: (status) {
-          debugPrint('語音辨識狀態變更: $status');
-          onStatus?.call(status);
+          debugPrint('語音辨識底層狀態變更: $status');
+          _handleStatusChange(status);
         },
         onError: (errorNotification) {
-          debugPrint('語音辨識錯誤: ${errorNotification.errorMsg} (permanent: ${errorNotification.permanent})');
-          onError?.call(errorNotification);
+          debugPrint('語音辨識底層錯誤: ${errorNotification.errorMsg} (permanent: ${errorNotification.permanent})');
+          _handleError(errorNotification);
         },
         debugLogging: kDebugMode,
       );
@@ -53,57 +57,81 @@ class VoiceRecognitionService {
   }
 
   /// 依據 App 當前語系找到最適合的辨識 Locale ID
-  String? resolveLocaleId([String? appLangCode]) {
+  String resolveLocaleId([String? appLangCode]) {
     final lang = appLangCode ?? AppLocaleService.currentLanguage;
 
-    if (_systemLocales.isEmpty) return null;
+    if (_systemLocales.isNotEmpty) {
+      List<String> targetPrefixes;
+      switch (lang) {
+        case AppLocaleService.ja:
+          targetPrefixes = ['ja_JP', 'ja-JP', 'ja'];
+          break;
+        case AppLocaleService.ko:
+          targetPrefixes = ['ko_KR', 'ko-KR', 'ko'];
+          break;
+        case AppLocaleService.zhTW:
+        default:
+          targetPrefixes = [
+            'zh_TW',
+            'zh-TW',
+            'zh_HK',
+            'zh-HK',
+            'cmn-Hant-TW',
+            'cmn-TW',
+            'zh'
+          ];
+          break;
+      }
 
-    List<String> targetPrefixes;
+      // 先尋找完全相符或前綴符合
+      for (final prefix in targetPrefixes) {
+        final normalizedPrefix = prefix.toLowerCase().replaceAll('_', '-');
+        for (final locale in _systemLocales) {
+          final locId = locale.localeId.toLowerCase().replaceAll('_', '-');
+          if (locId == normalizedPrefix || locId.startsWith('$normalizedPrefix-') || locId.startsWith(normalizedPrefix)) {
+            return locale.localeId;
+          }
+        }
+      }
+
+      // 次之找開頭
+      for (final prefix in targetPrefixes) {
+        final pShort = prefix.split(RegExp(r'[-_]')).first.toLowerCase();
+        for (final locale in _systemLocales) {
+          final locShort = locale.localeId.split(RegExp(r'[-_]')).first.toLowerCase();
+          if (locShort == pShort) {
+            return locale.localeId;
+          }
+        }
+      }
+    }
+
+    // 系統預設或尚未獲取 locales 時的穩固保底語系
     switch (lang) {
       case AppLocaleService.ja:
-        targetPrefixes = ['ja_JP', 'ja-JP', 'ja'];
-        break;
+        return 'ja_JP';
       case AppLocaleService.ko:
-        targetPrefixes = ['ko_KR', 'ko-KR', 'ko'];
-        break;
+        return 'ko_KR';
       case AppLocaleService.zhTW:
       default:
-        targetPrefixes = [
-          'zh_TW',
-          'zh-TW',
-          'zh_HK',
-          'zh-HK',
-          'cmn-Hant-TW',
-          'cmn-TW',
-          'zh'
-        ];
-        break;
+        return 'zh_TW';
     }
-
-    // 先尋找完全相符或前綴符合
-    for (final prefix in targetPrefixes) {
-      final normalizedPrefix = prefix.toLowerCase().replaceAll('_', '-');
-      for (final locale in _systemLocales) {
-        final locId = locale.localeId.toLowerCase().replaceAll('_', '-');
-        if (locId == normalizedPrefix || locId.startsWith('$normalizedPrefix-') || locId.startsWith(normalizedPrefix)) {
-          return locale.localeId;
-        }
-      }
-    }
-
-    // 次之找開頭
-    for (final prefix in targetPrefixes) {
-      final pShort = prefix.split(RegExp(r'[-_]')).first.toLowerCase();
-      for (final locale in _systemLocales) {
-        final locShort = locale.localeId.split(RegExp(r'[-_]')).first.toLowerCase();
-        if (locShort == pShort) {
-          return locale.localeId;
-        }
-      }
-    }
-
-    return null;
   }
+
+  /// 開始語音辨識
+  bool _shouldKeepListening = false;
+  void Function(String words, bool isFinal)? _onResultCallback;
+  void Function(double level)? _onSoundLevelCallback;
+  void Function(String status)? _onStatusCallback;
+  void Function(String errorMessage)? _onErrorCallback;
+  String? _currentLanguageCode;
+  Timer? _restartTimer;
+
+  // 記錄單次原生 Session 交付的最後內容，防範原生無預警在中途 done 造成丟字
+  String _lastRecognizedWords = '';
+  bool _lastWasFinal = false;
+
+  bool get isListening => _shouldKeepListening || _speech.isListening;
 
   /// 開始語音辨識
   /// [onResult] 回傳即時辨識出的文字與是否為最終結果
@@ -117,52 +145,128 @@ class VoiceRecognitionService {
     void Function(String errorMessage)? onError,
     String? languageCode,
   }) async {
+    _shouldKeepListening = true;
+    _onResultCallback = onResult;
+    _onSoundLevelCallback = onSoundLevelChange;
+    _onStatusCallback = onStatusChange;
+    _onErrorCallback = onError;
+    _currentLanguageCode = languageCode;
+    _lastRecognizedWords = '';
+    _lastWasFinal = false;
+
     if (!_isInitialized) {
       final ok = await initialize(
-        onStatus: onStatusChange,
-        onError: (err) => onError?.call(err.errorMsg),
+        onStatus: _handleStatusChange,
+        onError: _handleError,
       );
       if (!ok) {
+        _shouldKeepListening = false;
         onError?.call('裝置不支援語音辨識或未授予麥克風權限');
         return false;
       }
     }
 
-    if (_speech.isListening) {
-      await stopListening();
+    return _executeListen();
+  }
+
+  void _handleStatusChange(String status) {
+    debugPrint('VoiceRecognitionService 狀態變更: $status (shouldKeepListening: $_shouldKeepListening)');
+    _onStatusCallback?.call(status);
+
+    // 若底層 Session 結束（notListening / done），但最後辨識出的文字尚未標記為 Final，強制交付定稿
+    if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
+      debugPrint('VoiceRecognitionService: 原生階段結束，強制保存未定稿字詞: $_lastRecognizedWords');
+      _onResultCallback?.call(_lastRecognizedWords.trim(), true);
+      _lastRecognizedWords = '';
+      _lastWasFinal = true;
     }
 
-    final localeId = resolveLocaleId(languageCode);
-    debugPrint('啟動語音辨識，使用 localeId: $localeId');
+    if (_shouldKeepListening && (status == 'notListening' || status == 'done')) {
+      _scheduleAutoRestart();
+    }
+  }
+
+  void _handleError(SpeechRecognitionError errorNotification) {
+    debugPrint('VoiceRecognitionService 收到錯誤: ${errorNotification.errorMsg}');
+    if (_shouldKeepListening) {
+      _scheduleAutoRestart();
+    } else {
+      _onErrorCallback?.call(errorNotification.errorMsg);
+    }
+  }
+
+  void _scheduleAutoRestart() {
+    _restartTimer?.cancel();
+    if (!_shouldKeepListening) return;
+
+    _restartTimer = Timer(const Duration(milliseconds: 300), () {
+      if (_shouldKeepListening) {
+        debugPrint('VoiceRecognitionService: 自動續接持續收音...');
+        _executeListen();
+      }
+    });
+  }
+
+  Future<bool> _executeListen() async {
+    if (!_isInitialized || !_shouldKeepListening) return false;
 
     try {
+      if (_speech.isListening) {
+        await _speech.stop();
+      }
+
+      final localeId = resolveLocaleId(_currentLanguageCode);
+      debugPrint('啟動語音辨識 Session，使用 localeId: $localeId');
+
       await _speech.listen(
         onResult: (SpeechRecognitionResult result) {
           final words = result.recognizedWords;
-          // 即時傳送部分結果或最終結果 (忽略空白雜訊)
+          _lastRecognizedWords = words;
+          _lastWasFinal = result.finalResult;
+
           if (words.isNotEmpty || result.finalResult) {
-            onResult(words, result.finalResult);
+            _onResultCallback?.call(words, result.finalResult);
           }
         },
-        onSoundLevelChange: onSoundLevelChange,
+        onSoundLevelChange: _onSoundLevelCallback,
         listenOptions: SpeechListenOptions(
           listenMode: ListenMode.dictation,
           cancelOnError: false,
           partialResults: true,
-          onDevice: false,
           autoPunctuation: true,
           sampleRate: 0,
           localeId: localeId,
-          pauseFor: const Duration(seconds: 15), // 提高停頓容忍時間至 15 秒，避免講話中途換氣被中斷
-          listenFor: const Duration(minutes: 5),  // 提高最長單次收音時間
+          pauseFor: const Duration(seconds: 15),
+          listenFor: const Duration(minutes: 30),
         ),
       );
       return true;
     } catch (e) {
-      debugPrint('啟動語音辨識失敗: $e');
-      onError?.call('無法啟動語音辨識: $e');
+      debugPrint('啟動語音辨識異常: $e');
+      if (_shouldKeepListening) {
+        _scheduleAutoRestart();
+      } else {
+        _onErrorCallback?.call('無法啟動語音辨識: $e');
+      }
       return false;
     }
+  }
+
+  /// 停止語音辨識並重置狀態
+  Future<void> stopListening() async {
+    _shouldKeepListening = false;
+    _restartTimer?.cancel();
+
+    // 如果還有未交付的字詞，立即交付定稿
+    if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
+      _onResultCallback?.call(_lastRecognizedWords.trim(), true);
+      _lastRecognizedWords = '';
+      _lastWasFinal = true;
+    }
+
+    try {
+      await _speech.stop();
+    } catch (_) {}
   }
 
   /// 智慧過濾去除語音常見贅字、語助詞與口吃重複詞 (如「痾」、「呃」、「那個」、「就是說」等)
@@ -215,19 +319,11 @@ class VoiceRecognitionService {
     return cleaned;
   }
 
-  /// 停止語音辨識（保留目前已辨識內容）
-  Future<void> stopListening() async {
-    try {
-      if (_speech.isListening) {
-        await _speech.stop();
-      }
-    } catch (e) {
-      debugPrint('停止語音辨識異常: $e');
-    }
-  }
 
   /// 取消語音辨識
   Future<void> cancelListening() async {
+    _shouldKeepListening = false;
+    _restartTimer?.cancel();
     try {
       if (_speech.isListening) {
         await _speech.cancel();

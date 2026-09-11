@@ -4363,7 +4363,11 @@ class _FaqAndCustomerSupportSheetState
                                 ),
                               )
                             : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+                                padding: EdgeInsets.fromLTRB(
+                                    16,
+                                    6,
+                                    16,
+                                    MediaQuery.of(context).padding.bottom + 24),
                                 itemCount: filteredFaq.length + 1,
                                 itemBuilder: (ctx, i) {
                                   if (i == filteredFaq.length) {
@@ -4482,14 +4486,32 @@ class _FaqAndCustomerSupportSheetState
                                         children: [
                                           const Divider(height: 1),
                                           const SizedBox(height: 10),
-                                          Text(
-                                            AppLocaleService.tr(item['aKey'] as String, lang),
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              height: 1.6,
-                                              color: isDark
-                                                  ? Colors.white70
-                                                  : Colors.grey.shade800,
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 14, vertical: 10),
+                                            decoration: BoxDecoration(
+                                              color: primary.withValues(
+                                                  alpha: isDark ? 0.08 : 0.04),
+                                              borderRadius: const BorderRadius.only(
+                                                topRight: Radius.circular(8),
+                                                bottomRight: Radius.circular(8),
+                                              ),
+                                              border: Border(
+                                                left: BorderSide(
+                                                    color: primary, width: 3.5),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              AppLocaleService.tr(
+                                                  item['aKey'] as String, lang),
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                height: 1.6,
+                                                color: isDark
+                                                    ? Colors.white70
+                                                    : Colors.grey.shade800,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -5103,7 +5125,12 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
               Expanded(
                 child: ListView.separated(
                   controller: scrollCtrl,
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    4,
+                    16,
+                    MediaQuery.of(context).padding.bottom + 24,
+                  ),
                   itemCount: filteredList.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 14),
                   itemBuilder: (ctx, i) {
@@ -5704,17 +5731,41 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
 
-                    const SizedBox(height: 16),
-
-                    // 4. 底部主按鈕
-                    ElevatedButton.icon(
+              // 4. 底部主按鈕（固定於底端，搭配 SafeArea 避免被手機系統虛擬鍵/手勢底欄遮擋）
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E202C) : Colors.white,
+                  border: Border(
+                    top: BorderSide(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFEBEBF0),
+                      width: 1,
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, -3),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                    child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: themeColor,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 46),
+                        minimumSize: const Size(double.infinity, 48),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         elevation: 0,
                       ),
@@ -5723,12 +5774,12 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                       label: Text(
                         '我已完整閱讀並了解${isTerms ? '服務條款' : '隱私權政策'}',
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],

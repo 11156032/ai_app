@@ -17,14 +17,21 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Warning: Could not load assets/keys.env file: $e');
   }
-  
-  try {
-    await Firebase.initializeApp();
-    await PushNotificationService().initialize();
-  } catch (e) {
-    debugPrint('Warning: Firebase initialization failed. Please ensure google-services.json / GoogleService-Info.plist is configured. Error: $e');
-  }
+
+  // 立即啟動 UI 渲染，避免原生 Splash 畫面卡死
   runApp(const MyApp());
+
+  // 非同步進行 Firebase 與推播服務初始化，配置逾時保護
+  _initFirebaseAndNotifications();
+}
+
+Future<void> _initFirebaseAndNotifications() async {
+  try {
+    await Firebase.initializeApp().timeout(const Duration(seconds: 4));
+    await PushNotificationService().initialize().timeout(const Duration(seconds: 4));
+  } catch (e) {
+    debugPrint('Warning: Firebase / PushNotification initialization deferred or failed: $e');
+  }
 }
 
 class AppScrollBehavior extends MaterialScrollBehavior {
@@ -83,7 +90,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   /// APP 啟動時，從資料庫讀取是否有已登入的使用者
   Future<void> _checkAutoLogin() async {
     try {
-      final user = await DatabaseHelper.instance.getLoggedInUser();
+      final user = await DatabaseHelper.instance
+          .getLoggedInUser()
+          .timeout(const Duration(seconds: 3), onTimeout: () => null);
       if (mounted) {
         setState(() {
           _currentUser = user;

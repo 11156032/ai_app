@@ -86,13 +86,13 @@ class AiDiagnosisService {
   }
 
   /// Groq AI 預設使用的模型清單 (按優先順序排序)
-  /// 【在這改 Groq 模型】
+  /// 【支援 Cloudflare 中繼站之現行有效模型】
   static const List<String> _kGroqModels = [
-    'llama-3.3-70b-versatile', // Groq 官方 Llama 3.3 70B 旗艦模型
-    'llama-3.1-8b-instant', // Groq 官方 8B 極速模型
-    'mixtral-8x7b-32768', // Groq 官方 Mixtral 8x7B 模型
-    'gemma2-9b-it', // Groq 官方 Gemma 2 9B 模型
-    'deepseek-r1-distill-llama-70b', // Groq DeepSeek R1 蒸餾 70B 模型
+    'groq/compound', // Groq 官方 Compound 複合旗艦引擎
+    'openai/gpt-oss-120b', // Groq 官方 120B 大規模語言模型
+    'qwen/qwen3.8-27b', // Groq 官方 Qwen 3.8 27B 繁中加強模型
+    'groq/compound-mini', // Groq 官方 Compound Mini 極速模型
+    'openai/gpt-oss-20b', // Groq 官方 20B 模型
   ];
 
   static DateTime? nextAvailableTime;
@@ -321,7 +321,7 @@ class AiDiagnosisService {
     return buffer.toString();
   }
 
-  /// 移除 AI 模型（包含 Reasoning/Thinking 模型）輸出的內部思考過程塊 <think>...</think>，過濾 ** 星號為美觀括號，並強制繁體中文
+  /// 移除 AI 模型輸出的內部思考過程塊 <think>...</think>，過濾 LaTeX 原始代碼與奇怪符號，並強制繁體中文
   static String cleanThinkingTags(String text) {
     if (text.isEmpty) return text;
     String cleaned = text
@@ -329,14 +329,47 @@ class AiDiagnosisService {
             RegExp(r'<think>[\s\S]*?<\/think>', caseSensitive: false), '')
         .replaceAll(RegExp(r'<think>[\s\S]*$', caseSensitive: false), '')
         .replaceAll(
-            RegExp(r'^<think>.*$', caseSensitive: false, multiLine: true), '')
+            RegExp(r'^<think>.*$', caseSensitive: false, multiLine: true), '');
+
+    // 移除 LaTeX 數學定界符
+    cleaned = cleaned
+        .replaceAllMapped(RegExp(r'\$\$(.*?)\$\$', dotAll: true), (m) => m.group(1) ?? '')
+        .replaceAllMapped(RegExp(r'\$(.*?)\$'), (m) => m.group(1) ?? '')
+        .replaceAll(r'\(', '')
+        .replaceAll(r'\)', '')
+        .replaceAll(r'\[', '')
+        .replaceAll(r'\]', '');
+
+    // 轉換常見 LaTeX 分數與符號為易讀標準符號
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\\frac\{([^}]+)\}\{([^}]+)\}'), (m) => '(${m.group(1)}/${m.group(2)})');
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\\sqrt\{([^}]+)\}'), (m) => '√(${m.group(1)})');
+
+    const mathSymbols = {
+      r'\times': '×',
+      r'\div': '÷',
+      r'\pm': '±',
+      r'\approx': '≈',
+      r'\neq': '≠',
+      r'\leq': '≤',
+      r'\geq': '≥',
+      r'\cdot': '·',
+      r'\circ': '°',
+      r'\degree': '°',
+      r'\pi': 'π',
+    };
+    mathSymbols.forEach((k, v) => cleaned = cleaned.replaceAll(k, v));
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\\(?:text|mathbf|mathit)\{([^}]+)\}'), (m) => m.group(1) ?? '');
+
+    cleaned = cleaned
         .replaceAllMapped(
             RegExp(r'^\s*\*\*\s*([^*]+?)\s*\*\*\s*$', multiLine: true),
             (m) => '【${m.group(1)}】')
         .replaceAllMapped(RegExp(r'\*\*([^*]+?)\*\*'), (m) => '【${m.group(1)}】')
         .replaceAll('**', '')
         .replaceAll(RegExp(r'^\s*[\*\-]\s+', multiLine: true), '• ')
-        .replaceAll(RegExp(r'\[\$[0-9]+\]|【\$[0-9]+】|\$[0-9]+'), '');
+        .replaceAll(RegExp(r'\[\$[0-9]+\]|【\$[0-9]+】|\$[0-9]+'), '')
+        .replaceAll(RegExp(r'[\u200B-\u200D\uFEFF\u00A0]'), ' ');
+
     return toTraditionalChinese(cleaned.trim());
   }
 

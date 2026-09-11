@@ -223,23 +223,23 @@ class VoiceNoteService {
       timeoutSeconds: 15,
     );
 
-    // 順位 2-A：Cloudflare Groq 快速引擎 (compound-beta)
+    // 順位 2-A：Cloudflare Groq 快速引擎 (groq/compound)
     if (responseText == null || responseText.trim().isEmpty) {
-      debugPrint('VoiceNoteService: 切換 Cloudflare Groq 極速引擎 (compound-beta)...');
+      debugPrint('VoiceNoteService: 切換 Cloudflare Groq 極速引擎 (groq/compound)...');
       responseText = await _tryCloudflareProxy(
         provider: 'groq',
-        model: 'compound-beta',
+        model: 'groq/compound',
         prompt: prompt,
         timeoutSeconds: 15,
       );
     }
 
-    // 順位 2-B：Cloudflare Groq 深度引擎 (qwen/qwen3.6-27b)
+    // 順位 2-B：Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)
     if (responseText == null || responseText.trim().isEmpty) {
-      debugPrint('VoiceNoteService: 切換 Cloudflare Groq 深度模型 (qwen/qwen3.6-27b)...');
+      debugPrint('VoiceNoteService: 切換 Cloudflare Groq 深度模型 (openai/gpt-oss-120b)...');
       responseText = await _tryCloudflareProxy(
         provider: 'groq',
-        model: 'qwen/qwen3.6-27b',
+        model: 'openai/gpt-oss-120b',
         prompt: prompt,
         timeoutSeconds: 25,
       );

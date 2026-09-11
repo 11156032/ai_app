@@ -96,5 +96,57 @@ void main() {
         '我想問這個問題，請幫忙解答',
       );
     });
+
+    test('resolveLocaleId returns solid locale fallback', () {
+      expect(VoiceRecognitionService.instance.resolveLocaleId('zh_TW'), 'zh_TW');
+      expect(VoiceRecognitionService.instance.resolveLocaleId('ja'), 'ja_JP');
+      expect(VoiceRecognitionService.instance.resolveLocaleId('ko'), 'ko_KR');
+      expect(VoiceRecognitionService.instance.resolveLocaleId(null), 'zh_TW');
+    });
+
+    test('Transcript accumulation preserves multiple utterances without losing text', () {
+      String base = '';
+      
+      String combine(String b, String c) {
+        final bTrim = b.trim();
+        final cTrim = c.trim();
+        if (bTrim.isEmpty) return cTrim;
+        if (cTrim.isEmpty) return bTrim;
+        if (bTrim.endsWith('。') || bTrim.endsWith('！') || bTrim.endsWith('？') || bTrim.endsWith('，') || bTrim.endsWith('\n')) {
+          return '$bTrim$cTrim';
+        }
+        return '$bTrim $cTrim';
+      }
+
+      // 模擬第 1 句串流中
+      String interim = '今天天氣真好';
+      expect(combine(base, interim), '今天天氣真好');
+
+      // 第 1 句定稿
+      base = combine(base, VoiceRecognitionService.cleanFillerWords(interim));
+      expect(base, '今天天氣真好');
+
+      // 模擬第 2 句串流中（包含語助詞）
+      interim = '痾我們去圖書館讀書。';
+      String cleanedInterim = VoiceRecognitionService.cleanFillerWords(interim);
+      expect(combine(base, cleanedInterim), '今天天氣真好 我們去圖書館讀書。');
+
+      // 第 2 句定稿（以句號結尾）
+      base = combine(base, cleanedInterim);
+      expect(base, '今天天氣真好 我們去圖書館讀書。');
+
+      // 模擬第 3 句串流中（句號後方直接緊接中文）
+      interim = '順便借兩本物理講義';
+      expect(combine(base, interim), '今天天氣真好 我們去圖書館讀書。順便借兩本物理講義');
+
+      // 第 3 句定稿
+      base = combine(base, VoiceRecognitionService.cleanFillerWords(interim));
+      expect(base, '今天天氣真好 我們去圖書館讀書。順便借兩本物理講義');
+
+      // 驗證最終逐字稿完整不漏字
+      expect(base.contains('今天天氣真好'), isTrue);
+      expect(base.contains('我們去圖書館讀書'), isTrue);
+      expect(base.contains('順便借兩本物理講義'), isTrue);
+    });
   });
 }

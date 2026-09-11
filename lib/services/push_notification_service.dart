@@ -82,8 +82,8 @@ class PushNotificationService {
         debugPrint('使用者拒絕或尚未授權推播通知');
       }
 
-      // 取得 FCM Token
-      String? token = await _fcm.getToken();
+      // 取得 FCM Token（配置 3 秒逾時保護）
+      String? token = await _fcm.getToken().timeout(const Duration(seconds: 3), onTimeout: () => null);
       debugPrint('FCM Token: $token');
 
       // 註冊 Token 更新事件
@@ -91,8 +91,8 @@ class PushNotificationService {
         debugPrint('FCM Token 更新: $newToken');
       });
 
-      // 預設訂閱全站廣播頻道 all_users
-      await _fcm.subscribeToTopic('all_users');
+      // 預設訂閱全站廣播頻道 all_users（配置 3 秒逾時保護）
+      await _fcm.subscribeToTopic('all_users').timeout(const Duration(seconds: 3), onTimeout: () {});
       debugPrint('已成功訂閱全站推播 (all_users)');
 
       // 處理前景接收到的通知（當 App 開著時，主動跳出本地系統橫幅通知）

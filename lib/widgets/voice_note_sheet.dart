@@ -136,6 +136,26 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   // ============================================================
   // 語音辨識核心控制
   // ============================================================
+  String _combineTranscripts(String base, String current) {
+    final b = base.trim();
+    final c = current.trim();
+    if (b.isEmpty) return c;
+    if (c.isEmpty) return b;
+    // 若 base 已經以常見全半形標點或換行結尾，直接拼接；否則以空白隔開
+    if (b.endsWith('。') ||
+        b.endsWith('！') ||
+        b.endsWith('？') ||
+        b.endsWith('，') ||
+        b.endsWith('、') ||
+        b.endsWith('\n') ||
+        b.endsWith('.') ||
+        b.endsWith('!') ||
+        b.endsWith('?')) {
+      return '$b$c';
+    }
+    return '$b $c';
+  }
+
   Future<void> _startListening() async {
     if (_isListening) return;
 
@@ -146,28 +166,26 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     final started = await VoiceRecognitionService.instance.startListening(
       onResult: (words, isFinal) {
         if (!mounted) return;
-        if (words.trim().isEmpty && !isFinal) return;
+        final trimmed = words.trim();
+        if (trimmed.isEmpty && !isFinal) return;
 
         setState(() {
-          _currentStreamWords = words;
           if (isFinal) {
-            final cleanedWords = VoiceRecognitionService.cleanFillerWords(words.trim());
-            if (cleanedWords.isNotEmpty) {
-              if (_sessionBaseTranscript.isEmpty) {
-                _sessionBaseTranscript = cleanedWords;
-              } else {
-                _sessionBaseTranscript = '$_sessionBaseTranscript\n$cleanedWords';
-              }
+            final cleaned = VoiceRecognitionService.cleanFillerWords(trimmed);
+            if (cleaned.isNotEmpty) {
+              _sessionBaseTranscript = _combineTranscripts(_sessionBaseTranscript, cleaned);
             }
             _currentStreamWords = '';
             _transcriptController.text = _sessionBaseTranscript;
           } else {
-            // 即時串流顯示（避免短暫消失）
-            final liveText = _sessionBaseTranscript.isEmpty
-                ? words
-                : '$_sessionBaseTranscript\n$words';
-            _transcriptController.text = liveText;
+            _currentStreamWords = trimmed;
+            _transcriptController.text = _combineTranscripts(_sessionBaseTranscript, trimmed);
           }
+
+          // 游標移至末端以確保視野聚焦於最新收音字詞
+          _transcriptController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _transcriptController.text.length),
+          );
         });
         _autoScrollTranscript();
       },
@@ -179,15 +197,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       },
       onStatusChange: (status) {
         if (!mounted) return;
-        if (status == 'done' || status == 'notListening') {
-          _consolidateInterimText();
-          setState(() {
-            _isListening = false;
-            _isPaused = true;
-            _soundLevel = 0.0;
-          });
-          _durationTimer?.cancel();
-        } else if (status == 'listening') {
+        debugPrint('VoiceNoteSheet 收到狀態: $status');
+        if (status == 'listening') {
           setState(() {
             _isListening = true;
             _isPaused = false;
@@ -196,14 +207,16 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       },
       onError: (errMsg) {
         if (!mounted) return;
-        _consolidateInterimText();
-        setState(() {
-          _isListening = false;
-          _isPaused = true;
-          _soundLevel = 0.0;
-        });
-        _durationTimer?.cancel();
-        debugPrint('語音辨識通知：$errMsg');
+        debugPrint('VoiceNoteSheet 語音辨識通知：$errMsg');
+        if (errMsg.contains('麥克風') || errMsg.contains('權限') || errMsg.contains('permission')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('語音辨識提示：$errMsg'),
+              backgroundColor: const Color(0xFFE53935),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       },
     );
 
@@ -218,6 +231,19 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           setState(() => _recordDuration += const Duration(seconds: 1));
         }
       });
+    } else if (!started && mounted) {
+      setState(() {
+        _isListening = false;
+        _isPaused = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('無法啟動麥克風錄音，請確認已授予麥克風權限或系統語音服務正常 🎙️'),
+          backgroundColor: Color(0xFFE53935),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -254,17 +280,20 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     if (_currentStreamWords.trim().isNotEmpty) {
       final processedWords = VoiceRecognitionService.cleanFillerWords(_currentStreamWords.trim());
       if (processedWords.isNotEmpty) {
-        if (_sessionBaseTranscript.isEmpty) {
-          _sessionBaseTranscript = processedWords;
-        } else if (!_sessionBaseTranscript.endsWith(processedWords)) {
-          _sessionBaseTranscript = '$_sessionBaseTranscript\n$processedWords';
-        }
+        _sessionBaseTranscript = _combineTranscripts(_sessionBaseTranscript, processedWords);
       }
       _currentStreamWords = '';
     }
 
-    _sessionBaseTranscript = VoiceRecognitionService.cleanFillerWords(_sessionBaseTranscript);
-    _transcriptController.text = _sessionBaseTranscript;
+    // 若使用者手動在文字框輸入但未觸發收音，予以同步保留
+    if (_sessionBaseTranscript.isEmpty && _transcriptController.text.trim().isNotEmpty) {
+      _sessionBaseTranscript = _transcriptController.text.trim();
+    }
+
+    if (_sessionBaseTranscript.isNotEmpty) {
+      _sessionBaseTranscript = VoiceRecognitionService.cleanFillerWords(_sessionBaseTranscript);
+      _transcriptController.text = _sessionBaseTranscript;
+    }
   }
 
   void _clearTranscript() {
@@ -841,7 +870,11 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                               color: Colors.grey.shade400,
                             ),
                           ),
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (val) {
+                            _sessionBaseTranscript = val;
+                            _currentStreamWords = '';
+                            setState(() {});
+                          },
                         ),
                         if (_isListening)
                           FadeTransition(

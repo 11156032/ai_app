@@ -65,13 +65,24 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     return 'K/Qk9-gt2P.E9qa';
   }
 
+  // 內建系統 Gemini API Key (支援多模態視覺直連)
+  static String get _kDefaultGeminiApiKey {
+    try {
+      final key = dotenv.env['GEMINI_API_KEY'];
+      if (key != null && key.isNotEmpty) return key;
+    } catch (_) {}
+    const envKey = String.fromEnvironment('GEMINI_API_KEY');
+    if (envKey.isNotEmpty) return envKey;
+    return '';
+  }
+
   // Loading Steps Simulation
   int _currentStep = 0;
   final List<String> _loadingSteps = [
-    '已連線至 AI 雲端中繼站...',
-    '正在進行學科知識庫深度推理...',
-    'AI 正在提取與生成題目、選項與詳解步驟...',
-    '正在整理結構化題本預覽，請稍候...'
+    '正在連接高精準 AI 視覺辨識模型...',
+    '正在深度解析試卷題目、題幹與圖文條件...',
+    'AI 正在提取與結構化選項、標準答案與解題步驟...',
+    '正在整理試卷預覽與題目驗證，請稍候...'
   ];
 
   @override
@@ -112,7 +123,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
 
-    return '';
+    // 4. 內建系統 Gemini API Key
+    return _kDefaultGeminiApiKey;
   }
 
   // 呼叫 Cloudflare 雲端中繼站 (支援 Gemini, Groq, OpenRouter)
@@ -185,11 +197,16 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     }
   }
 
-  // Pick Image
-  Future<void> _pickImage() async {
+  // Pick Image (支援相簿與拍照，並進行尺寸最佳化確保辨識穩定)
+  Future<void> _pickImage([ImageSource source = ImageSource.gallery]) async {
     try {
       final picker = ImagePicker();
-      final image = await picker.pickImage(source: ImageSource.gallery);
+      final image = await picker.pickImage(
+        source: source,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 85,
+      );
 
       if (image != null) {
         final bytes = await image.readAsBytes();
@@ -197,6 +214,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         String mimeType = 'image/jpeg';
         if (ext == 'png') mimeType = 'image/png';
         if (ext == 'webp') mimeType = 'image/webp';
+        if (ext == 'heic' || ext == 'heif') mimeType = 'image/jpeg';
 
         setState(() {
           _selectedFilePath = image.path;
@@ -211,6 +229,79 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     } catch (e) {
       _showErrorSnackBar('選取圖片失敗: $e');
     }
+  }
+
+  void _showImageSourcePicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final cs = Theme.of(ctx).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Text(
+                  '選擇考卷相片來源',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.camera_alt_rounded, color: cs.primary),
+                  ),
+                  title: const Text('拍照辨識', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('即時拍攝實體考卷或試題講義', style: TextStyle(fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.photo_library_rounded, color: cs.primary),
+                  ),
+                  title: const Text('相簿選取', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('從手機相簿選取已保存的考卷照片', style: TextStyle(fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // --------------------------------------------------------------------------
@@ -256,19 +347,21 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   "questions": [
     {
       "text": "完整題目敘述（包含題目情境、條件、圖表說明或題意）",
-      "options": ["選項 A 內容", "選項 B 內容", "選項 C 內容", "選項 D 內容"],
-      "answer": "正確答案索引（必須為 "0"、"1"、"2" 或 "3" 字串，對應 options 陣列第一個至第四個選項）",
+      "options": ["選項一", "選項二", "選項三", "選項四"],
+      "answer": "0",
       "explanation": "完整詳細的計算流程、觀念詳解與陷阱提示",
       "difficulty": "${diff == '基礎' ? 'easy' : (diff == '進階' ? 'hard' : 'medium')}"
     }
   ]
 }
 
-【重要規範】
+【重要品質與標點規範】
 1. 繁體中文：全部內容（題目、選項、單元、詳解）必須為臺灣正體繁體中文。
-2. 選項乾淨：選項陣列中的文字請去除 A. B. C. D. 等前綴標籤。
-3. 答案索引精確：answer 必須是 0-based 索引字串（"0", "1", "2", "3"）。
-4. 專業詳解：每題務必提供富有教育價值的深度詳解與步驟。
+2. 選項乾淨純文字：選項陣列中的文字請去除 A. B. C. D.、(A) (B) 或 ① ② 等前綴標籤，保持純文字。
+3. 嚴禁奇怪符號與 LaTeX 原始指令：嚴禁出現 \\frac, \\times, \\pm, \\text 等 LaTeX 反斜線代碼。數學算式請用常規標準符號（例如寫 (a/b) 而非 \\frac{a}{b}；寫 × 而非 \\times；寫 ± 而非 \\pm；寫 √(x) 而非 \\sqrt{x}；寫 x^2、+、-、*、/、= 等）。
+4. 嚴禁出現 <think> 思考標籤或對話開場白。
+5. 答案索引精確：answer 必須是 0-based 索引字串（"0", "1", "2", "3"）。
+6. 專業詳解：每題務必提供富有教育價值的深度詳解與步驟。
 ''';
 
     try {
@@ -279,26 +372,26 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       responseText = await _tryCloudflareProxy(
         provider: 'gemini',
         prompt: prompt,
-        timeoutSeconds: 20,
+        timeoutSeconds: 25,
       );
 
-      // 順位 2：Cloudflare Groq 極速中繼站
+      // 順位 2：Cloudflare Groq 旗艦中繼引擎 (groq/compound)
       if (responseText == null || responseText.trim().isEmpty) {
-        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 中繼引擎 (llama-3.3-70b-versatile)...');
+        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 旗艦引擎 (groq/compound)...');
         responseText = await _tryCloudflareProxy(
           provider: 'groq',
-          model: 'llama-3.3-70b-versatile',
+          model: 'groq/compound',
           prompt: prompt,
           timeoutSeconds: 20,
         );
       }
 
-      // 順位 3：Cloudflare OpenRouter 備援中繼站
+      // 順位 3：Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)
       if (responseText == null || responseText.trim().isEmpty) {
-        debugPrint('AiUploadPaper: 切換 Cloudflare OpenRouter 中繼備援...');
+        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)...');
         responseText = await _tryCloudflareProxy(
-          provider: 'openrouter',
-          model: 'google/gemini-2.0-flash-001',
+          provider: 'groq',
+          model: 'openai/gpt-oss-120b',
           prompt: prompt,
           timeoutSeconds: 25,
         );
@@ -334,7 +427,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   }
 
   // --------------------------------------------------------------------------
-  // 核心功能 2：上傳考卷文件/圖片辨識（支援中繼站多模態/直連）
+  // 核心功能 2：上傳考卷文件/圖片辨識（高精準多模態視覺模型串接）
   // --------------------------------------------------------------------------
   Future<void> _startAiRecognition() async {
     if (_fileBytes == null && _selectedFilePath != null) {
@@ -365,71 +458,136 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     });
 
     final systemPrompt = '''
-你是一個專業的考卷題目解析專家。你的任務是從使用者上傳的 PDF 檔案或考卷圖片中，精確辨識並提取出所有的「選擇題/單選題」。
-請將辨識出的題目轉換為結構化的 JSON 格式，並保證其完全符合以下指定的 JSON 格式：
+你是一個精通臺灣各級升學考試與學校測驗的「專業試卷 OCR 與解析大師」。
+請仔細辨識檢視使用者上傳的試卷文件（圖片或 PDF），提取並解析出所有的選擇題（單選題）。
+
+【重要辨識與品質準則】
+1. 忠實辨識原題：請精確辨識圖片中的真實題目文字、題幹條件、選項與數值，絕不可憑空捏造或杜撰與圖片無關的題目！
+2. 題型支援：優先提取試卷上的單選題。若試卷上有其他題型（如是非題、填空題、簡答題、計算題），請依據該題目的原始題幹與內容，合理轉化為具備 4 個選項、正確答案與步驟詳解的單選題。
+3. 繁體中文：所有題目內容、選項、單元名稱與詳解必須全部使用臺灣正體繁體中文。
+4. 選項純淨化：選項陣列中的文字請移除 A. B. C. D. 或 ① ② ③ ④ 等前綴標籤，保持乾淨純文字。
+5. 答案索引：answer 欄位必須為 options 陣列的 0-based 索引字串（"0", "1", "2" 或 "3"）。
+6. 深度詳解：請為每一題提供清晰步驟、觀念推理與計算詳解。
+7. 【防偽與無關圖片守則】：若圖片完全模糊不清、過度反光導致無法閱讀，或該圖片根本不是任何考卷、試題、筆記或作業（例如純風景照、生活照、雜物或黑畫面），請在 paper_name 填入 "無法辨識題目"，並將 questions 設為空陣列 []，絕對切勿憑空捏造毫不相干的題目！
+
+【嚴格輸出格式契約】
+請絕對只回傳符合以下 JSON 格式的字串，嚴禁包裹 markdown 或其他多餘說明：
 {
-  "paper_name": "（請根據考卷內容自動生成一個適合的題本/考卷名稱，例如：高一數學第一單元模擬測驗）",
-  "subject": "（請精確辨識該考卷的學科名稱，例如：數學、英文、理化、歷史等。若難以辨識則填入 其他）",
-  "chapter": "（請辨識該考卷內容的單元/章節名稱，例如：空間幾何、向量、關聯式資料庫等）",
+  "paper_name": "（依據考卷內容辨識出或生成的題本名稱，若無法辨識請填 "無法辨識題目"）",
+  "subject": "（學科名稱，例如：數學、英文、國文、物理、化學、生物、歷史、地理、公民 等）",
+  "chapter": "（單元或章節名稱）",
   "questions": [
     {
-      "text": "（題目問題描述，需完整包括題目內文與敘述）",
-      "options": ["選項 A 內容", "選項 B 內容", "選項 C 內容", "選項 D 內容"],
-      "answer": "（正確選項的索引值字串，必須是 "0"、"1"、"2" 或 "3" 中的一個，分別代表第一個、第二個、第三個或第四個選項）",
-      "explanation": "（該題目的詳細解析、計算步驟或知識點說明。若考卷上無解析，請依據您的專業知識庫生成詳細的解析說明）",
-      "difficulty": "（題目難度，必須是 'easy'、'medium'、'hard' 之一，預設為 'medium'）"
+      "text": "完整題目敘述（包含題目情境與所有條件）",
+      "options": ["選項一", "選項二", "選項三", "選項四"],
+      "answer": "0",
+      "explanation": "深度解題步驟與觀念詳解",
+      "difficulty": "medium"
     }
   ]
 }
-
-重要規則：
-1. 輸出語言限制：題目內容、選項、單元名稱與解析必須全部使用繁體中文（Taiwan Traditional Chinese），切勿使用簡體字。
-2. 選項映射：確保將題目的選項（如 A, B, C, D 或 ①, ②, ③, ④）乾淨地提取並放入 "options" 陣列中，移除選項前面的 A. B. C. 等標記字元，讓選項文字保持乾淨。
-3. 正確答案：必須將正確答案轉換為對應 options 陣列的 0-based 索引字串。例如：如果答案是 B (第二個選項)，則 "answer" 必須為 "1"。
-4. 請絕對只回傳一個乾淨符合 JSON 規範的 String，禁止包裹任何 ```json 等 markdown 標記。
 ''';
 
     try {
       String? responseText;
-
-      // 優先使用本地/直連 Gemini SDK 處理二進位圖片/PDF 多模態
       final apiKey = await _getApiKey();
+      final modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+
+      // 順位 1：透過 Gemini SDK 多模型依序嘗試多模態視覺辨識
       if (apiKey.isNotEmpty) {
-        try {
-          final model = GenerativeModel(
-            model: 'gemini-2.5-flash',
-            apiKey: apiKey,
-          );
-          final content = [
-            Content.multi([
-              TextPart(systemPrompt),
-              DataPart(_mimeType!, _fileBytes!),
-            ])
-          ];
-          final response = await model.generateContent(
-            content,
-            generationConfig: GenerationConfig(
-              responseMimeType: 'application/json',
-            ),
-          );
-          responseText = response.text;
-        } catch (sdkErr) {
-          debugPrint('Gemini SDK 多模態解析例外: $sdkErr，準備嘗試中繼站...');
+        for (final modelName in modelsToTry) {
+          try {
+            debugPrint('AiUploadPaper: 啟動 Gemini SDK 多模態視覺辨識 ($modelName)...');
+            final model = GenerativeModel(
+              model: modelName,
+              apiKey: apiKey,
+              safetySettings: [
+                SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
+                SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
+                SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
+                SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.none),
+              ],
+            );
+            final content = [
+              Content.multi([
+                TextPart(systemPrompt),
+                DataPart(_mimeType!, _fileBytes!),
+              ])
+            ];
+            final response = await model.generateContent(
+              content,
+              generationConfig: GenerationConfig(
+                responseMimeType: 'application/json',
+              ),
+            );
+            if (response.text != null && response.text!.trim().isNotEmpty) {
+              responseText = response.text;
+              debugPrint('AiUploadPaper: Gemini SDK ($modelName) 多模態辨識成功！');
+              break;
+            }
+          } catch (sdkErr) {
+            debugPrint('Gemini SDK ($modelName) 多模態解析例外: $sdkErr');
+          }
         }
       }
 
-      // 若 SDK 未能回傳，嘗試中繼站進行 OCR / 提示詞備援
-      if (responseText == null || responseText.trim().isEmpty) {
-        debugPrint('AiUploadPaper: 透過 Cloudflare 雲端中繼站進行解析...');
-        responseText = await _tryCloudflareProxy(
-          provider: 'gemini',
-          prompt: '$systemPrompt\n\n【檔案名稱】$_selectedFileName',
-          timeoutSeconds: 25,
-        );
+      // 順位 2：若 SDK 因網路代理或平台問題失敗，使用直接 Google REST API 直連多模態
+      if ((responseText == null || responseText.trim().isEmpty) && apiKey.isNotEmpty) {
+        final base64Data = base64Encode(_fileBytes!);
+        for (final modelName in modelsToTry) {
+          try {
+            debugPrint('AiUploadPaper: 嘗試 Gemini 原生 REST API 多模態直連 ($modelName)...');
+            final url = Uri.parse(
+              'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey',
+            );
+            final res = await http.post(
+              url,
+              headers: {'Content-Type': 'application/json; charset=utf-8'},
+              body: jsonEncode({
+                'contents': [
+                  {
+                    'parts': [
+                      {'text': systemPrompt},
+                      {
+                        'inline_data': {
+                          'mime_type': _mimeType!,
+                          'data': base64Data,
+                        }
+                      }
+                    ]
+                  }
+                ],
+                'safetySettings': [
+                  {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_NONE'},
+                  {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_NONE'},
+                  {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_NONE'},
+                  {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_NONE'},
+                ],
+                'generationConfig': {
+                  'responseMimeType': 'application/json',
+                },
+              }),
+            ).timeout(const Duration(seconds: 35));
+
+            if (res.statusCode == 200) {
+              final data = jsonDecode(utf8.decode(res.bodyBytes));
+              final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+              if (text != null && text.trim().isNotEmpty) {
+                responseText = text;
+                debugPrint('AiUploadPaper: Gemini REST API ($modelName) 辨識成功！');
+                break;
+              }
+            } else {
+              debugPrint('AiUploadPaper: Gemini REST API ($modelName) 回應失敗 [${res.statusCode}]: ${res.body}');
+            }
+          } catch (restErr) {
+            debugPrint('AiUploadPaper: Gemini REST API ($modelName) 例外: $restErr');
+          }
+        }
       }
 
       if (responseText == null || responseText.trim().isEmpty) {
-        throw Exception('無法完成檔案題目辨識，請確認檔案清晰度或稍後再試');
+        throw Exception('無法完成考卷圖片辨識，請確保圖片文字清晰、光線充足，並檢查網路連線後重試。');
       }
 
       stepTimer.cancel();
@@ -439,8 +597,109 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       setState(() {
         _state = UploadState.initial;
       });
-      _showErrorDialog('辨識失敗', e.toString());
+      _showErrorDialog('辨識失敗', e.toString().replaceAll('Exception: ', ''));
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // AI 符號與特殊標籤純淨化（過濾 <think>、LaTeX 反斜線、奇怪符號與重複選項標號）
+  // --------------------------------------------------------------------------
+  static String _cleanAiSymbols(String raw) {
+    if (raw.isEmpty) return raw;
+    String text = raw;
+
+    // 1. 移除模型思考鏈標籤 (如 <think>...</think> 或單獨標籤)
+    text = text.replaceAll(RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'</?think>', caseSensitive: false), '');
+
+    // 2. 移除 LaTeX 數學定界符 ($$...$$, $...$, \(...\), \[...\])
+    text = text.replaceAllMapped(RegExp(r'\$\$(.*?)\$\$', dotAll: true), (m) => m.group(1) ?? '');
+    text = text.replaceAllMapped(RegExp(r'\$(.*?)\$'), (m) => m.group(1) ?? '');
+    text = text.replaceAll(r'\(', '').replaceAll(r'\)', '');
+    text = text.replaceAll(r'\[', '').replaceAll(r'\]', '');
+
+    // 3. 轉換常見 LaTeX 分數、根號等語法為標準易讀符號
+    text = text.replaceAllMapped(RegExp(r'\\frac\{([^}]+)\}\{([^}]+)\}'), (m) {
+      return '(${m.group(1)}/${m.group(2)})';
+    });
+    text = text.replaceAllMapped(RegExp(r'\\sqrt\{([^}]+)\}'), (m) {
+      return '√(${m.group(1)})';
+    });
+    text = text.replaceAllMapped(RegExp(r'\\sqrt\[([^\]]+)\]\{([^}]+)\}'), (m) {
+      return '${m.group(1)}√(${m.group(2)})';
+    });
+
+    const mathReplacements = {
+      r'\times': '×',
+      r'\div': '÷',
+      r'\pm': '±',
+      r'\mp': '∓',
+      r'\approx': '≈',
+      r'\neq': '≠',
+      r'\leq': '≤',
+      r'\geq': '≥',
+      r'\le': '≤',
+      r'\ge': '≥',
+      r'\cdot': '·',
+      r'\circ': '°',
+      r'\degree': '°',
+      r'\pi': 'π',
+      r'\theta': 'θ',
+      r'\alpha': 'α',
+      r'\beta': 'β',
+      r'\gamma': 'γ',
+      r'\delta': 'δ',
+      r'\Delta': 'Δ',
+      r'\in': '∈',
+      r'\notin': '∉',
+      r'\subset': '⊂',
+      r'\supset': '⊃',
+      r'\cap': '∩',
+      r'\cup': '∪',
+      r'\infty': '∞',
+      r'\angle': '∠',
+      r'\triangle': '△',
+      r'\perp': '⊥',
+      r'\parallel': '∥',
+      r'\to': '→',
+      r'\rightarrow': '→',
+      r'\Rightarrow': '⇒',
+      r'\iff': '⇔',
+      r'\therefore': '∴',
+      r'\because': '∵',
+    };
+
+    mathReplacements.forEach((k, v) {
+      text = text.replaceAll(k, v);
+    });
+
+    // 移除 \text{...}, \mathbf{...}, \mathit{...} 等指令包裹
+    text = text.replaceAllMapped(RegExp(r'\\(?:text|mathbf|mathit|mathrm|mathbb)\{([^}]+)\}'), (m) {
+      return m.group(1) ?? '';
+    });
+
+    // 4. 清理 Markdown 粗體、斜體殘留星號
+    text = text.replaceAllMapped(RegExp(r'\*\*([^*]+)\*\*'), (m) => m.group(1) ?? '');
+    text = text.replaceAllMapped(RegExp(r'__([^_]+)__'), (m) => m.group(1) ?? '');
+
+    // 5. 移除不可見特殊字元、零寬字符與控制符
+    text = text.replaceAll(RegExp(r'[\u200B-\u200D\uFEFF\u00A0]'), ' ');
+
+    // 6. 整理多餘空白與連續反斜線
+    text = text.replaceAll(r'\\', r'\');
+    text = text.replaceAll(RegExp(r'[ \t]{2,}'), ' ');
+
+    return text.trim();
+  }
+
+  static String _cleanOptionText(String raw) {
+    String opt = _cleanAiSymbols(raw);
+    // 移除選項開頭重複的 A. B. C. D.、(A) (B)、[A] [B]、① ② 或 1. 2. 標號
+    opt = opt.replaceAll(
+      RegExp(r'^(?:[A-Da-d][\.\、\:\)\s\-]+|\([A-Da-d]\)\s*|\[[A-Da-d]\]\s*|[①②③④⑤]\s*|\d+[\.\、\:\)\s\-]+)'),
+      '',
+    );
+    return opt.trim();
   }
 
   // --------------------------------------------------------------------------
@@ -452,41 +711,63 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       final regExp = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
       final match = regExp.firstMatch(cleanText);
       if (match != null) {
-        cleanText = match.group(1) ?? cleanText;
+        cleanText = match.group(1)?.trim() ?? cleanText;
       }
     }
 
+    final firstBrace = cleanText.indexOf('{');
+    final lastBrace = cleanText.lastIndexOf('}');
+    if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+      cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+    }
+
     final Map<String, dynamic> parsedData = jsonDecode(cleanText.trim());
-    final String paperName = parsedData['paper_name'] ?? 'AI 智慧生成題本';
-    final String subject = parsedData['subject'] ?? _selectedTopicSubject;
-    final String chapter = parsedData['chapter'] ?? 'AI 核心單元';
+    final String rawPaperName = (parsedData['paper_name'] ?? 'AI 智慧生成題本').toString();
+    final String paperName = _cleanAiSymbols(rawPaperName);
+    final String subject = _cleanAiSymbols((parsedData['subject'] ?? _selectedTopicSubject).toString());
+    final String chapter = _cleanAiSymbols((parsedData['chapter'] ?? 'AI 核心單元').toString());
     final List<dynamic> qList = parsedData['questions'] ?? [];
+
+    if (paperName.contains('無法辨識') || qList.isEmpty) {
+      throw Exception('未能從上傳的文件/相片中辨識出有效的考卷題目。請確保上傳的試卷清晰無反光、文字清楚端正，且確實包含考卷題目內容。');
+    }
 
     List<Map<String, dynamic>> questions = [];
     for (final q in qList) {
       final rawOptions = q['options'] as List<dynamic>? ?? [];
-      final options = rawOptions.map((e) => e.toString()).toList();
+      final options = rawOptions
+          .map((e) => _cleanOptionText(e.toString()))
+          .where((opt) => opt.isNotEmpty)
+          .toList();
       final rawAns = q['answer'] ?? '0';
       int ansIndex = int.tryParse(rawAns.toString()) ?? 0;
       if (ansIndex < 0 || ansIndex >= options.length) ansIndex = 0;
 
+      final text = _cleanAiSymbols((q['text'] ?? '').toString());
+      if (text.isEmpty) continue;
+
+      // 若選項不足 4 個，適當補齊以符合單選題架構
+      while (options.length < 4) {
+        options.add('以上皆非');
+      }
+
       questions.add({
-        'text': (q['text'] ?? '').toString(),
+        'text': text,
         'options': options,
         'answerIndex': ansIndex,
-        'explanation': (q['explanation'] ?? '').toString(),
+        'explanation': _cleanAiSymbols((q['explanation'] ?? '').toString()),
         'difficulty': (q['difficulty'] ?? 'medium').toString(),
       });
     }
 
     if (questions.isEmpty) {
-      throw Exception('AI 未能產生有效的題目列表，請重新嘗試');
+      throw Exception('未能從上傳的文件/相片中提取出完整的題目結構，請重新拍攝或選取清晰的試卷。');
     }
 
     setState(() {
       _paperNameCtrl.text = paperName;
-      _subjectCtrl.text = subject;
-      _chapterCtrl.text = chapter;
+      _subjectCtrl.text = subject.isNotEmpty ? subject : _selectedTopicSubject;
+      _chapterCtrl.text = chapter.isNotEmpty ? chapter : '考卷解析單元';
       _questions = questions;
       _state = UploadState.preview;
     });
@@ -782,38 +1063,12 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
-
-          // 中繼站狀態提示膠囊
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.bolt_rounded, size: 15, color: cs.primary),
-                const SizedBox(width: 4),
-                Text(
-                  '已串接 Cloudflare 雲端中繼站 (Gemini・Groq・OpenRouter)',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: cs.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           if (_activeTab == 0) ...[
             // Tab 0: 考卷/講義檔案上傳
             GestureDetector(
-              onTap: _pickImage,
+              onTap: _showImageSourcePicker,
               child: Container(
                 width: double.infinity,
                 height: 160,
@@ -831,9 +1086,9 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                   children: [
                     Icon(Icons.image_search_rounded, size: 44, color: cs.primary),
                     const SizedBox(height: 10),
-                    const Text('上傳考卷或講義相片', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text('拍照或上傳考卷相片', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 4),
-                    Text('支援 PNG, JPG, WebP 格式相片', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+                    Text('支援相機即時拍照、相簿選取（PNG, JPG, WebP）', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
                   ],
                 ),
               ),
