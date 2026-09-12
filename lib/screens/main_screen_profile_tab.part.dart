@@ -2386,7 +2386,7 @@ extension MainScreenProfileTab on _MainScreenState {
       case 'calendar':
         return AppLocaleService.tr('nav_calendar', _appLanguage);
       case 'quiz':
-        return AppLocaleService.tr('nav_quiz', _appLanguage);
+        return AppLocaleService.tr('nav_quiz_full', _appLanguage);
       case 'social':
         return AppLocaleService.tr('nav_community', _appLanguage);
       case 'notes':
@@ -2429,7 +2429,7 @@ extension MainScreenProfileTab on _MainScreenState {
         case 'quiz':
           return '國高中題庫、單元測驗與 AI 錯題解析';
         case 'social':
-          return '討論社群、互助共學與讀書筆記分享';
+          return '討論社群、學科群組與同儕互助共學';
         case 'notes':
           return '語音速記、互動心智圖與手寫畫布筆記';
         default:
@@ -2439,6 +2439,7 @@ extension MainScreenProfileTab on _MainScreenState {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
@@ -2446,6 +2447,7 @@ extension MainScreenProfileTab on _MainScreenState {
         builder: (context, setSheetState) {
           final isDark = _isDarkMode;
           final primaryColor = _currentPrimaryColor;
+          final bottomPadding = MediaQuery.of(context).padding.bottom;
 
           void swapItems(int fromIdx, int toIdx) {
             if (fromIdx == toIdx ||
@@ -2461,19 +2463,12 @@ extension MainScreenProfileTab on _MainScreenState {
               tempOrder[toIdx] = temp;
               selectedForSwap = null;
             });
-            HapticFeedback.selectionClick();
-          }
-
-          void moveItem(int index, int delta) {
-            final target = index + delta;
-            if (target >= 0 && target < tempOrder.length) {
-              swapItems(index, target);
-            }
+            HapticFeedback.mediumImpact();
           }
 
           return Container(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.9,
+              maxHeight: MediaQuery.of(context).size.height * 0.88,
             ),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E1E24) : Colors.white,
@@ -2528,7 +2523,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '自訂 5 格分頁與抽屜備用功能配置',
+                                  '點擊兩張卡片直接互換 · 備用預設為筆記與社群動態',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: isDark ? Colors.white60 : Colors.grey.shade600,
@@ -2678,21 +2673,21 @@ extension MainScreenProfileTab on _MainScreenState {
                         if (selectedForSwap != null)
                           Container(
                             margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
                               color: primaryColor.withValues(alpha: isDark ? 0.25 : 0.12),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: primaryColor.withValues(alpha: 0.4)),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: primaryColor.withValues(alpha: 0.5), width: 1.5),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.touch_app_rounded, size: 16, color: primaryColor),
+                                Icon(Icons.touch_app_rounded, size: 18, color: primaryColor),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    '已選取「${_getNavBarItemName(tempOrder[selectedForSwap!])}」，請點擊要互換的目標項目',
+                                    '已選取「${_getNavBarItemName(tempOrder[selectedForSwap!])}」，請點擊任一目標卡片直接互換位置',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 12.5,
                                       fontWeight: FontWeight.bold,
                                       color: primaryColor,
                                     ),
@@ -2700,7 +2695,14 @@ extension MainScreenProfileTab on _MainScreenState {
                                 ),
                                 InkWell(
                                   onTap: () => setSheetState(() => selectedForSwap = null),
-                                  child: Icon(Icons.close_rounded, size: 16, color: primaryColor),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withValues(alpha: 0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.close_rounded, size: 14, color: primaryColor),
+                                  ),
                                 ),
                               ],
                             ),
@@ -2708,7 +2710,7 @@ extension MainScreenProfileTab on _MainScreenState {
 
                         // B. 項目設定卡片列表
                         Text(
-                          '自訂功能排序與位置（點擊選取互換，或使用箭頭調整）',
+                          '自訂功能列表（點擊任兩項即可互換）',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -2717,7 +2719,7 @@ extension MainScreenProfileTab on _MainScreenState {
                         ),
                         const SizedBox(height: 10),
 
-                        // 4 個卡片項目
+                        // 4 個卡片項目 (點擊互換)
                         ...List.generate(tempOrder.length, (index) {
                           final itemKey = tempOrder[index];
                           final isDrawer = index == 3;
@@ -2726,14 +2728,14 @@ extension MainScreenProfileTab on _MainScreenState {
                           final name = _getNavBarItemName(itemKey);
                           final desc = getItemDesc(itemKey);
                           final slotLabel = isDrawer
-                              ? '側邊抽屜備用'
+                              ? '📱 側邊抽屜備用'
                               : '導覽列 第 ${index == 2 ? 4 : index + 1} 格';
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 10),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? primaryColor.withValues(alpha: isDark ? 0.2 : 0.1)
+                                  ? primaryColor.withValues(alpha: isDark ? 0.25 : 0.12)
                                   : (isDark
                                       ? (isDrawer
                                           ? const Color(0xFF24242C)
@@ -2752,8 +2754,10 @@ extension MainScreenProfileTab on _MainScreenState {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                                  blurRadius: 6,
+                                  color: isSelected
+                                      ? primaryColor.withValues(alpha: 0.15)
+                                      : Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                  blurRadius: isSelected ? 10 : 6,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
@@ -2767,13 +2771,14 @@ extension MainScreenProfileTab on _MainScreenState {
                                     HapticFeedback.selectionClick();
                                   } else if (selectedForSwap == index) {
                                     setSheetState(() => selectedForSwap = null);
+                                    HapticFeedback.selectionClick();
                                   } else {
                                     swapItems(selectedForSwap!, index);
                                   }
                                 },
                                 borderRadius: BorderRadius.circular(16),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                                   child: Row(
                                     children: [
                                       // 圖標圓圈
@@ -2820,11 +2825,19 @@ extension MainScreenProfileTab on _MainScreenState {
                                                   decoration: BoxDecoration(
                                                     color: isDrawer
                                                         ? (isDark
-                                                            ? Colors.white12
-                                                            : Colors.grey.shade200)
+                                                            ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
+                                                            : const Color(0xFFFFF3E0))
                                                         : primaryColor.withValues(
                                                             alpha: isDark ? 0.2 : 0.12),
                                                     borderRadius: BorderRadius.circular(8),
+                                                    border: isDrawer
+                                                        ? Border.all(
+                                                            color: isDark
+                                                                ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+                                                                : const Color(0xFFFFB74D),
+                                                            width: 0.8,
+                                                          )
+                                                        : null,
                                                   ),
                                                   child: Text(
                                                     slotLabel,
@@ -2833,8 +2846,8 @@ extension MainScreenProfileTab on _MainScreenState {
                                                       fontWeight: FontWeight.w600,
                                                       color: isDrawer
                                                           ? (isDark
-                                                              ? Colors.white70
-                                                              : Colors.grey.shade700)
+                                                              ? const Color(0xFFFFB74D)
+                                                              : const Color(0xFFE65100))
                                                           : primaryColor,
                                                     ),
                                                   ),
@@ -2855,43 +2868,49 @@ extension MainScreenProfileTab on _MainScreenState {
                                         ),
                                       ),
 
-                                      // 調整箭頭按鈕組
-                                      Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          InkWell(
-                                            onTap: index > 0
-                                                ? () => moveItem(index, -1)
-                                                : null,
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(4),
-                                              child: Icon(
-                                                Icons.keyboard_arrow_up_rounded,
-                                                size: 22,
-                                                color: index > 0
-                                                    ? (isDark ? Colors.white70 : Colors.black87)
-                                                    : (isDark ? Colors.white24 : Colors.black26),
+                                      const SizedBox(width: 8),
+
+                                      // 互換狀態按鈕
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? primaryColor
+                                              : (isDark
+                                                  ? Colors.white.withValues(alpha: 0.08)
+                                                  : Colors.grey.shade100),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? primaryColor
+                                                : (isDark
+                                                    ? Colors.white12
+                                                    : Colors.grey.shade300),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              isSelected ? Icons.check_circle_rounded : Icons.swap_vert_rounded,
+                                              size: 15,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : (isDark ? Colors.white70 : Colors.grey.shade700),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              isSelected ? '選取中' : '點擊互換',
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : (isDark ? Colors.white70 : Colors.grey.shade700),
                                               ),
                                             ),
-                                          ),
-                                          InkWell(
-                                            onTap: index < tempOrder.length - 1
-                                                ? () => moveItem(index, 1)
-                                                : null,
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(4),
-                                              child: Icon(
-                                                Icons.keyboard_arrow_down_rounded,
-                                                size: 22,
-                                                color: index < tempOrder.length - 1
-                                                    ? (isDark ? Colors.white70 : Colors.black87)
-                                                    : (isDark ? Colors.white24 : Colors.black26),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -2905,11 +2924,30 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                 ),
 
-                const Divider(height: 1),
-
-                // 3. 底部動作按鈕
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+                // 3. 底部動作按鈕（含 SafeArea 防遮擋與常駐底欄）
+                Container(
+                  padding: EdgeInsets.fromLTRB(
+                    18,
+                    12,
+                    18,
+                    14 + (bottomPadding > 0 ? bottomPadding : 6),
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark ? Colors.white12 : Colors.grey.shade200,
+                        width: 1,
+                      ),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, -4),
+                      ),
+                    ],
+                  ),
                   child: Row(
                     children: [
                       OutlinedButton.icon(
@@ -2926,7 +2964,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         ),
                         onPressed: () {
                           setSheetState(() {
@@ -5788,7 +5826,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '重要更新',
-      'version': 'v1.6.7',
+      'version': 'v1.6.8',
       'date': '2026-09-13',
       'isPinned': true,
       'icon': Icons.graphic_eq_rounded,
@@ -6486,7 +6524,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.6.7',
+                                  'v1.6.8',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -6608,7 +6646,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                       : Colors.grey.shade500),
                               const SizedBox(width: 6),
                               Text(
-                                '版本：v1.6.7  |  修訂發布日期：2026 年 9 月 13 日',
+                                '版本：v1.6.8  |  修訂發布日期：2026 年 9 月 13 日',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,

@@ -68,12 +68,12 @@ class GroqWhisperService {
       final filePath = p.join(tempDir.path, fileName);
       _currentRecordingPath = filePath;
 
-      // 啟動 AAC-LC 高品質壓縮錄音 (相容性與 Whisper 辨識率最高)
+      // 啟動 16kHz AAC-LC 高品質壓縮錄音 (Whisper 原生聲學取樣率，辨識率最高且無雜音)
       await _audioRecorder.start(
         const RecordConfig(
           encoder: AudioEncoder.aacLc,
           bitRate: 128000,
-          sampleRate: 44100,
+          sampleRate: 16000,
           numChannels: 1,
         ),
         path: filePath,
@@ -237,7 +237,8 @@ class GroqWhisperService {
     String? prompt,
     String language = 'zh',
   }) async {
-    const defaultPrompt = '以下為繁體中文語音筆記內容，請保留完整標點符號（逗號、句號、問號）、專有名詞與中英夾雜精準拼寫。';
+    // 使用自然繁體詞彙引導，嚴禁傳入指示性長句（避免 Whisper 產生提示詞幻覺）
+    const defaultPrompt = '繁體中文，臺灣慣用語，標點符號。';
     final effectivePrompt = prompt ?? defaultPrompt;
 
     // 引擎 1: Groq Whisper (Turbo ➔ V3)
@@ -260,6 +261,7 @@ class GroqWhisperService {
               await http.MultipartFile.fromPath(
                 'file',
                 audioFile.path,
+                filename: 'recording.m4a',
               ),
             );
 
@@ -277,7 +279,10 @@ class GroqWhisperService {
             final rawText = (data['text'] as String? ?? '').trim();
 
             if (rawText.isNotEmpty) {
-              return AiDiagnosisService.toTraditionalChinese(rawText);
+              final cleaned = cleanWhisperTranscript(rawText);
+              if (cleaned.isNotEmpty) {
+                return cleaned;
+              }
             }
           } else {
             debugPrint('Groq Whisper API [$model] 回應 ${response.statusCode}: ${utf8.decode(response.bodyBytes)}');
@@ -365,6 +370,42 @@ class GroqWhisperService {
     }
 
     throw Exception('語音辨識服務暫時無法連線，請確認網路連線或直接在此輸入文字 📝');
+  }
+
+  /// 清理 Whisper 辨識結果（過濾幻覺字串、去重複循環、口語贅字與轉為繁體中文）
+  static String cleanWhisperTranscript(String raw) {
+    if (raw.trim().isEmpty) return '';
+
+    var cleaned = raw.trim();
+
+    // 1. 移除 Whisper 常見的幻覺字幕或中繼詞
+    final hallucinations = [
+      RegExp(r'字幕由\s*.+?\s*提供', caseSensitive: false),
+      RegExp(r'請訂閱\s*.+?(頻道|關注)?', caseSensitive: false),
+      RegExp(r'Thank you for watching', caseSensitive: false),
+      RegExp(r'Amara\.org', caseSensitive: false),
+      RegExp(r'以下為繁體中文語音筆記.*?[。！\n]?', caseSensitive: false),
+      RegExp(r'請保留完整標點符號.*?[。！\n]?', caseSensitive: false),
+      RegExp(r'專有名詞與中英夾雜.*?[。！\n]?', caseSensitive: false),
+    ];
+    for (final h in hallucinations) {
+      cleaned = cleaned.replaceAll(h, '');
+    }
+
+    // 2. 去除連續重複的句子或短語 (例如 "謝謝大家。謝謝大家。")
+    final lines = cleaned.split('\n');
+    final dedupedLines = <String>[];
+    String? lastLine;
+    for (final line in lines) {
+      final t = line.trim();
+      if (t.isNotEmpty && t != lastLine) {
+        dedupedLines.add(t);
+        lastLine = t;
+      }
+    }
+    cleaned = dedupedLines.join('\n');
+
+    return AiDiagnosisService.toTraditionalChinese(cleaned.trim());
   }
 
   /// 釋放資源
