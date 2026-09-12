@@ -1,14 +1,140 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'mindmap_node.dart';
+
+// ============================================================
+// 心智圖全螢幕橫向/直向檢視頁面 (FullscreenMindMapView)
+// ============================================================
+class FullscreenMindMapView extends StatefulWidget {
+  final MindMapNode root;
+  final String title;
+
+  const FullscreenMindMapView({
+    super.key,
+    required this.root,
+    this.title = '心智圖全螢幕檢視',
+  });
+
+  static Future<void> open(
+    BuildContext context, {
+    required MindMapNode root,
+    String title = '心智圖全螢幕檢視',
+  }) {
+    return Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => FullscreenMindMapView(root: root, title: title),
+      ),
+    );
+  }
+
+  @override
+  State<FullscreenMindMapView> createState() => _FullscreenMindMapViewState();
+}
+
+class _FullscreenMindMapViewState extends State<FullscreenMindMapView> {
+  bool _isLandscapeForced = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 進入全螢幕時，全面解鎖四向旋轉（支援直接將手機轉為橫向瀏覽）
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  @override
+  void dispose() {
+    // 離開全螢幕時，恢復預設直向模式
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    super.dispose();
+  }
+
+  /// 一鍵切換橫向寬螢幕 / 直向模式
+  void _toggleOrientation() {
+    setState(() {
+      _isLandscapeForced = !_isLandscapeForced;
+      if (_isLandscapeForced) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeRight,
+          DeviceOrientation.landscapeLeft,
+        ]);
+      } else {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9F7F5),
+      appBar: AppBar(
+        title: Text(
+          widget.title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        backgroundColor: const Color(0xFF4A148C),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+          tooltip: '關閉全螢幕',
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isLandscapeForced
+                  ? Icons.stay_current_portrait_rounded
+                  : Icons.stay_current_landscape_rounded,
+            ),
+            onPressed: _toggleOrientation,
+            tooltip: _isLandscapeForced ? '切換為直向' : '切換為橫向寬螢幕',
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: InteractiveMindMapView(
+          root: widget.root,
+          showRotateButton: true,
+          onRotate: _toggleOrientation,
+        ),
+      ),
+    );
+  }
+}
 
 // ============================================================
 // 心智圖互動畫布元件
 // ============================================================
 class InteractiveMindMapView extends StatefulWidget {
   final MindMapNode root;
+  final bool showRotateButton;
+  final VoidCallback? onRotate;
 
-  const InteractiveMindMapView({super.key, required this.root});
+  const InteractiveMindMapView({
+    super.key,
+    required this.root,
+    this.showRotateButton = false,
+    this.onRotate,
+  });
 
   @override
   State<InteractiveMindMapView> createState() => _InteractiveMindMapViewState();
@@ -17,13 +143,12 @@ class InteractiveMindMapView extends StatefulWidget {
 class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
   final TransformationController _transformController = TransformationController();
   late MindMapNode _root;
+  Size? _lastViewportSize;
 
   @override
   void initState() {
     super.initState();
     _root = widget.root;
-    // 預設縮放置中
-    WidgetsBinding.instance.addPostFrameCallback((_) => _resetView());
   }
 
   @override
@@ -31,6 +156,13 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.root != widget.root) {
       setState(() => _root = widget.root);
+      if (_lastViewportSize != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _lastViewportSize != null) {
+            _centerView(_lastViewportSize!);
+          }
+        });
+      }
     }
   }
 
@@ -40,9 +172,55 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
     super.dispose();
   }
 
-  void _resetView() {
+  /// 計算最適合目前可視區域（Viewport）的縮放與置中矩陣
+  void _centerView(Size viewportSize) {
+    if (viewportSize.width <= 0 || viewportSize.height <= 0) return;
+
+    // 計算心智圖在畫布中的整體幾何邊界
+    final bounds = MindMapPainter.computeTreeBounds(
+      _root,
+      MindMapPainter.kStartX,
+      MindMapPainter.kCanvasHeight / 2,
+    );
+    final treeWidth = bounds.width;
+    final treeHeight = bounds.height;
+
+    // 依可視區域大小計算最舒適的縮放比 (兼顧手機小螢幕與全螢幕檢視)
+    final scaleX = (viewportSize.width - 48) / math.max(1.0, treeWidth);
+    final scaleY = (viewportSize.height - 48) / math.max(1.0, treeHeight);
+    final double scale = math.min(scaleX, scaleY).clamp(0.65, 1.05);
+
+    double dx;
+    // 若縮放後能完整納入視窗則水平置中，否則靠左預留 24px 邊距以利閱讀主節點
+    if (treeWidth * scale <= viewportSize.width - 48) {
+      dx = (viewportSize.width - (treeWidth * scale)) / 2 - (bounds.left * scale);
+    } else {
+      dx = 24.0 - (bounds.left * scale);
+    }
+
+    // 垂直精準置中
+    final dy = (viewportSize.height / 2) - (bounds.center.dy * scale);
+
     _transformController.value = Matrix4.identity()
-      ..translateByDouble(40.0, 0.0, 0.0, 1.0);
+      ..translateByDouble(dx, dy, 0.0, 1.0)
+      ..scaleByDouble(scale, scale, scale, 1.0);
+  }
+
+  /// 依視窗中心平滑縮放
+  void _zoom(double factor) {
+    if (_lastViewportSize == null) return;
+    final currentScale = _transformController.value.getMaxScaleOnAxis();
+    final targetScale = (currentScale * factor).clamp(0.3, 2.5);
+
+    final center = Offset(_lastViewportSize!.width / 2, _lastViewportSize!.height / 2);
+    final scenePoint = _transformController.toScene(center);
+
+    final matrix = Matrix4.identity()
+      ..translateByDouble(center.dx, center.dy, 0.0, 1.0)
+      ..scaleByDouble(targetScale, targetScale, targetScale, 1.0)
+      ..translateByDouble(-scenePoint.dx, -scenePoint.dy, 0.0, 1.0);
+
+    _transformController.value = matrix;
   }
 
   void _onNodeTap(MindMapNode node) {
@@ -53,38 +231,53 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // 主畫布
-        InteractiveViewer(
-          transformationController: _transformController,
-          minScale: 0.3,
-          maxScale: 2.5,
-          constrained: false,
-          child: SizedBox(
-            width: 1400,
-            height: 900,
-            child: CustomPaint(
-              painter: MindMapPainter(
-                root: _root,
-                onNodeTap: _onNodeTap,
-              ),
-              child: _MindMapGestureLayer(
-                root: _root,
-                transformController: _transformController,
-                onNodeTap: _onNodeTap,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final currentSize = Size(constraints.maxWidth, constraints.maxHeight);
+        if (_lastViewportSize != currentSize &&
+            currentSize.width > 0 &&
+            currentSize.height > 0) {
+          _lastViewportSize = currentSize;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _centerView(currentSize);
+          });
+        }
+
+        return Stack(
+          children: [
+            // 主畫布
+            InteractiveViewer(
+              transformationController: _transformController,
+              minScale: 0.25,
+              maxScale: 2.8,
+              constrained: false,
+              boundaryMargin: const EdgeInsets.all(400),
+              child: SizedBox(
+                width: MindMapPainter.kCanvasWidth,
+                height: MindMapPainter.kCanvasHeight,
+                child: CustomPaint(
+                  painter: MindMapPainter(
+                    root: _root,
+                    onNodeTap: _onNodeTap,
+                  ),
+                  child: _MindMapGestureLayer(
+                    root: _root,
+                    transformController: _transformController,
+                    onNodeTap: _onNodeTap,
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
 
-        // 浮動工具欄
-        Positioned(
-          right: 12,
-          bottom: 12,
-          child: _buildToolbar(),
-        ),
-      ],
+            // 浮動工具欄 (右上或右下)
+            Positioned(
+              right: 12,
+              bottom: 12,
+              child: _buildToolbar(),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -106,32 +299,37 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
         children: [
           IconButton(
             icon: const Icon(Icons.add_rounded, size: 20),
-            onPressed: () {
-              final m = _transformController.value.clone();
-              m.scaleByDouble(1.2, 1.2, 1.2, 1.0);
-              _transformController.value = m;
-            },
+            onPressed: () => _zoom(1.2),
             tooltip: '放大',
             color: const Color(0xFF4A148C),
           ),
           Container(height: 1, color: Colors.grey.shade200),
           IconButton(
             icon: const Icon(Icons.remove_rounded, size: 20),
-            onPressed: () {
-              final m = _transformController.value.clone();
-              m.scaleByDouble(0.8, 0.8, 0.8, 1.0);
-              _transformController.value = m;
-            },
+            onPressed: () => _zoom(0.8),
             tooltip: '縮小',
             color: const Color(0xFF4A148C),
           ),
           Container(height: 1, color: Colors.grey.shade200),
           IconButton(
             icon: const Icon(Icons.center_focus_strong_rounded, size: 20),
-            onPressed: _resetView,
+            onPressed: () {
+              if (_lastViewportSize != null) {
+                _centerView(_lastViewportSize!);
+              }
+            },
             tooltip: '回到中心',
             color: const Color(0xFF4A148C),
           ),
+          if (widget.showRotateButton && widget.onRotate != null) ...[
+            Container(height: 1, color: Colors.grey.shade200),
+            IconButton(
+              icon: const Icon(Icons.screen_rotation_rounded, size: 20),
+              onPressed: widget.onRotate,
+              tooltip: '旋轉螢幕 / 橫向檢視',
+              color: const Color(0xFF4A148C),
+            ),
+          ],
         ],
       ),
     );
@@ -145,22 +343,45 @@ class MindMapPainter extends CustomPainter {
   final MindMapNode root;
   final void Function(MindMapNode) onNodeTap;
 
-  static const double kNodeWidth = 130.0;
+  static const double kCanvasWidth = 1600.0;
+  static const double kCanvasHeight = 1000.0;
+  static const double kStartX = 40.0;
+  static const double kNodeWidth = 136.0;
   static const double kNodeHeight = 44.0;
-  static const double kHGap = 60.0;
-  static const double kVGap = 20.0;
+  static const double kHGap = 56.0;
+  static const double kVGap = 18.0;
 
   MindMapPainter({required this.root, required this.onNodeTap});
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    _computeLayout(root, 0, size.height / 2);
-    _drawConnections(canvas, root);
-    _drawNodes(canvas, root);
+  /// 靜態輔助：計算樹狀圖幾何包圍盒
+  static Rect computeTreeBounds(MindMapNode root, double startX, double centerY) {
+    _layoutSubtree(root, startX, centerY);
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = -double.infinity;
+    double maxY = -double.infinity;
+
+    void traverse(MindMapNode node) {
+      if (node.position.dx < minX) minX = node.position.dx;
+      if (node.position.dy < minY) minY = node.position.dy;
+      if (node.position.dx + kNodeWidth > maxX) maxX = node.position.dx + kNodeWidth;
+      if (node.position.dy + kNodeHeight > maxY) maxY = node.position.dy + kNodeHeight;
+
+      if (node.isExpanded) {
+        for (final child in node.children) {
+          traverse(child);
+        }
+      }
+    }
+
+    traverse(root);
+    if (minX == double.infinity) {
+      return Rect.fromLTWH(startX, centerY - kNodeHeight / 2, kNodeWidth, kNodeHeight);
+    }
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
-  // ─── 計算節點佈局位置 ───
-  double _computeLayout(MindMapNode node, double x, double centerY) {
+  static double _layoutSubtree(MindMapNode node, double x, double centerY) {
     node.position = Offset(x, centerY - kNodeHeight / 2);
 
     if (!node.isExpanded || node.children.isEmpty) {
@@ -170,8 +391,7 @@ class MindMapPainter extends CustomPainter {
 
     double totalChildrenHeight = 0;
     for (final child in node.children) {
-      totalChildrenHeight +=
-          _estimateSubtreeHeight(child) + kVGap;
+      totalChildrenHeight += _estimateSubtreeHeight(child) + kVGap;
     }
     totalChildrenHeight -= kVGap;
     node.subtreeHeight = math.max(kNodeHeight, totalChildrenHeight);
@@ -179,13 +399,20 @@ class MindMapPainter extends CustomPainter {
     double childY = centerY - totalChildrenHeight / 2;
     for (final child in node.children) {
       final childH = _estimateSubtreeHeight(child);
-      _computeLayout(child, x + kNodeWidth + kHGap, childY + childH / 2);
+      _layoutSubtree(child, x + kNodeWidth + kHGap, childY + childH / 2);
       childY += childH + kVGap;
     }
     return node.subtreeHeight;
   }
 
-  double _estimateSubtreeHeight(MindMapNode node) {
+  @override
+  void paint(Canvas canvas, Size size) {
+    _layoutSubtree(root, kStartX, size.height / 2);
+    _drawConnections(canvas, root);
+    _drawNodes(canvas, root);
+  }
+
+  static double _estimateSubtreeHeight(MindMapNode node) {
     if (!node.isExpanded || node.children.isEmpty) return kNodeHeight;
     double total = 0;
     for (final c in node.children) {

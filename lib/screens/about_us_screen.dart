@@ -417,7 +417,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   duration: const Duration(milliseconds: 650),
                   curve: Curves.easeOutCubic,
                   child: Text(
-                    '業來業棒 是一款融合人工智慧技術、題庫與互動學習社群的全方位學習平台。以市面上穩定 AI 作為核心引擎，為每位使用者打造專屬於你的學習體驗。',
+                    'YeBang 家教 是一款融合人工智慧技術、題庫與互動學習社群的全方位學習平台。以市面上穩定 AI 作為核心引擎，為每位使用者打造專屬於你的學習體驗。',
                     style: TextStyle(
                       fontSize: 15,
                       height: 1.9,
@@ -429,16 +429,16 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                 ),
                 const SizedBox(height: 36),
 
-                // ✏️ [修改處 5] 技術運用 — 交錯飛入
+                // ✏️ [修改處 5] 設計初衷 — 交錯飛入
                 _RevealOnScroll(
                   scrollController: _scrollController,
                   slideBegin: const Offset(-0.10, 0),
                   duration: const Duration(milliseconds: 500),
                   curve: Curves.easeOutCubic,
-                  child: _sectionLabel('技術運用', '⚙️', primaryColor, isDark),
+                  child: _sectionLabel('設計初衷', '💡', primaryColor, isDark),
                 ),
                 const SizedBox(height: 18),
-                _buildTechGrid(primaryColor, isDark),
+                _buildDesignIntentGrid(primaryColor, isDark),
                 const SizedBox(height: 36),
 
                 // ✏️ [修改處 6] 核心功能 — 交錯左右飛入
@@ -501,108 +501,204 @@ class _AboutUsScreenState extends State<AboutUsScreen>
     );
   }
 
-  // ✏️ [修改處 5 項目] 技術運用 — 行間交錯方向飛入
-  Widget _buildTechGrid(Color primaryColor, bool isDark) {
-    final techs = [
-      _TechItem('Flutter', 'UI Framework', Icons.phone_android_rounded,
-          const Color(0xFF54C5F8)),
-      _TechItem('Dart', 'Programming Language', Icons.code_rounded,
-          const Color(0xFF0175C2)),
-      _TechItem('Gemini & Groq', 'Multi-Agent AI', Icons.auto_awesome_rounded,
-          const Color(0xFF8E24AA)),
-      _TechItem('Speech-to-Text', 'Live Voice Engine', Icons.mic_rounded,
-          const Color(0xFFFF7043)),
-      _TechItem('SQLite', 'Local-First Database', Icons.storage_rounded,
-          const Color(0xFF43A047)),
-      _TechItem('fl_chart & M3', 'Data & Design System', Icons.bar_chart_rounded,
-          primaryColor),
+  // ✏️ [修改處 5 項目] 設計初衷 — 依據系統手冊第 6 頁背景三大困擾與一站式解法重構
+  Widget _buildDesignIntentGrid(Color primaryColor, bool isDark) {
+    final intents = [
+      _SimpleDesignIntent(
+        icon: Icons.hourglass_bottom_rounded,
+        tag: '時間管理',
+        title: '無法有效識別並善用空閒時間',
+        themeColor: const Color(0xFFFF7043),
+        problemText: '日常課業繁忙常產生「沒時間學習」的盲點。關鍵在於無法清楚視覺化整天的時間軸以找出空閒時間；同時因缺乏整合的待辦事項，短暫空閒時無法快速篩選適合在該時長內完成的任務，白白浪費零星時間。',
+        solutionText: '提供視覺化時間軸與智慧待辦整合，一眼判斷空檔長度並自動挑選合適時長的學習任務，搭配隨手 AI 語音速記與 3 分鐘微測驗，充分活用零星時間。',
+      ),
+      _SimpleDesignIntent(
+        icon: Icons.hub_rounded,
+        tag: '知識整合',
+        title: '知識整理與產出格式混亂',
+        themeColor: const Color(0xFF0288D1),
+        problemText: '在自主學習與刷題過程中，學生的知識點往往散落於各處（如線上筆記或本機檔案）。這種「知識分散」的現況，使得在需要快速複習時，難以進行高效的檢索與系統化整理。',
+        solutionText: '一站式整合個人筆記、心智圖、錯題本與題庫，打破檔案分散孤島，建立雙向關聯知識圖譜，讓考點檢索與複習條理清晰、一目了然。',
+      ),
+      _SimpleDesignIntent(
+        icon: Icons.people_alt_rounded,
+        tag: '伴學反饋',
+        title: '孤獨學習缺乏同儕與反饋',
+        themeColor: const Color(0xFF8E24AA),
+        problemText: '自主學習屬於高度個體化過程。練習題庫遇到瓶頸或對知識點產生疑惑時，常因缺乏即時討論機制而容易受挫放棄；且缺乏客觀的歷程量化數據，難以評估自身盲點。',
+        solutionText: '提供 24 小時在線的 AI 智慧伴學即時解惑，搭配同學社群互動打氣，並具備學習歷程量化數據分析，精準定位弱項、陪伴持續進步。',
+      ),
     ];
 
-    // Row 0: left←, right→ | Row 1: left→, right← | Row 2: left←, right→
-    final slideDirections = [
-      [const Offset(-0.12, 0.05), const Offset(0.12, 0.05)],
-      [const Offset(0.12, 0.05), const Offset(-0.12, 0.05)],
-      [const Offset(-0.12, 0.05), const Offset(0.12, 0.05)],
-    ];
-    final rotateAngles = [
-      [-0.022, 0.022],
-      [0.022, -0.022],
-      [-0.022, 0.022],
-    ];
+    return Column(
+      children: [
+        ...intents.indexed.map((entry) {
+          final (i, item) = entry;
+          final isEven = i % 2 == 0;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: _RevealOnScroll(
+              scrollController: _scrollController,
+              delay: Duration(milliseconds: i * 100),
+              slideBegin: isEven ? const Offset(-0.06, 0.03) : const Offset(0.06, 0.03),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? item.themeColor.withValues(alpha: 0.08)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? item.themeColor.withValues(alpha: 0.28)
+                        : item.themeColor.withValues(alpha: 0.2),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark
+                          ? Colors.black.withValues(alpha: 0.25)
+                          : item.themeColor.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 標題與圖示
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: item.themeColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(item.icon, color: item.themeColor, size: 18),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF1E2022),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: item.themeColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item.tag,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: item.themeColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
 
-    Widget card(int i) {
-      final t = techs[i];
-      final row = i ~/ 2;
-      final col = i % 2;
-      return Expanded(
-        child: _RevealOnScroll(
+                    // 痛點簡述
+                    Text(
+                      item.problemText,
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.55,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.75)
+                            : const Color(0xFF5D4037),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 我們的做法
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: item.themeColor.withValues(alpha: isDark ? 0.14 : 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('👉 ', style: TextStyle(fontSize: 12)),
+                          Expanded(
+                            child: Text(
+                              item.solutionText,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                height: 1.45,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.95)
+                                    : const Color(0xFF1E2022),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+
+        // 系統手冊結論總結卡片
+        _RevealOnScroll(
           scrollController: _scrollController,
-          delay: Duration(milliseconds: i * 70),
-          slideBegin: slideDirections[row][col],
-          scaleBegin: 0.82,
-          rotateBegin: rotateAngles[row][col],
-          duration: const Duration(milliseconds: 520),
-          curve: Curves.easeOutBack,
+          delay: const Duration(milliseconds: 320),
+          slideBegin: const Offset(0, 0.08),
+          duration: const Duration(milliseconds: 550),
+          curve: Curves.easeOutCubic,
           child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: isDark
-                  ? t.color.withValues(alpha: 0.08)
-                  : t.color.withValues(alpha: 0.06),
+                  ? primaryColor.withValues(alpha: 0.08)
+                  : const Color(0xFFF7F2FA),
               borderRadius: BorderRadius.circular(14),
-              border:
-                  Border.all(color: t.color.withValues(alpha: 0.28), width: 1),
+              border: Border.all(
+                color: isDark
+                    ? primaryColor.withValues(alpha: 0.25)
+                    : primaryColor.withValues(alpha: 0.15),
+              ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                      color: t.color.withValues(alpha: 0.18),
-                      shape: BoxShape.circle),
-                  child: Icon(t.icon, color: t.color, size: 16),
-                ),
-                const SizedBox(width: 10),
+                const Text('💡 ', style: TextStyle(fontSize: 15)),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(t.name,
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87),
-                          overflow: TextOverflow.ellipsis),
-                      Text(t.subtitle,
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.5)
-                                  : Colors.grey.shade500),
-                          overflow: TextOverflow.ellipsis),
-                    ],
+                  child: Text(
+                    '本系統旨在改變分散式工具現況，透過高度整合的數位平台，為自主學習者提供時間軸、知識中樞與社群數據的全方位支持。',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.55,
+                      fontWeight: FontWeight.w500,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : const Color(0xFF4A148C),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        IntrinsicHeight(
-          child: Row(children: [card(0), const SizedBox(width: 12), card(1)]),
-        ),
-        const SizedBox(height: 12),
-        IntrinsicHeight(
-          child: Row(children: [card(2), const SizedBox(width: 12), card(3)]),
-        ),
-        const SizedBox(height: 12),
-        IntrinsicHeight(
-          child: Row(children: [card(4), const SizedBox(width: 12), card(5)]),
         ),
       ],
     );
@@ -757,7 +853,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
               Icon(Icons.verified_outlined, size: 16, color: primaryColor),
               const SizedBox(width: 8),
               Text(
-                '版本 v1.6.5  |  2026 年 9 月 11 日 最新發布',
+                '版本 v1.6.7  |  2026 年 9 月 13 日 最新發布',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -1372,12 +1468,22 @@ class TypewriterText extends StatelessWidget {
 // ======================================================
 //  Data classes
 // ======================================================
-class _TechItem {
-  final String name;
-  final String subtitle;
+class _SimpleDesignIntent {
   final IconData icon;
-  final Color color;
-  _TechItem(this.name, this.subtitle, this.icon, this.color);
+  final String tag;
+  final String title;
+  final Color themeColor;
+  final String problemText;
+  final String solutionText;
+
+  const _SimpleDesignIntent({
+    required this.icon,
+    required this.tag,
+    required this.title,
+    required this.themeColor,
+    required this.problemText,
+    required this.solutionText,
+  });
 }
 
 class ParticleData {

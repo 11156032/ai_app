@@ -135,3 +135,236 @@ class _GoogleLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+// ── YeBang 官方代表 Logo 向量組件 (芽苗 y 標章 + 軌道環) ─────────────────────
+
+class YeBangAppLogo extends StatelessWidget {
+  final double size;
+  final bool showOrbitRings;
+  final bool hasShadow;
+  final Color? backgroundColor;
+
+  const YeBangAppLogo({
+    super.key,
+    this.size = 64,
+    this.showOrbitRings = true,
+    this.hasShadow = true,
+    this.backgroundColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ringSize = size * (showOrbitRings ? 1.25 : 1.0);
+    final coreSize = size;
+    final leafSize = size * 0.65;
+
+    Widget core = Container(
+      width: coreSize,
+      height: coreSize,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: backgroundColor ?? Colors.white,
+        boxShadow: hasShadow
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF9CCC65).withValues(alpha: 0.25),
+                  blurRadius: size * 0.25,
+                  offset: Offset(0, size * 0.08),
+                ),
+              ]
+            : null,
+      ),
+      child: Center(
+        child: CustomPaint(
+          size: Size(leafSize, leafSize),
+          painter: const LeafYLogoPainter(
+            progress: 1.0,
+            leftLeafScale: 1.0,
+            rightLeafScale: 1.0,
+            shimmerProgress: 0.0,
+          ),
+        ),
+      ),
+    );
+
+    if (!showOrbitRings) return core;
+
+    return SizedBox(
+      width: ringSize,
+      height: ringSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size(ringSize, ringSize),
+            painter: const ArcRingPainter(),
+          ),
+          core,
+        ],
+      ),
+    );
+  }
+}
+
+class ArcRingPainter extends CustomPainter {
+  const ArcRingPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.024
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    // 弧段 1: 青藍色
+    paint.color = const Color(0xFF4DD0E1).withValues(alpha: 0.85);
+    canvas.drawArc(rect, 0, 1.8, false, paint);
+
+    // 弧段 2: 綠色
+    paint.color = const Color(0xFF9CCC65).withValues(alpha: 0.7);
+    canvas.drawArc(rect, 2.4, 1.2, false, paint);
+
+    // 弧段 3: 淺綠/藍綠色
+    paint.color = const Color(0xFF80CBC4).withValues(alpha: 0.5);
+    canvas.drawArc(rect, 4.0, 0.6, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class LeafYLogoPainter extends CustomPainter {
+  final double progress;
+  final double leftLeafScale;
+  final double rightLeafScale;
+  final double shimmerProgress;
+
+  const LeafYLogoPainter({
+    this.progress = 1.0,
+    this.leftLeafScale = 1.0,
+    this.rightLeafScale = 1.0,
+    this.shimmerProgress = 0.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final Rect bounds = Rect.fromLTWH(0, 0, w, h);
+
+    final Paint strokePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.052
+      ..strokeCap = StrokeCap.round;
+
+    strokePaint.shader = const LinearGradient(
+      begin: Alignment.bottomLeft,
+      end: Alignment.topRight,
+      colors: [
+        Color(0xFF9CCC65),
+        Color(0xFF4DD0E1),
+      ],
+    ).createShader(bounds);
+
+    final Paint fillPaint = Paint()..style = PaintingStyle.fill;
+
+    // 繪製 y 的草寫主莖幹
+    final yBodyPath = Path();
+    yBodyPath.moveTo(w * 0.25, h * 0.42);
+    yBodyPath.quadraticBezierTo(w * 0.28, h * 0.62, w * 0.42, h * 0.62);
+    yBodyPath.quadraticBezierTo(w * 0.52, h * 0.62, w * 0.55, h * 0.42);
+    yBodyPath.cubicTo(
+        w * 0.55, h * 0.65, w * 0.50, h * 0.88, w * 0.38, h * 0.88);
+    yBodyPath.cubicTo(
+        w * 0.24, h * 0.88, w * 0.24, h * 0.70, w * 0.35, h * 0.58);
+    yBodyPath.quadraticBezierTo(w * 0.45, h * 0.48, w * 0.65, h * 0.62);
+    yBodyPath.quadraticBezierTo(w * 0.72, h * 0.68, w * 0.70, h * 0.55);
+
+    canvas.drawPath(yBodyPath, strokePaint);
+
+    // 繪製左小葉
+    if (leftLeafScale > 0) {
+      canvas.save();
+      final Offset base = Offset(w * 0.25, h * 0.42);
+      canvas.translate(base.dx, base.dy);
+      canvas.scale(leftLeafScale);
+      canvas.translate(-base.dx, -base.dy);
+
+      final leftLeaf = Path();
+      leftLeaf.moveTo(w * 0.25, h * 0.42);
+      leftLeaf.cubicTo(
+          w * 0.20, h * 0.35, w * 0.12, h * 0.30, w * 0.10, h * 0.32);
+      leftLeaf.cubicTo(
+          w * 0.14, h * 0.45, w * 0.22, h * 0.48, w * 0.25, h * 0.42);
+
+      fillPaint.shader = LinearGradient(
+        begin: Alignment.bottomRight,
+        end: Alignment.topLeft,
+        colors: [
+          const Color(0xFF9CCC65).withValues(alpha: 0.15 * leftLeafScale),
+          const Color(0xFF9CCC65).withValues(alpha: 0.45 * leftLeafScale),
+        ],
+      ).createShader(bounds);
+      canvas.drawPath(leftLeaf, fillPaint);
+      canvas.drawPath(leftLeaf, strokePaint);
+
+      final leftVein = Path();
+      leftVein.moveTo(w * 0.25, h * 0.42);
+      leftVein.quadraticBezierTo(w * 0.18, h * 0.37, w * 0.11, h * 0.33);
+
+      final Paint veinPaint = Paint()
+        ..shader = strokePaint.shader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w * 0.028
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(leftVein, veinPaint);
+
+      canvas.restore();
+    }
+
+    // 繪製右大葉
+    if (rightLeafScale > 0) {
+      canvas.save();
+      final Offset base = Offset(w * 0.55, h * 0.42);
+      canvas.translate(base.dx, base.dy);
+      canvas.scale(rightLeafScale);
+      canvas.translate(-base.dx, -base.dy);
+
+      final rightLeaf = Path();
+      rightLeaf.moveTo(w * 0.55, h * 0.42);
+      rightLeaf.cubicTo(
+          w * 0.60, h * 0.28, w * 0.72, h * 0.10, w * 0.85, h * 0.15);
+      rightLeaf.cubicTo(
+          w * 0.78, h * 0.32, w * 0.64, h * 0.45, w * 0.55, h * 0.42);
+
+      fillPaint.shader = LinearGradient(
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+        colors: [
+          const Color(0xFF4DD0E1).withValues(alpha: 0.15 * rightLeafScale),
+          const Color(0xFF4DD0E1).withValues(alpha: 0.45 * rightLeafScale),
+        ],
+      ).createShader(bounds);
+      canvas.drawPath(rightLeaf, fillPaint);
+      canvas.drawPath(rightLeaf, strokePaint);
+
+      final rightVein = Path();
+      rightVein.moveTo(w * 0.55, h * 0.42);
+      rightVein.quadraticBezierTo(w * 0.68, h * 0.28, w * 0.82, h * 0.17);
+
+      final Paint veinPaint = Paint()
+        ..shader = strokePaint.shader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w * 0.028
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(rightVein, veinPaint);
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant LeafYLogoPainter oldDelegate) => false;
+}

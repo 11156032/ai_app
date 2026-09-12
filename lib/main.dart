@@ -5,6 +5,7 @@ import 'database/database_helper.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/notes_screen.dart';
+import 'widgets/common_widgets.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -148,21 +149,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8D6E63),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF8D6E63).withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.school_rounded, color: Colors.white, size: 38),
+              const YeBangAppLogo(
+                size: 76,
+                showOrbitRings: true,
               ),
               const SizedBox(height: 24),
               const Text(

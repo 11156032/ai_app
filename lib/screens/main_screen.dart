@@ -92,6 +92,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _appLanguage = 'zh_TW';
   bool _isDarkMode = false;
   bool _showFloatingNavBar = false;
+  List<String> _navBarItems = ['calendar', 'quiz', 'social', 'notes'];
   bool _pushNotificationsEnabled = true;
   String _socialFilter = '全部'; // 社群貼文分類篩選狀態
   String _socialAuthorFilter = ''; // 社群貼文作者篩選（空字串 = 全部）
@@ -156,7 +157,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.6.5';
+  String _appVersion = 'v1.6.7';
   String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
@@ -1023,6 +1024,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             _socialFeedLayout =
                 (userRows.first['social_feed_layout'] as String?) ?? 'card';
             _showFloatingNavBar = (userRows.first['show_floating_nav_bar'] ?? 0) == 1;
+            final navItemsStr = (userRows.first['nav_bar_items'] as String?) ?? 'calendar,quiz,social,notes';
+            final rawItems = navItemsStr.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+            const validKeys = ['calendar', 'quiz', 'social', 'notes'];
+            _navBarItems = rawItems.where((k) => validKeys.contains(k)).toList();
+            for (final k in validKeys) {
+              if (!_navBarItems.contains(k)) {
+                _navBarItems.add(k);
+              }
+            }
             _pushNotificationsEnabled = (userRows.first['push_notifications_enabled'] ?? 1) == 1;
             _appLanguage = (userRows.first['language'] as String?) ?? 'zh_TW';
             AppLocaleService.setLanguage(_appLanguage);
@@ -2563,17 +2573,83 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildNavItem(Icons.calendar_month_rounded, AppLocaleService.tr('nav_calendar', _appLanguage), 0, key: _tourNavCalendarKey),
-              _buildNavItem(Icons.menu_book_rounded, AppLocaleService.tr('nav_quiz', _appLanguage), 1, key: _tourNavQuestionKey),
-              _buildNavItem(Icons.auto_awesome_rounded, AppLocaleService.tr('nav_ai_assistant', _appLanguage), -1, key: _tourAiChatBarKey, onTap: _openChatModal),
-              _buildNavItem(Icons.forum_rounded, AppLocaleService.tr('nav_community', _appLanguage), 2, key: _tourNavSocialKey),
-              _buildNavItem(Icons.person_rounded, AppLocaleService.tr('nav_profile', _appLanguage), 4),
-            ],
+            children: _buildConfiguredNavItems(),
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildConfiguredNavItems() {
+    const validKeys = ['calendar', 'quiz', 'social', 'notes'];
+    final safeItems = _navBarItems.where((k) => validKeys.contains(k)).toList();
+    for (final k in validKeys) {
+      if (!safeItems.contains(k)) safeItems.add(k);
+    }
+
+    // 左側 2 個自訂功能（第 1、2 順位）
+    final leftItems = safeItems.take(2).map((k) => _buildConfiguredNavItem(k)).toList();
+
+    // 中央固定：AI 代理人
+    final centerAgentItem = _buildNavItem(
+      Icons.auto_awesome_rounded,
+      AppLocaleService.tr('nav_ai_assistant', _appLanguage),
+      -1,
+      key: _tourAiChatBarKey,
+      onTap: _openChatModal,
+    );
+
+    // 右側 1 個自訂功能（第 3 順位）
+    final rightItem = _buildConfiguredNavItem(safeItems[2]);
+
+    // 末尾固定：個人檔案
+    final profileItem = _buildNavItem(
+      Icons.person_rounded,
+      AppLocaleService.tr('nav_profile', _appLanguage),
+      4,
+    );
+
+    // 總共 5 個項目（保持原版寬敞不擁擠的佈局）
+    return [
+      ...leftItems,
+      centerAgentItem,
+      rightItem,
+      profileItem,
+    ];
+  }
+
+  Widget _buildConfiguredNavItem(String itemKey) {
+    switch (itemKey) {
+      case 'calendar':
+        return _buildNavItem(
+          Icons.calendar_month_rounded,
+          AppLocaleService.tr('nav_calendar', _appLanguage),
+          0,
+          key: _tourNavCalendarKey,
+        );
+      case 'quiz':
+        return _buildNavItem(
+          Icons.menu_book_rounded,
+          AppLocaleService.tr('nav_quiz', _appLanguage),
+          1,
+          key: _tourNavQuestionKey,
+        );
+      case 'social':
+        return _buildNavItem(
+          Icons.forum_rounded,
+          AppLocaleService.tr('nav_community', _appLanguage),
+          2,
+          key: _tourNavSocialKey,
+        );
+      case 'notes':
+        return _buildNavItem(
+          Icons.edit_note_rounded,
+          AppLocaleService.tr('nav_notes', _appLanguage),
+          5,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildNavItem(IconData icon, String fullLabel, int index, {GlobalKey? key, VoidCallback? onTap}) {
@@ -11128,6 +11204,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         'calendar_view_mode': _calendarViewMode,
         'social_feed_layout': _socialFeedLayout,
         'show_floating_nav_bar': _showFloatingNavBar ? 1 : 0,
+        'nav_bar_items': _navBarItems.join(','),
         'push_notifications_enabled': _pushNotificationsEnabled ? 1 : 0,
         'language': _appLanguage,
       },

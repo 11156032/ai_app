@@ -99,7 +99,7 @@ class AppLocaleService {
     'feedback_and_help': {zhTW: '客服與意見回饋', ja: 'お問い合わせとフィードバック', ko: '문의 및 피드백'},
     'feedback_and_help_sub': {zhTW: '回報問題或提供功能建議', ja: '不具合報告・ご意見・サポート', ko: '문제 신고, 피드백 및 고객센터'},
     'about_us': {zhTW: '關於我們', ja: 'アプリについて', ko: '앱 정보'},
-    'about_us_sub': {zhTW: '團隊理念、核心功能與技術運用', ja: 'アプリの理念・コア機能・技術紹介', ko: '팀 소개, 핵심 기능 및 기술 아키텍처'},
+    'about_us_sub': {zhTW: '團隊理念、設計初衷與核心功能', ja: 'アプリの理念・設計思想・コア機能', ko: '팀 소개, 디자인 철학 및 핵심 기능'},
     'app_version': {zhTW: '版本資訊', ja: 'バージョン情報', ko: '버전 정보'},
 
     // 今日摘要卡片
@@ -120,6 +120,11 @@ class AppLocaleService {
     'settings_calendar_style': {zhTW: '行事曆顯示樣式', ja: 'カレンダー表示形式', ko: '캘린더 표시 스타일'},
     'settings_social_style': {zhTW: '社群貼文版面樣式', ja: '投稿レイアウト形式', ko: '커뮤니티 레이아웃'},
     'settings_floating_nav': {zhTW: '顯示底部導覽列', ja: 'フローティングバー表示', ko: '하단 바 표시'},
+    'settings_nav_bar_order': {zhTW: '自訂導覽列項目順序', ja: 'ナビゲーションバー並び替え', ko: '하단 바 순서 맞춤설정'},
+    'settings_nav_bar_order_desc': {zhTW: '可依需求調整日曆、題庫、社群、筆記的順序', ja: 'カレンダー・問題集・コミュニティ・ノートの順序を変更', ko: '캘린더, 문제은행, 커뮤니티, 노트 순서 조정'},
+    'nav_bar_fixed_agent': {zhTW: '✨ 代理人 (固定中央)', ja: '✨ AIアシスタント (中央固定)', ko: '✨ AI 비서 (중앙 고정)'},
+    'nav_bar_fixed_profile': {zhTW: '👤 個人檔案 (固定末尾)', ja: '👤 マイページ (末尾固定)', ko: '👤 마이페이지 (끝 고정)'},
+    'reset_default': {zhTW: '重設預設值', ja: 'デフォルトに戻す', ko: '기본값 복원'},
     'settings_dark_mode': {zhTW: '深色模式', ja: 'ダークモード', ko: '다크 모드'},
     'settings_notifications': {zhTW: '接收系統通知', ja: 'システム通知受信', ko: '시스템 알림 수신'},
 

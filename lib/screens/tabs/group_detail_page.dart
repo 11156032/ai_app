@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 import '../../widgets/common_widgets.dart';
 import '../main_screen.dart'; // for CreatePostPage, PostReplyPage (defined in main_screen.dart)
+import '../notes_screen.dart';
 import 'group_invite_page.dart';
 
 /// 群組詳細頁（動態牆 + 成員）
@@ -1311,9 +1312,30 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                           ),
                         ),
                       ],
-                      Text(
-                        p['content'] ?? '',
-                        style: TextStyle(fontSize: 15, color: textColor, height: 1.3),
+                      Builder(
+                        builder: (context) {
+                          Map<String, dynamic> attachedData = {};
+                          try {
+                            if (p['attached_data'] != null) {
+                              if (p['attached_data'] is Map) {
+                                attachedData = Map<String, dynamic>.from(p['attached_data'] as Map);
+                              } else if (p['attached_data'] is String && (p['attached_data'] as String).isNotEmpty) {
+                                attachedData = jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
+                              }
+                            }
+                          } catch (_) {}
+
+                          final bool isNotePost = p['postType'] == 'note' || attachedData['shared_type'] == 'note';
+
+                          if (isNotePost) {
+                            return _buildSharedNoteCardInChat(attachedData, isMe, isDark, p);
+                          }
+
+                          return Text(
+                            p['content'] ?? '',
+                            style: TextStyle(fontSize: 15, color: textColor, height: 1.3),
+                          );
+                        },
                       ),
                       if (p['media_blob'] != null || (p['media'] != null && p['media'].toString().isNotEmpty)) ...[
                         const SizedBox(height: 8),
@@ -1405,6 +1427,244 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     } else {
       return Image.file(File(src),
           fit: BoxFit.cover, width: double.infinity, height: 160, alignment: alignment);
+    }
+  }
+
+  // ── 群組內學習筆記卡片預覽與一鍵匯入 ──────────────────────────
+  Widget _buildSharedNoteCardInChat(
+      Map<String, dynamic> attached, bool isMe, bool isDark, Map<String, dynamic> post) {
+    final String title = attached['title'] ?? '無標題筆記';
+    final String content = attached['content'] ?? '';
+    final String category = attached['category'] ?? '學習';
+    final bool hasStrokes = attached['strokes'] != null &&
+        attached['strokes'].toString().isNotEmpty &&
+        attached['strokes'].toString() != '[]';
+
+    final Color cardBg = isMe
+        ? Colors.black.withValues(alpha: 0.15)
+        : (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFFBF8F5));
+    final Color borderColor = isMe
+        ? Colors.white.withValues(alpha: 0.3)
+        : (isDark ? Colors.white12 : const Color(0xFFE2D6CA));
+    final Color titleColor = isMe
+        ? Colors.white
+        : (isDark ? Colors.white : const Color(0xFF3E2723));
+    final Color subtitleColor = isMe
+        ? Colors.white.withValues(alpha: 0.85)
+        : (isDark ? Colors.white70 : Colors.black87);
+
+    return Container(
+      width: 275,
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 頂部標籤列
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : Theme.of(context).primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.edit_note_rounded,
+                  size: 16,
+                  color: isMe ? Colors.white : Theme.of(context).primaryColor,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '學習筆記分享',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isMe ? Colors.white : Theme.of(context).primaryColor,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  category,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isMe ? Colors.white : Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // 筆記標題
+          Text(
+            '《$title》',
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.bold,
+              color: titleColor,
+              height: 1.25,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 5),
+
+          // 內容摘要
+          Text(
+            content.isEmpty
+                ? '（空白筆記內容）'
+                : content.replaceAll('#', '').replaceAll('**', '').trim(),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: subtitleColor,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // 塗鴉標記 + 一鍵匯入按鈕
+          Row(
+            children: [
+              if (hasStrokes)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.palette_outlined,
+                      size: 13,
+                      color: isMe
+                          ? Colors.white70
+                          : (isDark ? Colors.white60 : Colors.blueGrey),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      '含手繪塗鴉',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: isMe
+                            ? Colors.white70
+                            : (isDark ? Colors.white60 : Colors.blueGrey),
+                      ),
+                    ),
+                  ],
+                ),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: () => _importSharedNote(post),
+                icon: const Icon(Icons.download_rounded, size: 14),
+                label: const Text('一鍵匯入',
+                    style: TextStyle(
+                        fontSize: 11.5, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isMe ? Colors.white : Theme.of(context).primaryColor,
+                  foregroundColor: isMe ? Theme.of(context).primaryColor : Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 1,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _importSharedNote(Map<String, dynamic> p) {
+    final attached = p['attached_data'];
+    if (attached == null) return;
+    try {
+      final Map<String, dynamic> attachedData = (attached is Map)
+          ? Map<String, dynamic>.from(attached)
+          : (attached is String && attached.isNotEmpty
+              ? jsonDecode(attached) as Map<String, dynamic>
+              : {});
+
+      final String title = attachedData['title'] ?? '無標題筆記';
+      final String content = attachedData['content'] ?? '';
+      final String category = attachedData['category'] ?? '學習';
+      final String authorName = p['author'] ?? '未知用戶';
+      final String authorUserId = p['userId']?.toString() ?? '';
+      final int authorAvatarColor = (p['authorAvatarColor'] as int?) ?? 0;
+
+      final List<Stroke> strokes = [];
+      final String? strokesJson = attachedData['strokes'];
+      if (strokesJson != null && strokesJson.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(strokesJson) as List;
+          for (var s in decoded) {
+            strokes.add(Stroke.fromJson(s as Map<String, dynamic>));
+          }
+        } catch (e) {
+          debugPrint('解析筆記繪圖失敗: $e');
+        }
+      }
+
+      final newNote = Note(
+        id: 'note_${DateTime.now().millisecondsSinceEpoch}',
+        userId: widget.currentUser['id'],
+        title: '$title (群組匯入)',
+        content: content,
+        category:
+            NotesDatabase.categories.contains(category) ? category : '未分類',
+        strokes: strokes,
+        updatedAt: DateTime.now(),
+        authorName: authorName,
+        authorUserId: authorUserId,
+        authorAvatarColor: authorAvatarColor,
+      );
+
+      // 匯入至 NotesDatabase 運行時列表中
+      NotesDatabase.notes.insert(0, newNote);
+
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(child: Text('🎉 筆記已成功匯入至您的筆記本！')),
+            ],
+          ),
+          backgroundColor: Theme.of(context).primaryColor,
+          duration: const Duration(milliseconds: 1400),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('匯入失敗: $e'),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(milliseconds: 1400),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
     }
   }
 

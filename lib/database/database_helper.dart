@@ -255,6 +255,13 @@ class DatabaseHelper {
             'Dynamic migration: Added has_seen_tour column to users table.');
       }
 
+      if (!userCols.any((c) => c['name'] == 'nav_bar_items')) {
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN nav_bar_items TEXT DEFAULT 'calendar,quiz,social,notes'");
+        debugPrint(
+            'Dynamic migration: Added nav_bar_items column to users table.');
+      }
+
       quizCols = await db.rawQuery('PRAGMA table_info(quiz_results)');
       if (!quizCols.any((c) => c['name'] == 'duration_seconds')) {
         await db.execute(
@@ -575,6 +582,7 @@ class DatabaseHelper {
         social_feed_layout TEXT DEFAULT 'card',
         is_currently_logged_in INTEGER DEFAULT 0,
         show_floating_nav_bar INTEGER DEFAULT 0,
+        nav_bar_items TEXT DEFAULT 'calendar,quiz,social,notes',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
