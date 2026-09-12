@@ -17,9 +17,11 @@ void main() {
     });
 
     test('Style labels match expected descriptions', () {
-      expect(VoiceNoteStyle.meetingSummary.label, '會議摘要');
       expect(VoiceNoteStyle.classKeyPoints.label, '課堂重點');
+      expect(VoiceNoteStyle.meetingSummary.label, '會議摘要');
+      expect(VoiceNoteStyle.outlineMindmap.label, '結構大綱');
       expect(VoiceNoteStyle.actionConclusion.label, '代辦結論');
+      expect(VoiceNoteStyle.executiveSummary.label, '精華摘要');
       expect(VoiceNoteStyle.dailyJournal.label, '日常隨筆');
     });
   });

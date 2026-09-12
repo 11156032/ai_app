@@ -24,11 +24,11 @@ extension VoiceNoteStyleExtension on VoiceNoteStyle {
       case VoiceNoteStyle.classKeyPoints:
         return '課堂重點';
       case VoiceNoteStyle.meetingSummary:
-        return '會議紀錄';
+        return '會議摘要';
       case VoiceNoteStyle.outlineMindmap:
         return '結構大綱';
       case VoiceNoteStyle.actionConclusion:
-        return '決策待辦';
+        return '代辦結論';
       case VoiceNoteStyle.executiveSummary:
         return '精華摘要';
       case VoiceNoteStyle.dailyJournal:
@@ -515,7 +515,7 @@ $langInstruction
 ''';
       case VoiceNoteStyle.meetingSummary:
         return '''
-【整理風格：會議紀錄】
+【整理風格：會議摘要】
 請將語音內容整理為結構嚴謹的會議摘要，重點如下：
 - 提煉核心議題、主要討論過程與各方發言重點
 - 清楚標記會議達成的關鍵共識與最終決議
@@ -534,7 +534,7 @@ $langInstruction
 ''';
       case VoiceNoteStyle.actionConclusion:
         return '''
-【整理風格：決策待辦】
+【整理風格：代辦結論】
 請以行動導向整理內容，重點如下：
 - 精煉各項討論產出的最終結論與決策重點
 - 提取所有明確待辦行動、跟進事項、負責人與預計期限，完整填入 action_items 陣列
