@@ -260,20 +260,37 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         );
       });
       _autoScrollTranscript();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('✨ 語音轉文字完成！已填入文字稿'),
+              duration: Duration(milliseconds: 1400),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Color(0xFF2E7D32),
+            ),
+          );
+      }
     } catch (e) {
-      debugPrint('Groq Whisper transcribe error: $e');
+      debugPrint('Voice note transcribe error: $e');
       if (!mounted) return;
+      final cleanMsg = e.toString().replaceAll('Exception:', '').trim();
       setState(() {
         _isTranscribing = false;
-        _aiErrorMsg = '轉錄發生問題：$e';
+        _aiErrorMsg = cleanMsg;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('語音轉錄遭遇問題：$e'),
-          backgroundColor: const Color(0xFFE53935),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('語音轉錄提示：$cleanMsg'),
+            backgroundColor: const Color(0xFFD32F2F),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
     }
   }
 

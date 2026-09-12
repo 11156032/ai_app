@@ -2422,16 +2422,40 @@ extension MainScreenProfileTab on _MainScreenState {
     }
     int? selectedForSwap;
 
-    showDialog(
+    String getItemDesc(String key) {
+      switch (key) {
+        case 'calendar':
+          return '課堂日程、讀書計畫與重要待辦追蹤';
+        case 'quiz':
+          return '國高中題庫、單元測驗與 AI 錯題解析';
+        case 'social':
+          return '討論社群、互助共學與讀書筆記分享';
+        case 'notes':
+          return '語音速記、互動心智圖與手寫畫布筆記';
+        default:
+          return '';
+      }
+    }
+
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
+        builder: (context, setSheetState) {
           final isDark = _isDarkMode;
           final primaryColor = _currentPrimaryColor;
 
           void swapItems(int fromIdx, int toIdx) {
-            if (fromIdx == toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= tempOrder.length || toIdx >= tempOrder.length) return;
-            setDialogState(() {
+            if (fromIdx == toIdx ||
+                fromIdx < 0 ||
+                toIdx < 0 ||
+                fromIdx >= tempOrder.length ||
+                toIdx >= tempOrder.length) {
+              return;
+            }
+            setSheetState(() {
               final temp = tempOrder[fromIdx];
               tempOrder[fromIdx] = tempOrder[toIdx];
               tempOrder[toIdx] = temp;
@@ -2440,308 +2464,504 @@ extension MainScreenProfileTab on _MainScreenState {
             HapticFeedback.selectionClick();
           }
 
-          Widget buildSlotCard({
-            required int slotIndex,
-            required String itemKey,
-            required bool isDrawer,
-            String? slotBadge,
-          }) {
-            final isSelected = selectedForSwap == slotIndex;
-            final icon = _getNavBarItemIcon(itemKey);
-            final name = _getNavBarItemName(itemKey);
-
-            Widget cardContent({bool isDragging = false, bool isHovered = false}) {
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isHovered
-                      ? primaryColor.withValues(alpha: 0.18)
-                      : (isSelected
-                          ? primaryColor.withValues(alpha: 0.15)
-                          : (isDark
-                              ? (isDrawer ? const Color(0xFF202020) : const Color(0xFF2C2C2C))
-                              : (isDrawer ? const Color(0xFFF7F5F2) : Colors.white))),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isHovered
-                        ? primaryColor
-                        : (isSelected
-                            ? primaryColor
-                            : (isDrawer
-                                ? (isDark ? Colors.white24 : const Color(0xFFD7CCC8))
-                                : (isDark ? Colors.white12 : const Color(0xFFE5DCD3)))),
-                    width: (isHovered || isSelected) ? 2.0 : 1.2,
-                  ),
-                  boxShadow: isDragging
-                      ? [
-                          BoxShadow(
-                            color: primaryColor.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                      : (isDrawer
-                          ? []
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                                blurRadius: 5,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: isDrawer
-                                ? Colors.grey.withValues(alpha: 0.12)
-                                : primaryColor.withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            icon,
-                            color: isDrawer
-                                ? (isDark ? Colors.white70 : Colors.grey.shade700)
-                                : primaryColor,
-                            size: 20,
-                          ),
-                        ),
-                        if (isSelected)
-                          Positioned(
-                            right: -4,
-                            top: -4,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.swap_horiz, size: 11, color: Colors.white),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                          maxLines: 1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: isDrawer
-                            ? (isDark ? Colors.white10 : Colors.grey.shade200)
-                            : primaryColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          slotBadge ?? (isDrawer ? '抽屜' : '導覽列'),
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            color: isDrawer
-                                ? (isDark ? Colors.white60 : Colors.grey.shade600)
-                                : primaryColor,
-                          ),
-                          maxLines: 1,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
+          void moveItem(int index, int delta) {
+            final target = index + delta;
+            if (target >= 0 && target < tempOrder.length) {
+              swapItems(index, target);
             }
-
-            return DragTarget<int>(
-              onWillAcceptWithDetails: (details) => details.data != slotIndex,
-              onAcceptWithDetails: (details) => swapItems(details.data, slotIndex),
-              builder: (context, candidateData, rejectedData) {
-                final isHovered = candidateData.isNotEmpty;
-                return Transform.scale(
-                  scale: isHovered ? 1.05 : 1.0,
-                  child: Draggable<int>(
-                    data: slotIndex,
-                    feedback: Material(
-                      color: Colors.transparent,
-                      child: SizedBox(
-                        width: 76,
-                        child: cardContent(isDragging: true),
-                      ),
-                    ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.25,
-                      child: cardContent(),
-                    ),
-                    child: InkWell(
-                      onTap: () {
-                        if (selectedForSwap == null) {
-                          setDialogState(() => selectedForSwap = slotIndex);
-                          HapticFeedback.selectionClick();
-                        } else if (selectedForSwap == slotIndex) {
-                          setDialogState(() => selectedForSwap = null);
-                        } else {
-                          swapItems(selectedForSwap!, slotIndex);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: cardContent(isHovered: isHovered),
-                    ),
-                  ),
-                );
-              },
-            );
           }
 
-          Widget buildFixedSlotCard({
-            required IconData icon,
-            required String name,
-            required String badge,
-          }) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF3EFEA),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isDark ? Colors.white12 : const Color(0xFFE0D7CE),
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, -4),
                 ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. 拖曳指示條 & 標題欄
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
+                  child: Column(
                     children: [
                       Container(
-                        width: 38,
-                        height: 38,
-                        alignment: Alignment.center,
+                        width: 42,
+                        height: 4.5,
                         decoration: BoxDecoration(
-                          color: Colors.grey.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
+                          color: isDark ? Colors.white24 : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(3),
                         ),
-                        child: Icon(icon, color: Colors.grey.shade600, size: 19),
                       ),
-                      Positioned(
-                        right: -3,
-                        top: -3,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade600,
-                            shape: BoxShape.circle,
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(Icons.tune_rounded, color: primaryColor, size: 22),
                           ),
-                          child: const Icon(Icons.lock_rounded, size: 9, color: Colors.white),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppLocaleService.tr('settings_nav_bar_order', _appLanguage),
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : const Color(0xFF2C2523),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '自訂 5 格分頁與抽屜備用功能配置',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white60 : Colors.black54,
-                        ),
-                        maxLines: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        badge,
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: isDark ? Colors.white54 : Colors.grey.shade600,
-                        ),
-                        maxLines: 1,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return AlertDialog(
-            backgroundColor: isDark ? const Color(0xFF232323) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-            titlePadding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            actionsPadding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.touch_app_rounded, color: primaryColor, size: 22),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppLocaleService.tr('settings_nav_bar_order', _appLanguage),
-                        style: TextStyle(
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black87,
+
+                const Divider(height: 1),
+
+                // 2. 主滾動內容區
+                Flexible(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // A. 導覽列 5 格即時動態預覽
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.black.withValues(alpha: 0.35)
+                                : const Color(0xFFF7F5F2),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: isDark ? Colors.white12 : const Color(0xFFE8E0D7),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.visibility_outlined, size: 14, color: primaryColor),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '導覽列即時佈局預覽（共 5 格）',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white70 : const Color(0xFF4E342E),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // 5 格預覽按鈕列
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF282830) : Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    // 格 1
+                                    Expanded(
+                                      child: _buildPreviewPill(
+                                        icon: _getNavBarItemIcon(tempOrder[0]),
+                                        name: _getNavBarItemName(tempOrder[0]),
+                                        badge: '1',
+                                        isDark: isDark,
+                                        primaryColor: primaryColor,
+                                        isCustom: true,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    // 格 2
+                                    Expanded(
+                                      child: _buildPreviewPill(
+                                        icon: _getNavBarItemIcon(tempOrder[1]),
+                                        name: _getNavBarItemName(tempOrder[1]),
+                                        badge: '2',
+                                        isDark: isDark,
+                                        primaryColor: primaryColor,
+                                        isCustom: true,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    // 格 3 (AI 固定)
+                                    Expanded(
+                                      child: _buildPreviewPill(
+                                        icon: Icons.auto_awesome_rounded,
+                                        name: 'AI特助',
+                                        badge: '固定',
+                                        isDark: isDark,
+                                        primaryColor: primaryColor,
+                                        isCustom: false,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    // 格 4
+                                    Expanded(
+                                      child: _buildPreviewPill(
+                                        icon: _getNavBarItemIcon(tempOrder[2]),
+                                        name: _getNavBarItemName(tempOrder[2]),
+                                        badge: '4',
+                                        isDark: isDark,
+                                        primaryColor: primaryColor,
+                                        isCustom: true,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    // 格 5 (個人 固定)
+                                    Expanded(
+                                      child: _buildPreviewPill(
+                                        icon: Icons.person_rounded,
+                                        name: '個人',
+                                        badge: '固定',
+                                        isDark: isDark,
+                                        primaryColor: primaryColor,
+                                        isCustom: false,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+
+                        const SizedBox(height: 16),
+
+                        // 對調提示橫條
+                        if (selectedForSwap != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: isDark ? 0.25 : 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: primaryColor.withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.touch_app_rounded, size: 16, color: primaryColor),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '已選取「${_getNavBarItemName(tempOrder[selectedForSwap!])}」，請點擊要互換的目標項目',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () => setSheetState(() => selectedForSwap = null),
+                                  child: Icon(Icons.close_rounded, size: 16, color: primaryColor),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        // B. 項目設定卡片列表
+                        Text(
+                          '自訂功能排序與位置（點擊選取互換，或使用箭頭調整）',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white70 : const Color(0xFF3E2723),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // 4 個卡片項目
+                        ...List.generate(tempOrder.length, (index) {
+                          final itemKey = tempOrder[index];
+                          final isDrawer = index == 3;
+                          final isSelected = selectedForSwap == index;
+                          final icon = _getNavBarItemIcon(itemKey);
+                          final name = _getNavBarItemName(itemKey);
+                          final desc = getItemDesc(itemKey);
+                          final slotLabel = isDrawer
+                              ? '側邊抽屜備用'
+                              : '導覽列 第 ${index == 2 ? 4 : index + 1} 格';
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? primaryColor.withValues(alpha: isDark ? 0.2 : 0.1)
+                                  : (isDark
+                                      ? (isDrawer
+                                          ? const Color(0xFF24242C)
+                                          : const Color(0xFF282832))
+                                      : (isDrawer
+                                          ? const Color(0xFFF9F8F6)
+                                          : Colors.white)),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected
+                                    ? primaryColor
+                                    : (isDrawer
+                                        ? (isDark ? Colors.white12 : const Color(0xFFE2DAD1))
+                                        : (isDark ? Colors.white10 : const Color(0xFFE8E0D7))),
+                                width: isSelected ? 2.0 : 1.0,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  if (selectedForSwap == null) {
+                                    setSheetState(() => selectedForSwap = index);
+                                    HapticFeedback.selectionClick();
+                                  } else if (selectedForSwap == index) {
+                                    setSheetState(() => selectedForSwap = null);
+                                  } else {
+                                    swapItems(selectedForSwap!, index);
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(16),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      // 圖標圓圈
+                                      Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          color: isDrawer
+                                              ? (isDark
+                                                  ? Colors.white10
+                                                  : Colors.grey.shade200)
+                                              : primaryColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          icon,
+                                          color: isDrawer
+                                              ? (isDark ? Colors.white70 : Colors.grey.shade700)
+                                              : primaryColor,
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+
+                                      // 文字區塊
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  name,
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isDark ? Colors.white : Colors.black87,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 7, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: isDrawer
+                                                        ? (isDark
+                                                            ? Colors.white12
+                                                            : Colors.grey.shade200)
+                                                        : primaryColor.withValues(
+                                                            alpha: isDark ? 0.2 : 0.12),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Text(
+                                                    slotLabel,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isDrawer
+                                                          ? (isDark
+                                                              ? Colors.white70
+                                                              : Colors.grey.shade700)
+                                                          : primaryColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              desc,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: isDark
+                                                    ? Colors.white54
+                                                    : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // 調整箭頭按鈕組
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          InkWell(
+                                            onTap: index > 0
+                                                ? () => moveItem(index, -1)
+                                                : null,
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(4),
+                                              child: Icon(
+                                                Icons.keyboard_arrow_up_rounded,
+                                                size: 22,
+                                                color: index > 0
+                                                    ? (isDark ? Colors.white70 : Colors.black87)
+                                                    : (isDark ? Colors.white24 : Colors.black26),
+                                              ),
+                                            ),
+                                          ),
+                                          InkWell(
+                                            onTap: index < tempOrder.length - 1
+                                                ? () => moveItem(index, 1)
+                                                : null,
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(4),
+                                              child: Icon(
+                                                Icons.keyboard_arrow_down_rounded,
+                                                size: 22,
+                                                color: index < tempOrder.length - 1
+                                                    ? (isDark ? Colors.white70 : Colors.black87)
+                                                    : (isDark ? Colors.white24 : Colors.black26),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // 3. 底部動作按鈕
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+                  child: Row(
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: Text(
+                          AppLocaleService.tr('reset_default', _appLanguage),
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? Colors.white70 : Colors.grey.shade700,
+                          side: BorderSide(
+                            color: isDark ? Colors.white24 : Colors.grey.shade300,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                        ),
+                        onPressed: () {
+                          setSheetState(() {
+                            tempOrder = ['calendar', 'quiz', 'social', 'notes'];
+                            selectedForSwap = null;
+                          });
+                          HapticFeedback.selectionClick();
+                        },
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        selectedForSwap != null
-                            ? '✨ 點擊任一項目即可直接對調位置'
-                            : '按住拖拉或點擊圖示，即可自由互換位置',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: selectedForSwap != null
-                              ? primaryColor
-                              : (isDark ? Colors.white60 : Colors.grey.shade600),
-                          fontWeight: selectedForSwap != null
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation: 0,
+                          ),
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            _update(() {
+                              _navBarItems = List<String>.from(tempOrder);
+                            });
+                            await _updatePersonalization();
+                          },
+                          child: const Text(
+                            '儲存套用',
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -2749,204 +2969,65 @@ extension MainScreenProfileTab on _MainScreenState {
                 ),
               ],
             ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 區塊 1: 底部導覽列（5格完整模擬）
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.black.withValues(alpha: 0.4)
-                            : const Color(0xFFFAF7F3),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: isDark ? Colors.white12 : const Color(0xFFEAE2D8),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.dock_rounded, size: 14, color: primaryColor),
-                              const SizedBox(width: 5),
-                              Text(
-                                '底部導覽列（共 5 格，直接拖拉/點擊調整）',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white70 : const Color(0xFF4E342E),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: buildSlotCard(
-                                  slotIndex: 0,
-                                  itemKey: tempOrder[0],
-                                  isDrawer: false,
-                                  slotBadge: '第1格',
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: buildSlotCard(
-                                  slotIndex: 1,
-                                  itemKey: tempOrder[1],
-                                  isDrawer: false,
-                                  slotBadge: '第2格',
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: buildFixedSlotCard(
-                                  icon: Icons.auto_awesome_rounded,
-                                  name: 'AI代理',
-                                  badge: '置中',
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: buildSlotCard(
-                                  slotIndex: 2,
-                                  itemKey: tempOrder[2],
-                                  isDrawer: false,
-                                  slotBadge: '第4格',
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: buildFixedSlotCard(
-                                  icon: Icons.person_rounded,
-                                  name: '個人檔案',
-                                  badge: '置末',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // 區塊 2: 側邊抽屜備用功能
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.black.withValues(alpha: 0.25)
-                            : const Color(0xFFF5F3EF),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: isDark ? Colors.white10 : const Color(0xFFE2DAD1),
-                          style: BorderStyle.solid,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.inventory_2_outlined,
-                                        size: 14, color: Colors.grey.shade600),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '側邊抽屜選單功能',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark ? Colors.white70 : const Color(0xFF4E342E),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '此功能收合於側邊選單，可直接拖拉或點擊換入導覽列',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    color: isDark ? Colors.white54 : Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            width: 78,
-                            child: buildSlotCard(
-                              slotIndex: 3,
-                              itemKey: tempOrder[3],
-                              isDrawer: true,
-                              slotBadge: '抽屜存取',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  setDialogState(() {
-                    tempOrder = ['calendar', 'quiz', 'social', 'notes'];
-                    selectedForSwap = null;
-                  });
-                  HapticFeedback.selectionClick();
-                },
-                child: Text(
-                  AppLocaleService.tr('reset_default', _appLanguage),
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  AppLocaleService.tr('cancel', _appLanguage),
-                  style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black54,
-                      fontSize: 13),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  elevation: 0,
-                ),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  _update(() {
-                    _navBarItems = List<String>.from(tempOrder);
-                  });
-                  await _updatePersonalization();
-                },
-                child: const Text('儲存套用',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              ),
-            ],
           );
         },
+      ),
+    );
+  }
+
+  // 導覽列自訂小膠囊預覽組件
+  Widget _buildPreviewPill({
+    required IconData icon,
+    required String name,
+    required String badge,
+    required bool isDark,
+    required Color primaryColor,
+    required bool isCustom,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+      decoration: BoxDecoration(
+        color: isCustom
+            ? primaryColor.withValues(alpha: isDark ? 0.15 : 0.08)
+            : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isCustom
+              ? primaryColor.withValues(alpha: 0.25)
+              : (isDark ? Colors.white10 : Colors.grey.shade200),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isCustom ? primaryColor : (isDark ? Colors.white38 : Colors.grey.shade500),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: isCustom
+                  ? (isDark ? Colors.white : Colors.black87)
+                  : (isDark ? Colors.white38 : Colors.grey.shade500),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 1),
+          Text(
+            badge,
+            style: TextStyle(
+              fontSize: 8.5,
+              fontWeight: FontWeight.w600,
+              color: isCustom ? primaryColor : (isDark ? Colors.white38 : Colors.grey.shade500),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -4630,6 +4711,30 @@ class _FaqAndCustomerSupportSheetState
 
   final List<Map<String, dynamic>> _faqData = [
     {
+      'category': 'faq_cat_notes',
+      'icon': Icons.mic_rounded,
+      'qKey': 'faq_q8',
+      'aKey': 'faq_a8',
+    },
+    {
+      'category': 'faq_cat_settings',
+      'icon': Icons.tune_rounded,
+      'qKey': 'faq_q9',
+      'aKey': 'faq_a9',
+    },
+    {
+      'category': 'faq_cat_ai',
+      'icon': Icons.hub_outlined,
+      'qKey': 'faq_q10',
+      'aKey': 'faq_a10',
+    },
+    {
+      'category': 'faq_cat_notes',
+      'icon': Icons.share_rounded,
+      'qKey': 'faq_q11',
+      'aKey': 'faq_a11',
+    },
+    {
       'category': 'faq_cat_account',
       'icon': Icons.sync_rounded,
       'qKey': 'faq_q1',
@@ -4675,41 +4780,47 @@ class _FaqAndCustomerSupportSheetState
 
   final List<String> _categoryKeys = [
     'faq_cat_all',
-    'faq_cat_account',
-    'faq_cat_ai',
-    'faq_cat_quiz',
     'faq_cat_notes',
+    'faq_cat_ai',
     'faq_cat_settings',
+    'faq_cat_quiz',
+    'faq_cat_account',
   ];
 
   List<String> get _quickPrompts {
     final lang = AppLocaleService.currentLanguage;
     if (lang == AppLocaleService.ja) {
       return [
-        '💡 AI学習アドバイスの使い方',
+        '🎙️ AI音声速記とマインドマップの使い方',
+        '📱 ナビゲーションバーの並び替え方法',
+        '💡 AI学習診断と弱点補強の使い方',
         '📓 間違いノートへの同期方法',
-        '⚙️ ダークモードとテーマの変更',
-        '🔒 登録メールアドレスの変更',
-        '❓ 問題の不具合・誤答の報告',
+        '⚙️ ダークモードとテーマカラーの変更',
+        '📦 ノート共有コードの使い方',
         '📅 学習計画とリマインダー設定',
+        '❓ 問題の不具合・誤答の報告',
       ];
     } else if (lang == AppLocaleService.ko) {
       return [
-        '💡 AI 맞춤 학습 제안 사용법',
+        '🎙️ AI 음성 속기 및 마인드맵 사용법',
+        '📱 하단 바 순서 맞춤설정 방법',
+        '💡 AI 맞춤 학습 진단 사용법',
         '📓 오답노트 자동 연동 방법',
         '⚙️ 다크 모드 및 테마 색상 변경',
-        '🔒 로그인 이메일 변경 가능한가요?',
-        '❓ 문제 오류 및 정답 수정 신고',
+        '📦 노트 공유 코드 사용법',
         '📅 학습 일정 및 알림 설정 방법',
+        '❓ 문제 오류 및 정답 수정 신고',
       ];
     } else {
       return [
-        '💡 如何使用 AI 學習建議？',
+        '🎙️ 語音速記與心智圖怎麼用？',
+        '📱 如何自訂底部導覽列排版順序？',
+        '💡 如何使用 AI 學習診斷與弱項補強？',
         '📓 錯題如何同步到筆記本？',
-        '⚙️ 如何切換深色模式與主題？',
-        '🔒 登入信箱可以修改嗎？',
-        '❓ 發現題庫解答有誤如何回報？',
+        '⚙️ 如何切換深色模式與主題色彩？',
+        '📦 筆記分享碼（Pack）怎麼匯入？',
         '📅 怎麼設定讀書計畫與提醒？',
+        '❓ 發現題庫解答有誤如何回報？',
       ];
     }
   }
@@ -6737,7 +6848,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
         title: '服務範疇與多元功能說明',
         icon: Icons.school_outlined,
         content:
-            '本服務為綜合性智慧教育與學習輔助平台，提供以下功能模組：\n・題庫測驗與錯題本：國高中各學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習。\n・AI 語音速記與互動心智圖：支援長錄音即時轉文字、去贅字引擎、4 大整理風格（會議摘要、課堂重點、代辦結論、日常隨筆）與樹狀心智圖畫布。\n・學科能力診斷與補強：知識掌握度矩陣圖、能力雷達圖與一鍵客製化弱項補強教材生成。\n・雙模筆記與學習 Pack：支援 Markdown 筆記、手寫塗鴉畫布與一鍵打包分享匯入。\n・智慧行事曆與客服：自然語言意圖排程、讀書計畫管理、待辦清單、推播提醒與 24H 智慧線上客服。',
+            '本服務為綜合性智慧教育與學習輔助平台，提供以下功能模組：\n・題庫測驗與錯題本：國高中各學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習。\n・AI 語音速記與互動心智圖：支援長錄音即時轉文字、去贅字引擎、6 大整理風格（課堂重點、會議摘要、結構大綱、代辦結論、精華摘要、日常隨筆）與樹狀心智圖畫布。\n・學科能力診斷與補強：知識掌握度矩陣圖、能力雷達圖與一鍵客製化弱項補強教材生成。\n・雙模筆記與學習 Pack：支援 Markdown 筆記、手寫塗鴉畫布與一鍵打包分享匯入。\n・智慧行事曆與客服：自然語言意圖排程、讀書計畫管理、待辦清單、推播提醒與 24H 智慧線上客服。',
       ),
       (
         num: '03',
@@ -7125,7 +7236,7 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
                           icon: Icons.mic_rounded,
                           iconColor: const Color(0xFFF59E0B),
                           title: '語音辨識核心',
-                          value: '去贅字 & 4大風格',
+                          value: '去贅字 & 6大風格',
                           isDark: isDark,
                         ),
                       ),

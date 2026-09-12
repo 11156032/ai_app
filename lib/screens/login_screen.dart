@@ -1345,7 +1345,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? [
                       _buildInlineSection(
                         '1. 接受條款與服務範疇',
-                        '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、AI 步驟詳解、AI 語音速記（4 大整理風格）、互動心智圖、學科能力診斷、弱項補強教材、雙模筆記（Markdown與手寫畫布）、智慧行事曆排程與 24H 線上客服等多元功能。',
+                        '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、AI 步驟詳解、AI 語音速記（6 大整理風格）、互動心智圖、學科能力診斷、弱項補強教材、雙模筆記（Markdown與手寫畫布）、智慧行事曆排程與 24H 線上客服等多元功能。',
                         themeColor,
                       ),
                       _buildInlineSection(

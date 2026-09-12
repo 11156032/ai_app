@@ -435,6 +435,8 @@ class _NotesScreenState extends State<NotesScreen> {
 
     await showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       enableDrag: true,
@@ -477,194 +479,244 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 
   // ──────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────
   // 新增筆記方式選擇彈窗（筆記 / 錄音 雙選項）
   // ──────────────────────────────────────────────────
   void _showCreateNoteOptions() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4.5,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(3),
-                ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, -2),
               ),
-            ),
-            const Text(
-              '✨ 選擇新增筆記方式',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF3E2723),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // 選項 1: 🎙️ 語音錄音速記 (Groq Whisper)
-            InkWell(
-              onTap: () {
-                Navigator.pop(ctx);
-                _showVoiceNoteSheet();
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF4A148C).withValues(alpha: 0.09),
-                      const Color(0xFF7B1FA2).withValues(alpha: 0.04),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF4A148C).withValues(alpha: 0.35),
-                    width: 1.5,
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4.5,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF4A148C).withValues(alpha: 0.35),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.mic_rounded, color: Colors.white, size: 28),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '✨ 選擇新增筆記方式',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : const Color(0xFF3E2723),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                '🎙️ 語音錄音速記',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF4A148C),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF4A148C),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'AI 整理 ⚡',
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      size: 22,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // 選項 1: 🎙️ 語音錄音速記 (Groq Whisper)
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showVoiceNoteSheet();
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [
+                              const Color(0xFF7B1FA2).withValues(alpha: 0.25),
+                              const Color(0xFF4A148C).withValues(alpha: 0.15),
+                            ]
+                          : [
+                              const Color(0xFF4A148C).withValues(alpha: 0.09),
+                              const Color(0xFF7B1FA2).withValues(alpha: 0.04),
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF8E24AA).withValues(alpha: isDark ? 0.45 : 0.35),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF4A148C).withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.mic_rounded, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  '🎙️ 語音錄音速記',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: isDark ? const Color(0xFFCE93D8) : const Color(0xFF4A148C),
                                   ),
                                 ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF8E24AA),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'AI 整理 ⚡',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '長錄音完整收錄・自動標點・去贅字整理與心智圖',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                height: 1.3,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '長錄音完整收錄・自動標點・去贅字整理與心智圖',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade700,
-                              height: 1.3,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded, color: Color(0xFF4A148C)),
-                  ],
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: isDark ? const Color(0xFFCE93D8) : const Color(0xFF4A148C),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            // 選項 2: 📝 一般筆記 (文字與手繪塗鴉)
-            InkWell(
-              onTap: () {
-                Navigator.pop(ctx);
-                _createNewRegularNote();
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFBF9F7),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5DCD3)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF5D4037).withValues(alpha: 0.12),
-                      ),
-                      child: const Icon(Icons.edit_note_rounded, color: Color(0xFF5D4037), size: 30),
+              // 選項 2: 📝 一般筆記 (文字與手繪塗鴉)
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _createNewRegularNote();
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF282832) : const Color(0xFFFBF9F7),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? Colors.white12 : const Color(0xFFE5DCD3),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '📝 一般筆記 (打字/手繪)',
-                            style: TextStyle(
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF3E2723),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Markdown 文本排版、莫蘭迪手寫繪圖、標籤管理',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: primaryColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                        ),
+                        child: Icon(
+                          Icons.edit_note_rounded,
+                          color: isDark ? Colors.white70 : const Color(0xFF5D4037),
+                          size: 30,
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded, color: Colors.grey),
-                  ],
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '📝 一般筆記 (打字/手繪)',
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : const Color(0xFF3E2723),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Markdown 文本排版、莫蘭迪手寫繪圖、標籤管理',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: isDark ? Colors.white38 : Colors.grey,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

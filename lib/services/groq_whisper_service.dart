@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'ai_diagnosis_service.dart';
 
 /// Groq Whisper 語音轉錄服務
@@ -181,28 +182,46 @@ class GroqWhisperService {
     _currentRecordingPath = null;
   }
 
+  // 讀取 Gemini API 金鑰
+  static String get _kGeminiApiKey {
+    try {
+      final key = dotenv.env['GEMINI_API_KEY'];
+      if (key != null && key.isNotEmpty) return key;
+    } catch (_) {}
+    const envKey = String.fromEnvironment('GEMINI_API_KEY');
+    if (envKey.isNotEmpty) return envKey;
+    return '';
+  }
+
+  static const String _kCloudflareProxyUrl =
+      'https://ai-app-proxy.adenlee36.workers.dev';
+  static const String _kAppClientSecret = 'K/Qk9-gt2P.E9qa';
+  static const String _kAppSecretHeader = 'X-App-Secret';
+
   // ----------------------------------------------------------
-  // 2. Groq Whisper 雲端極速音訊轉錄
+  // 2. 雲端極速音訊轉錄 (Groq Whisper ➔ Gemini 1.5 Flash ➔ Cloudflare Relay)
   // ----------------------------------------------------------
 
-  /// 停止當前錄音並直接呼叫 Groq Whisper 轉錄為文字
-  /// [prompt] 可選提示詞（用於加強特定專有名詞或繁中排版習慣）
+  /// 停止當前錄音並轉錄為繁體中文文字
   Future<String> stopAndTranscribe({String? prompt}) async {
     final audioPath = await stopRecording();
+    // 給予作業系統 I/O 緩衝區 200ms 刷新寫入
+    await Future.delayed(const Duration(milliseconds: 200));
+
     if (audioPath == null || audioPath.isEmpty) {
-      throw Exception('未取得有效的音訊錄音檔案');
+      throw Exception('未取得音訊錄音檔案，請確認已說話並重新錄音 🎙️');
     }
 
     final audioFile = File(audioPath);
-    if (!await audioFile.exists() || audioFile.lengthSync() == 0) {
-      throw Exception('錄音檔案為空或不存在');
+    if (!await audioFile.exists() || audioFile.lengthSync() < 300) {
+      throw Exception('錄音時間過短或音訊無聲音，請長按或點擊麥克風說話 🎙️');
     }
 
     try {
       final transcript = await transcribeAudioFile(audioFile, prompt: prompt);
       return transcript;
     } finally {
-      // 轉錄完成後自動刪除本機暫存檔，確保不浪費使用者儲存空間
+      // 轉錄完成後自動清理暫存錄音檔
       try {
         if (await audioFile.exists()) {
           await audioFile.delete();
@@ -212,75 +231,140 @@ class GroqWhisperService {
     }
   }
 
-  /// 將指定本機音訊檔案傳送至 Groq Whisper 進行轉錄
+  /// 將指定音訊檔案進行轉錄（自動多重引擎輪詢降級）
   Future<String> transcribeAudioFile(
     File audioFile, {
     String? prompt,
     String language = 'zh',
   }) async {
-    final apiKey = _kGroqApiKey;
-    if (apiKey.isEmpty) {
-      throw Exception('未設定 GROQ_API_KEY，請確認 assets/keys.env 配置');
-    }
-
     const defaultPrompt = '以下為繁體中文語音筆記內容，請保留完整標點符號（逗號、句號、問號）、專有名詞與中英夾雜精準拼寫。';
     final effectivePrompt = prompt ?? defaultPrompt;
 
-    Exception? lastError;
+    // 引擎 1: Groq Whisper (Turbo ➔ V3)
+    final groqKey = _kGroqApiKey;
+    if (groqKey.isNotEmpty) {
+      for (final model in _kWhisperModels) {
+        try {
+          debugPrint('GroqWhisperService: 正在發送音檔至 Groq Whisper ($model)...');
+          final stopwatch = Stopwatch()..start();
 
-    // 依序嘗試 Whisper 模型（whisper-large-v3-turbo -> whisper-large-v3）
-    for (final model in _kWhisperModels) {
-      try {
-        debugPrint('GroqWhisperService: 正在發送音檔至 Groq Whisper ($model)...');
-        final stopwatch = Stopwatch()..start();
-
-        final uri = Uri.parse('https://api.groq.com/openai/v1/audio/transcriptions');
-        final request = http.MultipartRequest('POST', uri)
-          ..headers['Authorization'] = 'Bearer $apiKey'
-          ..fields['model'] = model
-          ..fields['response_format'] = 'json'
-          ..fields['temperature'] = '0.0'
-          ..fields['language'] = language
-          ..fields['prompt'] = effectivePrompt
-          ..files.add(
-            await http.MultipartFile.fromPath(
-              'file',
-              audioFile.path,
-            ),
-          );
-
-        final streamedResponse = await request.send().timeout(
-              const Duration(seconds: 30),
-              onTimeout: () => throw TimeoutException('Groq Whisper 轉錄請求超時（30s）'),
+          final uri = Uri.parse('https://api.groq.com/openai/v1/audio/transcriptions');
+          final request = http.MultipartRequest('POST', uri)
+            ..headers['Authorization'] = 'Bearer $groqKey'
+            ..fields['model'] = model
+            ..fields['response_format'] = 'json'
+            ..fields['temperature'] = '0.0'
+            ..fields['language'] = language
+            ..fields['prompt'] = effectivePrompt
+            ..files.add(
+              await http.MultipartFile.fromPath(
+                'file',
+                audioFile.path,
+              ),
             );
 
-        final response = await http.Response.fromStream(streamedResponse);
-        stopwatch.stop();
-        debugPrint('GroqWhisperService: [$model] 轉錄完成，耗時 ${stopwatch.elapsedMilliseconds}ms, Status: ${response.statusCode}');
+          final streamedResponse = await request.send().timeout(
+                const Duration(seconds: 25),
+                onTimeout: () => throw TimeoutException('Groq Whisper 轉錄超時（25s）'),
+              );
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-          final rawText = (data['text'] as String? ?? '').trim();
+          final response = await http.Response.fromStream(streamedResponse);
+          stopwatch.stop();
+          debugPrint('GroqWhisperService: [$model] 轉錄完成，耗時 ${stopwatch.elapsedMilliseconds}ms, Status: ${response.statusCode}');
 
-          if (rawText.isNotEmpty) {
-            // 轉換為標準繁體中文並返回
-            final traditionalText = AiDiagnosisService.toTraditionalChinese(rawText);
-            return traditionalText;
+          if (response.statusCode == 200) {
+            final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+            final rawText = (data['text'] as String? ?? '').trim();
+
+            if (rawText.isNotEmpty) {
+              return AiDiagnosisService.toTraditionalChinese(rawText);
+            }
           } else {
-            throw Exception('Groq Whisper 回傳空白轉錄文字');
+            debugPrint('Groq Whisper API [$model] 回應 ${response.statusCode}: ${utf8.decode(response.bodyBytes)}');
           }
-        } else {
-          final errorBody = utf8.decode(response.bodyBytes);
-          debugPrint('Groq Whisper API 錯誤 [$model] (${response.statusCode}): $errorBody');
-          throw Exception('Groq Whisper API [${response.statusCode}]: $errorBody');
+        } catch (e) {
+          debugPrint('Groq Whisper [$model] 轉錄異常: $e，嘗試備援引擎...');
         }
-      } catch (e) {
-        debugPrint('Groq Whisper [$model] 發生異常: $e，嘗試下一個備援模型...');
-        lastError = e is Exception ? e : Exception(e.toString());
       }
     }
 
-    throw lastError ?? Exception('Groq Whisper 轉錄失敗，所有模型均不可用');
+    // 引擎 2: Google Gemini 1.5 Flash 多模態音訊直接轉錄
+    final geminiKey = _kGeminiApiKey;
+    if (geminiKey.isNotEmpty) {
+      try {
+        debugPrint('GroqWhisperService: 切換至備援引擎 Google Gemini 1.5 Flash 音訊轉錄...');
+        final audioBytes = await audioFile.readAsBytes();
+        if (audioBytes.isNotEmpty) {
+          final model = GenerativeModel(
+            model: 'gemini-1.5-flash',
+            apiKey: geminiKey,
+            generationConfig: GenerationConfig(temperature: 0.1),
+          );
+
+          final content = [
+            Content.multi([
+              DataPart('audio/m4a', audioBytes),
+              TextPart(
+                '你是一個頂級的高精準繁體中文語音轉文字助手。\n'
+                '請將這段音訊錄音完整精確轉錄為繁體中文逐字稿，要求：\n'
+                '1. 保留正確且完整的標點符號（逗號、句號、問號、頓號等）。\n'
+                '2. 去除語意無關的「呃、啊、嗯、那個」等停頓口吃詞。\n'
+                '3. 保留專有名詞、數字與英文縮寫。\n'
+                '4. 直接輸出純文字逐字稿內容，絕對不要加任何引言、前綴、標記或註解。',
+              ),
+            ]),
+          ];
+
+          final response = await model.generateContent(content).timeout(
+                const Duration(seconds: 25),
+              );
+          final text = response.text?.trim() ?? '';
+          if (text.isNotEmpty) {
+            debugPrint('GroqWhisperService: Gemini 1.5 Flash 音訊轉錄成功 (${text.length} 字)');
+            return AiDiagnosisService.toTraditionalChinese(text);
+          }
+        }
+      } catch (e) {
+        debugPrint('GroqWhisperService Gemini 音訊轉錄異常: $e');
+      }
+    }
+
+    // 引擎 3: Cloudflare 雲端中繼站音訊轉錄
+    try {
+      debugPrint('GroqWhisperService: 嘗試透過 Cloudflare 中繼站進行轉錄...');
+      final audioBytes = await audioFile.readAsBytes();
+      if (audioBytes.isNotEmpty) {
+        final base64Audio = base64Encode(audioBytes);
+        final response = await http
+            .post(
+              Uri.parse(_kCloudflareProxyUrl),
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                _kAppSecretHeader: _kAppClientSecret,
+              },
+              body: jsonEncode({
+                'provider': 'gemini',
+                'model': 'gemini-1.5-flash',
+                'prompt': '請精準轉錄這段音訊為繁體中文，保留標點，去除贅字，直接輸出逐字稿：',
+                'audioBase64': base64Audio,
+                'mimeType': 'audio/m4a',
+              }),
+            )
+            .timeout(const Duration(seconds: 20));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+          if (text != null && text.trim().isNotEmpty) {
+            return AiDiagnosisService.toTraditionalChinese(text.trim());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('GroqWhisperService Cloudflare 音訊中繼轉錄異常: $e');
+    }
+
+    throw Exception('語音辨識服務暫時無法連線，請確認網路連線或直接在此輸入文字 📝');
   }
 
   /// 釋放資源
