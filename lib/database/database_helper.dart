@@ -305,6 +305,42 @@ class DatabaseHelper {
             'Dynamic migration: Added is_muted column to group_members table.');
       }
 
+      if (!userCols.any((c) => c['name'] == 'membership_tier')) {
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN membership_tier TEXT DEFAULT 'free'");
+        debugPrint(
+            'Dynamic migration: Added membership_tier column to users table.');
+      }
+      if (!userCols.any((c) => c['name'] == 'membership_expires_at')) {
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN membership_expires_at DATETIME");
+        debugPrint(
+            'Dynamic migration: Added membership_expires_at column to users table.');
+      }
+      if (!userCols.any((c) => c['name'] == 'points_balance')) {
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN points_balance INTEGER DEFAULT 100");
+        debugPrint(
+            'Dynamic migration: Added points_balance column to users table.');
+      }
+      if (!userCols.any((c) => c['name'] == 'last_daily_reward_at')) {
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN last_daily_reward_at DATETIME");
+        debugPrint(
+            'Dynamic migration: Added last_daily_reward_at column to users table.');
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS point_transactions (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id     VARCHAR NOT NULL,
+          amount      INTEGER NOT NULL,
+          type        TEXT NOT NULL,
+          description TEXT NOT NULL,
+          created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+
       // 自我修復：如果原廠測試帳號被清空，自動重新導入 (以 Sharon 帳號 id = u1 為指標)
       final u1Check = await db.query('users', where: "id = 'u1'");
       if (u1Check.isEmpty) {
@@ -3580,6 +3616,97 @@ class DatabaseHelper {
         'updated_at': DateTime.now().toIso8601String(),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 取得使用者點數與會員階級資訊
+  Future<Map<String, dynamic>> getUserMembershipInfo(String userId) async {
+    final db = await database;
+    final res = await db.query(
+      'users',
+      columns: ['membership_tier', 'membership_expires_at', 'points_balance', 'last_daily_reward_at'],
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+    if (res.isNotEmpty) {
+      final data = res.first;
+      return {
+        'membership_tier': data['membership_tier'] ?? 'free',
+        'membership_expires_at': data['membership_expires_at'],
+        'points_balance': data['points_balance'] ?? 100,
+        'last_daily_reward_at': data['last_daily_reward_at'],
+      };
+    }
+    return {
+      'membership_tier': 'free',
+      'membership_expires_at': null,
+      'points_balance': 100,
+      'last_daily_reward_at': null,
+    };
+  }
+
+  /// 更新使用者點數餘額
+  Future<void> updateUserPoints(String userId, int newPoints) async {
+    final db = await database;
+    await db.update(
+      'users',
+      {'points_balance': newPoints},
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  /// 更新使用者會員階級與到期時間
+  Future<void> updateUserMembershipTier(String userId, String tier, String? expiresAtIso) async {
+    final db = await database;
+    await db.update(
+      'users',
+      {
+        'membership_tier': tier,
+        'membership_expires_at': expiresAtIso,
+      },
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  /// 更新上次簽到時間
+  Future<void> updateDailyRewardClaimed(String userId, String nowIso) async {
+    final db = await database;
+    await db.update(
+      'users',
+      {'last_daily_reward_at': nowIso},
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  /// 新增點數交易紀錄
+  Future<void> addPointTransaction({
+    required String userId,
+    required int amount,
+    required String type,
+    required String description,
+  }) async {
+    final db = await database;
+    await db.insert('point_transactions', {
+      'user_id': userId,
+      'amount': amount,
+      'type': type,
+      'description': description,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// 查詢點數交易歷史紀錄
+  Future<List<Map<String, dynamic>>> getPointTransactions(String userId, {int limit = 50}) async {
+    final db = await database;
+    return await db.query(
+      'point_transactions',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'created_at DESC',
+      limit: limit,
     );
   }
 
