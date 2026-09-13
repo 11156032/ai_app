@@ -32,6 +32,10 @@ import 'tabs/group_detail_page.dart';
 import 'tabs/create_group_dialog.dart';
 import 'create_learning_pack_dialog.dart';
 import 'about_us_screen.dart';
+import 'membership_center_screen.dart';
+import '../widgets/vip_badge_widget.dart';
+import '../widgets/point_recharge_dialog.dart';
+import '../services/membership_service.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import '../utils/image_enhancer.dart';
@@ -7840,6 +7844,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final targetIndex = chatLogs.length - 1;
     String buffer = '';
 
+    final userId = widget.currentUser['id'].toString();
+    if (userId != 'u4') {
+      try {
+        await MembershipService.instance.deductPoints(
+          userId: userId,
+          actionType: 'ai_chat',
+          basePoints: 2,
+          description: 'AI 助理對話導覽',
+        );
+      } on InsufficientPointsException catch (ipe) {
+        setModalState(() {
+          chatLogs[targetIndex] = {
+            'isAI': true,
+            'text': '⚠️ 您的點數不足，無法發送 AI 詢問。\n${ipe.toString()}\n請點擊進行點數儲值或升級 VIP！',
+            'isCard': false,
+          };
+        });
+        if (mounted) {
+          PointRechargeDialog.show(context, userId: userId);
+        }
+        return;
+      }
+    }
+
     try {
       final stream = AiDiagnosisService.generateOpenRouterGuideStream(
         userInput: text,
@@ -9383,7 +9411,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
       },
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(15, 8, 15, 95),
+        padding: const EdgeInsets.fromLTRB(15, 6, 15, 75),
         child: Column(
           children: [
             Expanded(
@@ -9407,7 +9435,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       )
                     ],
                   ),
-                  padding: const EdgeInsets.all(15),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -9419,7 +9447,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           Text(
                             '今日日記',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: primaryColor,
                             ),
@@ -9428,7 +9456,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           if (hasDiary)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: primaryColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
@@ -9444,7 +9472,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Expanded(
                         child: isActive
                             ? TextField(
@@ -9453,8 +9481,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 maxLines: null,
                                 keyboardType: TextInputType.multiline,
                                 style: TextStyle(
-                                  fontSize: 15,
-                                  height: 1.6,
+                                  fontSize: 14,
+                                  height: 1.5,
                                   color: isDark
                                       ? Colors.white.withValues(alpha: 0.9)
                                       : Colors.black87,
@@ -9462,7 +9490,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 decoration: InputDecoration(
                                   hintText: '今天過得怎麼樣？記錄下你的心情、學習心得或生活點滴吧...',
                                   hintStyle: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     color: isDark
                                         ? Colors.white30
                                         : Colors.grey.shade400,
@@ -9472,10 +9500,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       ? Colors.black12
                                       : Colors.grey.shade50,
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(14),
                                     borderSide: BorderSide.none,
                                   ),
-                                  contentPadding: const EdgeInsets.all(22),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
                                 ),
                               )
                             : TextField(
@@ -9485,8 +9514,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 maxLines: null,
                                 keyboardType: TextInputType.multiline,
                                 style: TextStyle(
-                                  fontSize: 15,
-                                  height: 1.6,
+                                  fontSize: 14,
+                                  height: 1.5,
                                   color: isDark
                                       ? Colors.white.withValues(alpha: 0.6)
                                       : Colors.black54,
@@ -9494,7 +9523,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 decoration: InputDecoration(
                                   hintText: '今天尚未寫日記...',
                                   hintStyle: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     color: isDark
                                         ? Colors.white30
                                         : Colors.grey.shade400,
@@ -9504,21 +9533,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       ? Colors.black12
                                       : Colors.grey.shade50,
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(14),
                                     borderSide: BorderSide.none,
                                   ),
-                                  contentPadding: const EdgeInsets.all(22),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
                                 ),
                               ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           if (hasDiary) ...[
                             OutlinedButton.icon(
                               icon: const Icon(Icons.delete_outline_rounded,
-                                  size: 16),
+                                  size: 15),
                               label: const Text('刪除日記'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.redAccent,
@@ -9529,7 +9559,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 10),
+                                    horizontal: 12, vertical: 6),
                               ),
                               onPressed: () {
                                 showDialog(
@@ -9559,10 +9589,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 );
                               },
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
                           ],
                           ElevatedButton.icon(
-                            icon: const Icon(Icons.check_rounded, size: 16),
+                            icon: const Icon(Icons.check_rounded, size: 15),
                             label: const Text('儲存日記'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primaryColor,
@@ -9572,7 +9602,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 18, vertical: 10),
+                                  horizontal: 16, vertical: 6),
                             ),
                             onPressed: _diaryInputController.text
                                     .trim()
