@@ -29,9 +29,12 @@ Future<void> main() async {
 Future<void> _initFirebaseAndNotifications() async {
   try {
     await Firebase.initializeApp().timeout(const Duration(seconds: 4));
-    await PushNotificationService().initialize().timeout(const Duration(seconds: 4));
+    await PushNotificationService()
+        .initialize()
+        .timeout(const Duration(seconds: 4));
   } catch (e) {
-    debugPrint('Warning: Firebase / PushNotification initialization deferred or failed: $e');
+    debugPrint(
+        'Warning: Firebase / PushNotification initialization deferred or failed: $e');
   }
 }
 

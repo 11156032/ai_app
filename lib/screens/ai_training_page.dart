@@ -105,11 +105,9 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
 
       final raw = AiDiagnosisService.cleanThinkingTags(buffer.toString());
       // Extract JSON array
-      final jsonMatch =
-          RegExp(r'\[.*\]', dotAll: true).firstMatch(raw);
+      final jsonMatch = RegExp(r'\[.*\]', dotAll: true).firstMatch(raw);
       if (jsonMatch != null) {
-        final decoded =
-            json.decode(jsonMatch.group(0)!) as List<dynamic>;
+        final decoded = json.decode(jsonMatch.group(0)!) as List<dynamic>;
         final questions = decoded.map((item) {
           final m = item as Map<String, dynamic>;
           return _TrainingQuestion(
@@ -156,9 +154,8 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
         } catch (_) {}
         return _TrainingQuestion(
           question: q['text'] as String? ?? '題目載入失敗',
-          options: opts.isNotEmpty
-              ? opts
-              : ['A. 選項A', 'B. 選項B', 'C. 選項C', 'D. 選項D'],
+          options:
+              opts.isNotEmpty ? opts : ['A. 選項A', 'B. 選項B', 'C. 選項C', 'D. 選項D'],
           answer: ans,
           explanation: q['explanation'] as String? ?? '',
         );
@@ -264,7 +261,9 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          widget.weakestSubject.isNotEmpty ? '${widget.weakestSubject} 專屬特訓' : '今日專屬特訓',
+          widget.weakestSubject.isNotEmpty
+              ? '${widget.weakestSubject} 專屬特訓'
+              : '今日專屬特訓',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
@@ -306,8 +305,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
   Widget _buildQuizView(bool isDark) {
     if (_questions.isEmpty) {
       return const Center(
-        child: Text('無法載入題目，請稍後再試',
-            style: TextStyle(color: Colors.grey)),
+        child: Text('無法載入題目，請稍後再試', style: TextStyle(color: Colors.grey)),
       );
     }
 
@@ -328,11 +326,11 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('第 ${_currentIndex + 1} / ${_questions.length} 題',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 13)),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13)),
                   Text('✓ $_correctCount 題正確',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 13)),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13)),
                 ],
               ),
               const SizedBox(height: 8),
@@ -341,8 +339,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
                 child: LinearProgressIndicator(
                   value: (_currentIndex + 1) / _questions.length,
                   backgroundColor: Colors.white.withValues(alpha: 0.3),
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                   minHeight: 6,
                 ),
               ),
@@ -441,8 +438,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
                                             style: TextStyle(
                                                 color: primary,
                                                 fontSize: 12,
-                                                fontWeight:
-                                                    FontWeight.bold)),
+                                                fontWeight: FontWeight.bold)),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -571,9 +567,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
           const SizedBox(height: 20),
           Text('特訓完成！',
               style: TextStyle(
-                  color: textColor,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold)),
+                  color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text('答對 $_correctCount / ${_questions.length} 題',
               style: const TextStyle(color: Colors.grey, fontSize: 16)),
@@ -612,8 +606,8 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(
-                          color: Color(0xFF6D5448)),
+                      child:
+                          CircularProgressIndicator(color: Color(0xFF6D5448)),
                     ),
                   )
                 else

@@ -252,7 +252,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
           children: [
             Icon(Icons.edit_note_rounded, color: Colors.orange, size: 28),
             SizedBox(width: 12),
-            Text('批次新增筆記', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('批次新增筆記',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         content: const Text(
@@ -262,7 +263,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('期待！', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('期待！',
+                style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -289,8 +291,10 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
     if (qids.isEmpty) return;
 
     try {
-      final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
-      final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
+      final uid =
+          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+      final papers =
+          await DatabaseHelper.instance.getPapersForUser(uid.toString());
 
       if (!mounted) return;
 
@@ -308,13 +312,16 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                 if (index == 0) {
                   return ListTile(
                     leading: const Icon(Icons.add, color: Colors.blue),
-                    title: const Text('建立新題本並加入', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                    title: const Text('建立新題本並加入',
+                        style: TextStyle(
+                            color: Colors.blue, fontWeight: FontWeight.bold)),
                     onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
                   );
                 }
                 final p = papers[index - 1];
                 return ListTile(
-                  leading: const Icon(Icons.assignment_rounded, color: Colors.orange),
+                  leading: const Icon(Icons.assignment_rounded,
+                      color: Colors.orange),
                   title: Text(p['name'] ?? '未命名題本'),
                   onTap: () => Navigator.pop(ctx, p),
                 );
@@ -389,7 +396,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       final Set<int> mergedSet = {...ids, ...qids};
       final int addedCount = mergedSet.length - originalCount;
 
-      await DatabaseHelper.instance.updatePaper(paperId, paperName, mergedSet.toList());
+      await DatabaseHelper.instance
+          .updatePaper(paperId, paperName, mergedSet.toList());
 
       if (!mounted) return;
       if (addedCount == 0) {
@@ -560,7 +568,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
     final isWrongMode = _currentMode == 0;
     return Center(
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(), // Ensures refresh works even when empty
+        physics:
+            const AlwaysScrollableScrollPhysics(), // Ensures refresh works even when empty
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -576,7 +585,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
               child: Icon(
                 isWrongMode ? Icons.verified_rounded : Icons.star_rounded,
                 size: 72,
-                color: isWrongMode ? Colors.green.shade600 : Colors.amber.shade600,
+                color:
+                    isWrongMode ? Colors.green.shade600 : Colors.amber.shade600,
               ),
             ),
             const SizedBox(height: 24),
@@ -693,7 +703,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                 label: Text(subject),
                                 selected: isSelected,
                                 selectedColor: cs.primary,
-                                backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                                backgroundColor: cs.surfaceContainerHighest
+                                    .withValues(alpha: 0.3),
                                 labelStyle: TextStyle(
                                   color: isSelected
                                       ? cs.onPrimary
@@ -831,7 +842,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: cs.primary.withValues(alpha: 0.08),
+                                            color: cs.primary
+                                                .withValues(alpha: 0.08),
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                           ),
@@ -850,16 +862,16 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                           constraints: const BoxConstraints(),
                                           icon: Icon(
                                             (r['bookmarked'] as int? ?? 0) ==
-                                                         1 ||
-                                                     r['bookmarked'] == true
-                                                 ? Icons.star_rounded
-                                                 : Icons.star_outline_rounded,
+                                                        1 ||
+                                                    r['bookmarked'] == true
+                                                ? Icons.star_rounded
+                                                : Icons.star_outline_rounded,
                                             color: (r['bookmarked'] as int? ??
                                                             0) ==
-                                                         1 ||
-                                                     r['bookmarked'] == true
-                                                 ? Colors.amber
-                                                 : Colors.grey.shade400,
+                                                        1 ||
+                                                    r['bookmarked'] == true
+                                                ? Colors.amber
+                                                : Colors.grey.shade400,
                                             size: 20,
                                           ),
                                           onPressed: () async {
@@ -875,7 +887,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                       r['bookmarked'] == true;
                                               final nextVal = isFav ? 0 : 1;
 
-                                              await db.update('questions', <String, Object?>{'bookmarked': nextVal},
+                                              await db.update(
+                                                  'questions',
+                                                  <String, Object?>{
+                                                    'bookmarked': nextVal
+                                                  },
                                                   where: 'id = ?',
                                                   whereArgs: [qid]);
 
@@ -896,7 +912,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                       textColor: Colors.amber,
                                                       onPressed: () async {
                                                         try {
-                                                          await db.update('questions', <String, Object?>{'bookmarked': 1},
+                                                          await db.update(
+                                                              'questions',
+                                                              <String, Object?>{
+                                                                'bookmarked': 1
+                                                              },
                                                               where: 'id = ?',
                                                               whereArgs: [qid]);
                                                           setState(() {
@@ -954,13 +974,15 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                 horizontal: 12, vertical: 8),
                                             decoration: BoxDecoration(
                                               color: isCorrect
-                                                  ? Colors.green.shade50.withValues(alpha: 0.5)
+                                                  ? Colors.green.shade50
+                                                      .withValues(alpha: 0.5)
                                                   : const Color(0xFFFAF8F6),
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                               border: Border.all(
                                                 color: isCorrect
-                                                    ? Colors.green.withValues(alpha: 0.25)
+                                                    ? Colors.green
+                                                        .withValues(alpha: 0.25)
                                                     : Colors.grey.shade100,
                                                 width: 1,
                                               ),
@@ -972,13 +994,17 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                   height: 20,
                                                   decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
-                                                    color: isCorrect ? Colors.green.shade600 : Colors.grey.shade300,
+                                                    color: isCorrect
+                                                        ? Colors.green.shade600
+                                                        : Colors.grey.shade300,
                                                   ),
                                                   alignment: Alignment.center,
                                                   child: Text(
-                                                    String.fromCharCode(65 + optIdx),
+                                                    String.fromCharCode(
+                                                        65 + optIdx),
                                                     style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: Colors.white,
                                                       fontSize: 11,
                                                     ),
@@ -990,7 +1016,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                     options[optIdx],
                                                     style: TextStyle(
                                                       color: isCorrect
-                                                          ? Colors.green.shade900
+                                                          ? Colors
+                                                              .green.shade900
                                                           : Colors.black87,
                                                       fontSize: 12.5,
                                                       fontWeight: isCorrect
@@ -1002,7 +1029,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                 if (isCorrect)
                                                   Icon(
                                                     Icons.check_circle_rounded,
-                                                    color: Colors.green.shade600,
+                                                    color:
+                                                        Colors.green.shade600,
                                                     size: 16,
                                                   ),
                                               ],
@@ -1019,27 +1047,34 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                       const SizedBox(height: 8),
                                       Container(
                                         width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 10),
                                         decoration: BoxDecoration(
-                                          color: Colors.amber.shade50.withValues(alpha: 0.3),
+                                          color: Colors.amber.shade50
+                                              .withValues(alpha: 0.3),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           border: Border.all(
-                                              color: Colors.amber.withValues(alpha: 0.2),
+                                              color: Colors.amber
+                                                  .withValues(alpha: 0.2),
                                               width: 0.8),
                                         ),
                                         child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            Icon(Icons.lightbulb_outline_rounded,
-                                                color: Colors.amber.shade800, size: 16),
+                                            Icon(
+                                                Icons.lightbulb_outline_rounded,
+                                                color: Colors.amber.shade800,
+                                                size: 16),
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
                                                 '解析：${r['explanation']}',
                                                 style: TextStyle(
                                                     fontSize: 12,
-                                                    color: Colors.amber.shade900,
+                                                    color:
+                                                        Colors.amber.shade900,
                                                     height: 1.45),
                                               ),
                                             ),
@@ -1054,12 +1089,16 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                       const SizedBox(height: 8),
                                       Container(
                                         width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 10),
                                         decoration: BoxDecoration(
-                                          color: cs.primary.withValues(alpha: 0.04),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: cs.primary
+                                              .withValues(alpha: 0.04),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                           border: Border.all(
-                                              color: cs.primary.withValues(alpha: 0.1),
+                                              color: cs.primary
+                                                  .withValues(alpha: 0.1),
                                               width: 0.8),
                                         ),
                                         child: Row(
@@ -1067,8 +1106,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Icon(Icons.edit_note_rounded,
-                                                size: 18,
-                                                color: cs.primary),
+                                                size: 18, color: cs.primary),
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
@@ -1095,9 +1133,9 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                         // Add to notebook
                                         IconButton(
                                           tooltip: '加入筆記本',
-                                          icon: Icon(
-                                              Icons.note_add_outlined,
-                                              color: cs.primary.withValues(alpha: 0.8),
+                                          icon: Icon(Icons.note_add_outlined,
+                                              color: cs.primary
+                                                  .withValues(alpha: 0.8),
                                               size: 18),
                                           onPressed: () {
                                             final questionMap = {
@@ -1137,7 +1175,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                               } else {
                                                 final db = await DatabaseHelper
                                                     .instance.database;
-                                                await db.update('questions', <String, Object?>{'bookmarked': 0},
+                                                await db.update(
+                                                    'questions',
+                                                    <String, Object?>{
+                                                      'bookmarked': 0
+                                                    },
                                                     where: 'id = ?',
                                                     whereArgs: [qid]);
                                                 setState(() {
@@ -1156,7 +1198,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                       textColor: Colors.amber,
                                                       onPressed: () async {
                                                         try {
-                                                          await db.update('questions', <String, Object?>{'bookmarked': 1},
+                                                          await db.update(
+                                                              'questions',
+                                                              <String, Object?>{
+                                                                'bookmarked': 1
+                                                              },
                                                               where: 'id = ?',
                                                               whereArgs: [qid]);
                                                           setState(() {
@@ -1194,7 +1240,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                 SafeArea(
                   child: Container(
                     margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -1205,25 +1252,29 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                           offset: const Offset(0, 4),
                         ),
                       ],
-                      border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+                      border:
+                          Border.all(color: cs.outline.withValues(alpha: 0.08)),
                     ),
                     child: Row(
                       children: [
                         IconButton(
                           tooltip: _currentMode == 0 ? '從錯題本移除選取' : '取消收藏選取',
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              color: Colors.redAccent),
                           onPressed: _deleteSelected,
                         ),
                         const SizedBox(width: 4),
                         IconButton(
                           tooltip: '批次新增筆記',
-                          icon: Icon(Icons.note_alt_outlined, color: cs.primary),
+                          icon:
+                              Icon(Icons.note_alt_outlined, color: cs.primary),
                           onPressed: _batchAddNotes,
                         ),
                         const SizedBox(width: 4),
                         IconButton(
                           tooltip: '批次加到自訂題本',
-                          icon: const Icon(Icons.create_new_folder_outlined, color: Colors.orange),
+                          icon: const Icon(Icons.create_new_folder_outlined,
+                              color: Colors.orange),
                           onPressed: _batchAddToPaper,
                         ),
                         const SizedBox(width: 12),
@@ -1233,7 +1284,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                             icon: const Icon(Icons.play_arrow_rounded),
                             label: Text(
                               _currentMode == 0 ? '複習選取' : '練習選取',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: cs.primary,
@@ -1265,8 +1317,12 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                     builder: (_) => QuestionPracticePage(
                       questions: displayList,
                       title: _currentMode == 0
-                          ? (_selectedSubject == '全部' ? '全錯題複習' : '錯題複習 ($_selectedSubject)')
-                          : (_selectedSubject == '全部' ? '全收藏練習' : '收藏練習 ($_selectedSubject)'),
+                          ? (_selectedSubject == '全部'
+                              ? '全錯題複習'
+                              : '錯題複習 ($_selectedSubject)')
+                          : (_selectedSubject == '全部'
+                              ? '全收藏練習'
+                              : '收藏練習 ($_selectedSubject)'),
                       currentUser: widget.currentUser,
                     ),
                   ),
@@ -1347,7 +1403,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
           : (displayList.isNotEmpty
               ? FloatingActionButton.extended(
                   key: TourKeys.startPracticeFabKey,
-                  heroTag: _currentMode == 0 ? 'wrong_quiz_fab' : 'fav_quiz_fab',
+                  heroTag:
+                      _currentMode == 0 ? 'wrong_quiz_fab' : 'fav_quiz_fab',
                   onPressed: () {
                     Navigator.push(
                       context,
@@ -1355,8 +1412,12 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                         builder: (_) => QuestionPracticePage(
                           questions: displayList,
                           title: _currentMode == 0
-                              ? (_selectedSubject == '全部' ? '全錯題複習' : '錯題複習 ($_selectedSubject)')
-                              : (_selectedSubject == '全部' ? '全收藏練習' : '收藏練習 ($_selectedSubject)'),
+                              ? (_selectedSubject == '全部'
+                                  ? '全錯題複習'
+                                  : '錯題複習 ($_selectedSubject)')
+                              : (_selectedSubject == '全部'
+                                  ? '全收藏練習'
+                                  : '收藏練習 ($_selectedSubject)'),
                           currentUser: widget.currentUser,
                         ),
                       ),

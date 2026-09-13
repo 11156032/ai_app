@@ -2,12 +2,40 @@ import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 
 // ─── 分類標籤選項 ───────────────────────────────────────────────────────────────
-const List<String> kGroupTags = ['數學', '英文', '程式', '自然', '歷史', '升學', '考試', '讀書會', '其他'];
+const List<String> kGroupTags = [
+  '數學',
+  '英文',
+  '程式',
+  '自然',
+  '歷史',
+  '升學',
+  '考試',
+  '讀書會',
+  '其他'
+];
 
 // ─── Emoji 選項 ─────────────────────────────────────────────────────────────────
 const List<String> kGroupEmojis = [
-  '📚', '📖', '✏️', '🔬', '🧮', '🌏', '💡', '🎯', '🏆', '🎓',
-  '💻', '🎵', '🎨', '📐', '🧪', '🔭', '📝', '🤝', '🚀', '⭐',
+  '📚',
+  '📖',
+  '✏️',
+  '🔬',
+  '🧮',
+  '🌏',
+  '💡',
+  '🎯',
+  '🏆',
+  '🎓',
+  '💻',
+  '🎵',
+  '🎨',
+  '📐',
+  '🧪',
+  '🔭',
+  '📝',
+  '🤝',
+  '🚀',
+  '⭐',
 ];
 
 class CreateGroupDialog extends StatefulWidget {
@@ -102,7 +130,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.group_add_rounded,
@@ -160,7 +189,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                             width: isSelected ? 2 : 1),
                       ),
                       child: Center(
-                        child: Text(emoji, style: const TextStyle(fontSize: 20)),
+                        child:
+                            Text(emoji, style: const TextStyle(fontSize: 20)),
                       ),
                     ),
                   );
@@ -291,12 +321,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                   }),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? Theme.of(context).primaryColor
-                          : inputBg,
+                      color:
+                          isSelected ? Theme.of(context).primaryColor : inputBg,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                           color: isSelected
@@ -310,9 +339,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                         color: isSelected
                             ? Colors.white
                             : (isDark ? Colors.white70 : Colors.black54),
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ),

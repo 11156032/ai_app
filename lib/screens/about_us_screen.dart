@@ -15,10 +15,10 @@ class AboutUsScreen extends StatefulWidget {
 class _AboutUsScreenState extends State<AboutUsScreen>
     with TickerProviderStateMixin {
   late ScrollController _scrollController;
-  late AnimationController _idleController;      // background loop + orbital
-  late AnimationController _entranceController;  // hero entrance
+  late AnimationController _idleController; // background loop + orbital
+  late AnimationController _entranceController; // hero entrance
   late AnimationController _typewriterController;
-  late AnimationController _shimmerController;   // mission card shimmer
+  late AnimationController _shimmerController; // mission card shimmer
   late List<ParticleData> _particles;
 
   double _scrollProgress = 0.0;
@@ -37,25 +37,24 @@ class _AboutUsScreenState extends State<AboutUsScreen>
         AnimationController(vsync: this, duration: const Duration(seconds: 20))
           ..repeat();
 
-    _entranceController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
-          ..forward();
+    _entranceController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..forward();
 
-    _typewriterController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 3200))
-          ..addListener(() {
-            if (_typewriterController.isAnimating &&
-                _scrollController.hasClients) {
-              final maxScroll = _scrollController.position.maxScrollExtent;
-              if (_scrollController.offset < maxScroll) {
-                _scrollController.jumpTo(maxScroll);
-              }
-            }
-          });
+    _typewriterController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 3200))
+      ..addListener(() {
+        if (_typewriterController.isAnimating && _scrollController.hasClients) {
+          final maxScroll = _scrollController.position.maxScrollExtent;
+          if (_scrollController.offset < maxScroll) {
+            _scrollController.jumpTo(maxScroll);
+          }
+        }
+      });
 
-    _shimmerController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))
-          ..repeat();
+    _shimmerController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 2600))
+      ..repeat();
 
     final rng = math.Random(42);
     _particles = [
@@ -171,10 +170,10 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color.lerp(const Color(0xFF080818),
-                          const Color(0xFF040C20), t)!,
-                      Color.lerp(const Color(0xFF160D30),
-                          const Color(0xFF080E28), t)!,
+                      Color.lerp(
+                          const Color(0xFF080818), const Color(0xFF040C20), t)!,
+                      Color.lerp(
+                          const Color(0xFF160D30), const Color(0xFF080E28), t)!,
                       Color.lerp(
                         primaryColor.withValues(alpha: 0.22),
                         const Color(0xFF1A2060).withValues(alpha: 0.3),
@@ -406,8 +405,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   slideBegin: const Offset(-0.10, 0),
                   duration: const Duration(milliseconds: 550),
                   curve: Curves.easeOutCubic,
-                  child:
-                      _sectionLabel('關於這款 App', '🚀', primaryColor, isDark),
+                  child: _sectionLabel('關於這款 App', '🚀', primaryColor, isDark),
                 ),
                 const SizedBox(height: 14),
                 _RevealOnScroll(
@@ -509,24 +507,30 @@ class _AboutUsScreenState extends State<AboutUsScreen>
         tag: '時間管理',
         title: '無法有效識別並善用空閒時間',
         themeColor: const Color(0xFFFF7043),
-        problemText: '日常課業繁忙常產生「沒時間學習」的盲點。關鍵在於無法清楚視覺化整天的時間軸以找出空閒時間；同時因缺乏整合的待辦事項，短暫空閒時無法快速篩選適合在該時長內完成的任務，白白浪費零星時間。',
-        solutionText: '提供視覺化時間軸與智慧待辦整合，一眼判斷空檔長度並自動挑選合適時長的學習任務，搭配隨手 AI 語音速記與 3 分鐘微測驗，充分活用零星時間。',
+        problemText:
+            '日常課業繁忙常產生「沒時間學習」的盲點。關鍵在於無法清楚視覺化整天的時間軸以找出空閒時間；同時因缺乏整合的待辦事項，短暫空閒時無法快速篩選適合在該時長內完成的任務，白白浪費零星時間。',
+        solutionText:
+            '提供視覺化時間軸與智慧待辦整合，一眼判斷空檔長度並自動挑選合適時長的學習任務，搭配隨手 AI 語音速記與 3 分鐘微測驗，充分活用零星時間。',
       ),
       _SimpleDesignIntent(
         icon: Icons.hub_rounded,
         tag: '知識整合',
         title: '知識整理與產出格式混亂',
         themeColor: const Color(0xFF0288D1),
-        problemText: '在自主學習與刷題過程中，學生的知識點往往散落於各處（如線上筆記或本機檔案）。這種「知識分散」的現況，使得在需要快速複習時，難以進行高效的檢索與系統化整理。',
-        solutionText: '一站式整合個人筆記、心智圖、錯題本與題庫，打破檔案分散孤島，建立雙向關聯知識圖譜，讓考點檢索與複習條理清晰、一目了然。',
+        problemText:
+            '在自主學習與刷題過程中，學生的知識點往往散落於各處（如線上筆記或本機檔案）。這種「知識分散」的現況，使得在需要快速複習時，難以進行高效的檢索與系統化整理。',
+        solutionText:
+            '一站式整合個人筆記、心智圖、錯題本與題庫，打破檔案分散孤島，建立雙向關聯知識圖譜，讓考點檢索與複習條理清晰、一目了然。',
       ),
       _SimpleDesignIntent(
         icon: Icons.people_alt_rounded,
         tag: '伴學反饋',
         title: '孤獨學習缺乏同儕與反饋',
         themeColor: const Color(0xFF8E24AA),
-        problemText: '自主學習屬於高度個體化過程。練習題庫遇到瓶頸或對知識點產生疑惑時，常因缺乏即時討論機制而容易受挫放棄；且缺乏客觀的歷程量化數據，難以評估自身盲點。',
-        solutionText: '提供 24 小時在線的 AI 智慧伴學即時解惑，搭配同學社群互動打氣，並具備學習歷程量化數據分析，精準定位弱項、陪伴持續進步。',
+        problemText:
+            '自主學習屬於高度個體化過程。練習題庫遇到瓶頸或對知識點產生疑惑時，常因缺乏即時討論機制而容易受挫放棄；且缺乏客觀的歷程量化數據，難以評估自身盲點。',
+        solutionText:
+            '提供 24 小時在線的 AI 智慧伴學即時解惑，搭配同學社群互動打氣，並具備學習歷程量化數據分析，精準定位弱項、陪伴持續進步。',
       ),
     ];
 
@@ -540,7 +544,8 @@ class _AboutUsScreenState extends State<AboutUsScreen>
             child: _RevealOnScroll(
               scrollController: _scrollController,
               delay: Duration(milliseconds: i * 100),
-              slideBegin: isEven ? const Offset(-0.06, 0.03) : const Offset(0.06, 0.03),
+              slideBegin:
+                  isEven ? const Offset(-0.06, 0.03) : const Offset(0.06, 0.03),
               duration: const Duration(milliseconds: 500),
               curve: Curves.easeOutCubic,
               child: Container(
@@ -576,10 +581,12 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                         Container(
                           padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
-                            color: item.themeColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                            color: item.themeColor
+                                .withValues(alpha: isDark ? 0.2 : 0.12),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(item.icon, color: item.themeColor, size: 18),
+                          child:
+                              Icon(item.icon, color: item.themeColor, size: 18),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -588,14 +595,18 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                             style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF1E2022),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1E2022),
                             ),
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: item.themeColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                            color: item.themeColor
+                                .withValues(alpha: isDark ? 0.2 : 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -626,9 +637,11 @@ class _AboutUsScreenState extends State<AboutUsScreen>
 
                     // 我們的做法
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: item.themeColor.withValues(alpha: isDark ? 0.14 : 0.08),
+                        color: item.themeColor
+                            .withValues(alpha: isDark ? 0.14 : 0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -707,20 +720,25 @@ class _AboutUsScreenState extends State<AboutUsScreen>
   // ✏️ [修改處 6 項目] 核心功能 — 奇偶項交錯左右飛入
   List<Widget> _buildFeatureList(Color primaryColor, bool isDark) {
     final List<(IconData, String, String)> features = [
-      (Icons.mic_rounded, 'AI 代理人助理 (語音即時輸入)',
-          '支援邊講話邊即時文字轉寫、自然語言意圖排程與全站智慧導覽'),
-      (Icons.menu_book_rounded, '題庫測驗與錯題本',
-          '學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習'),
-      (Icons.draw_rounded, '雙模個人筆記 (Markdown & 手寫塗鴉)',
-          '支援豐富文字排版與手寫畫布繪圖，並提供一鍵 AI 重點摘要整理'),
-      (Icons.bar_chart_rounded, '學習歷程與弱項診斷',
-          '知識掌握度矩陣圖、能力雷達圖與一鍵生成客製化弱項補強教材'),
-      (Icons.calendar_month_rounded, '智慧行事曆與待辦排程',
-          '自然語言直覺新增行程與待辦事項 (Todo)，並支援推播提醒'),
-      (Icons.forum_rounded, '學習社群與筆記分享',
-          '同學學習心得貼文交流、優質筆記一鍵匯入與按讚互動'),
-      (Icons.support_agent_rounded, '24H 智慧線上客服',
-          '各功能常見問答教學、在線智慧客服專員與問題意見回饋表單'),
+      (Icons.mic_rounded, 'AI 代理人助理 (語音即時輸入)', '支援邊講話邊即時文字轉寫、自然語言意圖排程與全站智慧導覽'),
+      (Icons.menu_book_rounded, '題庫測驗與錯題本', '學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習'),
+      (
+        Icons.draw_rounded,
+        '雙模個人筆記 (Markdown & 手寫塗鴉)',
+        '支援豐富文字排版與手寫畫布繪圖，並提供一鍵 AI 重點摘要整理'
+      ),
+      (Icons.bar_chart_rounded, '學習歷程與弱項診斷', '知識掌握度矩陣圖、能力雷達圖與一鍵生成客製化弱項補強教材'),
+      (
+        Icons.calendar_month_rounded,
+        '智慧行事曆與待辦排程',
+        '自然語言直覺新增行程與待辦事項 (Todo)，並支援推播提醒'
+      ),
+      (Icons.forum_rounded, '學習社群與筆記分享', '同學學習心得貼文交流、優質筆記一鍵匯入與按讚互動'),
+      (
+        Icons.support_agent_rounded,
+        '24H 智慧線上客服',
+        '各功能常見問答教學、在線智慧客服專員與問題意見回饋表單'
+      ),
     ];
 
     return features.indexed.map((entry) {
@@ -841,7 +859,9 @@ class _AboutUsScreenState extends State<AboutUsScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isDark ? Colors.white10 : Colors.grey.shade300,
@@ -853,7 +873,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
               Icon(Icons.verified_outlined, size: 16, color: primaryColor),
               const SizedBox(width: 8),
               Text(
-                '版本 v1.6.8  |  2026 年 9 月 13 日 最新發布',
+                '版本 v1.7.0  |  2026 年 9 月 13 日 最新發布',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -924,7 +944,9 @@ class _ShimmerPainter extends CustomPainter {
     const shimmerHalfW = 90.0;
     const tilt = 32.0;
     // Sweep from left-off to right-off
-    final x = -shimmerHalfW - tilt + (size.width + (shimmerHalfW + tilt) * 2) * progress;
+    final x = -shimmerHalfW -
+        tilt +
+        (size.width + (shimmerHalfW + tilt) * 2) * progress;
 
     final path = Path()
       ..moveTo(x - shimmerHalfW - tilt, 0)
@@ -1002,18 +1024,18 @@ class _RevealOnScrollState extends State<_RevealOnScroll>
 
     final curved = CurvedAnimation(parent: _ctrl, curve: widget.curve);
 
-    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _opacity = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     _slide = Tween<Offset>(begin: widget.slideBegin, end: Offset.zero)
         .animate(curved);
 
     if (widget.scaleBegin != null) {
-      _scale = Tween<double>(begin: widget.scaleBegin!, end: 1.0)
-          .animate(curved);
+      _scale =
+          Tween<double>(begin: widget.scaleBegin!, end: 1.0).animate(curved);
     }
     if (widget.rotateBegin != null) {
-      _rotate = Tween<double>(begin: widget.rotateBegin!, end: 0.0)
-          .animate(curved);
+      _rotate =
+          Tween<double>(begin: widget.rotateBegin!, end: 0.0).animate(curved);
     }
 
     widget.scrollController.addListener(_check);
@@ -1055,8 +1077,7 @@ class _RevealOnScrollState extends State<_RevealOnScroll>
       final rot = _rotate!;
       w = AnimatedBuilder(
         animation: rot,
-        builder: (_, child) =>
-            Transform.rotate(angle: rot.value, child: child),
+        builder: (_, child) => Transform.rotate(angle: rot.value, child: child),
         child: w,
       );
     }
@@ -1083,16 +1104,17 @@ class NebulaPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final t = time * 2 * math.pi;
-    final purpleAccentColor = Color.lerp(primaryColor, Colors.purpleAccent, 0.5)!;
+    final purpleAccentColor =
+        Color.lerp(primaryColor, Colors.purpleAccent, 0.5)!;
     final blueAccentColor = Color.lerp(primaryColor, Colors.blueAccent, 0.4)!;
     final deepPurpleColor = Color.lerp(primaryColor, Colors.deepPurple, 0.55)!;
 
     // (relX, relY, radiusX, radiusY, driftPhase, alpha, color)
     final blobs = [
-      (0.14, 0.10, 190.0, 130.0, 0.0,  0.070, primaryColor),
-      (0.82, 0.20, 155.0, 105.0, 1.2,  0.055, purpleAccentColor),
-      (0.32, 0.72, 205.0, 135.0, 2.4,  0.062, blueAccentColor),
-      (0.72, 0.82, 145.0, 92.0,  3.7,  0.048, deepPurpleColor),
+      (0.14, 0.10, 190.0, 130.0, 0.0, 0.070, primaryColor),
+      (0.82, 0.20, 155.0, 105.0, 1.2, 0.055, purpleAccentColor),
+      (0.32, 0.72, 205.0, 135.0, 2.4, 0.062, blueAccentColor),
+      (0.72, 0.82, 145.0, 92.0, 3.7, 0.048, deepPurpleColor),
     ];
 
     for (final blob in blobs) {
@@ -1110,8 +1132,8 @@ class NebulaPainter extends CustomPainter {
       final cx = relX * size.width + driftX;
       final cy = relY * size.height + driftY;
 
-      final rect =
-          Rect.fromCenter(center: Offset(cx, cy), width: rX * 2, height: rY * 2);
+      final rect = Rect.fromCenter(
+          center: Offset(cx, cy), width: rX * 2, height: rY * 2);
 
       final paint = Paint()
         ..shader = RadialGradient(
@@ -1156,9 +1178,9 @@ class FlowGridPainter extends CustomPainter {
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
     const hexR = 22.0;
-    final hexW = math.sqrt(3) * hexR;   // ~38.1
-    const hexH = 2.0 * hexR;            // 44.0
-    const rowStep = hexH * 0.75;        // 33.0
+    final hexW = math.sqrt(3) * hexR; // ~38.1
+    const hexH = 2.0 * hexR; // 44.0
+    const rowStep = hexH * 0.75; // 33.0
 
     final t = time * 2 * math.pi;
     // Grid drifts slowly downward with scroll for parallax depth
@@ -1297,8 +1319,7 @@ class OrbitalSpherePainter extends CustomPainter {
         p,
         r,
         Paint()
-          ..color =
-              color.withValues(alpha: (0.5 + depth * 0.5).clamp(0, 1)));
+          ..color = color.withValues(alpha: (0.5 + depth * 0.5).clamp(0, 1)));
   }
 
   @override
@@ -1325,8 +1346,8 @@ class OrbitalSpherePainter extends CustomPainter {
     _drawRing(canvas, center, 114, -0.75, -rotation * 0.8,
         accent.withValues(alpha: 0.48), 1.2);
     for (int i = 0; i < 4; i++) {
-      _drawNode(canvas, center, 114,
-          -rotation * 0.8 + i * math.pi / 2, -0.75, -rotation * 0.8, accent, 4.0);
+      _drawNode(canvas, center, 114, -rotation * 0.8 + i * math.pi / 2, -0.75,
+          -rotation * 0.8, accent, 4.0);
     }
     _drawRing(canvas, center, 68, 0.22, rotation * 1.3,
         Colors.white.withValues(alpha: 0.22), 1.0);
@@ -1388,9 +1409,8 @@ class ParticlePainter extends CustomPainter {
       final x = p.x * size.width;
       final rawY = p.y * size.height - scrollOffset * p.speed;
       final y = rawY % size.height;
-      final pulse =
-          (math.sin(time * 2 * math.pi * 1.5 + p.phase) * 0.35 + 0.5)
-              .clamp(0.0, 1.0);
+      final pulse = (math.sin(time * 2 * math.pi * 1.5 + p.phase) * 0.35 + 0.5)
+          .clamp(0.0, 1.0);
 
       final double baseAlpha;
       final double blurFactor;

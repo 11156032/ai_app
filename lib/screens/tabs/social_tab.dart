@@ -45,7 +45,7 @@ class SocialTab extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
             children: [
-              if (scheduledPosts.isNotEmpty && socialFilter == '全部') 
+              if (scheduledPosts.isNotEmpty && socialFilter == '全部')
                 _buildScheduledSection(),
               ...filtered.map((p) => _buildPostCard(p, context)),
             ],
@@ -69,16 +69,20 @@ class SocialTab extends StatelessWidget {
               onTap: () => onFilterChanged(label),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade100,
+                  color: isSelected
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(label,
                     style: TextStyle(
                         fontSize: 13,
                         color: isSelected ? Colors.white : Colors.grey.shade700,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal)),
               ),
             ),
           );
@@ -88,12 +92,12 @@ class SocialTab extends StatelessWidget {
   }
 
   Widget _buildScheduledSection() {
-     // ... 這裡放入原本的待發佈排程 UI ...
-     return const SizedBox(); // 簡略實作，實際應移入原本代碼
+    // ... 這裡放入原本的待發佈排程 UI ...
+    return const SizedBox(); // 簡略實作，實際應移入原本代碼
   }
 
   Widget _buildPostCard(Map<String, dynamic> p, BuildContext context) {
-     // ... 這裡放入原本的貼文卡片 UI ...
-     return const SizedBox(); // 簡略實作
+    // ... 這裡放入原本的貼文卡片 UI ...
+    return const SizedBox(); // 簡略實作
   }
 }

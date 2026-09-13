@@ -44,9 +44,9 @@ class VoiceNoteSheet extends StatefulWidget {
 // 步驟列舉
 // ============================================================
 enum _SheetStep {
-  recording,    // 錄音中 / 轉錄中 / 逐字稿預覽與風格選擇
-  generating,   // AI 智慧整理中
-  preview,      // 整理成果預覽與編輯 (三分頁：摘要 / 心智圖 / Markdown)
+  recording, // 錄音中 / 轉錄中 / 逐字稿預覽與風格選擇
+  generating, // AI 智慧整理中
+  preview, // 整理成果預覽與編輯 (三分頁：摘要 / 心智圖 / Markdown)
 }
 
 class _VoiceNoteSheetState extends State<VoiceNoteSheet>
@@ -343,10 +343,21 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   // AI 整理核心
   // ============================================================
   Future<void> _generateNote() async {
-    // 若還在錄音中，先停止並轉錄為文字
+    // 若還在錄音中，先停止並轉錄為文字，並停留在逐字稿校對步驟，讓使用者先確認文字無誤
     if (_isRecording || _isPaused) {
       await _stopAndTranscribe();
       if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('🎙️ 錄音已轉為逐字稿！請先瀏覽或修改文字，確認無誤後再次點擊開始 AI 整理 ✨'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Color(0xFF4A148C),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      return;
     }
 
     final rawText = _transcriptController.text.trim();
@@ -371,7 +382,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
 
     // 啟動進度條平滑模擬器
     _generatingTimer?.cancel();
-    _generatingTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    _generatingTimer =
+        Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (!mounted || _step != _SheetStep.generating) {
         timer.cancel();
         return;
@@ -552,10 +564,10 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       return;
     }
 
-    final defaultTitle = rawText.length > 15
-        ? '${rawText.substring(0, 15)}...'
-        : rawText;
-    final formattedContent = '## 🎙️ 語音轉文字稿記錄\n\n$rawText\n\n---\n*記錄時間：${DateTime.now().toString().substring(0, 16)}*';
+    final defaultTitle =
+        rawText.length > 15 ? '${rawText.substring(0, 15)}...' : rawText;
+    final formattedContent =
+        '## 🎙️ 語音轉文字稿記錄\n\n$rawText\n\n---\n*記錄時間：${DateTime.now().toString().substring(0, 16)}*';
 
     widget.onNoteReady?.call(
       defaultTitle,
@@ -649,11 +661,27 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   }
 
   Widget _buildHeader() {
-    final titles = {
-      _SheetStep.recording: '🎙️ AI 語音速記',
-      _SheetStep.generating: '🤖 AI 智慧整理中...',
-      _SheetStep.preview: '📝 整理成果預覽',
-    };
+    final hasContent = _transcriptController.text.trim().isNotEmpty;
+    final isBusyRecording = _isRecording || _isPaused;
+
+    String title = '';
+    String subtitle = '';
+
+    if (_step == _SheetStep.recording) {
+      if (hasContent && !isBusyRecording) {
+        title = '✍️ 步驟 2：校對逐字稿與選擇風格';
+        subtitle = '可直接點擊下方文字框修改錯字/專有名詞';
+      } else {
+        title = '🎙️ 步驟 1：高品質語音收錄';
+        subtitle = '說完後點擊轉為文字進行校對';
+      }
+    } else if (_step == _SheetStep.generating) {
+      title = '🤖 步驟 3：AI 智慧整理中...';
+      subtitle = '正在根據校對後的文字提煉結構化筆記';
+    } else {
+      title = '📝 步驟 3：整理成果預覽';
+      subtitle = '檢視結構化摘要、心智圖與待辦行動';
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 2, 12, 10),
@@ -665,17 +693,37 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               color: const Color(0xFF4A148C).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.bolt_rounded, size: 16, color: Color(0xFF4A148C)),
+            child: const Icon(Icons.bolt_rounded,
+                size: 16, color: Color(0xFF4A148C)),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              titles[_step] ?? '',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF3E2723),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF3E2723),
+                  ),
+                ),
+                if (subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: hasContent &&
+                              !isBusyRecording &&
+                              _step == _SheetStep.recording
+                          ? const Color(0xFF7B1FA2)
+                          : Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
             ),
           ),
           IconButton(
@@ -724,7 +772,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               // 狀態指示器
               AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   color: _isTranscribing
                       ? Colors.amber.shade50
@@ -757,7 +806,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         height: 12,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE65100)),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Color(0xFFE65100)),
                         ),
                       )
                     else if (_isRecording)
@@ -774,9 +824,12 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                       )
                     else
                       Icon(
-                        hasContent ? Icons.check_circle_outline : Icons.mic_none,
+                        hasContent
+                            ? Icons.check_circle_outline
+                            : Icons.mic_none,
                         size: 14,
-                        color: hasContent ? const Color(0xFF4A148C) : Colors.grey,
+                        color:
+                            hasContent ? const Color(0xFF4A148C) : Colors.grey,
                       ),
                     const SizedBox(width: 6),
                     Text(
@@ -873,8 +926,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                                 : _isRecording
                                     ? [Colors.red.shade400, Colors.red.shade700]
                                     : _isPaused
-                                        ? [Colors.orange.shade400, Colors.orange.shade700]
-                                        : [const Color(0xFF7B1FA2), const Color(0xFF4A148C)],
+                                        ? [
+                                            Colors.orange.shade400,
+                                            Colors.orange.shade700
+                                          ]
+                                        : [
+                                            const Color(0xFF7B1FA2),
+                                            const Color(0xFF4A148C)
+                                          ],
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -910,11 +969,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     ElevatedButton.icon(
                       onPressed: _isTranscribing ? null : _stopAndTranscribe,
                       icon: const Icon(Icons.bolt_rounded, size: 20),
-                      label: const Text('轉為文字', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: const Text('轉為文字',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4A148C),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -942,6 +1003,39 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
 
         const SizedBox(height: 18),
 
+        // 逐字稿校對指引橫幅
+        if (hasContent && !isBusyRecording) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4A148C).withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF4A148C).withValues(alpha: 0.18),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_outline_rounded,
+                    size: 18, color: Color(0xFF4A148C)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '語音已轉錄！請先瀏覽或直接點擊下方文字框修正同音錯字，確認無誤後點擊開始 AI 整理。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: const Color(0xFF4A148C).withValues(alpha: 0.95),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         // ============================================================
         // 逐字稿文字區域 (支援編輯、展示、刪除與狀態提示)
         // ============================================================
@@ -956,9 +1050,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   color: Color(0xFF5D4037),
                 ),
                 const SizedBox(width: 6),
-                const Text(
-                  '語音轉文字稿內容',
-                  style: TextStyle(
+                Text(
+                  hasContent ? '語音逐字稿（可點擊直接修改錯字）' : '語音轉文字稿內容',
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                     color: Color(0xFF3E2723),
@@ -976,24 +1070,69 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   ),
                   const SizedBox(width: 8),
                   InkWell(
-                    onTap: _clearTranscript,
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: currentText));
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
+                          const SnackBar(
+                            content: Text('📋 已複製逐字稿文字至剪貼簿'),
+                            duration: Duration(milliseconds: 1000),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                    },
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200, width: 0.8),
+                        border:
+                            Border.all(color: Colors.grey.shade300, width: 0.8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.delete_outline_rounded, size: 13, color: Colors.red.shade700),
+                          Icon(Icons.copy_rounded,
+                              size: 12, color: Colors.grey.shade700),
                           const SizedBox(width: 3),
                           Text(
-                            '清空文字',
+                            '複製',
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: _clearTranscript,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: Colors.red.shade200, width: 0.8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.delete_outline_rounded,
+                              size: 12, color: Colors.red.shade700),
+                          const SizedBox(width: 3),
+                          Text(
+                            '清空',
+                            style: TextStyle(
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: Colors.red.shade700,
                             ),
@@ -1044,7 +1183,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         height: 26,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A148C)),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Color(0xFF4A148C)),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -1098,9 +1238,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            isBusyRecording ? Icons.graphic_eq_rounded : Icons.speaker_notes_outlined,
+                            isBusyRecording
+                                ? Icons.graphic_eq_rounded
+                                : Icons.speaker_notes_outlined,
                             size: 28,
-                            color: isBusyRecording ? Colors.purple.shade300 : Colors.grey.shade400,
+                            color: isBusyRecording
+                                ? Colors.purple.shade300
+                                : Colors.grey.shade400,
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -1126,7 +1270,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         // ============================================================
         Row(
           children: [
-            const Icon(Icons.auto_awesome_rounded, size: 16, color: Color(0xFF4A148C)),
+            const Icon(Icons.auto_awesome_rounded,
+                size: 16, color: Color(0xFF4A148C)),
             const SizedBox(width: 6),
             const Text(
               '選擇 AI 整理風格',
@@ -1176,7 +1321,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               borderRadius: BorderRadius.circular(14),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? const Color(0xFF4A148C).withValues(alpha: 0.07)
@@ -1210,7 +1356,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
-                        child: Text(style.emoji, style: const TextStyle(fontSize: 18)),
+                        child: Text(style.emoji,
+                            style: const TextStyle(fontSize: 18)),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1228,13 +1375,18 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                    color: isSelected ? const Color(0xFF4A148C) : const Color(0xFF2C3E50),
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w600,
+                                    color: isSelected
+                                        ? const Color(0xFF4A148C)
+                                        : const Color(0xFF2C3E50),
                                   ),
                                 ),
                               ),
                               if (isSelected)
-                                const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF4A148C)),
+                                const Icon(Icons.check_circle_rounded,
+                                    size: 14, color: Color(0xFF4A148C)),
                             ],
                           ),
                           const SizedBox(height: 2),
@@ -1244,8 +1396,12 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 10.5,
-                              color: isSelected ? const Color(0xFF7B1FA2) : Colors.grey.shade600,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              color: isSelected
+                                  ? const Color(0xFF7B1FA2)
+                                  : Colors.grey.shade600,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
                             ),
                           ),
                         ],
@@ -1276,7 +1432,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             children: [
               Row(
                 children: [
-                  Text(_selectedStyle.emoji, style: const TextStyle(fontSize: 15)),
+                  Text(_selectedStyle.emoji,
+                      style: const TextStyle(fontSize: 15)),
                   const SizedBox(width: 6),
                   Text(
                     '「${_selectedStyle.label}」產出規格：',
@@ -1288,7 +1445,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFF4A148C).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
@@ -1319,7 +1477,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('✦ ', style: TextStyle(fontSize: 11, color: Color(0xFF7B1FA2))),
+                        const Text('✦ ',
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF7B1FA2))),
                         Expanded(
                           child: Text(
                             feat,
@@ -1377,7 +1537,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF5D4037),
                   side: const BorderSide(color: Color(0xFF8D6E63)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -1397,11 +1558,12 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 icon: const Icon(Icons.auto_awesome_rounded, size: 18),
                 label: Text(
                   isBusyRecording
-                      ? '結束錄音並 AI 整理'
+                      ? '結束錄音並轉為逐字稿 ✍️'
                       : hasContent
-                          ? 'AI 智慧整理 (${_selectedStyle.emoji} ${_selectedStyle.label})'
+                          ? '確認文字無誤 ➔ 開始 AI 整理 (${_selectedStyle.emoji} ${_selectedStyle.label})'
                           : '請先錄入語音內容',
-                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 14.5, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4A148C),
@@ -1440,8 +1602,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   : 0.08;
               final waveHeight = _isRecording && !_isPaused
                   ? baseAmplitude *
-                      (0.3 + 0.7 * math.sin(phase + normalizedIndex * math.pi * 2).abs())
-                  : 0.06 + 0.04 * math.sin(phase + normalizedIndex * math.pi).abs();
+                      (0.3 +
+                          0.7 *
+                              math
+                                  .sin(phase + normalizedIndex * math.pi * 2)
+                                  .abs())
+                  : 0.06 +
+                      0.04 * math.sin(phase + normalizedIndex * math.pi).abs();
 
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 2.2),
@@ -1497,12 +1664,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF7B1FA2).withValues(alpha: glowAlpha),
+                        color: const Color(0xFF7B1FA2)
+                            .withValues(alpha: glowAlpha),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
                       BoxShadow(
-                        color: const Color(0xFF009688).withValues(alpha: glowAlpha * 0.5),
+                        color: const Color(0xFF009688)
+                            .withValues(alpha: glowAlpha * 0.5),
                         blurRadius: 16,
                         offset: const Offset(3, 3),
                       ),
@@ -1528,7 +1697,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                           ),
                         ),
                       ),
-                      Text(_selectedStyle.emoji, style: const TextStyle(fontSize: 32)),
+                      Text(_selectedStyle.emoji,
+                          style: const TextStyle(fontSize: 32)),
                     ],
                   ),
                 ),
@@ -1581,7 +1751,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF7B1FA2).withValues(alpha: 0.15)),
+              border: Border.all(
+                  color: const Color(0xFF7B1FA2).withValues(alpha: 0.15)),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF7B1FA2).withValues(alpha: 0.06),
@@ -1597,7 +1768,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.timer_outlined, size: 14, color: Color(0xFF7B1FA2)),
+                        const Icon(Icons.timer_outlined,
+                            size: 14, color: Color(0xFF7B1FA2)),
                         const SizedBox(width: 4),
                         Text(
                           '已處理 ${(_generatingElapsedMs / 1000).toStringAsFixed(1)}s',
@@ -1687,14 +1859,17 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         ),
                         child: Center(
                           child: isDone
-                              ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                              ? const Icon(Icons.check_rounded,
+                                  size: 14, color: Colors.white)
                               : isCurrent
                                   ? const SizedBox(
                                       width: 10,
                                       height: 10,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
                                       ),
                                     )
                                   : Text(
@@ -1717,7 +1892,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                               stage.$1,
                               style: TextStyle(
                                 fontSize: 13,
-                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
+                                fontWeight: isCurrent
+                                    ? FontWeight.bold
+                                    : FontWeight.w600,
                                 color: isDone
                                     ? const Color(0xFF2E7D32)
                                     : isCurrent
@@ -1729,7 +1906,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                               stage.$2,
                               style: TextStyle(
                                 fontSize: 10.5,
-                                color: isCurrent ? const Color(0xFF5D4037) : Colors.grey.shade500,
+                                color: isCurrent
+                                    ? const Color(0xFF5D4037)
+                                    : Colors.grey.shade500,
                               ),
                             ),
                           ],
@@ -1737,15 +1916,25 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                       ),
                       // 右側狀態標籤
                       if (isDone)
-                        const Text('✓ 完成', style: TextStyle(fontSize: 10.5, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold))
+                        const Text('✓ 完成',
+                            style: TextStyle(
+                                fontSize: 10.5,
+                                color: Color(0xFF2E7D32),
+                                fontWeight: FontWeight.bold))
                       else if (isCurrent)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF7B1FA2).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF7B1FA2).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text('處理中...', style: TextStyle(fontSize: 10, color: Color(0xFF7B1FA2), fontWeight: FontWeight.bold)),
+                          child: const Text('處理中...',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF7B1FA2),
+                                  fontWeight: FontWeight.bold)),
                         ),
                     ],
                   ),
@@ -1765,7 +1954,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               decoration: BoxDecoration(
                 color: const Color(0xFF7B1FA2).withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF7B1FA2).withValues(alpha: 0.12)),
+                border: Border.all(
+                    color: const Color(0xFF7B1FA2).withValues(alpha: 0.12)),
               ),
               child: Row(
                 children: [
@@ -1822,7 +2012,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _result!.isAiGenerated ? Icons.auto_awesome : Icons.offline_bolt,
+                    _result!.isAiGenerated
+                        ? Icons.auto_awesome
+                        : Icons.offline_bolt,
                     size: 13,
                     color: _result!.isAiGenerated
                         ? const Color(0xFF4A148C)
@@ -1862,13 +2054,15 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           ),
           decoration: InputDecoration(
             hintText: '輸入筆記標題...',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
             fillColor: const Color(0xFFFBF9F7),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF4A148C), width: 1.5),
+              borderSide:
+                  const BorderSide(color: Color(0xFF4A148C), width: 1.5),
             ),
           ),
         ),
@@ -1893,7 +2087,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
-                  color: isSelected ? const Color(0xFF4A148C) : Colors.grey.shade300,
+                  color: isSelected
+                      ? const Color(0xFF4A148C)
+                      : Colors.grey.shade300,
                 ),
               ),
               onSelected: (selected) {
@@ -1917,7 +2113,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 ),
                 child: Text(
                   '#$tag',
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF5D4037)),
+                  style:
+                      const TextStyle(fontSize: 11.5, color: Color(0xFF5D4037)),
                 ),
               );
             }).toList(),
@@ -1950,8 +2147,10 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             ),
             labelColor: const Color(0xFF4A148C),
             unselectedLabelColor: Colors.grey.shade600,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
+            labelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            unselectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
             dividerColor: Colors.transparent,
             tabs: const [
               Tab(
@@ -2028,7 +2227,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 icon: const Icon(Icons.check_rounded, size: 18),
                 label: Text(
                   widget.existingContent != null ? '插入至筆記' : '建立此筆記',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF5D4037),
@@ -2051,8 +2251,10 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   // TAB 1: 結構化摘要
   // ============================================================
   Widget _buildSummaryTab() {
-    final hasSummary = _result?.summary != null && _result!.summary!.trim().isNotEmpty;
-    final hasKeyPoints = _result?.keyPoints != null && _result!.keyPoints!.isNotEmpty;
+    final hasSummary =
+        _result?.summary != null && _result!.summary!.trim().isNotEmpty;
+    final hasKeyPoints =
+        _result?.keyPoints != null && _result!.keyPoints!.isNotEmpty;
     final hasActionItems = _editableActionItems.isNotEmpty;
 
     if (!hasSummary && !hasKeyPoints && !hasActionItems) {
@@ -2066,7 +2268,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         child: MarkdownBody(
           data: _contentEditController.text,
           styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            p: const TextStyle(fontSize: 13.5, height: 1.6, color: Color(0xFF2C2523)),
+            p: const TextStyle(
+                fontSize: 13.5, height: 1.6, color: Color(0xFF2C2523)),
           ),
         ),
       );
@@ -2092,7 +2295,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.lightbulb_outline_rounded, size: 16, color: Color(0xFF673AB7)),
+                    Icon(Icons.lightbulb_outline_rounded,
+                        size: 16, color: Color(0xFF673AB7)),
                     SizedBox(width: 6),
                     Text(
                       '核心情境摘要',
@@ -2124,7 +2328,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         if (hasKeyPoints) ...[
           Row(
             children: [
-              const Icon(Icons.format_list_bulleted_rounded, size: 16, color: Color(0xFF5D4037)),
+              const Icon(Icons.format_list_bulleted_rounded,
+                  size: 16, color: Color(0xFF5D4037)),
               const SizedBox(width: 6),
               Text(
                 '重點提煉 (${_result!.keyPoints!.length})',
@@ -2190,7 +2395,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         if (hasActionItems) ...[
           Row(
             children: [
-              const Icon(Icons.checklist_rounded, size: 16, color: Color(0xFF2E7D32)),
+              const Icon(Icons.checklist_rounded,
+                  size: 16, color: Color(0xFF2E7D32)),
               const SizedBox(width: 6),
               Text(
                 '待辦行動 (${_editableActionItems.where((a) => a.isCompleted).length}/${_editableActionItems.length})',
@@ -2208,14 +2414,19 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: item.isCompleted ? const Color(0xFFF1F8E9) : const Color(0xFFFDFDFD),
+                color: item.isCompleted
+                    ? const Color(0xFFF1F8E9)
+                    : const Color(0xFFFDFDFD),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: item.isCompleted ? Colors.green.shade200 : const Color(0xFFE5DCD3),
+                  color: item.isCompleted
+                      ? Colors.green.shade200
+                      : const Color(0xFFE5DCD3),
                 ),
               ),
               child: CheckboxListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                 dense: true,
                 value: item.isCompleted,
                 activeColor: const Color(0xFF2E7D32),
@@ -2223,9 +2434,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   item.task,
                   style: TextStyle(
                     fontSize: 13,
-                    decoration: item.isCompleted ? TextDecoration.lineThrough : null,
-                    color: item.isCompleted ? Colors.grey.shade600 : const Color(0xFF2C2523),
-                    fontWeight: item.isCompleted ? FontWeight.normal : FontWeight.w500,
+                    decoration:
+                        item.isCompleted ? TextDecoration.lineThrough : null,
+                    color: item.isCompleted
+                        ? Colors.grey.shade600
+                        : const Color(0xFF2C2523),
+                    fontWeight:
+                        item.isCompleted ? FontWeight.normal : FontWeight.w500,
                   ),
                 ),
                 subtitle: (item.owner != '未指定' || item.dueDate != '無')
@@ -2235,7 +2450,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                           children: [
                             if (item.owner != '未指定')
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 margin: const EdgeInsets.only(right: 6),
                                 decoration: BoxDecoration(
                                   color: Colors.blue.shade50,
@@ -2243,12 +2459,15 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                                 ),
                                 child: Text(
                                   '👤 ${item.owner}',
-                                  style: TextStyle(fontSize: 10.5, color: Colors.blue.shade800),
+                                  style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: Colors.blue.shade800),
                                 ),
                               ),
                             if (item.dueDate != '無')
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 margin: const EdgeInsets.only(right: 6),
                                 decoration: BoxDecoration(
                                   color: Colors.orange.shade50,
@@ -2256,7 +2475,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                                 ),
                                 child: Text(
                                   '⏰ ${item.dueDate}',
-                                  style: TextStyle(fontSize: 10.5, color: Colors.orange.shade800),
+                                  style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: Colors.orange.shade800),
                                 ),
                               ),
                           ],
@@ -2311,7 +2532,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           children: [
             Row(
               children: [
-                Icon(Icons.touch_app_rounded, size: 14, color: Colors.grey.shade600),
+                Icon(Icons.touch_app_rounded,
+                    size: 14, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
                 Text(
                   '支援雙指縮放與拖曳移動',
@@ -2366,7 +2588,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   // TAB 1: 筆記內容 (業界級乾淨排版，無原始碼標籤干擾)
   // ============================================================
   Widget _buildNoteContentTab() {
-    final cleanContent = VoiceNoteService.cleanRawMarkdown(_contentEditController.text);
+    final cleanContent =
+        VoiceNoteService.cleanRawMarkdown(_contentEditController.text);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2377,7 +2600,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           children: [
             const Row(
               children: [
-                Icon(Icons.article_outlined, size: 16, color: Color(0xFF4A148C)),
+                Icon(Icons.article_outlined,
+                    size: 16, color: Color(0xFF4A148C)),
                 SizedBox(width: 6),
                 Text(
                   '完整整理成果',
@@ -2390,7 +2614,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               ],
             ),
             IconButton(
-              icon: const Icon(Icons.copy_rounded, size: 18, color: Color(0xFF5D4037)),
+              icon: const Icon(Icons.copy_rounded,
+                  size: 18, color: Color(0xFF5D4037)),
               tooltip: '複製筆記內容',
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: cleanContent));
@@ -2429,7 +2654,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           child: MarkdownBody(
             data: cleanContent,
             selectable: true,
-            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+            styleSheet:
+                MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
               h1: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,

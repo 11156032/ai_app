@@ -37,7 +37,9 @@ Widget buildAvatar({
           height: radius * 2,
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => _buildFallbackAvatar(colorIdx, initial, radius, usePreset: usePreset),
+          errorBuilder: (_, __, ___) => _buildFallbackAvatar(
+              colorIdx, initial, radius,
+              usePreset: usePreset),
         ),
       ),
     );
@@ -45,9 +47,11 @@ Widget buildAvatar({
   return _buildFallbackAvatar(colorIdx, initial, radius, usePreset: usePreset);
 }
 
-Widget _buildFallbackAvatar(int colorIdx, String initial, double radius, {bool usePreset = false}) {
+Widget _buildFallbackAvatar(int colorIdx, String initial, double radius,
+    {bool usePreset = false}) {
   final preset = kPresetAvatars[colorIdx.abs() % kPresetAvatars.length];
-  final bool hasValidInitial = initial.isNotEmpty && initial != '我' && initial != '?';
+  final bool hasValidInitial =
+      initial.isNotEmpty && initial != '我' && initial != '?';
   final bool showEmoji = usePreset || !hasValidInitial;
 
   return CircleAvatar(
@@ -367,4 +371,418 @@ class LeafYLogoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant LeafYLogoPainter oldDelegate) => false;
+}
+
+// ── 富文本筆記解析器（支援 Markdown 標題、粗體、清單、橫條、[color=...] 顏色標籤） ──
+TextSpan buildNoteRichTextSpan(
+  BuildContext context,
+  String rawText, {
+  bool isDark = false,
+  TextStyle? baseStyle,
+}) {
+  final List<TextSpan> spans = [];
+  final lines = rawText.split('\n');
+
+  for (int i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    TextStyle lineStyle = baseStyle ??
+        TextStyle(
+          fontSize: 14,
+          color: isDark ? Colors.white70 : Colors.black87,
+          height: 1.71,
+        );
+    String content = line;
+    TextSpan? prefixSpan;
+
+    final trimmed = line.trim();
+
+    // A. 解析水平分隔線: "---", "***", "___" (橫條效果)
+    if (trimmed.length >= 3 &&
+        (trimmed.replaceAll('-', '').isEmpty ||
+            trimmed.replaceAll('*', '').isEmpty ||
+            trimmed.replaceAll('_', '').isEmpty)) {
+      spans.add(TextSpan(
+        text: '───────────────────────────',
+        style: lineStyle.copyWith(
+          fontSize: 12,
+          letterSpacing: 2.0,
+          fontWeight: FontWeight.bold,
+          color: isDark ? Colors.white24 : const Color(0xFFBCAAA4),
+        ),
+      ));
+      if (i < lines.length - 1) {
+        spans.add(const TextSpan(text: '\n'));
+      }
+      continue;
+    }
+
+    // B. 解析標頭: "# ", "## ", "### ", "#### "
+    if (line.startsWith('# ')) {
+      lineStyle = lineStyle.copyWith(
+        fontSize: 18.5,
+        fontWeight: FontWeight.bold,
+        color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF3E2723),
+      );
+      content = line.substring(2);
+    } else if (line.startsWith('## ')) {
+      lineStyle = lineStyle.copyWith(
+        fontSize: 16.5,
+        fontWeight: FontWeight.bold,
+        color: isDark ? const Color(0xFFCE93D8) : const Color(0xFF4A148C),
+      );
+      content = line.substring(3);
+    } else if (line.startsWith('### ')) {
+      lineStyle = lineStyle.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.bold,
+        color: isDark ? const Color(0xFFB39DDB) : const Color(0xFF5D4037),
+      );
+      content = line.substring(4);
+    } else if (line.startsWith('#### ')) {
+      lineStyle = lineStyle.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: isDark ? const Color(0xFFD7CCC8) : const Color(0xFF795548),
+      );
+      content = line.substring(5);
+    } else if (line.startsWith('> ')) {
+      // C. 引用塊
+      prefixSpan = TextSpan(
+        text: '▎ ',
+        style: TextStyle(
+          color: isDark ? const Color(0xFFB39DDB) : const Color(0xFF673AB7),
+          fontWeight: FontWeight.bold,
+          fontSize: 15,
+        ),
+      );
+      lineStyle = lineStyle.copyWith(
+        color: isDark ? const Color(0xFFE1BEE7) : const Color(0xFF4A148C),
+        fontStyle: FontStyle.italic,
+      );
+      content = line.substring(2);
+    } else if (line.startsWith('- [ ] ') || line.startsWith('* [ ] ')) {
+      // D. 待辦清單 (未完成)
+      prefixSpan = TextSpan(
+        text: '☐ ',
+        style: lineStyle.copyWith(
+          color: isDark ? const Color(0xFFBCAAA4) : const Color(0xFF8D6E63),
+          fontWeight: FontWeight.bold,
+          fontSize: 15,
+        ),
+      );
+      content = line.substring(6);
+    } else if (line.startsWith('- [x] ') ||
+        line.startsWith('- [X] ') ||
+        line.startsWith('* [x] ') ||
+        line.startsWith('* [X] ')) {
+      // D. 待辦清單 (已完成)
+      prefixSpan = TextSpan(
+        text: '☑ ',
+        style: lineStyle.copyWith(
+          color: const Color(0xFF2E7D32),
+          fontWeight: FontWeight.bold,
+          fontSize: 15,
+        ),
+      );
+      lineStyle = lineStyle.copyWith(
+        color: Colors.grey.shade500,
+        decoration: TextDecoration.lineThrough,
+      );
+      content = line.substring(6);
+    } else if (line.startsWith('- ') ||
+        line.startsWith('* ') ||
+        line.startsWith('+ ') ||
+        line.startsWith('• ')) {
+      // E. 項目清單
+      prefixSpan = TextSpan(
+        text: '• ',
+        style: lineStyle.copyWith(
+          color: Theme.of(context).primaryColor,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      content = line.substring(2);
+    }
+
+    if (prefixSpan != null) {
+      spans.add(prefixSpan);
+    }
+
+    // F. 解析行內文字：**粗體**、~~刪除線~~、`行內代碼` 與 [color=0xFF...]...[/color]
+    int index = 0;
+    bool isBold = false;
+    bool isStrike = false;
+    bool isCode = false;
+    final List<Color> colorStack = [];
+
+    while (index < content.length) {
+      final int nextBold = content.indexOf('**', index);
+      final int nextStrike = content.indexOf('~~', index);
+      final int nextCode = content.indexOf('`', index);
+      final int nextColor = content.indexOf('[color=', index);
+      final int nextColorEnd = content.indexOf('[/color]', index);
+
+      // 尋找最近的標籤位置
+      int minIndex = content.length;
+      String tagType = '';
+      if (nextBold != -1 && nextBold < minIndex) {
+        minIndex = nextBold;
+        tagType = 'bold';
+      }
+      if (nextStrike != -1 && nextStrike < minIndex) {
+        minIndex = nextStrike;
+        tagType = 'strike';
+      }
+      if (nextCode != -1 && nextCode < minIndex) {
+        minIndex = nextCode;
+        tagType = 'code';
+      }
+      if (nextColor != -1 && nextColor < minIndex) {
+        minIndex = nextColor;
+        tagType = 'color';
+      }
+      if (nextColorEnd != -1 && nextColorEnd < minIndex) {
+        minIndex = nextColorEnd;
+        tagType = 'colorEnd';
+      }
+
+      if (minIndex > index) {
+        final String plainText = content.substring(index, minIndex);
+        TextStyle currentStyle = lineStyle;
+        if (isBold) {
+          currentStyle = currentStyle.copyWith(fontWeight: FontWeight.bold);
+        }
+        if (isStrike) {
+          currentStyle =
+              currentStyle.copyWith(decoration: TextDecoration.lineThrough);
+        }
+        if (isCode) {
+          currentStyle = currentStyle.copyWith(
+            fontFamily: 'monospace',
+            color: isDark ? const Color(0xFFCE93D8) : const Color(0xFF4A148C),
+            backgroundColor:
+                isDark ? const Color(0xFF3B2D54) : const Color(0xFFEDE7F6),
+          );
+        }
+        if (colorStack.isNotEmpty) {
+          currentStyle = currentStyle.copyWith(color: colorStack.last);
+        }
+
+        spans.add(TextSpan(text: plainText, style: currentStyle));
+      }
+
+      if (minIndex == content.length) break;
+
+      // 處理標籤本身
+      if (tagType == 'bold') {
+        isBold = !isBold;
+        index = minIndex + 2;
+      } else if (tagType == 'strike') {
+        isStrike = !isStrike;
+        index = minIndex + 2;
+      } else if (tagType == 'code') {
+        isCode = !isCode;
+        index = minIndex + 1;
+      } else if (tagType == 'color') {
+        final int closeBracket = content.indexOf(']', minIndex);
+        if (closeBracket != -1) {
+          final String colorHex = content.substring(minIndex + 7, closeBracket);
+          int? colorVal;
+          if (colorHex.startsWith('0x') || colorHex.startsWith('0X')) {
+            colorVal = int.tryParse(colorHex);
+          } else if (colorHex.startsWith('#')) {
+            colorVal = int.tryParse(colorHex.substring(1), radix: 16);
+            if (colorVal != null && colorHex.length <= 7) {
+              colorVal = 0xFF000000 | colorVal;
+            }
+          } else {
+            colorVal = int.tryParse(colorHex);
+          }
+          if (colorVal != null) {
+            colorStack.add(Color(colorVal));
+          }
+          index = closeBracket + 1;
+        } else {
+          spans.add(TextSpan(text: '[color=', style: lineStyle));
+          index = minIndex + 7;
+        }
+      } else if (tagType == 'colorEnd') {
+        if (colorStack.isNotEmpty) colorStack.removeLast();
+        index = minIndex + 8;
+      }
+    }
+
+    if (i < lines.length - 1) {
+      spans.add(const TextSpan(text: '\n'));
+    }
+  }
+
+  return TextSpan(children: spans);
+}
+
+/// 筆記富文本呈現 Widget
+class RichNoteContentView extends StatelessWidget {
+  final String content;
+  final bool isDark;
+  final TextStyle? baseStyle;
+  final bool selectable;
+
+  const RichNoteContentView({
+    super.key,
+    required this.content,
+    this.isDark = false,
+    this.baseStyle,
+    this.selectable = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (content.trim().isEmpty) {
+      return Text(
+        '（此筆記尚無純文字記錄）',
+        style: TextStyle(
+          color: isDark ? Colors.white38 : Colors.grey,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
+    final span = buildNoteRichTextSpan(
+      context,
+      content,
+      isDark: isDark,
+      baseStyle: baseStyle,
+    );
+
+    if (selectable) {
+      return SelectableText.rich(span);
+    }
+    return Text.rich(span);
+  }
+}
+
+// ── 社群主題 (Community Topics) 資料模型與常量 ──
+class CommunityTopic {
+  final String id;
+  final String name; // e.g. "📐 數理邏輯"
+  final String title; // e.g. "數理邏輯"
+  final String emoji; // e.g. "📐"
+  final Color color;
+  final String description;
+  final int memberCount;
+  final int postCount;
+
+  const CommunityTopic({
+    required this.id,
+    required this.name,
+    required this.title,
+    required this.emoji,
+    required this.color,
+    required this.description,
+    this.memberCount = 156,
+    this.postCount = 42,
+  });
+}
+
+const List<CommunityTopic> kCommunityTopics = [
+  CommunityTopic(
+    id: 'topic_math',
+    name: '📐 數理邏輯',
+    title: '數理邏輯',
+    emoji: '📐',
+    color: Color(0xFF1E88E5),
+    description: '探討數學解題、理化實驗與邏輯思維技巧',
+    memberCount: 238,
+    postCount: 64,
+  ),
+  CommunityTopic(
+    id: 'topic_science',
+    name: '🔬 自然科學',
+    title: '自然科學',
+    emoji: '🔬',
+    color: Color(0xFF00897B),
+    description: '探索生物演化、地球科學與宇宙科普新知',
+    memberCount: 185,
+    postCount: 48,
+  ),
+  CommunityTopic(
+    id: 'topic_literature',
+    name: '📚 國文文學',
+    title: '國文文學',
+    emoji: '📚',
+    color: Color(0xFF6D4C41),
+    description: '古文賞析、現代文學閱讀心得與寫作技巧',
+    memberCount: 192,
+    postCount: 51,
+  ),
+  CommunityTopic(
+    id: 'topic_social',
+    name: '🌍 社會人文',
+    title: '社會人文',
+    emoji: '🌍',
+    color: Color(0xFFE65100),
+    description: '歷史脈絡梳理、地理人文與公民社會思辨',
+    memberCount: 147,
+    postCount: 39,
+  ),
+  CommunityTopic(
+    id: 'topic_ai',
+    name: '💡 AI 與科技',
+    title: 'AI 與科技',
+    emoji: '💡',
+    color: Color(0xFF7B1FA2),
+    description: '人工智慧輔助學習、程式設計與未來科技',
+    memberCount: 312,
+    postCount: 88,
+  ),
+  CommunityTopic(
+    id: 'topic_english',
+    name: '🇬🇧 英語外語',
+    title: '英語外語',
+    emoji: '🇬🇧',
+    color: Color(0xFF0288D1),
+    description: '單字文法、聽力口說練習與多益檢定衝刺',
+    memberCount: 265,
+    postCount: 73,
+  ),
+  CommunityTopic(
+    id: 'topic_exam',
+    name: '🎯 備考衝刺',
+    title: '備考衝刺',
+    emoji: '🎯',
+    color: Color(0xFFC2185B),
+    description: '學測分科會考倒數、歷屆試題與錯題複習筆記',
+    memberCount: 290,
+    postCount: 95,
+  ),
+  CommunityTopic(
+    id: 'topic_daily',
+    name: '☕ 學習日常',
+    title: '學習日常',
+    emoji: '☕',
+    color: Color(0xFFF57C00),
+    description: '讀書打卡、番茄鐘專注心得與學習心情交流',
+    memberCount: 340,
+    postCount: 110,
+  ),
+  CommunityTopic(
+    id: 'topic_creative',
+    name: '🎨 手寫圖文',
+    title: '手寫圖文',
+    emoji: '🎨',
+    color: Color(0xFF512DA8),
+    description: '手寫筆記排版、精美塗鴉與視覺化心智圖分享',
+    memberCount: 215,
+    postCount: 59,
+  ),
+];
+
+CommunityTopic? getCommunityTopicById(String id) {
+  try {
+    return kCommunityTopics.firstWhere(
+      (t) => t.id == id || t.name == id || t.title == id,
+    );
+  } catch (_) {
+    return null;
+  }
 }

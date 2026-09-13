@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -38,15 +38,22 @@ class ImageQualityReport {
 
 class ImageEnhancer {
   static Future<ImageQualityReport> analyzeQuality(Uint8List bytes) async {
-    final codec = await ui.instantiateImageCodec(bytes, targetWidth: 256, targetHeight: 256);
+    final codec = await ui.instantiateImageCodec(bytes,
+        targetWidth: 256, targetHeight: 256);
     final frame = await codec.getNextFrame();
     final image = frame.image;
     final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (byteData == null) {
       return const ImageQualityReport(
-        sharpnessScore: 100, brightnessScore: 100, contrastScore: 100,
-        overallScore: 100, isBlurry: false, isDark: false,
-        isOverExposed: false, isLowContrast: false, needsRepair: false,
+        sharpnessScore: 100,
+        brightnessScore: 100,
+        contrastScore: 100,
+        overallScore: 100,
+        isBlurry: false,
+        isDark: false,
+        isOverExposed: false,
+        isLowContrast: false,
+        needsRepair: false,
       );
     }
     final pixels = byteData.buffer.asUint8List();
@@ -56,7 +63,8 @@ class ImageEnhancer {
     double sumLuma = 0;
     double sumLumaSq = 0;
     for (int i = 0; i < pixels.length; i += 4) {
-      final luma = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+      final luma =
+          0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
       sumLuma += luma;
       sumLumaSq += luma * luma;
     }
@@ -80,8 +88,11 @@ class ImageEnhancer {
         laplacianCount++;
       }
     }
-    final laplacianVariance = laplacianCount > 0 ? laplacianSum / laplacianCount : 0.0;
-    final sharpnessScore = (math.log(laplacianVariance + 1) / math.log(500) * 100).clamp(0.0, 100.0);
+    final laplacianVariance =
+        laplacianCount > 0 ? laplacianSum / laplacianCount : 0.0;
+    final sharpnessScore =
+        (math.log(laplacianVariance + 1) / math.log(500) * 100)
+            .clamp(0.0, 100.0);
 
     double brightnessScore;
     if (meanLuma < 50) {
@@ -92,7 +103,9 @@ class ImageEnhancer {
       brightnessScore = 100.0;
     }
     final contrastScore = (stdDev / 60 * 100).clamp(0.0, 100.0);
-    final overallScore = (sharpnessScore * 0.5 + brightnessScore * 0.3 + contrastScore * 0.2).clamp(0.0, 100.0);
+    final overallScore =
+        (sharpnessScore * 0.5 + brightnessScore * 0.3 + contrastScore * 0.2)
+            .clamp(0.0, 100.0);
 
     return ImageQualityReport(
       sharpnessScore: sharpnessScore,
@@ -109,16 +122,20 @@ class ImageEnhancer {
 
   static double _luma(Uint8List pixels, int idx) {
     if (idx + 2 >= pixels.length) return 0;
-    return 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
+    return 0.299 * pixels[idx] +
+        0.587 * pixels[idx + 1] +
+        0.114 * pixels[idx + 2];
   }
 
-  static Future<Uint8List> enhanceImage(Uint8List bytes, ImageQualityReport report) async {
+  static Future<Uint8List> enhanceImage(
+      Uint8List bytes, ImageQualityReport report) async {
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     final srcImage = frame.image;
     final w = srcImage.width;
     final h = srcImage.height;
-    final byteData = await srcImage.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final byteData =
+        await srcImage.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (byteData == null) return bytes;
 
     final src = byteData.buffer.asUint8List();
@@ -126,8 +143,13 @@ class ImageEnhancer {
     double brightnessAdj = 0.0;
     double contrastAdj = 1.0;
     double gammaAdj = 1.0;
-    if (report.isDark) { brightnessAdj = 35.0; gammaAdj = 0.75; }
-    else if (report.isOverExposed) { brightnessAdj = -30.0; contrastAdj = 0.85; }
+    if (report.isDark) {
+      brightnessAdj = 35.0;
+      gammaAdj = 0.75;
+    } else if (report.isOverExposed) {
+      brightnessAdj = -30.0;
+      contrastAdj = 0.85;
+    }
     if (report.isLowContrast) contrastAdj = math.max(contrastAdj, 1.3);
 
     final lut = List<int>.generate(256, (i) {
@@ -146,27 +168,36 @@ class ImageEnhancer {
     }
 
     Uint8List sharpened = adjusted;
-    if (report.isBlurry) sharpened = _applyUnsharpMask(adjusted, w, h, strength: 1.4);
+    if (report.isBlurry) {
+      sharpened = _applyUnsharpMask(adjusted, w, h, strength: 1.4);
+    }
 
     final finalPixels = _boostSaturation(sharpened, 1.15);
 
     final buffer = await ui.ImmutableBuffer.fromUint8List(finalPixels);
-    final descriptor = ui.ImageDescriptor.raw(buffer, width: w, height: h, pixelFormat: ui.PixelFormat.rgba8888);
+    final descriptor = ui.ImageDescriptor.raw(buffer,
+        width: w, height: h, pixelFormat: ui.PixelFormat.rgba8888);
     final enhancedCodec = await descriptor.instantiateCodec();
     final enhanced = (await enhancedCodec.getNextFrame()).image;
 
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
-    canvas.drawImage(enhanced, ui.Offset.zero, ui.Paint()..filterQuality = ui.FilterQuality.high);
+    canvas.drawImage(enhanced, ui.Offset.zero,
+        ui.Paint()..filterQuality = ui.FilterQuality.high);
     final picture = recorder.endRecording();
     final outImage = await picture.toImage(w, h);
     final outData = await outImage.toByteData(format: ui.ImageByteFormat.png);
     return outData?.buffer.asUint8List() ?? bytes;
   }
 
-  static Uint8List _applyUnsharpMask(Uint8List src, int w, int h, {double strength = 1.2}) {
+  static Uint8List _applyUnsharpMask(Uint8List src, int w, int h,
+      {double strength = 1.2}) {
     final out = Uint8List.fromList(src);
-    const kernel = [[1, 2, 1], [2, 4, 2], [1, 2, 1]];
+    const kernel = [
+      [1, 2, 1],
+      [2, 4, 2],
+      [1, 2, 1]
+    ];
     const kSum = 16.0;
     for (int y = 1; y < h - 1; y++) {
       for (int x = 1; x < w - 1; x++) {
@@ -174,7 +205,8 @@ class ImageEnhancer {
           double blurred = 0;
           for (int ky = -1; ky <= 1; ky++) {
             for (int kx = -1; kx <= 1; kx++) {
-              blurred += src[((y + ky) * w + (x + kx)) * 4 + c] * kernel[ky + 1][kx + 1];
+              blurred += src[((y + ky) * w + (x + kx)) * 4 + c] *
+                  kernel[ky + 1][kx + 1];
             }
           }
           blurred /= kSum;

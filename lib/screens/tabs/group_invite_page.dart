@@ -29,7 +29,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
   void initState() {
     super.initState();
     _group = Map<String, dynamic>.from(widget.group);
-    
+
     if (_group['type'] != 'private') {
       _linkType = 'auto'; // 公開群組預設直接加入
     } else if (widget.isOwnerOrAdmin) {
@@ -109,8 +109,8 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
     try {
       final newToken = await DatabaseHelper.instance
           .regenerateInviteToken(_group['id'] as int);
-      final updated = await DatabaseHelper.instance
-          .getGroupById(_group['id'] as int);
+      final updated =
+          await DatabaseHelper.instance.getGroupById(_group['id'] as int);
       if (mounted) {
         setState(() {
           _group = updated ?? _group;
@@ -182,8 +182,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Text('設定連結有效期',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
             const Divider(height: 1),
             ...options.map((opt) => ListTile(
@@ -218,7 +217,8 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
     final iconEmoji = _group['icon_emoji'] as String? ?? '📚';
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF5F0EE),
+      backgroundColor:
+          isDark ? const Color(0xFF121212) : const Color(0xFFF5F0EE),
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         elevation: 0,
@@ -251,7 +251,9 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                            color: Theme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Center(
@@ -275,7 +277,8 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                     ? '🔒 私人群組'
                                     : '🌐 公開群組',
                                 style: TextStyle(
-                                    fontSize: 12, color: Theme.of(context).primaryColor)),
+                                    fontSize: 12,
+                                    color: Theme.of(context).primaryColor)),
                           ],
                         ),
                       ],
@@ -301,7 +304,9 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: _linkActive
-                                    ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                                    ? Theme.of(context)
+                                        .primaryColor
+                                        .withValues(alpha: 0.1)
                                     : Colors.grey.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
@@ -361,7 +366,8 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                               child: Row(
                                 children: [
                                   Icon(Icons.public_rounded,
-                                      color: Theme.of(context).primaryColor, size: 18),
+                                      color: Theme.of(context).primaryColor,
+                                      size: 18),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -384,9 +390,10 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                 style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
-                                    color: isDark ? Colors.white : Colors.black87)),
+                                    color: isDark
+                                        ? Colors.white
+                                        : Colors.black87)),
                             const SizedBox(height: 8),
-
                             if (!widget.isOwnerOrAdmin)
                               Container(
                                 padding: const EdgeInsets.all(12),
@@ -394,7 +401,8 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                   color: Colors.orange.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                      color: Colors.orange.withValues(alpha: 0.3)),
+                                      color:
+                                          Colors.orange.withValues(alpha: 0.3)),
                                 ),
                                 child: const Row(
                                   children: [
@@ -422,14 +430,16 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                       title: const Text('知道連結即可直接加入',
                                           style: TextStyle(fontSize: 13.5)),
                                       value: 'auto',
-                                      activeColor: Theme.of(context).primaryColor,
+                                      activeColor:
+                                          Theme.of(context).primaryColor,
                                       contentPadding: EdgeInsets.zero,
                                     ),
                                     RadioListTile<String>(
                                       title: const Text('加入需經管理員審核',
                                           style: TextStyle(fontSize: 13.5)),
                                       value: 'approval',
-                                      activeColor: Theme.of(context).primaryColor,
+                                      activeColor:
+                                          Theme.of(context).primaryColor,
                                       contentPadding: EdgeInsets.zero,
                                     ),
                                   ],
@@ -488,16 +498,18 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                 child: OutlinedButton.icon(
                                   onPressed: _copyLink,
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: Theme.of(context).primaryColor,
+                                    foregroundColor:
+                                        Theme.of(context).primaryColor,
                                     side: BorderSide(
                                         color: Theme.of(context).primaryColor),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10)),
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 10),
                                   ),
-                                  icon: const Icon(Icons.share_rounded,
-                                      size: 16),
+                                  icon:
+                                      const Icon(Icons.share_rounded, size: 16),
                                   label: const Text('複製邀請碼',
                                       style: TextStyle(
                                           fontSize: 13,
@@ -510,10 +522,10 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
                                   onPressed: _showExpirySheet,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.grey.shade700,
-                                    side: BorderSide(
-                                        color: borderCol),
+                                    side: BorderSide(color: borderCol),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10)),
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 10),
                                   ),

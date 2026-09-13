@@ -43,7 +43,8 @@ class _SubjectChaptersPageState extends State<SubjectChaptersPage> {
     );
   }
 
-  Widget _buildFileCard(BuildContext context, String chapterName, ColorScheme cs) {
+  Widget _buildFileCard(
+      BuildContext context, String chapterName, ColorScheme cs) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -105,9 +106,12 @@ class _SubjectChaptersPageState extends State<SubjectChaptersPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.folder_open, size: 64, color: cs.primary.withValues(alpha: 0.5)),
+                  Icon(Icons.folder_open,
+                      size: 64, color: cs.primary.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
-                  Text('這個科目目前沒有章節', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 16)),
+                  Text('這個科目目前沒有章節',
+                      style:
+                          TextStyle(color: cs.onSurfaceVariant, fontSize: 16)),
                 ],
               ),
             )

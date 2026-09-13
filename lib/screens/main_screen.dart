@@ -92,15 +92,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _appLanguage = 'zh_TW';
   bool _isDarkMode = false;
   bool _showFloatingNavBar = false;
-  List<String> _navBarItems = ['calendar', 'quiz', 'social', 'notes'];
+  List<String> _navBarItems = [
+    'calendar',
+    'quiz',
+    'social',
+    'notes',
+    'social_feed'
+  ];
   bool _pushNotificationsEnabled = true;
+  List<String> _userJoinedTopicIds = ['topic_math', 'topic_ai', 'topic_daily'];
+  String _selectedSocialTopicFilter = '全部'; // 社群主題篩選
   String _socialFilter = '全部'; // 社群貼文分類篩選狀態
   String _socialAuthorFilter = ''; // 社群貼文作者篩選（空字串 = 全部）
   String _socialFeedLayout = 'card'; // 社群貼文版面：'card' 規格化 / 'list' 新聞式
   int _socialMainTab = 0;
   late PageController _socialPageController; // 0=廣場, 1=群組
   final ScrollController _socialFeedScrollController = ScrollController();
-  final ScrollController _socialFilterScrollController = ScrollController();
 
   void _scrollToTopSocialFeed() {
     if (_socialFeedScrollController.hasClients) {
@@ -111,12 +118,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       );
     }
   }
+
   int _groupSubTab = 0; // 0=我的群組, 1=探索
   String _exploreGroupSearchQuery = ''; // 探索群組搜尋字串
   // ── 社群動態（Activity Tab）狀態 ──
-  int _activityTab = 0;           // 0=我的發佈, 1=收藏貼文
+  int _activityTab = 0; // 0=我的發佈, 1=收藏貼文
   String _activityTypeFilter = '全部'; // 類型篩選
-  bool _activitySortNewest = true;    // true=由新到舊
+  bool _activitySortNewest = true; // true=由新到舊
   List<Map<String, dynamic>> myGroups = [];
   List<Map<String, dynamic>> allGroups = [];
   bool _isEmailVerified = false;
@@ -157,7 +165,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.6.8';
+  String _appVersion = 'v1.7.0';
   String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
@@ -253,6 +261,66 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     },
     {'isAI': true, 'text': '', 'isCard': false, 'widgetType': 'help_options'}
   ];
+
+  /// 關注 / 取消關注社群主題
+  Future<void> _toggleJoinTopic(String topicId) async {
+    final bool isJoined = _userJoinedTopicIds.contains(topicId);
+    final topic = getCommunityTopicById(topicId);
+    final topicName = topic?.name ?? topicId;
+
+    setState(() {
+      if (isJoined) {
+        _userJoinedTopicIds.remove(topicId);
+      } else {
+        _userJoinedTopicIds.add(topicId);
+      }
+    });
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.update(
+        'users',
+        {'tags': jsonEncode(_userJoinedTopicIds)},
+        where: 'id = ?',
+        whereArgs: [widget.currentUser['id']],
+      );
+    } catch (e) {
+      debugPrint('儲存關注主題失敗: $e');
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isJoined
+                    ? Icons.remove_circle_outline_rounded
+                    : Icons.check_circle_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isJoined ? '已取消關注「$topicName」主題' : '🎉 已成功關注「$topicName」主題！',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor:
+              isJoined ? Colors.grey.shade800 : _currentPrimaryColor,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
   /// 安全更新 UI 狀態（避免 extension 呼叫 protected member 警告）
   Color get _currentPrimaryColor {
@@ -351,17 +419,38 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// 顯示全頁歡迎引導（3 slides），完成後接著跑 Tour
+  /// 顯示全頁歡迎引導（4-Step 業界 Onboarding），完成後接著跑 Tour
   void _showWelcomeSplash() {
     if (_welcomeSplashEntry != null) return;
     final overlay = Overlay.of(context);
     _welcomeSplashEntry = OverlayEntry(
       builder: (_) => WelcomeSplash(
         userName: _displayName,
-        onDone: () {
-          // 關閉歡迎頁，接著啟動互動引導 Tour
+        initialTopicIds: _userJoinedTopicIds,
+        onDone: (selectedTopicIds) async {
+          // 關閉歡迎頁
           _welcomeSplashEntry?.remove();
           _welcomeSplashEntry = null;
+
+          // 更新社群主題偏好並寫入資料庫
+          if (selectedTopicIds.isNotEmpty) {
+            setState(() {
+              _userJoinedTopicIds = selectedTopicIds;
+            });
+            try {
+              final db = await DatabaseHelper.instance.database;
+              await db.update(
+                'users',
+                {'tags': jsonEncode(selectedTopicIds)},
+                where: 'id = ?',
+                whereArgs: [widget.currentUser['id']],
+              );
+            } catch (e) {
+              debugPrint('歡迎導覽儲存主題偏好失敗: $e');
+            }
+          }
+
+          // 接著啟動互動引導 Tour
           Future.delayed(const Duration(milliseconds: 300), () {
             if (mounted) _startTour();
           });
@@ -377,7 +466,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
     overlay.insert(_welcomeSplashEntry!);
   }
-
 
   /// 供分片檔案（Extensions）呼叫 setState 的輔助方法
   void _update(VoidCallback fn) {
@@ -538,8 +626,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             }
           } else if (rType == 'yearly') {
             for (int idx = 0; idx < 10; idx++) {
-              DateTime currentDay =
-                  DateTime(startDate.year + idx, startDate.month, startDate.day);
+              DateTime currentDay = DateTime(
+                  startDate.year + idx, startDate.month, startDate.day);
               if (recurrenceEnd != null && currentDay.isAfter(recurrenceEnd)) {
                 break;
               }
@@ -596,15 +684,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       // Fetch diaries
       List<Map<String, dynamic>> diariesList = [];
       try {
-        final diariesdb = await db.query('diaries', where: 'user_id = ?', whereArgs: [currentUserId]);
-        diariesList = diariesdb.map((d) => {
-          'id': d['id'].toString(),
-          'user_id': d['user_id'],
-          'date': d['date'] as String,
-          'content': d['content'] as String,
-          'created_at': d['created_at'] as String,
-          'updated_at': d['updated_at'] as String,
-        }).toList();
+        final diariesdb = await db
+            .query('diaries', where: 'user_id = ?', whereArgs: [currentUserId]);
+        diariesList = diariesdb
+            .map((d) => {
+                  'id': d['id'].toString(),
+                  'user_id': d['user_id'],
+                  'date': d['date'] as String,
+                  'content': d['content'] as String,
+                  'created_at': d['created_at'] as String,
+                  'updated_at': d['updated_at'] as String,
+                })
+            .toList();
       } catch (e) {
         debugPrint('Diaries table query failed: $e');
       }
@@ -724,7 +815,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 // 自動發佈邏輯
                 attached.remove('scheduled_at');
                 String nowStr = now.toIso8601String();
-                await db.update('posts', <String, Object?>{
+                await db.update(
+                    'posts',
+                    <String, Object?>{
                       'attached_data': jsonEncode(attached),
                       'created_at': nowStr,
                     },
@@ -800,7 +893,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       int userAvatarColor = 0;
       int userAvatarSelected = 0;
       if (userRows.isNotEmpty) {
-        userAvatar = _getStableBlob('user_$currentUserId', userRows.first['avatar_blob'] as Uint8List?);
+        userAvatar = _getStableBlob(
+            'user_$currentUserId', userRows.first['avatar_blob'] as Uint8List?);
         userAvatarColor = (userRows.first['avatar_color'] as int?) ?? 0;
         userAvatarSelected = (userRows.first['avatar_selected'] as int?) ?? 0;
         displayName = userRows.first['display_name'] as String?;
@@ -924,7 +1018,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final int dur = (row['duration_seconds'] as num?)?.toInt() ?? 0;
         final String subj = (row['subject'] as String?) ?? '一般練習';
         final String timeStr = (row['timestamp'] as String?) ?? '';
-        
+
         if (tot > 0) {
           final double acc = (cor / tot) * 100.0;
           final double avgTime = dur > 0 ? (dur / tot) : 12.0;
@@ -942,7 +1036,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       // 6.6 今日測驗資料（按科目彙總）
       final today = DateTime.now();
-      final todayStr = '${today.year}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
+      final todayStr =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
       final todayMatrixRows = await db.rawQuery('''
         SELECT 
           subject,
@@ -979,8 +1074,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       List<Map<String, dynamic>> myGroupsList = [];
       List<Map<String, dynamic>> allGroupsList = [];
       try {
-        myGroupsList = await DatabaseHelper.instance
-            .getMyGroups(currentUserId.toString());
+        myGroupsList =
+            await DatabaseHelper.instance.getMyGroups(currentUserId.toString());
         allGroupsList = await DatabaseHelper.instance.getAllGroups();
       } catch (e) {
         debugPrint('群組資料載入失敗: $e');
@@ -1015,6 +1110,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           // 個人化設定：安全處理資料類型並觸發 UI 更新
           if (userRows.isNotEmpty) {
             _userBio = userRows.first['bio'] as String?;
+            final rawTags = userRows.first['tags'];
+            if (rawTags != null && rawTags is String && rawTags.isNotEmpty) {
+              try {
+                final decoded = jsonDecode(rawTags);
+                if (decoded is List && decoded.isNotEmpty) {
+                  _userJoinedTopicIds =
+                      decoded.map((e) => e.toString()).toList();
+                }
+              } catch (_) {}
+            }
             _fontSizeFactor =
                 ((userRows.first['font_size_factor'] ?? 1.2) as num).toDouble();
             _themeColorIdx = (userRows.first['theme_color_idx'] ?? 0) as int;
@@ -1023,17 +1128,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 (userRows.first['calendar_view_mode'] as String?) ?? 'dot';
             _socialFeedLayout =
                 (userRows.first['social_feed_layout'] as String?) ?? 'card';
-            _showFloatingNavBar = (userRows.first['show_floating_nav_bar'] ?? 0) == 1;
-            final navItemsStr = (userRows.first['nav_bar_items'] as String?) ?? 'calendar,quiz,social,notes';
-            final rawItems = navItemsStr.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-            const validKeys = ['calendar', 'quiz', 'social', 'notes'];
-            _navBarItems = rawItems.where((k) => validKeys.contains(k)).toList();
+            _showFloatingNavBar =
+                (userRows.first['show_floating_nav_bar'] ?? 0) == 1;
+            final navItemsStr = (userRows.first['nav_bar_items'] as String?) ??
+                'calendar,quiz,social,notes,social_feed';
+            final rawItems = navItemsStr
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+            const validKeys = [
+              'calendar',
+              'quiz',
+              'social',
+              'notes',
+              'social_feed'
+            ];
+            _navBarItems = rawItems
+                .where((k) => validKeys.contains(k) || k == 'activity')
+                .map((k) => k == 'activity' ? 'social_feed' : k)
+                .toList();
             for (final k in validKeys) {
               if (!_navBarItems.contains(k)) {
                 _navBarItems.add(k);
               }
             }
-            _pushNotificationsEnabled = (userRows.first['push_notifications_enabled'] ?? 1) == 1;
+            _pushNotificationsEnabled =
+                (userRows.first['push_notifications_enabled'] ?? 1) == 1;
             _appLanguage = (userRows.first['language'] as String?) ?? 'zh_TW';
             AppLocaleService.setLanguage(_appLanguage);
             debugPrint(
@@ -1153,7 +1274,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetPageIndex: 0,
         targetKey: _tourAiChatBarKey,
         title: 'AI 行事曆小幫手',
-        description: '點擊下方的「去社群 / 加行程...」對話列開啟小幫手，並直接輸入「明天下午三點和小明開會」，AI 就會自動為你安排行程喔！',
+        description:
+            '點擊下方的「去社群 / 加行程...」對話列開啟小幫手，並直接輸入「明天下午三點和小明開會」，AI 就會自動為你安排行程喔！',
         skipForGuest: true,
         guestNote: '🔒 此功能需要正式帳號才能使用。',
         onLeaveBackward: () {
@@ -1299,7 +1421,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       (d) => d['date'] == dateKey,
       orElse: () => {},
     );
-    final String content = existing.isNotEmpty ? (existing['content'] as String? ?? '') : '';
+    final String content =
+        existing.isNotEmpty ? (existing['content'] as String? ?? '') : '';
     if (_diaryInputController.text != content) {
       _diaryInputController.text = content;
     }
@@ -1368,7 +1491,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       );
 
       if (existing.isNotEmpty) {
-        await db.update('diaries', <String, Object?>{
+        await db.update(
+          'diaries',
+          <String, Object?>{
             'content': content,
             'updated_at': DateTime.now().toIso8601String(),
           },
@@ -1577,7 +1702,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   newAttached = '{"scheduled_at": "$currentTime"}';
                 }
                 final spId = int.tryParse(sp['id'].toString()) ?? sp['id'];
-                await db.update('posts', <String, Object?>{
+                await db.update(
+                    'posts',
+                    <String, Object?>{
                       'content': newContent,
                       'attached_data': newAttached,
                     },
@@ -1752,7 +1879,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       String endKey = eDate.toString().split(' ')[0];
       String startStr = "$startKey ${timeRange.split('~')[0]}:00";
       String endStr = "$endKey ${timeRange.split('~')[1]}:00";
-      await db.update('calendar_events', <String, Object?>{
+      await db.update(
+          'calendar_events',
+          <String, Object?>{
             'title': title,
             'start_time': startStr,
             'end_time': endStr,
@@ -1831,7 +1960,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _loadData();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('待辦事項已刪除'), backgroundColor: Colors.redAccent),
+        const SnackBar(
+            content: Text('待辦事項已刪除'), backgroundColor: Colors.redAccent),
       );
     } catch (e) {
       debugPrint('刪除待辦失敗: $e');
@@ -1841,7 +1971,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void _editTodo(String id, String newText) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      await db.update('todos', <String, Object?>{'text': newText}, where: 'id = ?', whereArgs: [int.parse(id)]);
+      await db.update('todos', <String, Object?>{'text': newText},
+          where: 'id = ?', whereArgs: [int.parse(id)]);
       await _loadData();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1865,7 +1996,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       );
 
       if (existing.isNotEmpty) {
-        await db.update('diaries', <String, Object?>{
+        await db.update(
+          'diaries',
+          <String, Object?>{
             'content': content,
             'updated_at': DateTime.now().toIso8601String(),
           },
@@ -1934,39 +2067,41 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showConvertFreeTimeToScheduleDialog(String timeRange, int maxMinutes) {
-    List<Map<String, dynamic>> uncompletedTodos = allTodos.where((todo) => !todo['isDone']).toList();
-    
+    List<Map<String, dynamic>> uncompletedTodos =
+        allTodos.where((todo) => !todo['isDone']).toList();
+
     String? selectedTodoId;
     if (uncompletedTodos.isNotEmpty) {
       selectedTodoId = uncompletedTodos.first['id'];
     }
-    
+
     final TextEditingController customTitleCtrl = TextEditingController();
     if (selectedTodoId != null) {
       customTitleCtrl.text = uncompletedTodos.first['title'] ?? '';
     } else {
       customTitleCtrl.text = '';
     }
-    
+
     int selectedHours = 1;
     int selectedMinutes = 0;
-    
+
     if (maxMinutes < 60) {
       selectedHours = 0;
       selectedMinutes = maxMinutes;
     }
-    
+
     bool alsoMarkTodoAsCompleted = true;
     final primaryColor = Theme.of(context).primaryColor;
-    
+
     showDialog(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             int totalSelectedMinutes = selectedHours * 60 + selectedMinutes;
-            bool isDurationValid = totalSelectedMinutes > 0 && totalSelectedMinutes <= maxMinutes;
-            
+            bool isDurationValid =
+                totalSelectedMinutes > 0 && totalSelectedMinutes <= maxMinutes;
+
             return AlertDialog(
               title: Row(
                 children: [
@@ -1982,23 +2117,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   children: [
                     Text(
                       '空閒時段：$timeRange\n(上限 ${maxMinutes ~/ 60} 小時 ${maxMinutes % 60} 分鐘)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade600),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 16),
-                    const Text('選擇要做的事：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Text('選擇要做的事：',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       isExpanded: true,
                       initialValue: selectedTodoId,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       items: [
-                        ...uncompletedTodos.map((todo) => DropdownMenuItem<String>(
-                          value: todo['id'],
-                          child: Text(todo['title'] ?? '', overflow: TextOverflow.ellipsis),
-                        )),
+                        ...uncompletedTodos
+                            .map((todo) => DropdownMenuItem<String>(
+                                  value: todo['id'],
+                                  child: Text(todo['title'] ?? '',
+                                      overflow: TextOverflow.ellipsis),
+                                )),
                         const DropdownMenuItem<String>(
                           value: 'custom',
                           child: Text('自訂行程名稱...'),
@@ -2008,7 +2151,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         setDialogState(() {
                           selectedTodoId = val;
                           if (val != null && val != 'custom') {
-                            final selected = uncompletedTodos.firstWhere((t) => t['id'] == val);
+                            final selected = uncompletedTodos
+                                .firstWhere((t) => t['id'] == val);
                             customTitleCtrl.text = selected['title'] ?? '';
                           } else {
                             customTitleCtrl.text = '';
@@ -2017,21 +2161,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       },
                     ),
                     const SizedBox(height: 12),
-                    const Text('行程名稱：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Text('行程名稱：',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: customTitleCtrl,
                       decoration: const InputDecoration(
                         hintText: '請輸入行程名稱',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       onChanged: (text) {
                         setDialogState(() {});
                       },
                     ),
                     const SizedBox(height: 16),
-                    const Text('規劃執行時間：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Text('規劃執行時間：',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -2041,7 +2190,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             decoration: const InputDecoration(
                               labelText: '小時',
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
                             ),
                             items: List.generate(
                               (maxMinutes / 60).floor() + 1,
@@ -2066,7 +2216,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             decoration: const InputDecoration(
                               labelText: '分鐘',
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
                             ),
                             items: List.generate(
                               60,
@@ -2092,10 +2243,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         totalSelectedMinutes == 0
                             ? '❌ 執行時間必須大於 0 分鐘'
                             : '❌ 已超出此空閒時段上限 ($maxMinutes 分鐘)',
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                        style: const TextStyle(
+                            color: Colors.redAccent, fontSize: 12),
                       ),
                     ],
-                    if (selectedTodoId != 'custom' && selectedTodoId != null) ...[
+                    if (selectedTodoId != 'custom' &&
+                        selectedTodoId != null) ...[
                       const SizedBox(height: 16),
                       Row(
                         children: [
@@ -2126,24 +2279,27 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isDurationValid && customTitleCtrl.text.trim().isNotEmpty
+                    backgroundColor: isDurationValid &&
+                            customTitleCtrl.text.trim().isNotEmpty
                         ? primaryColor
                         : Colors.grey,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: isDurationValid && customTitleCtrl.text.trim().isNotEmpty
-                      ? () {
-                          Navigator.pop(ctx);
-                          _convertFreeTimeToSchedule(
-                            timeRange: timeRange,
-                            title: customTitleCtrl.text.trim(),
-                            durationMinutes: totalSelectedMinutes,
-                            todoIdToComplete: (selectedTodoId != 'custom' && alsoMarkTodoAsCompleted)
-                                ? selectedTodoId
-                                : null,
-                          );
-                        }
-                      : null,
+                  onPressed:
+                      isDurationValid && customTitleCtrl.text.trim().isNotEmpty
+                          ? () {
+                              Navigator.pop(ctx);
+                              _convertFreeTimeToSchedule(
+                                timeRange: timeRange,
+                                title: customTitleCtrl.text.trim(),
+                                durationMinutes: totalSelectedMinutes,
+                                todoIdToComplete: (selectedTodoId != 'custom' &&
+                                        alsoMarkTodoAsCompleted)
+                                    ? selectedTodoId
+                                    : null,
+                              );
+                            }
+                          : null,
                   child: const Text('確認規劃'),
                 ),
               ],
@@ -2176,8 +2332,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       int endMin = totalEndMin % 60;
 
       String dateStr = _selectedDate.toString().split(' ')[0];
-      String startTimeDb = "$dateStr ${startHour.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')}:00";
-      String endTimeDb = "$dateStr ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')}:00";
+      String startTimeDb =
+          "$dateStr ${startHour.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')}:00";
+      String endTimeDb =
+          "$dateStr ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')}:00";
 
       // Insert new schedule event
       await db.insert('calendar_events', <String, Object?>{
@@ -2190,10 +2348,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       // Complete to-do if requested
       if (todoIdToComplete != null) {
-        await db.update('todos', <String, Object?>{
-          'done': 1,
-          'done_at': DateTime.now().toIso8601String(),
-        }, where: 'id = ?', whereArgs: [int.parse(todoIdToComplete)]);
+        await db.update(
+            'todos',
+            <String, Object?>{
+              'done': 1,
+              'done_at': DateTime.now().toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [int.parse(todoIdToComplete)]);
       }
 
       await _loadData();
@@ -2201,7 +2363,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('已將「$title」規劃至行程中 ($startPart ~ ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')})'),
+          content: Text(
+              '已將「$title」規劃至行程中 ($startPart ~ ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')})'),
           backgroundColor: Theme.of(context).primaryColor,
         ),
       );
@@ -2248,8 +2411,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 }),
                 actions: [
                   TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text('取消')),
+                      onPressed: () => Navigator.pop(ctx), child: Text('取消')),
                   ElevatedButton(
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).primaryColor,
@@ -2288,8 +2450,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 content: Text('確定要登出並切換至其他帳號嗎？'),
                 actions: [
                   TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text('取消')),
+                      onPressed: () => Navigator.pop(ctx), child: Text('取消')),
                   ElevatedButton(
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).primaryColor,
@@ -2396,15 +2557,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   "${_calendarMonth.year}年 ${_calendarMonth.month}月",
                                   style: TextStyle(
                                       fontSize: 16,
-                                      color: _isDarkMode ? Colors.white : Colors.black87,
+                                      color: _isDarkMode
+                                          ? Colors.white
+                                          : Colors.black87,
                                       fontWeight: FontWeight.w700)),
                               Icon(Icons.keyboard_arrow_down,
-                                  color: _isDarkMode ? Colors.white : Colors.black87)
+                                  color: _isDarkMode
+                                      ? Colors.white
+                                      : Colors.black87)
                             ]))
                         : Text(_getTranslatedAppBarTitle(),
                             style: TextStyle(
                                 fontSize: 18,
-                                color: _isDarkMode ? Colors.white : Colors.black87,
+                                color:
+                                    _isDarkMode ? Colors.white : Colors.black87,
                                 fontWeight: FontWeight.bold)),
                     backgroundColor: _isDarkMode
                         ? Colors.black.withValues(alpha: 0.7)
@@ -2422,83 +2588,242 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         if (_currentIndex == 0)
                           IconButton(
                               icon: Icon(Icons.today_rounded,
-                                  color: _isDarkMode ? Colors.white : Colors.black87),
+                                  color: _isDarkMode
+                                      ? Colors.white
+                                      : Colors.black87),
                               onPressed: _returnToToday,
                               tooltip: '回到今日'),
                         IconButton(
                             icon: Icon(Icons.logout_rounded,
-                                color: _isDarkMode ? Colors.white : Colors.black87),
+                                color: _isDarkMode
+                                    ? Colors.white
+                                    : Colors.black87),
                             onPressed: _showLogoutDialog)
                       ]),
             drawer: Drawer(
                 child: SafeArea(
-                    child: ListView(children: [
-              Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Text(AppLocaleService.tr('drawer_title', _appLanguage),
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor))),
-              ListTile(
-                  leading: Icon(Icons.calendar_month,
-                      color: Theme.of(context).primaryColor),
-                  title: Text(AppLocaleService.tr('nav_calendar', _appLanguage)),
-                  onTap: () {
-                    _changePage(0, AppLocaleService.tr('nav_calendar', _appLanguage));
-                    Navigator.pop(context);
-                  }),
-              if (widget.currentUser['id'] != 'u4')
-                ListTile(
-                    leading: Icon(Icons.edit_note,
-                        color: Theme.of(context).primaryColor),
-                    title: Text(AppLocaleService.tr('nav_notes', _appLanguage)),
-                    onTap: () {
-                      _changePage(5, AppLocaleService.tr('nav_notes', _appLanguage));
-                      Navigator.pop(context);
-                    }),
-              ListTile(
-                  leading: Icon(Icons.menu_book,
-                      color: Theme.of(context).primaryColor),
-                  title: Text(AppLocaleService.tr('nav_quiz', _appLanguage)),
-                  onTap: () {
-                    _changePage(1, AppLocaleService.tr('nav_quiz', _appLanguage));
-                    Navigator.pop(context);
-                  }),
-              ListTile(
-                  leading:
-                      Icon(Icons.forum, color: Theme.of(context).primaryColor),
-                  title: Text(AppLocaleService.tr('nav_community', _appLanguage)),
-                  onTap: () {
-                    _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
-                    Navigator.pop(context);
-                  }),
-              const Divider(indent: 20, endIndent: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(AppLocaleService.tr('drawer_interact', _appLanguage),
-                    style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold)),
-              ),
-              ListTile(
-                  leading: Icon(Icons.history_edu_rounded,
-                      color: Theme.of(context).primaryColor),
-                  title: Text(AppLocaleService.tr('nav_social_feed', _appLanguage)),
-                  onTap: () {
-                    _changePage(3, AppLocaleService.tr('nav_social_feed', _appLanguage));
-                    Navigator.pop(context);
-                  }),
-              ListTile(
-                  leading: Icon(Icons.settings_suggest_rounded,
-                      color: Theme.of(context).primaryColor),
-                  title: Text(AppLocaleService.tr('nav_profile', _appLanguage)),
-                  onTap: () {
-                    _changePage(4, AppLocaleService.tr('nav_profile', _appLanguage));
-                    Navigator.pop(context);
-                  }),
-            ]))),
+                    child: ListView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 14, 8, 16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            Icons.dashboard_customize_rounded,
+                            color: Theme.of(context).primaryColor,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Text(
+                          AppLocaleService.tr('drawer_title', _appLanguage),
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      selected: _currentIndex == 0,
+                      selectedTileColor: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.12),
+                      leading: Icon(Icons.calendar_month_rounded,
+                          color: Theme.of(context).primaryColor, size: 25),
+                      title: Text(
+                          AppLocaleService.tr('nav_calendar', _appLanguage),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _isDarkMode
+                                  ? Colors.white
+                                  : Colors.black87)),
+                      onTap: () {
+                        _changePage(
+                            0, AppLocaleService.tr('nav_calendar', _appLanguage));
+                        Navigator.pop(context);
+                      }),
+
+                  if (widget.currentUser['id'] != 'u4')
+                    ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 2),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                        selected: _currentIndex == 5,
+                        selectedTileColor: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.12),
+                        leading: Icon(Icons.edit_note_rounded,
+                            color: Theme.of(context).primaryColor, size: 25),
+                        title: Text(
+                            AppLocaleService.tr('nav_notes', _appLanguage),
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: _isDarkMode
+                                    ? Colors.white
+                                    : Colors.black87)),
+                        onTap: () {
+                          _changePage(
+                              5, AppLocaleService.tr('nav_notes', _appLanguage));
+                          Navigator.pop(context);
+                        }),
+
+                  ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      selected: _currentIndex == 1,
+                      selectedTileColor: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.12),
+                      leading: Icon(Icons.menu_book_rounded,
+                          color: Theme.of(context).primaryColor, size: 25),
+                      title: Text(
+                          AppLocaleService.tr('nav_quiz', _appLanguage),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _isDarkMode
+                                  ? Colors.white
+                                  : Colors.black87)),
+                      onTap: () {
+                        _changePage(
+                            1, AppLocaleService.tr('nav_quiz', _appLanguage));
+                        Navigator.pop(context);
+                      }),
+
+                  ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      selected: _currentIndex == 2,
+                      selectedTileColor: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.12),
+                      leading: Icon(Icons.forum_rounded,
+                          color: Theme.of(context).primaryColor, size: 25),
+                      title: Text(
+                          AppLocaleService.tr('nav_community', _appLanguage),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _isDarkMode
+                                  ? Colors.white
+                                  : Colors.black87)),
+                      onTap: () {
+                        _changePage(
+                            2, AppLocaleService.tr('nav_community', _appLanguage));
+                        Navigator.pop(context);
+                      }),
+
+                  const Divider(height: 28, indent: 8, endIndent: 8),
+
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                    child: Text(
+                        AppLocaleService.tr('drawer_interact', _appLanguage),
+                        style: TextStyle(
+                            color: _isDarkMode
+                                ? Colors.white60
+                                : Colors.grey.shade600,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold)),
+                  ),
+
+                  ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      selected: _currentIndex == 3,
+                      selectedTileColor: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.12),
+                      leading: Icon(Icons.history_edu_rounded,
+                          color: Theme.of(context).primaryColor, size: 25),
+                      title: Text(
+                          AppLocaleService.tr(
+                              'nav_social_feed', _appLanguage),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _isDarkMode
+                                  ? Colors.white
+                                  : Colors.black87)),
+                      onTap: () {
+                        _changePage(3,
+                            AppLocaleService.tr('nav_social_feed', _appLanguage));
+                        Navigator.pop(context);
+                      }),
+
+                  ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      selected: _currentIndex == 4,
+                      selectedTileColor: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.12),
+                      leading: Icon(Icons.person_rounded,
+                          color: Theme.of(context).primaryColor, size: 25),
+                      title: Text(
+                          AppLocaleService.tr('nav_profile', _appLanguage),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _isDarkMode
+                                  ? Colors.white
+                                  : Colors.black87)),
+                      onTap: () {
+                        _changePage(
+                            4, AppLocaleService.tr('nav_profile', _appLanguage));
+                        Navigator.pop(context);
+                      }),
+
+                  ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      leading: Icon(Icons.auto_awesome_rounded,
+                          color: Theme.of(context).primaryColor, size: 25),
+                      title: Text(
+                          AppLocaleService.tr(
+                              'nav_ai_assistant', _appLanguage),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _isDarkMode
+                                  ? Colors.white
+                                  : Colors.black87)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _openChatModal();
+                      }),
+                ]))),
             body: Stack(
               children: [
                 Container(
@@ -2515,8 +2840,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         _buildPersonalProfileTab(context),
                         NotesScreen(currentUser: widget.currentUser),
                       ])),
-                      if (!_showFloatingNavBar && (_currentIndex != 1 || _quizStep == 0)) _buildAIChatBar(),
-                      if (_showFloatingNavBar) SizedBox(height: 75 + MediaQuery.of(context).padding.bottom), // Padding for floating nav bar
+                      if (!_showFloatingNavBar &&
+                          (_currentIndex != 1 || _quizStep == 0))
+                        _buildAIChatBar(),
+                      if (_showFloatingNavBar)
+                        SizedBox(
+                            height: 75 +
+                                MediaQuery.of(context)
+                                    .padding
+                                    .bottom), // Padding for floating nav bar
                     ]),
                   ),
                 ),
@@ -2581,14 +2913,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   List<Widget> _buildConfiguredNavItems() {
-    const validKeys = ['calendar', 'quiz', 'social', 'notes'];
+    const validKeys = ['calendar', 'quiz', 'social', 'notes', 'social_feed'];
     final safeItems = _navBarItems.where((k) => validKeys.contains(k)).toList();
     for (final k in validKeys) {
       if (!safeItems.contains(k)) safeItems.add(k);
     }
 
     // 左側 2 個自訂功能（第 1、2 順位）
-    final leftItems = safeItems.take(2).map((k) => _buildConfiguredNavItem(k)).toList();
+    final leftItems =
+        safeItems.take(2).map((k) => _buildConfiguredNavItem(k)).toList();
 
     // 中央固定：AI 代理人
     final centerAgentItem = _buildNavItem(
@@ -2641,6 +2974,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           2,
           key: _tourNavSocialKey,
         );
+      case 'social_feed':
+      case 'activity':
+        return _buildNavItem(
+          Icons.history_edu_rounded,
+          AppLocaleService.tr('nav_social_feed', _appLanguage),
+          3,
+        );
       case 'notes':
         return _buildNavItem(
           Icons.edit_note_rounded,
@@ -2652,7 +2992,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildNavItem(IconData icon, String fullLabel, int index, {GlobalKey? key, VoidCallback? onTap}) {
+  Widget _buildNavItem(IconData icon, String fullLabel, int index,
+      {GlobalKey? key, VoidCallback? onTap}) {
     final bool isSelected = index >= 0 && _currentIndex == index;
     final primaryColor = Theme.of(context).primaryColor;
 
@@ -2728,7 +3069,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         await VoiceRecognitionService.instance.stopListening();
         setModalState(() {
           isVoiceListening = false;
-          modalController.text = VoiceRecognitionService.cleanFillerWords(modalController.text);
+          modalController.text =
+              VoiceRecognitionService.cleanFillerWords(modalController.text);
           modalController.selection = TextSelection.collapsed(
             offset: modalController.text.length,
           );
@@ -2747,7 +3089,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             setModalState(() {
               final prefix = voiceBaseText.isNotEmpty ? '$voiceBaseText ' : '';
               if (isFinal) {
-                final cleaned = VoiceRecognitionService.cleanFillerWords('$prefix$words');
+                final cleaned =
+                    VoiceRecognitionService.cleanFillerWords('$prefix$words');
                 modalController.text = cleaned;
                 voiceBaseText = cleaned;
               } else {
@@ -2767,7 +3110,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             if (status == 'done' || status == 'notListening') {
               setModalState(() {
                 isVoiceListening = false;
-                modalController.text = VoiceRecognitionService.cleanFillerWords(modalController.text);
+                modalController.text = VoiceRecognitionService.cleanFillerWords(
+                    modalController.text);
               });
             } else if (status == 'listening') {
               setModalState(() {
@@ -2835,7 +3179,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             color: Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(10))),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -2849,10 +3194,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
-                                Icons.cleaning_services_outlined,
-                                size: 20,
-                                color: Colors.grey),
+                            icon: const Icon(Icons.cleaning_services_outlined,
+                                size: 20, color: Colors.grey),
                             tooltip: '開啟新對話',
                             onPressed: () {
                               setModalState(() {
@@ -2934,7 +3277,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Theme.of(context).primaryColor
+                                          color: Theme.of(context)
+                                              .primaryColor
                                               .withValues(alpha: 0.35),
                                           blurRadius: 12,
                                           offset: const Offset(0, 4),
@@ -3040,7 +3384,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                        color: Theme.of(context).primaryColor
+                                        color: Theme.of(context)
+                                            .primaryColor
                                             .withValues(alpha: 0.12),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4))
@@ -3053,12 +3398,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       Container(
                                           padding: EdgeInsets.all(6),
                                           decoration: BoxDecoration(
-                                              color: Theme.of(context).primaryColor
+                                              color: Theme.of(context)
+                                                  .primaryColor
                                                   .withValues(alpha: 0.1),
                                               borderRadius:
                                                   BorderRadius.circular(10)),
                                           child: Icon(Icons.schedule,
-                                              color: Theme.of(context).primaryColor,
+                                              color: Theme.of(context)
+                                                  .primaryColor,
                                               size: 18)),
                                       const SizedBox(width: 10),
                                       const Text('選擇日期與時段',
@@ -3078,7 +3425,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                           Container(
                                               height: 36,
                                               decoration: BoxDecoration(
-                                                  color: Theme.of(context).primaryColor
+                                                  color: Theme.of(context)
+                                                      .primaryColor
                                                       .withValues(alpha: 0.08),
                                                   borderRadius:
                                                       BorderRadius.circular(
@@ -3253,8 +3601,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     SizedBox(
                                       width: double.infinity,
                                       child: ElevatedButton.icon(
-                                        icon: Icon(
-                                            Icons.check_circle_outline,
+                                        icon: Icon(Icons.check_circle_outline,
                                             size: 18),
                                         label: Text('確認時段'),
                                         style: ElevatedButton.styleFrom(
@@ -4666,12 +5013,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       decoration: BoxDecoration(
                                         color: isDone
                                             ? Colors.grey.shade100
-                                            : Theme.of(context).primaryColor
+                                            : Theme.of(context)
+                                                .primaryColor
                                                 .withValues(alpha: 0.1),
                                         border: Border.all(
                                             color: isDone
                                                 ? Colors.grey.shade300
-                                                : Theme.of(context).primaryColor
+                                                : Theme.of(context)
+                                                    .primaryColor
                                                     .withValues(alpha: 0.4)),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -4683,7 +5032,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                 : Icons.circle_outlined,
                                             color: isDone
                                                 ? Colors.grey
-                                                : Theme.of(context).primaryColor,
+                                                : Theme.of(context)
+                                                    .primaryColor,
                                             size: 16,
                                           ),
                                           const SizedBox(width: 10),
@@ -5018,7 +5368,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Theme.of(context).primaryColor
+                                    color: Theme.of(context)
+                                        .primaryColor
                                         .withValues(alpha: 0.15),
                                     blurRadius: 16,
                                     offset: const Offset(0, 4),
@@ -5154,7 +5505,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                 Icons
                                                     .access_time_filled_rounded,
                                                 size: 15,
-                                                color: Theme.of(context).primaryColor),
+                                                color: Theme.of(context)
+                                                    .primaryColor),
                                             const SizedBox(width: 6),
                                             Text(
                                               pData['time'] != null &&
@@ -5165,7 +5517,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                   : '立即發布',
                                               style: TextStyle(
                                                   fontSize: 12,
-                                                  color: Theme.of(context).primaryColor,
+                                                  color: Theme.of(context)
+                                                      .primaryColor,
                                                   fontWeight: FontWeight.w600),
                                             ),
                                           ],
@@ -5214,7 +5567,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                             foregroundColor:
                                                 Theme.of(context).primaryColor,
                                             side: BorderSide(
-                                                color: Theme.of(context).primaryColor,
+                                                color: Theme.of(context)
+                                                    .primaryColor,
                                                 width: 1.2),
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 14, vertical: 9),
@@ -5303,18 +5657,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                         : Colors.white)),
                           );
 
-                          if (msg['isAI'] == true && msg['modelUsed'] == 'gemini') {
+                          if (msg['isAI'] == true &&
+                              msg['modelUsed'] == 'gemini') {
                             messageWidget = Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 messageWidget,
                                 Padding(
-                                  padding: const EdgeInsets.only(left: 8, top: 2, bottom: 6),
+                                  padding: const EdgeInsets.only(
+                                      left: 8, top: 2, bottom: 6),
                                   child: Text(
                                     'Gemini',
                                     style: TextStyle(
                                       fontSize: 10,
-                                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                                      color: isDark
+                                          ? Colors.grey.shade500
+                                          : Colors.grey.shade600,
                                     ),
                                   ),
                                 ),
@@ -5337,9 +5695,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               ListTile(
-                                                  leading: Icon(
-                                                      Icons.copy,
-                                                      color: Theme.of(context).primaryColor),
+                                                  leading: Icon(Icons.copy,
+                                                      color: Theme.of(context)
+                                                          .primaryColor),
                                                   title: const Text('複製文字'),
                                                   onTap: () {
                                                     Navigator.pop(ctx);
@@ -5348,15 +5706,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                             text: msg['text']));
                                                     ScaffoldMessenger.of(
                                                             context)
-                                                        .showSnackBar(
-                                                            SnackBar(
-                                                                content: Text(
-                                                                    '已複製到剪貼簿')));
+                                                        .showSnackBar(SnackBar(
+                                                            content: Text(
+                                                                '已複製到剪貼簿')));
                                                   }),
                                               ListTile(
-                                                  leading: Icon(
-                                                      Icons.edit,
-                                                      color: Theme.of(context).primaryColor),
+                                                  leading: Icon(Icons.edit,
+                                                      color: Theme.of(context)
+                                                          .primaryColor),
                                                   title: const Text('編輯'),
                                                   onTap: () async {
                                                     Navigator.pop(ctx);
@@ -5455,7 +5812,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               : const Color(0xFFFBE9E7),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.deepOrangeAccent.withValues(alpha: 0.5),
+                            color:
+                                Colors.deepOrangeAccent.withValues(alpha: 0.5),
                             width: 1,
                           ),
                         ),
@@ -5469,9 +5827,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.deepOrangeAccent.withValues(alpha: 0.7),
-                                    blurRadius: 6 + (voiceSoundLevel.clamp(0, 10) * 0.8),
-                                    spreadRadius: 1 + (voiceSoundLevel.clamp(0, 10) * 0.4),
+                                    color: Colors.deepOrangeAccent
+                                        .withValues(alpha: 0.7),
+                                    blurRadius: 6 +
+                                        (voiceSoundLevel.clamp(0, 10) * 0.8),
+                                    spreadRadius: 1 +
+                                        (voiceSoundLevel.clamp(0, 10) * 0.4),
                                   ),
                                 ],
                               ),
@@ -5483,7 +5844,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.orange.shade200 : Colors.deepOrange.shade800,
+                                  color: isDark
+                                      ? Colors.orange.shade200
+                                      : Colors.deepOrange.shade800,
                                 ),
                               ),
                             ),
@@ -5493,14 +5856,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.deepOrangeAccent.withValues(alpha: 0.25),
+                                  color: Colors.deepOrangeAccent
+                                      .withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.stop_rounded,
-                                        size: 14, color: Colors.deepOrangeAccent),
+                                        size: 14,
+                                        color: Colors.deepOrangeAccent),
                                     SizedBox(width: 4),
                                     Text(
                                       '完成',
@@ -5518,8 +5883,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         ),
                       ),
                     Builder(builder: (context) {
-                      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-                      final systemBottom = MediaQuery.of(context).padding.bottom;
+                      final bottomInset =
+                          MediaQuery.of(context).viewInsets.bottom;
+                      final systemBottom =
+                          MediaQuery.of(context).padding.bottom;
                       final double paddingBottom = bottomInset > 0
                           ? bottomInset + 12.0
                           : math.max(systemBottom, 12.0) + 10.0;
@@ -5528,140 +5895,148 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         padding: EdgeInsets.fromLTRB(16, 4, 16, paddingBottom),
                         child: Row(
                           children: [
-                          Expanded(
-                            child: Focus(
-                              onKeyEvent: (FocusNode node, KeyEvent event) {
-                                final isMobile = !kIsWeb &&
-                                    (Platform.isAndroid || Platform.isIOS);
-                                if (isMobile) {
-                                  return KeyEventResult.ignored;
-                                }
-                                final isEnter = event.logicalKey ==
-                                        LogicalKeyboardKey.enter ||
-                                    event.logicalKey ==
-                                        LogicalKeyboardKey.numpadEnter;
-                                if (event is KeyDownEvent && isEnter) {
-                                  if (HardwareKeyboard
-                                      .instance.isShiftPressed) {
-                                    final text = modalController.text;
-                                    final selection = modalController.selection;
-                                    if (selection.start >= 0) {
-                                      final newText = text.replaceRange(
-                                          selection.start, selection.end, '\n');
-                                      modalController.value = TextEditingValue(
-                                        text: newText,
-                                        selection: TextSelection.collapsed(
-                                            offset: selection.start + 1),
-                                      );
-                                    } else {
-                                      modalController.text = '$text\n';
-                                    }
-                                    return KeyEventResult.handled;
-                                  } else {
-                                    FocusScope.of(context).unfocus();
-                                    if (isVoiceListening) {
-                                      VoiceRecognitionService.instance.stopListening();
-                                      setModalState(() {
-                                        isVoiceListening = false;
-                                      });
-                                    }
-                                    _handleAISubmit(modalController.text,
-                                        modalController, setModalState);
-                                    return KeyEventResult.handled;
+                            Expanded(
+                              child: Focus(
+                                onKeyEvent: (FocusNode node, KeyEvent event) {
+                                  final isMobile = !kIsWeb &&
+                                      (Platform.isAndroid || Platform.isIOS);
+                                  if (isMobile) {
+                                    return KeyEventResult.ignored;
                                   }
-                                }
-                                return KeyEventResult.ignored;
-                              },
-                              child: TextField(
-                                controller: modalController,
-                                minLines: 1,
-                                maxLines: 5,
-                                keyboardType: TextInputType.multiline,
-                                textInputAction: TextInputAction.newline,
-                                decoration: InputDecoration(
-                                    hintText: isVoiceListening
-                                        ? '正在聆聽語音中，請說話...'
-                                        : '請輸入您的問題或指令...',
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                        borderSide: BorderSide.none),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 20, vertical: 10)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(22),
-                              onTap: () => toggleVoice(setModalState),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isVoiceListening
-                                      ? Colors.deepOrangeAccent
-                                      : Colors.white,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: isVoiceListening
-                                          ? Colors.deepOrangeAccent.withValues(alpha: 0.5)
-                                          : Colors.black.withValues(alpha: 0.06),
-                                      blurRadius: isVoiceListening ? 8 : 2,
-                                      spreadRadius: isVoiceListening ? 2 : 0,
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  isVoiceListening
-                                      ? Icons.mic_rounded
-                                      : Icons.mic_none_rounded,
-                                  color: isVoiceListening
-                                      ? Colors.white
-                                      : Theme.of(context).primaryColor,
-                                  size: 22,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          CircleAvatar(
-                              backgroundColor: Theme.of(context).primaryColor,
-                              child: IconButton(
-                                  icon: const Icon(Icons.send,
-                                      color: Colors.white, size: 20),
-                                  onPressed: () {
-                                    FocusScope.of(context).unfocus();
-                                    if (isVoiceListening) {
-                                      VoiceRecognitionService.instance.stopListening();
-                                      setModalState(() {
-                                        isVoiceListening = false;
-                                      });
+                                  final isEnter = event.logicalKey ==
+                                          LogicalKeyboardKey.enter ||
+                                      event.logicalKey ==
+                                          LogicalKeyboardKey.numpadEnter;
+                                  if (event is KeyDownEvent && isEnter) {
+                                    if (HardwareKeyboard
+                                        .instance.isShiftPressed) {
+                                      final text = modalController.text;
+                                      final selection =
+                                          modalController.selection;
+                                      if (selection.start >= 0) {
+                                        final newText = text.replaceRange(
+                                            selection.start,
+                                            selection.end,
+                                            '\n');
+                                        modalController.value =
+                                            TextEditingValue(
+                                          text: newText,
+                                          selection: TextSelection.collapsed(
+                                              offset: selection.start + 1),
+                                        );
+                                      } else {
+                                        modalController.text = '$text\n';
+                                      }
+                                      return KeyEventResult.handled;
+                                    } else {
+                                      FocusScope.of(context).unfocus();
+                                      if (isVoiceListening) {
+                                        VoiceRecognitionService.instance
+                                            .stopListening();
+                                        setModalState(() {
+                                          isVoiceListening = false;
+                                        });
+                                      }
+                                      _handleAISubmit(modalController.text,
+                                          modalController, setModalState);
+                                      return KeyEventResult.handled;
                                     }
-                                    _handleAISubmit(
-                                        modalController.text,
-                                        modalController,
-                                        setModalState);
-                                  })),
-                        ],
-                      ),
-                    );
-                  }),
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
+                                child: TextField(
+                                  controller: modalController,
+                                  minLines: 1,
+                                  maxLines: 5,
+                                  keyboardType: TextInputType.multiline,
+                                  textInputAction: TextInputAction.newline,
+                                  decoration: InputDecoration(
+                                      hintText: isVoiceListening
+                                          ? '正在聆聽語音中，請說話...'
+                                          : '請輸入您的問題或指令...',
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          borderSide: BorderSide.none),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 20, vertical: 10)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(22),
+                                onTap: () => toggleVoice(setModalState),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isVoiceListening
+                                        ? Colors.deepOrangeAccent
+                                        : Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: isVoiceListening
+                                            ? Colors.deepOrangeAccent
+                                                .withValues(alpha: 0.5)
+                                            : Colors.black
+                                                .withValues(alpha: 0.06),
+                                        blurRadius: isVoiceListening ? 8 : 2,
+                                        spreadRadius: isVoiceListening ? 2 : 0,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    isVoiceListening
+                                        ? Icons.mic_rounded
+                                        : Icons.mic_none_rounded,
+                                    color: isVoiceListening
+                                        ? Colors.white
+                                        : Theme.of(context).primaryColor,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            CircleAvatar(
+                                backgroundColor: Theme.of(context).primaryColor,
+                                child: IconButton(
+                                    icon: const Icon(Icons.send,
+                                        color: Colors.white, size: 20),
+                                    onPressed: () {
+                                      FocusScope.of(context).unfocus();
+                                      if (isVoiceListening) {
+                                        VoiceRecognitionService.instance
+                                            .stopListening();
+                                        setModalState(() {
+                                          isVoiceListening = false;
+                                        });
+                                      }
+                                      _handleAISubmit(modalController.text,
+                                          modalController, setModalState);
+                                    })),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
             );
           });
         }).whenComplete(() {
-          if (isVoiceListening) {
-            VoiceRecognitionService.instance.stopListening();
-          }
-        });
+      if (isVoiceListening) {
+        VoiceRecognitionService.instance.stopListening();
+      }
+    });
   }
 
   /// 意圖解析函數：根據使用者輸入文字，自動關聯並執行對應的功能方法
@@ -6285,7 +6660,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       const oralCancelWords = {'算了', '不要了', '不要', '放棄', '停', '不用了', '不行了'};
       if (oralCancelWords.contains(text)) {
         setModalState(() {
-          chatLogs.add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
+          chatLogs
+              .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'none';
           chatLogs.add({
             'isAI': true,
@@ -7419,19 +7795,36 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // ── 詢問句型偵測 ──────────────────────────────────────────────────────────
     // 若使用者是在「問問題」而非「下指令」，直接讓 AI 自由回答，
     // 避免「怎麼發貼文？」誤觸發發文流程，或「給我出一道題」誤跳轉題庫頁。
-    final questionPatterns = ['怎麼', '如何', '什麼', '為什麼', '哪裡', '能嗎', '可以嗎', '有辦法', '怎樣', '哪個', '甚麼', '幹嘛'];
+    final questionPatterns = [
+      '怎麼',
+      '如何',
+      '什麼',
+      '為什麼',
+      '哪裡',
+      '能嗎',
+      '可以嗎',
+      '有辦法',
+      '怎樣',
+      '哪個',
+      '甚麼',
+      '幹嘛'
+    ];
     final isQuestion = questionPatterns.any((w) => inputLower.contains(w));
 
     // 意圖解析 (處理加行程、發貼文、改設定、跳轉頁面、幫助等)
     // 若是詢問句型，跳過意圖解析，直接交給 AI 回覆
-    if (_aiFlowState == 'none' && !isQuestion && _parseIntent(text, setModalState)) {
+    if (_aiFlowState == 'none' &&
+        !isQuestion &&
+        _parseIntent(text, setModalState)) {
       return;
     }
 
-
     // 最終後備：如果沒有匹配到內建功能意圖，則呼叫 OpenRouter 免費模型進行 APP 導覽問答
     final historyContext = chatLogs
-        .where((m) => m['widgetType'] == null && m['text'] != null && m['text'].isNotEmpty)
+        .where((m) =>
+            m['widgetType'] == null &&
+            m['text'] != null &&
+            m['text'].isNotEmpty)
         .toList();
 
     setModalState(() {
@@ -7476,16 +7869,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       setModalState(() {
         chatLogs[targetIndex] = {
           'isAI': true,
-          'text': '哎呀，我好像暫時連不上網路，沒辦法即時回覆你... 😅\n請稍等一下再試試看！如果想操作 APP 功能，也可以輸入「幫助」查看我能做什麼喔！',
+          'text':
+              '哎呀，我好像暫時連不上網路，沒辦法即時回覆你... 😅\n請稍等一下再試試看！如果想操作 APP 功能，也可以輸入「幫助」查看我能做什麼喔！',
           'isCard': false,
         };
       });
       _scrollToBottom();
     }
   }
-
-
-
 
   // ── 風格選擇按鈕 ────────────────────────────────────────────────────────
   Widget _buildStyleBtn({
@@ -7872,7 +8263,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Theme.of(context).primaryColor, width: 1.5)),
+          border:
+              Border.all(color: Theme.of(context).primaryColor, width: 1.5)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -7891,8 +8283,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               TextButton(
                   onPressed: () => setModalState(() => chatLogs
                       .add({'isAI': true, 'text': '好的，已取消。', 'isCard': false})),
-                  child: Text('取消',
-                      style: TextStyle(color: Colors.redAccent))),
+                  child: Text('取消', style: TextStyle(color: Colors.redAccent))),
               ElevatedButton(
                   style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).primaryColor,
@@ -8035,10 +8426,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   _isCalendarExpanded = true;
                                 });
                               },
-                              icon: Icon(Icons.expand_more_rounded, size: 16, color: primaryColor),
+                              icon: Icon(Icons.expand_more_rounded,
+                                  size: 16, color: primaryColor),
                               label: Text(
                                 "展開月曆",
-                                style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    color: primaryColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -8063,7 +8458,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: _calendarSubTab == 0
                       ? primaryColor.withValues(alpha: 0.15)
@@ -8089,7 +8485,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: _calendarSubTab == 1
                       ? primaryColor.withValues(alpha: 0.15)
@@ -8103,15 +8500,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: _calendarSubTab == 1 ? primaryColor : Colors.grey,
+                        color:
+                            _calendarSubTab == 1 ? primaryColor : Colors.grey,
                       ),
                     ),
                     if (allTodos.any((todo) => !todo['isDone'])) ...[
                       const SizedBox(width: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: _calendarSubTab == 1 ? primaryColor : Colors.grey.shade400,
+                          color: _calendarSubTab == 1
+                              ? primaryColor
+                              : Colors.grey.shade400,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -8137,7 +8538,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: _calendarSubTab == 2
                       ? primaryColor.withValues(alpha: 0.15)
@@ -8178,9 +8580,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   value: 0,
                   child: Row(
                     children: [
-                      Icon(Icons.event_note_rounded, color: Theme.of(context).primaryColor, size: 20),
+                      Icon(Icons.event_note_rounded,
+                          color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
-                      Text(AppLocaleService.tr('cal_add_schedule', _appLanguage)),
+                      Text(AppLocaleService.tr(
+                          'cal_add_schedule', _appLanguage)),
                     ],
                   ),
                 ),
@@ -8188,7 +8592,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   value: 1,
                   child: Row(
                     children: [
-                      Icon(Icons.check_box_outlined, color: Theme.of(context).primaryColor, size: 20),
+                      Icon(Icons.check_box_outlined,
+                          color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
                       Text(AppLocaleService.tr('cal_add_todo', _appLanguage)),
                     ],
@@ -8198,9 +8603,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   value: 2,
                   child: Row(
                     children: [
-                      Icon(Icons.book_outlined, color: Theme.of(context).primaryColor, size: 20),
+                      Icon(Icons.book_outlined,
+                          color: Theme.of(context).primaryColor, size: 20),
                       SizedBox(width: 8),
-                      Text(AppLocaleService.tr('cal_write_diary', _appLanguage)),
+                      Text(
+                          AppLocaleService.tr('cal_write_diary', _appLanguage)),
                     ],
                   ),
                 ),
@@ -8212,8 +8619,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       Expanded(
         child: NotificationListener<ScrollNotification>(
           onNotification: (ScrollNotification notification) {
-            if (notification.metrics.axis == Axis.vertical && notification is ScrollUpdateNotification) {
-              if (notification.scrollDelta != null && notification.scrollDelta! > 5) {
+            if (notification.metrics.axis == Axis.vertical &&
+                notification is ScrollUpdateNotification) {
+              if (notification.scrollDelta != null &&
+                  notification.scrollDelta! > 5) {
                 if (_isCalendarExpanded) {
                   setState(() {
                     _isCalendarExpanded = false;
@@ -8227,8 +8636,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             key: ValueKey(_calendarSubTab),
             controller: _timelinePageController,
             onPageChanged: (i) {
-              DateTime newDate =
-                  _simulatedToday.add(Duration(days: i - 1000));
+              DateTime newDate = _simulatedToday.add(Duration(days: i - 1000));
               if (newDate.year != _selectedDate.year ||
                   newDate.month != _selectedDate.month ||
                   newDate.day != _selectedDate.day) {
@@ -8236,7 +8644,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               }
             },
             itemBuilder: (ctx, i) {
-              DateTime targetDate = _simulatedToday.add(Duration(days: i - 1000));
+              DateTime targetDate =
+                  _simulatedToday.add(Duration(days: i - 1000));
               if (_calendarSubTab == 0) {
                 return _buildUnifiedDayEvents(targetDate);
               } else if (_calendarSubTab == 1) {
@@ -8258,9 +8667,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     return LayoutBuilder(builder: (context, constraints) {
       final isDark = Theme.of(context).brightness == Brightness.dark;
-      final todayBgColor = isDark ? const Color(0xFF3F2B28) : const Color(0xFFFDF0ED);
-      final todayBorderColor = isDark ? const Color(0xFFDE8275).withValues(alpha: 0.6) : const Color(0xFFECA395);
-      final todayTextColor = isDark ? const Color(0xFFF4A295) : const Color(0xFFD35E4E);
+      final todayBgColor =
+          isDark ? const Color(0xFF3F2B28) : const Color(0xFFFDF0ED);
+      final todayBorderColor = isDark
+          ? const Color(0xFFDE8275).withValues(alpha: 0.6)
+          : const Color(0xFFECA395);
+      final todayTextColor =
+          isDark ? const Color(0xFFF4A295) : const Color(0xFFD35E4E);
       double itemWidth = (constraints.maxWidth - 40 - 48) / 7;
 
       // 動態計算需要的高度比例，避免跨越 6 列的月份溢出 (例如 2026年3月)
@@ -8269,7 +8682,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       double availableHeight = constraints.maxHeight > 0
           ? (constraints.maxHeight -
               headerHeight -
-              ((rows - 1) * mainAxisSpacing) - 4.0)
+              ((rows - 1) * mainAxisSpacing) -
+              4.0)
           : rows * 50.0;
 
       double itemHeight = availableHeight / rows;
@@ -8290,474 +8704,495 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
 
         return SingleChildScrollView(
-          physics: const NeverScrollableScrollPhysics(),
-          child: Column(children: [
-          // 星期標題行
-          Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
-                  children: ['一', '二', '三', '四', '五', '六', '日']
-                      .map((d) => Expanded(
-                          child: Center(
-                              child: Text(d,
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                      fontWeight: FontWeight.bold)))))
-                      .toList())),
+            physics: const NeverScrollableScrollPhysics(),
+            child: Column(children: [
+              // 星期標題行
+              Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                      children: ['一', '二', '三', '四', '五', '六', '日']
+                          .map((d) => Expanded(
+                              child: Center(
+                                  child: Text(d,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                          fontWeight: FontWeight.bold)))))
+                          .toList())),
 
-          // 週行渲染
-          ...weeks.asMap().entries.map((entry) {
-            int idx = entry.key;
-            List<DateTime> week = entry.value;
-            bool isLast = (idx == weeks.length - 1);
-            // Find all unique events that overlap with this week
-            List<Map<String, dynamic>> weekEvents = [];
-            Set<int> seenEventIds = {};
-            for (var day in week) {
-              String key =
-                  "${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}";
-              List<Map<String, dynamic>> dayEvs = allSchedules[key] ?? [];
-              for (var ev in dayEvs) {
-                if (ev['id'] != null && !seenEventIds.contains(ev['id'])) {
-                  seenEventIds.add(ev['id']);
-                  weekEvents.add(ev);
-                }
-              }
-            }
-
-            // Sort events by start date and span length
-            weekEvents.sort((a, b) {
-              String startA = a['start_date'] ?? a['date'] ?? '';
-              String startB = b['start_date'] ?? b['date'] ?? '';
-              int comp = startA.compareTo(startB);
-              if (comp != 0) return comp;
-              return b['title']
-                  .toString()
-                  .length
-                  .compareTo(a['title'].toString().length);
-            });
-
-            // Greedy interval scheduling for vertical levels (lanes)
-            List<List<bool>> lanes = [
-              List.filled(7, false), // Lane 0
-              List.filled(7, false), // Lane 1
-            ];
-            Map<int, int> eventLanes = {};
-
-            // Reserve Lane 1 for "+N" badge if the day has > 2 events
-            for (int col = 0; col < 7; col++) {
-              DateTime cellDate = week[col];
-              String key =
-                  "${cellDate.year}-${cellDate.month.toString().padLeft(2, '0')}-${cellDate.day.toString().padLeft(2, '0')}";
-              int dayEvCount = allSchedules[key]?.length ?? 0;
-              if (dayEvCount > 2) {
-                lanes[1][col] = true;
-              }
-            }
-
-            for (var ev in weekEvents) {
-              String startStr = ev['start_date'] ?? ev['date'] ?? '';
-              String endStr = ev['end_date'] ?? ev['date'] ?? '';
-              DateTime evStart = DateTime.tryParse(startStr) ?? week.first;
-              DateTime evEnd = DateTime.tryParse(endStr) ?? week.last;
-
-              int startCol = 0;
-              if (evStart.isAfter(week.first)) {
-                startCol = week.indexWhere((d) =>
-                    d.year == evStart.year &&
-                    d.month == evStart.month &&
-                    d.day == evStart.day);
-                if (startCol == -1) startCol = 0;
-              }
-
-              int endCol = 6;
-              if (evEnd.isBefore(week.last)) {
-                endCol = week.indexWhere((d) =>
-                    d.year == evEnd.year &&
-                    d.month == evEnd.month &&
-                    d.day == evEnd.day);
-                if (endCol == -1) endCol = 6;
-              }
-
-              int assignedLane = -1;
-              for (int l = 0; l < lanes.length; l++) {
-                bool isFree = true;
-                for (int c = startCol; c <= endCol; c++) {
-                  if (lanes[l][c]) {
-                    isFree = false;
-                    break;
+              // 週行渲染
+              ...weeks.asMap().entries.map((entry) {
+                int idx = entry.key;
+                List<DateTime> week = entry.value;
+                bool isLast = (idx == weeks.length - 1);
+                // Find all unique events that overlap with this week
+                List<Map<String, dynamic>> weekEvents = [];
+                Set<int> seenEventIds = {};
+                for (var day in week) {
+                  String key =
+                      "${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}";
+                  List<Map<String, dynamic>> dayEvs = allSchedules[key] ?? [];
+                  for (var ev in dayEvs) {
+                    if (ev['id'] != null && !seenEventIds.contains(ev['id'])) {
+                      seenEventIds.add(ev['id']);
+                      weekEvents.add(ev);
+                    }
                   }
                 }
-                if (isFree) {
-                  assignedLane = l;
-                  break;
+
+                // Sort events by start date and span length
+                weekEvents.sort((a, b) {
+                  String startA = a['start_date'] ?? a['date'] ?? '';
+                  String startB = b['start_date'] ?? b['date'] ?? '';
+                  int comp = startA.compareTo(startB);
+                  if (comp != 0) return comp;
+                  return b['title']
+                      .toString()
+                      .length
+                      .compareTo(a['title'].toString().length);
+                });
+
+                // Greedy interval scheduling for vertical levels (lanes)
+                List<List<bool>> lanes = [
+                  List.filled(7, false), // Lane 0
+                  List.filled(7, false), // Lane 1
+                ];
+                Map<int, int> eventLanes = {};
+
+                // Reserve Lane 1 for "+N" badge if the day has > 2 events
+                for (int col = 0; col < 7; col++) {
+                  DateTime cellDate = week[col];
+                  String key =
+                      "${cellDate.year}-${cellDate.month.toString().padLeft(2, '0')}-${cellDate.day.toString().padLeft(2, '0')}";
+                  int dayEvCount = allSchedules[key]?.length ?? 0;
+                  if (dayEvCount > 2) {
+                    lanes[1][col] = true;
+                  }
                 }
-              }
 
-              if (assignedLane == -1) {
-                lanes.add(List.filled(7, false));
-                assignedLane = lanes.length - 1;
-              }
+                for (var ev in weekEvents) {
+                  String startStr = ev['start_date'] ?? ev['date'] ?? '';
+                  String endStr = ev['end_date'] ?? ev['date'] ?? '';
+                  DateTime evStart = DateTime.tryParse(startStr) ?? week.first;
+                  DateTime evEnd = DateTime.tryParse(endStr) ?? week.last;
 
-              for (int c = startCol; c <= endCol; c++) {
-                lanes[assignedLane][c] = true;
-              }
-              eventLanes[ev['id']] = assignedLane;
-            }
+                  int startCol = 0;
+                  if (evStart.isAfter(week.first)) {
+                    startCol = week.indexWhere((d) =>
+                        d.year == evStart.year &&
+                        d.month == evStart.month &&
+                        d.day == evStart.day);
+                    if (startCol == -1) startCol = 0;
+                  }
 
-            // Draw stack of backgrounds and positioned bars
-            return Container(
-              height: itemHeight,
-              margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
-              child: Stack(
-                children: [
-                  // 1. Background layer: Day grid numbers
-                  Row(
-                    children: week.map((cellDate) {
-                      bool isCurrentMonth = cellDate.month == date.month;
-                      if (!isCurrentMonth) {
-                        return const Expanded(child: SizedBox());
+                  int endCol = 6;
+                  if (evEnd.isBefore(week.last)) {
+                    endCol = week.indexWhere((d) =>
+                        d.year == evEnd.year &&
+                        d.month == evEnd.month &&
+                        d.day == evEnd.day);
+                    if (endCol == -1) endCol = 6;
+                  }
+
+                  int assignedLane = -1;
+                  for (int l = 0; l < lanes.length; l++) {
+                    bool isFree = true;
+                    for (int c = startCol; c <= endCol; c++) {
+                      if (lanes[l][c]) {
+                        isFree = false;
+                        break;
                       }
+                    }
+                    if (isFree) {
+                      assignedLane = l;
+                      break;
+                    }
+                  }
 
-                      int d = cellDate.day;
-                      bool isSel = _selectedDate.day == d &&
-                          _selectedDate.month == cellDate.month &&
-                          _selectedDate.year == cellDate.year;
-                      bool isToday = _simulatedToday.day == d &&
-                          _simulatedToday.month == cellDate.month &&
-                          _simulatedToday.year == cellDate.year;
+                  if (assignedLane == -1) {
+                    lanes.add(List.filled(7, false));
+                    assignedLane = lanes.length - 1;
+                  }
 
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () => _syncDate(cellDate, fromCalendar: true),
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: Container(
-                              margin: EdgeInsets.only(
-                                  top: 2), // Small offset from top
-                              width: 20, // Reduced from 24
-                              height: 20, // Reduced from 24
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isSel
-                                    ? Theme.of(context).primaryColor
-                                    : (isToday
-                                        ? todayBgColor
-                                        : Colors.transparent),
-                                border: Border.all(
-                                  color: isSel
-                                      ? Theme.of(context).primaryColor
-                                      : (isToday
-                                          ? todayBorderColor
-                                          : Colors.transparent),
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '$d',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: isSel || isToday
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
+                  for (int c = startCol; c <= endCol; c++) {
+                    lanes[assignedLane][c] = true;
+                  }
+                  eventLanes[ev['id']] = assignedLane;
+                }
+
+                // Draw stack of backgrounds and positioned bars
+                return Container(
+                  height: itemHeight,
+                  margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                  child: Stack(
+                    children: [
+                      // 1. Background layer: Day grid numbers
+                      Row(
+                        children: week.map((cellDate) {
+                          bool isCurrentMonth = cellDate.month == date.month;
+                          if (!isCurrentMonth) {
+                            return const Expanded(child: SizedBox());
+                          }
+
+                          int d = cellDate.day;
+                          bool isSel = _selectedDate.day == d &&
+                              _selectedDate.month == cellDate.month &&
+                              _selectedDate.year == cellDate.year;
+                          bool isToday = _simulatedToday.day == d &&
+                              _simulatedToday.month == cellDate.month &&
+                              _simulatedToday.year == cellDate.year;
+
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () =>
+                                  _syncDate(cellDate, fromCalendar: true),
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: Container(
+                                  margin: EdgeInsets.only(
+                                      top: 2), // Small offset from top
+                                  width: 20, // Reduced from 24
+                                  height: 20, // Reduced from 24
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
                                     color: isSel
-                                        ? Colors.white
+                                        ? Theme.of(context).primaryColor
                                         : (isToday
-                                            ? todayTextColor
-                                            : (Theme.of(context).brightness ==
-                                                    Brightness.dark
-                                                ? Colors.white70
-                                                : Colors.black87)),
+                                            ? todayBgColor
+                                            : Colors.transparent),
+                                    border: Border.all(
+                                      color: isSel
+                                          ? Theme.of(context).primaryColor
+                                          : (isToday
+                                              ? todayBorderColor
+                                              : Colors.transparent),
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '$d',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: isSel || isToday
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSel
+                                            ? Colors.white
+                                            : (isToday
+                                                ? todayTextColor
+                                                : (Theme.of(context)
+                                                            .brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.white70
+                                                    : Colors.black87)),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
-                  // 2. Foreground layer: Positioned event bars
-                  ...weekEvents.map((ev) {
-                    String startStr = ev['start_date'] ?? ev['date'] ?? '';
-                    String endStr = ev['end_date'] ?? ev['date'] ?? '';
-                    DateTime evStart =
-                        DateTime.tryParse(startStr) ?? week.first;
-                    DateTime evEnd = DateTime.tryParse(endStr) ?? week.last;
-
-                    int startCol = 0;
-                    bool isStartOfWeek = true;
-                    if (evStart.isAfter(week.first)) {
-                      startCol = week.indexWhere((d) =>
-                          d.year == evStart.year &&
-                          d.month == evStart.month &&
-                          d.day == evStart.day);
-                      if (startCol == -1) startCol = 0;
-                    } else {
-                      isStartOfWeek = false; // Event started in previous week
-                    }
-
-                    int endCol = 6;
-                    bool isEndOfWeek = true;
-                    if (evEnd.isBefore(week.last)) {
-                      endCol = week.indexWhere((d) =>
-                          d.year == evEnd.year &&
-                          d.month == evEnd.month &&
-                          d.day == evEnd.day);
-                      if (endCol == -1) endCol = 6;
-                    } else {
-                      isEndOfWeek = false; // Event ends in subsequent week
-                    }
-
-                    int lane = eventLanes[ev['id']] ?? 0;
-
-                    // We only render up to 2 lanes to prevent vertical overflow of the row height
-                    if (lane >= 2) return const SizedBox();
-
-                    // Increased top offset to avoid being too close to dates
-                    double topOffset = 30.0 + lane * 13.0;
-
-                    // Prevent rendering if the bar overflows the height of the row
-                    if (topOffset + 10.0 > itemHeight) return const SizedBox();
-
-                    bool isSingleDay = startCol == endCol &&
-                        isStartOfWeek &&
-                        isEndOfWeek &&
-                        (evStart.year == evEnd.year &&
-                            evStart.month == evEnd.month &&
-                            evStart.day == evEnd.day);
-
-                    // Calculate positioning using parent constraints
-                    double availableWidth = constraints.maxWidth - 40;
-                    double colWidth = (availableWidth - (6 * 8)) / 7;
-                    double left = 20 + startCol * (colWidth + 8);
-                    double width = (endCol - startCol + 1) * colWidth +
-                        (endCol - startCol) * 8;
-
-                    if (isSingleDay) {
-                      left += 3;
-                      width -= 6;
-                    }
-
-                    return Positioned(
-                      left: left,
-                      width: width,
-                      top: topOffset,
-                      height:
-                          14, // Adjusted height to fit text without clipping
-                      child: GestureDetector(
-                        onTap: () => _showEditScheduleDialog(ev),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Color(ev['color']),
-                            borderRadius: BorderRadius.only(
-                              topLeft: isStartOfWeek || isSingleDay
-                                  ? const Radius.circular(4)
-                                  : Radius.zero,
-                              bottomLeft: isStartOfWeek || isSingleDay
-                                  ? const Radius.circular(4)
-                                  : Radius.zero,
-                              topRight: isEndOfWeek || isSingleDay
-                                  ? const Radius.circular(4)
-                                  : Radius.zero,
-                              bottomRight: isEndOfWeek || isSingleDay
-                                  ? const Radius.circular(4)
-                                  : Radius.zero,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 2,
-                                offset: const Offset(0, 1),
-                              )
-                            ],
-                          ),
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            ev['title'],
-                            style: const TextStyle(
-                              fontSize: 8.5, // Slightly larger font size
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                              height:
-                                  1.1, // Adjust line height to prevent clipping
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
+                          );
+                        }).toList(),
                       ),
-                    );
-                  }),
 
-                  // 3. Foreground layer: Positioned "+N" badges
-                  ...List.generate(7, (col) {
-                    DateTime cellDate = week[col];
-                    bool isCurrentMonth = cellDate.month == date.month;
-                    if (!isCurrentMonth) return const SizedBox();
+                      // 2. Foreground layer: Positioned event bars
+                      ...weekEvents.map((ev) {
+                        String startStr = ev['start_date'] ?? ev['date'] ?? '';
+                        String endStr = ev['end_date'] ?? ev['date'] ?? '';
+                        DateTime evStart =
+                            DateTime.tryParse(startStr) ?? week.first;
+                        DateTime evEnd = DateTime.tryParse(endStr) ?? week.last;
 
-                    String key =
-                        "${cellDate.year}-${cellDate.month.toString().padLeft(2, '0')}-${cellDate.day.toString().padLeft(2, '0')}";
-                    int dayEvCount = allSchedules[key]?.length ?? 0;
-                    if (dayEvCount > 2) {
-                      double availableWidth = constraints.maxWidth - 40;
-                      double colWidth = (availableWidth - (6 * 8)) / 7;
-                      double left = 20 + col * (colWidth + 8);
+                        int startCol = 0;
+                        bool isStartOfWeek = true;
+                        if (evStart.isAfter(week.first)) {
+                          startCol = week.indexWhere((d) =>
+                              d.year == evStart.year &&
+                              d.month == evStart.month &&
+                              d.day == evStart.day);
+                          if (startCol == -1) startCol = 0;
+                        } else {
+                          isStartOfWeek =
+                              false; // Event started in previous week
+                        }
 
-                      return Positioned(
-                        left: left,
-                        width: colWidth,
-                        top:
-                            55.0, // Placed below the second lane (30 + 13 + 8 + small gap)
-                        height: 10,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: _isDarkMode
-                                ? Colors.white12
-                                : Theme.of(context).primaryColor
-                                    .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '+${dayEvCount - 1}',
-                            style: TextStyle(
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
-                              color: _isDarkMode
-                                  ? Colors.white70
-                                  : Theme.of(context).primaryColor,
+                        int endCol = 6;
+                        bool isEndOfWeek = true;
+                        if (evEnd.isBefore(week.last)) {
+                          endCol = week.indexWhere((d) =>
+                              d.year == evEnd.year &&
+                              d.month == evEnd.month &&
+                              d.day == evEnd.day);
+                          if (endCol == -1) endCol = 6;
+                        } else {
+                          isEndOfWeek = false; // Event ends in subsequent week
+                        }
+
+                        int lane = eventLanes[ev['id']] ?? 0;
+
+                        // We only render up to 2 lanes to prevent vertical overflow of the row height
+                        if (lane >= 2) return const SizedBox();
+
+                        // Increased top offset to avoid being too close to dates
+                        double topOffset = 30.0 + lane * 13.0;
+
+                        // Prevent rendering if the bar overflows the height of the row
+                        if (topOffset + 10.0 > itemHeight) {
+                          return const SizedBox();
+                        }
+
+                        bool isSingleDay = startCol == endCol &&
+                            isStartOfWeek &&
+                            isEndOfWeek &&
+                            (evStart.year == evEnd.year &&
+                                evStart.month == evEnd.month &&
+                                evStart.day == evEnd.day);
+
+                        // Calculate positioning using parent constraints
+                        double availableWidth = constraints.maxWidth - 40;
+                        double colWidth = (availableWidth - (6 * 8)) / 7;
+                        double left = 20 + startCol * (colWidth + 8);
+                        double width = (endCol - startCol + 1) * colWidth +
+                            (endCol - startCol) * 8;
+
+                        if (isSingleDay) {
+                          left += 3;
+                          width -= 6;
+                        }
+
+                        return Positioned(
+                          left: left,
+                          width: width,
+                          top: topOffset,
+                          height:
+                              14, // Adjusted height to fit text without clipping
+                          child: GestureDetector(
+                            onTap: () => _showEditScheduleDialog(ev),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Color(ev['color']),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: isStartOfWeek || isSingleDay
+                                      ? const Radius.circular(4)
+                                      : Radius.zero,
+                                  bottomLeft: isStartOfWeek || isSingleDay
+                                      ? const Radius.circular(4)
+                                      : Radius.zero,
+                                  topRight: isEndOfWeek || isSingleDay
+                                      ? const Radius.circular(4)
+                                      : Radius.zero,
+                                  bottomRight: isEndOfWeek || isSingleDay
+                                      ? const Radius.circular(4)
+                                      : Radius.zero,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 2,
+                                    offset: const Offset(0, 1),
+                                  )
+                                ],
+                              ),
+                              alignment: Alignment.centerLeft,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                ev['title'],
+                                style: const TextStyle(
+                                  fontSize: 8.5, // Slightly larger font size
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                  height:
+                                      1.1, // Adjust line height to prevent clipping
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }
-                    return const SizedBox();
-                  }),
-                ],
-              ),
-            );
-          }),
-        ]));
+                        );
+                      }),
+
+                      // 3. Foreground layer: Positioned "+N" badges
+                      ...List.generate(7, (col) {
+                        DateTime cellDate = week[col];
+                        bool isCurrentMonth = cellDate.month == date.month;
+                        if (!isCurrentMonth) return const SizedBox();
+
+                        String key =
+                            "${cellDate.year}-${cellDate.month.toString().padLeft(2, '0')}-${cellDate.day.toString().padLeft(2, '0')}";
+                        int dayEvCount = allSchedules[key]?.length ?? 0;
+                        if (dayEvCount > 2) {
+                          double availableWidth = constraints.maxWidth - 40;
+                          double colWidth = (availableWidth - (6 * 8)) / 7;
+                          double left = 20 + col * (colWidth + 8);
+
+                          return Positioned(
+                            left: left,
+                            width: colWidth,
+                            top:
+                                55.0, // Placed below the second lane (30 + 13 + 8 + small gap)
+                            height: 10,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _isDarkMode
+                                    ? Colors.white12
+                                    : Theme.of(context)
+                                        .primaryColor
+                                        .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '+${dayEvCount - 1}',
+                                style: TextStyle(
+                                  fontSize: 7,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isDarkMode
+                                      ? Colors.white70
+                                      : Theme.of(context).primaryColor,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox();
+                      }),
+                    ],
+                  ),
+                );
+              }),
+            ]));
       }
 
       // Default classic dot mode (the original implementation)
       return SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
-        child: Column(children: [
-        Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-                children: ['一', '二', '三', '四', '五', '六', '日']
-                    .map((d) => Expanded(
-                        child: Center(
-                            child: Text(d,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.bold)))))
-                    .toList())),
-        GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: childAspectRatio),
-            itemCount: empty + days,
-            itemBuilder: (ctx, i) {
-              if (i < empty) return const SizedBox();
-              int d = i - empty + 1;
-              DateTime cellDate = DateTime(date.year, date.month, d);
-              String key = cellDate.toString().split(' ')[0];
-              bool isSel = _selectedDate.day == d &&
-                  _selectedDate.month == date.month &&
-                  _selectedDate.year == date.year;
-              bool isToday = _simulatedToday.day == d &&
-                  _simulatedToday.month == date.month &&
-                  _simulatedToday.year == date.year;
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(children: [
+            Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                    children: ['一', '二', '三', '四', '五', '六', '日']
+                        .map((d) => Expanded(
+                            child: Center(
+                                child: Text(d,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                        fontWeight: FontWeight.bold)))))
+                        .toList())),
+            GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: childAspectRatio),
+                itemCount: empty + days,
+                itemBuilder: (ctx, i) {
+                  if (i < empty) return const SizedBox();
+                  int d = i - empty + 1;
+                  DateTime cellDate = DateTime(date.year, date.month, d);
+                  String key = cellDate.toString().split(' ')[0];
+                  bool isSel = _selectedDate.day == d &&
+                      _selectedDate.month == date.month &&
+                      _selectedDate.year == date.year;
+                  bool isToday = _simulatedToday.day == d &&
+                      _simulatedToday.month == date.month &&
+                      _simulatedToday.year == date.year;
 
-              // 檢查該日期是否有行程
-              List<Map<String, dynamic>> dayEvents = allSchedules[key] ?? [];
+                  // 檢查該日期是否有行程
+                  List<Map<String, dynamic>> dayEvents =
+                      allSchedules[key] ?? [];
 
-              return GestureDetector(
-                  onTap: () => _syncDate(cellDate, fromCalendar: true),
-                  child: ClipRect(
-                    child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 4),
-                      Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isSel
-                                  ? Theme.of(context).primaryColor
-                                  : (isToday
-                                      ? todayBgColor
-                                      : Colors.transparent),
-                              border: Border.all(
+                  return GestureDetector(
+                      onTap: () => _syncDate(cellDate, fromCalendar: true),
+                      child: ClipRect(
+                          child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 4),
+                          Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
                                   color: isSel
                                       ? Theme.of(context).primaryColor
                                       : (isToday
-                                          ? todayBorderColor
-                                          : Colors.transparent))), // 去除無行程非今日日期的白色圓邊框，美化日曆
-                          child: Center(
-                              child: Text('$d',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: isSel || isToday
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
+                                          ? todayBgColor
+                                          : Colors.transparent),
+                                  border: Border.all(
                                       color: isSel
-                                          ? Colors.white
+                                          ? Theme.of(context).primaryColor
                                           : (isToday
-                                              ? todayTextColor
-                                              : (Theme.of(context).brightness ==
-                                                      Brightness.dark
-                                                  ? Colors.white70
-                                                  : Colors.black87)))))),
-                      // 行程標記：Pills 或 點點點(Row)
-                      if (dayEvents.isNotEmpty)
-                        Padding(
-                          padding:
-                              const EdgeInsets.only(top: 3, left: 2, right: 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: dayEvents.length > 2
-                                ? List.generate(3, (idx) {
-                                    final e = dayEvents[idx < 2 ? idx : 2];
-                                    return Container(
-                                      margin: const EdgeInsets.symmetric(horizontal: 1),
-                                      width: 4,
-                                      height: 4,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Color(e['color'] as int? ?? 0xFF8D6E63),
-                                      ),
-                                    );
-                                  })
-                                : dayEvents.map((e) => Container(
-                                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                                      width: 8,
-                                      height: 4,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(2),
-                                        color: Color(e['color'] as int? ?? 0xFF8D6E63),
-                                      ),
-                                    )).toList(),
-                          ),
-                        ),
-                    ],
-                  )));
-            })
-      ]));
+                                              ? todayBorderColor
+                                              : Colors
+                                                  .transparent))), // 去除無行程非今日日期的白色圓邊框，美化日曆
+                              child: Center(
+                                  child: Text('$d',
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: isSel || isToday
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: isSel
+                                              ? Colors.white
+                                              : (isToday
+                                                  ? todayTextColor
+                                                  : (Theme.of(context)
+                                                              .brightness ==
+                                                          Brightness.dark
+                                                      ? Colors.white70
+                                                      : Colors.black87)))))),
+                          // 行程標記：Pills 或 點點點(Row)
+                          if (dayEvents.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                  top: 3, left: 2, right: 2),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: dayEvents.length > 2
+                                    ? List.generate(3, (idx) {
+                                        final e = dayEvents[idx < 2 ? idx : 2];
+                                        return Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              horizontal: 1),
+                                          width: 4,
+                                          height: 4,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Color(e['color'] as int? ??
+                                                0xFF8D6E63),
+                                          ),
+                                        );
+                                      })
+                                    : dayEvents
+                                        .map((e) => Container(
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 1.5),
+                                              width: 8,
+                                              height: 4,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
+                                                color: Color(
+                                                    e['color'] as int? ??
+                                                        0xFF8D6E63),
+                                              ),
+                                            ))
+                                        .toList(),
+                              ),
+                            ),
+                        ],
+                      )));
+                })
+          ]));
     });
   }
 
@@ -8800,7 +9235,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         if (startMin > currentMin) {
           items.add({
             'isFree': true,
-            'time': "${formatMinutesToTime(currentMin)}~${formatMinutesToTime(startMin)}",
+            'time':
+                "${formatMinutesToTime(currentMin)}~${formatMinutesToTime(startMin)}",
             'duration': startMin - currentMin,
           });
         }
@@ -8840,7 +9276,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
         children: items.map((item) {
           if (item['isFree'] == true) {
-            return staggered(_buildFreeTimeItem(item['time'], item['duration']));
+            return staggered(
+                _buildFreeTimeItem(item['time'], item['duration']));
           } else {
             return staggered(_buildScheduleItem(item['event']));
           }
@@ -8856,15 +9293,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
-      onLongPress: () => _showConvertFreeTimeToScheduleDialog(timeRange, minutes),
+      onLongPress: () =>
+          _showConvertFreeTimeToScheduleDialog(timeRange, minutes),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.grey.shade200,
             width: 1.5,
           ),
         ),
@@ -8949,7 +9391,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 duration: const Duration(milliseconds: 400),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isDark ? Colors.white10 : Colors.grey.shade200,
@@ -8969,7 +9413,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.edit_note_rounded, color: primaryColor, size: 22),
+                          Icon(Icons.edit_note_rounded,
+                              color: primaryColor, size: 22),
                           const SizedBox(width: 8),
                           Text(
                             '今日日記',
@@ -8982,7 +9427,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           const Spacer(),
                           if (hasDiary)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: primaryColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
@@ -9009,16 +9455,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 style: TextStyle(
                                   fontSize: 15,
                                   height: 1.6,
-                                  color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.9)
+                                      : Colors.black87,
                                 ),
                                 decoration: InputDecoration(
                                   hintText: '今天過得怎麼樣？記錄下你的心情、學習心得或生活點滴吧...',
                                   hintStyle: TextStyle(
                                     fontSize: 14,
-                                    color: isDark ? Colors.white30 : Colors.grey.shade400,
+                                    color: isDark
+                                        ? Colors.white30
+                                        : Colors.grey.shade400,
                                   ),
                                   filled: true,
-                                  fillColor: isDark ? Colors.black12 : Colors.grey.shade50,
+                                  fillColor: isDark
+                                      ? Colors.black12
+                                      : Colors.grey.shade50,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(16),
                                     borderSide: BorderSide.none,
@@ -9027,23 +9479,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 ),
                               )
                             : TextField(
-                                controller: TextEditingController(text: content),
+                                controller:
+                                    TextEditingController(text: content),
                                 readOnly: true,
                                 maxLines: null,
                                 keyboardType: TextInputType.multiline,
                                 style: TextStyle(
                                   fontSize: 15,
                                   height: 1.6,
-                                  color: isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black54,
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.6)
+                                      : Colors.black54,
                                 ),
                                 decoration: InputDecoration(
                                   hintText: '今天尚未寫日記...',
                                   hintStyle: TextStyle(
                                     fontSize: 14,
-                                    color: isDark ? Colors.white30 : Colors.grey.shade400,
+                                    color: isDark
+                                        ? Colors.white30
+                                        : Colors.grey.shade400,
                                   ),
                                   filled: true,
-                                  fillColor: isDark ? Colors.black12 : Colors.grey.shade50,
+                                  fillColor: isDark
+                                      ? Colors.black12
+                                      : Colors.grey.shade50,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(16),
                                     borderSide: BorderSide.none,
@@ -9058,15 +9517,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         children: [
                           if (hasDiary) ...[
                             OutlinedButton.icon(
-                              icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                              icon: const Icon(Icons.delete_outline_rounded,
+                                  size: 16),
                               label: const Text('刪除日記'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.redAccent,
-                                side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
+                                side: BorderSide(
+                                    color: Colors.redAccent
+                                        .withValues(alpha: 0.5)),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
                               ),
                               onPressed: () {
                                 showDialog(
@@ -9076,7 +9539,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     content: const Text('確定要刪除今天的日記紀錄嗎？'),
                                     actions: [
                                       TextButton(
-                                        onPressed: () => Navigator.pop(confirmCtx),
+                                        onPressed: () =>
+                                            Navigator.pop(confirmCtx),
                                         child: const Text('取消'),
                                       ),
                                       ElevatedButton(
@@ -9107,9 +9571,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 10),
                             ),
-                            onPressed: _diaryInputController.text.trim().isNotEmpty
+                            onPressed: _diaryInputController.text
+                                    .trim()
+                                    .isNotEmpty
                                 ? () => _saveDiary(_diaryInputController.text)
                                 : null,
                           ),
@@ -9154,7 +9621,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (todo['isDone']) {
         final String? dDate = todo['doneDate'];
         if (dDate == null) {
-          String createdDateStr = (todo['created_at']?.toString() ?? dateKey).split(' ')[0];
+          String createdDateStr =
+              (todo['created_at']?.toString() ?? dateKey).split(' ')[0];
           return dateKey == createdDateStr;
         }
         if (dDate == dateKey) {
@@ -9192,14 +9660,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         if (uncompleted.isNotEmpty) ...[
           Padding(
             padding: EdgeInsets.only(top: 8, bottom: 8),
-            child: Text('待辦中', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Theme.of(context).primaryColor)),
+            child: Text('待辦中',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Theme.of(context).primaryColor)),
           ),
           ...uncompleted.map((item) => _buildTodoListItem(item, targetDate)),
         ],
         if (completed.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text('${targetDate.month}/${targetDate.day} 已完成', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey)),
+            child: Text('${targetDate.month}/${targetDate.day} 已完成',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.grey)),
           ),
           ...completed.map((item) => _buildTodoListItem(item, targetDate)),
         ],
@@ -9218,11 +9694,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           final db = await DatabaseHelper.instance.database;
           bool newDone = !done;
           DateTime doneDateTime = DateTime.now();
-          if (targetDate.isBefore(DateTime(doneDateTime.year, doneDateTime.month, doneDateTime.day))) {
-            doneDateTime = DateTime(targetDate.year, targetDate.month, targetDate.day, doneDateTime.hour, doneDateTime.minute, doneDateTime.second);
+          if (targetDate.isBefore(DateTime(
+              doneDateTime.year, doneDateTime.month, doneDateTime.day))) {
+            doneDateTime = DateTime(
+                targetDate.year,
+                targetDate.month,
+                targetDate.day,
+                doneDateTime.hour,
+                doneDateTime.minute,
+                doneDateTime.second);
           }
           String? doneAt = newDone ? doneDateTime.toIso8601String() : null;
-          await db.update('todos', <String, Object?>{'done': newDone ? 1 : 0, 'done_at': doneAt},
+          await db.update(
+            'todos',
+            <String, Object?>{'done': newDone ? 1 : 0, 'done_at': doneAt},
             where: 'id = ?',
             whereArgs: [int.parse(item['id'])],
           );
@@ -9243,7 +9728,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               : Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: done ? Colors.transparent : Colors.white.withValues(alpha: 0.8),
+            color:
+                done ? Colors.transparent : Colors.white.withValues(alpha: 0.8),
             width: 1.5,
           ),
           boxShadow: [
@@ -9288,7 +9774,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               onTap: () => _showEditDeleteTodoDialog(item),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade500),
+                child: Icon(Icons.edit_outlined,
+                    size: 18, color: Colors.grey.shade500),
               ),
             ),
           ],
@@ -9322,9 +9809,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   title: const Text('刪除待辦事項'),
                   content: Text('確定要刪除「${item['title']}」嗎？'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(confirmCtx), child: const Text('取消')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(confirmCtx),
+                        child: const Text('取消')),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white),
                       onPressed: () {
                         Navigator.pop(confirmCtx);
                         _deleteTodo(item['id']);
@@ -9365,13 +9856,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final Color c = Color(rawColorVal);
     final hsl = HSLColor.fromColor(c);
     if (hsl.saturation > 0.45) {
-      return hsl.withSaturation(0.32).withLightness(_isDarkMode ? 0.38 : 0.68).toColor();
+      return hsl
+          .withSaturation(0.32)
+          .withLightness(_isDarkMode ? 0.38 : 0.68)
+          .toColor();
     }
     return c;
   }
 
   Widget _buildScheduleItem(Map<String, dynamic> event) {
-    final Color baseColor = _getMorandiScheduleColor(event['color'] as int? ?? 0xFFD87A7A);
+    final Color baseColor =
+        _getMorandiScheduleColor(event['color'] as int? ?? 0xFFD87A7A);
 
     return GestureDetector(
         onTap: () => _showEditScheduleDialog(event),
@@ -9452,8 +9947,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             )));
   }
 
-
-
   // 新增：編輯行程對話框 (修改自 _showManualAddDialog)
   void _showEditScheduleDialog(Map<String, dynamic> event) {
     TextEditingController titleController =
@@ -9497,11 +9990,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         pickedStartDate.month != pickedEndDate.month ||
         pickedStartDate.day != pickedEndDate.day);
 
-    String selectedRecurrenceType = event['recurrence_type'] as String? ?? 'none';
+    String selectedRecurrenceType =
+        event['recurrence_type'] as String? ?? 'none';
     Set<int> selectedWeekdays = {};
     String rDays = event['recurrence_days'] as String? ?? '';
     if (rDays.isNotEmpty) {
-      selectedWeekdays = rDays.split(',').map((e) => int.tryParse(e) ?? 0).where((e) => e >= 1 && e <= 7).toSet();
+      selectedWeekdays = rDays
+          .split(',')
+          .map((e) => int.tryParse(e) ?? 0)
+          .where((e) => e >= 1 && e <= 7)
+          .toSet();
     }
     DateTime? pickedRecurrenceEnd;
     String endType = 'never';
@@ -9597,7 +10095,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             ),
                             child: Row(children: [
                               Icon(Icons.calendar_today,
-                                  size: 16, color: Theme.of(context).primaryColor),
+                                  size: 16,
+                                  color: Theme.of(context).primaryColor),
                               const SizedBox(width: 8),
                               Text(
                                 '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
@@ -9648,7 +10147,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     fit: BoxFit.scaleDown,
                                     child: Row(children: [
                                       Icon(Icons.calendar_today,
-                                          size: 16, color: Theme.of(context).primaryColor),
+                                          size: 16,
+                                          color:
+                                              Theme.of(context).primaryColor),
                                       const SizedBox(width: 4),
                                       Text(
                                         '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
@@ -9691,7 +10192,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     fit: BoxFit.scaleDown,
                                     child: Row(children: [
                                       Icon(Icons.calendar_today,
-                                          size: 16, color: Theme.of(context).primaryColor),
+                                          size: 16,
+                                          color:
+                                              Theme.of(context).primaryColor),
                                       const SizedBox(width: 4),
                                       Text(
                                         '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
@@ -9709,8 +10212,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       const Align(
                           alignment: Alignment.centerLeft,
                           child: Text('重複設定',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.grey))),
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey))),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         initialValue: selectedRecurrenceType,
@@ -9727,17 +10230,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           ),
                         ),
                         items: const [
-                          DropdownMenuItem(value: 'none', child: Text('不重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(value: 'daily', child: Text('每天重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(value: 'weekly', child: Text('每週重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(value: 'yearly', child: Text('每年重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(
+                              value: 'none',
+                              child:
+                                  Text('不重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(
+                              value: 'daily',
+                              child:
+                                  Text('每天重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(
+                              value: 'weekly',
+                              child:
+                                  Text('每週重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(
+                              value: 'yearly',
+                              child:
+                                  Text('每年重複', style: TextStyle(fontSize: 13))),
                         ],
                         onChanged: (val) {
                           if (val != null) {
                             setDialogState(() {
                               selectedRecurrenceType = val;
-                              if (selectedRecurrenceType != 'none' && pickedRecurrenceEnd == null) {
-                                pickedRecurrenceEnd = pickedStartDate.add(const Duration(days: 30));
+                              if (selectedRecurrenceType != 'none' &&
+                                  pickedRecurrenceEnd == null) {
+                                pickedRecurrenceEnd = pickedStartDate
+                                    .add(const Duration(days: 30));
                               }
                             });
                           }
@@ -9755,8 +10272,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: List.generate(7, (index) {
                             int weekday = index + 1; // 1 = Mon, 7 = Sun
-                            String weekdayLabel = ['一', '二', '三', '四', '五', '六', '日'][index];
-                            bool isSelected = selectedWeekdays.contains(weekday);
+                            String weekdayLabel =
+                                ['一', '二', '三', '四', '五', '六', '日'][index];
+                            bool isSelected =
+                                selectedWeekdays.contains(weekday);
                             return GestureDetector(
                               onTap: () {
                                 setDialogState(() {
@@ -9772,15 +10291,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 height: 32,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200,
+                                  color: isSelected
+                                      ? Theme.of(context).primaryColor
+                                      : Colors.grey.shade200,
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
                                   weekdayLabel,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isSelected ? Colors.white : Colors.black87,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black87,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ),
@@ -9803,16 +10328,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 horizontal: 12, vertical: 10),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'never', child: Text('一直重複下去', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'date', child: Text('重複到指定日期', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(
+                                value: 'never',
+                                child: Text('一直重複下去',
+                                    style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(
+                                value: 'date',
+                                child: Text('重複到指定日期',
+                                    style: TextStyle(fontSize: 13))),
                           ],
                           onChanged: (val) {
                             if (val != null) {
@@ -9821,13 +10354,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 if (endType == 'never') {
                                   pickedRecurrenceEnd = null;
                                 } else {
-                                  pickedRecurrenceEnd ??= pickedStartDate.add(const Duration(days: 30));
+                                  pickedRecurrenceEnd ??= pickedStartDate
+                                      .add(const Duration(days: 30));
                                 }
                               });
                             }
                           },
                         ),
-                        if (endType == 'date' && pickedRecurrenceEnd != null) ...[
+                        if (endType == 'date' &&
+                            pickedRecurrenceEnd != null) ...[
                           const SizedBox(height: 10),
                           InkWell(
                             onTap: () async {
@@ -9853,7 +10388,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               ),
                               child: Row(children: [
                                 Icon(Icons.calendar_today,
-                                    size: 16, color: Theme.of(context).primaryColor),
+                                    size: 16,
+                                    color: Theme.of(context).primaryColor),
                                 const SizedBox(width: 8),
                                 Text(
                                   '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
@@ -9916,9 +10452,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             title: const Text('刪除行程'),
                             content: Text('確定要刪除「${event['title']}」嗎？'),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(confirmCtx), child: const Text('取消')),
+                              TextButton(
+                                  onPressed: () => Navigator.pop(confirmCtx),
+                                  child: const Text('取消')),
                               ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                    foregroundColor: Colors.white),
                                 onPressed: () {
                                   Navigator.pop(confirmCtx);
                                   _deleteSchedule(event['id']);
@@ -9929,10 +10469,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           ),
                         );
                       },
-                      child: Text('刪除', style: TextStyle(color: Colors.redAccent))),
+                      child: Text('刪除',
+                          style: TextStyle(color: Colors.redAccent))),
                   TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text('取消')),
+                      onPressed: () => Navigator.pop(ctx), child: Text('取消')),
                   ElevatedButton(
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).primaryColor,
@@ -9942,13 +10482,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         String range =
                             "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
                         String recurrenceDays = '';
-                        if (selectedRecurrenceType == 'weekly' && selectedWeekdays.isNotEmpty) {
-                          List<int> sortedDays = selectedWeekdays.toList()..sort();
+                        if (selectedRecurrenceType == 'weekly' &&
+                            selectedWeekdays.isNotEmpty) {
+                          List<int> sortedDays = selectedWeekdays.toList()
+                            ..sort();
                           recurrenceDays = sortedDays.join(',');
                         }
                         String recurrenceEndStr = '';
-                        if (selectedRecurrenceType != 'none' && endType == 'date' && pickedRecurrenceEnd != null) {
-                          recurrenceEndStr = pickedRecurrenceEnd!.toString().split(' ')[0];
+                        if (selectedRecurrenceType != 'none' &&
+                            endType == 'date' &&
+                            pickedRecurrenceEnd != null) {
+                          recurrenceEndStr =
+                              pickedRecurrenceEnd!.toString().split(' ')[0];
                         }
                         _editSchedule(
                           event['id'],
@@ -9975,8 +10520,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       subjectChapters: subjectChapters,
     );
   }
-
-
 
   void _showAddTodoDialog() {
     TextEditingController titleController = TextEditingController();
@@ -10071,8 +10614,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       const Align(
                           alignment: Alignment.centerLeft,
                           child: Text('選擇顏色標籤',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.grey))),
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey))),
                       const SizedBox(height: 8),
                       Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -10127,7 +10670,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             ),
                             child: Row(children: [
                               Icon(Icons.calendar_today,
-                                  size: 16, color: Theme.of(context).primaryColor),
+                                  size: 16,
+                                  color: Theme.of(context).primaryColor),
                               const SizedBox(width: 8),
                               Text(
                                 '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
@@ -10169,15 +10713,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 6, vertical: 10),
                                   decoration: BoxDecoration(
-                                    border: Border.all(
-                                        color: Colors.grey.shade300),
+                                    border:
+                                        Border.all(color: Colors.grey.shade300),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Row(children: [
                                       Icon(Icons.calendar_today,
-                                          size: 16, color: Theme.of(context).primaryColor),
+                                          size: 16,
+                                          color:
+                                              Theme.of(context).primaryColor),
                                       const SizedBox(width: 4),
                                       Text(
                                         '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
@@ -10212,15 +10758,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 6, vertical: 10),
                                   decoration: BoxDecoration(
-                                    border: Border.all(
-                                        color: Colors.grey.shade300),
+                                    border:
+                                        Border.all(color: Colors.grey.shade300),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Row(children: [
                                       Icon(Icons.calendar_today,
-                                          size: 16, color: Theme.of(context).primaryColor),
+                                          size: 16,
+                                          color:
+                                              Theme.of(context).primaryColor),
                                       const SizedBox(width: 4),
                                       Text(
                                         '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
@@ -10258,8 +10806,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('跨日行程',
-                            style: TextStyle(
-                                fontSize: 13, color: Colors.black87)),
+                            style:
+                                TextStyle(fontSize: 13, color: Colors.black87)),
                         value: isMultiDay,
                         activeThumbColor: Theme.of(context).primaryColor,
                         onChanged: (val) {
@@ -10277,8 +10825,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       const Align(
                           alignment: Alignment.centerLeft,
                           child: Text('重複設定',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.grey))),
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey))),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         initialValue: selectedRecurrenceType,
@@ -10295,17 +10843,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           ),
                         ),
                         items: const [
-                          DropdownMenuItem(value: 'none', child: Text('不重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(value: 'daily', child: Text('每天重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(value: 'weekly', child: Text('每週重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(value: 'yearly', child: Text('每年重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(
+                              value: 'none',
+                              child:
+                                  Text('不重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(
+                              value: 'daily',
+                              child:
+                                  Text('每天重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(
+                              value: 'weekly',
+                              child:
+                                  Text('每週重複', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(
+                              value: 'yearly',
+                              child:
+                                  Text('每年重複', style: TextStyle(fontSize: 13))),
                         ],
                         onChanged: (val) {
                           if (val != null) {
                             setDialogState(() {
                               selectedRecurrenceType = val;
-                              if (selectedRecurrenceType != 'none' && pickedRecurrenceEnd == null) {
-                                pickedRecurrenceEnd = pickedStartDate.add(const Duration(days: 30));
+                              if (selectedRecurrenceType != 'none' &&
+                                  pickedRecurrenceEnd == null) {
+                                pickedRecurrenceEnd = pickedStartDate
+                                    .add(const Duration(days: 30));
                               }
                             });
                           }
@@ -10323,8 +10885,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: List.generate(7, (index) {
                             int weekday = index + 1; // 1 = Mon, 7 = Sun
-                            String weekdayLabel = ['一', '二', '三', '四', '五', '六', '日'][index];
-                            bool isSelected = selectedWeekdays.contains(weekday);
+                            String weekdayLabel =
+                                ['一', '二', '三', '四', '五', '六', '日'][index];
+                            bool isSelected =
+                                selectedWeekdays.contains(weekday);
                             return GestureDetector(
                               onTap: () {
                                 setDialogState(() {
@@ -10340,15 +10904,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 height: 32,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200,
+                                  color: isSelected
+                                      ? Theme.of(context).primaryColor
+                                      : Colors.grey.shade200,
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
                                   weekdayLabel,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isSelected ? Colors.white : Colors.black87,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black87,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ),
@@ -10371,16 +10941,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 horizontal: 12, vertical: 10),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'never', child: Text('一直重複下去', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'date', child: Text('重複到指定日期', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(
+                                value: 'never',
+                                child: Text('一直重複下去',
+                                    style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(
+                                value: 'date',
+                                child: Text('重複到指定日期',
+                                    style: TextStyle(fontSize: 13))),
                           ],
                           onChanged: (val) {
                             if (val != null) {
@@ -10389,13 +10967,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 if (endType == 'never') {
                                   pickedRecurrenceEnd = null;
                                 } else {
-                                  pickedRecurrenceEnd ??= pickedStartDate.add(const Duration(days: 30));
+                                  pickedRecurrenceEnd ??= pickedStartDate
+                                      .add(const Duration(days: 30));
                                 }
                               });
                             }
                           },
                         ),
-                        if (endType == 'date' && pickedRecurrenceEnd != null) ...[
+                        if (endType == 'date' &&
+                            pickedRecurrenceEnd != null) ...[
                           const SizedBox(height: 10),
                           InkWell(
                             onTap: () async {
@@ -10421,7 +11001,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               ),
                               child: Row(children: [
                                 Icon(Icons.calendar_today,
-                                    size: 16, color: Theme.of(context).primaryColor),
+                                    size: 16,
+                                    color: Theme.of(context).primaryColor),
                                 const SizedBox(width: 8),
                                 Text(
                                   '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
@@ -10445,16 +11026,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         String range =
                             "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
                         String recurrenceDays = '';
-                        if (selectedRecurrenceType == 'weekly' && selectedWeekdays.isNotEmpty) {
-                          List<int> sortedDays = selectedWeekdays.toList()..sort();
+                        if (selectedRecurrenceType == 'weekly' &&
+                            selectedWeekdays.isNotEmpty) {
+                          List<int> sortedDays = selectedWeekdays.toList()
+                            ..sort();
                           recurrenceDays = sortedDays.join(',');
                         }
                         String recurrenceEndStr = '';
-                        if (selectedRecurrenceType != 'none' && endType == 'date' && pickedRecurrenceEnd != null) {
-                          recurrenceEndStr = pickedRecurrenceEnd!.toString().split(' ')[0];
+                        if (selectedRecurrenceType != 'none' &&
+                            endType == 'date' &&
+                            pickedRecurrenceEnd != null) {
+                          recurrenceEndStr =
+                              pickedRecurrenceEnd!.toString().split(' ')[0];
                         }
-                        _addSchedule(
-                            range, titleController.text, selectedColor,
+                        _addSchedule(range, titleController.text, selectedColor,
                             startDate: pickedStartDate,
                             endDate:
                                 isMultiDay ? pickedEndDate : pickedStartDate,
@@ -10466,7 +11051,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       child: const Text('確認加入'))
                 ]));
   }
-
 
   // ── 貼文編輯（僅貼文作者可操作）───────────────────────────────
   void _editPost(Map<String, dynamic> p) async {
@@ -10593,7 +11177,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           label: Text('新增圖片'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Theme.of(context).primaryColor,
-                            side: BorderSide(color: Theme.of(context).primaryColor),
+                            side: BorderSide(
+                                color: Theme.of(context).primaryColor),
                           ),
                         ),
                     ],
@@ -10618,7 +11203,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         });
                       },
                       child: Text('儲存',
-                          style: TextStyle(color: Theme.of(context).primaryColor))),
+                          style: TextStyle(
+                              color: Theme.of(context).primaryColor))),
                 ],
               );
             }));
@@ -10670,10 +11256,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade100,
+          color: isSelected
+              ? Theme.of(context).primaryColor
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(
-              color: isSelected ? Theme.of(context).primaryColor : Colors.transparent),
+              color: isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.transparent),
         ),
         child: Text(
           label,
@@ -10726,12 +11316,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final Uint8List? croppedBytes = await showDialog<Uint8List>(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) => AvatarCropDialog(rawBytes: result.files.single.bytes!),
+          builder: (ctx) =>
+              AvatarCropDialog(rawBytes: result.files.single.bytes!),
         );
 
         if (croppedBytes != null) {
-          await _saveAvatar(
-              blob: croppedBytes, colorIdx: _userAvatarColor);
+          await _saveAvatar(blob: croppedBytes, colorIdx: _userAvatarColor);
           if (mounted) {
             ScaffoldMessenger.of(context)
                 .showSnackBar(const SnackBar(content: Text('頭像可視範圍已更新並儲存')));
@@ -10749,7 +11339,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void> _saveAvatar({required int colorIdx, Uint8List? blob}) async {
     try {
       final db = await DatabaseHelper.instance.database;
-      await db.update('users', <String, Object?>{'avatar_color': colorIdx, 'avatar_blob': blob, 'avatar_selected': 1},
+      await db.update(
+        'users',
+        <String, Object?>{
+          'avatar_color': colorIdx,
+          'avatar_blob': blob,
+          'avatar_selected': 1
+        },
         where: 'id = ?',
         whereArgs: [widget.currentUser['id']],
       );
@@ -10907,7 +11503,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             Navigator.pop(ctx);
                             await _saveAvatar(colorIdx: i, blob: null);
                             if (mounted) {
-                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                              ScaffoldMessenger.of(context)
+                                  .hideCurrentSnackBar();
                               ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('頭像已更新')));
                             }
@@ -10965,39 +11562,325 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showEditBioDialog() {
-    final controller = TextEditingController(text: _userBio);
+    final controller = TextEditingController(text: _userBio ?? '');
+    const int maxBioLength = 150;
+    final List<String> bioPresets = [
+      '🎯 專注備考衝刺中，全力以赴！',
+      '📚 每天進步一點點，堅持就是勝利',
+      '💻 熱愛科技與程式設計，持續探索',
+      '🔥 自律帶來自由，每日學習打卡',
+      '✨ 保持好奇心，享受解題與成長',
+      '🌟 踏實走好每一步，追求卓越',
+    ];
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('編輯個人簡介'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: InputDecoration(
-              hintText: '介紹一下自己吧...', border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: Text('取消')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white),
-            onPressed: () async {
-              final newBio = controller.text.trim();
-              Navigator.pop(ctx);
-              await _updateBio(newBio);
-            },
-            child: const Text('儲存'),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isDark = _isDarkMode;
+          final primary = _currentPrimaryColor;
+          final currentLen = controller.text.length;
+
+          return Dialog(
+            backgroundColor: isDark ? const Color(0xFF222226) : Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── 標題與圖示 ──
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [primary, primary.withValues(alpha: 0.7)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: primary.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.edit_note_rounded,
+                              color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '編輯個人簡介',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '展現你的學習態度與個人特色',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? Colors.white60
+                                      : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close,
+                              color: isDark ? Colors.white54 : Colors.grey,
+                              size: 20),
+                          onPressed: () => Navigator.pop(ctx),
+                          tooltip: '關閉',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ── 輸入區塊 ──
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF18181B)
+                            : const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : Colors.grey.shade300,
+                          width: 1,
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: controller,
+                            maxLines: 4,
+                            maxLength: maxBioLength,
+                            buildCounter: (_,
+                                    {required currentLength,
+                                    required isFocused,
+                                    maxLength}) =>
+                                const SizedBox.shrink(),
+                            onChanged: (_) => setDialogState(() {}),
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              height: 1.45,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              hintText: '介紹一下自己吧！寫下你的學習目標、座右銘或興趣領域...',
+                              hintStyle: TextStyle(
+                                fontSize: 13.5,
+                                color: isDark
+                                    ? Colors.white38
+                                    : Colors.grey.shade400,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (controller.text.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    controller.clear();
+                                    setDialogState(() {});
+                                  },
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.clear,
+                                          size: 14,
+                                          color: Colors.grey.shade500),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        '清空',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade500),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                const SizedBox.shrink(),
+                              Text(
+                                '$currentLen / $maxBioLength',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: currentLen >= maxBioLength
+                                      ? Colors.redAccent
+                                      : (isDark
+                                          ? Colors.white54
+                                          : Colors.grey.shade500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── 靈感標籤 ──
+                    Row(
+                      children: [
+                        Icon(Icons.lightbulb_outline_rounded,
+                            size: 15, color: primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          '靈感推薦 (點擊快速填入)',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white70 : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: bioPresets.map((preset) {
+                        return InkWell(
+                          onTap: () {
+                            controller.text = preset;
+                            setDialogState(() {});
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? primary.withValues(alpha: 0.12)
+                                  : primary.withValues(alpha: 0.07),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: primary.withValues(alpha: 0.25),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              preset,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: isDark ? Colors.white70 : primary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 22),
+
+                    // ── 操作按鈕 ──
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(
+                                color: isDark
+                                    ? Colors.white24
+                                    : Colors.grey.shade300,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text(
+                              '取消',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isDark
+                                    ? Colors.white70
+                                    : Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primary,
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () async {
+                              final newBio = controller.text.trim();
+                              Navigator.pop(ctx);
+                              await _updateBio(newBio);
+                            },
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_rounded,
+                                    size: 18, color: Colors.white),
+                                SizedBox(width: 6),
+                                Text(
+                                  '儲存簡介',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
   Future<void> _updateBio(String newBio) async {
     final db = await DatabaseHelper.instance.database;
-    await db.update('users', <String, Object?>{'bio': newBio},
+    await db.update(
+      'users',
+      <String, Object?>{'bio': newBio},
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],
     );
@@ -11103,11 +11986,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(AppLocaleService.tr('settings_theme_color', _appLanguage)),
         children: [
-          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_0', _appLanguage), 0, const Color(0xFF8D6E63)),
-          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_1', _appLanguage), 1, const Color(0xFF6B8A96)),
-          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_2', _appLanguage), 2, const Color(0xFF8AA682)),
-          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_3', _appLanguage), 3, const Color(0xFFB57B94)),
-          _buildThemeOption(ctx, AppLocaleService.tr('theme_color_4', _appLanguage), 4, const Color(0xFFC27D66)),
+          _buildThemeOption(
+              ctx,
+              AppLocaleService.tr('theme_color_0', _appLanguage),
+              0,
+              const Color(0xFF8D6E63)),
+          _buildThemeOption(
+              ctx,
+              AppLocaleService.tr('theme_color_1', _appLanguage),
+              1,
+              const Color(0xFF6B8A96)),
+          _buildThemeOption(
+              ctx,
+              AppLocaleService.tr('theme_color_2', _appLanguage),
+              2,
+              const Color(0xFF8AA682)),
+          _buildThemeOption(
+              ctx,
+              AppLocaleService.tr('theme_color_3', _appLanguage),
+              3,
+              const Color(0xFFB57B94)),
+          _buildThemeOption(
+              ctx,
+              AppLocaleService.tr('theme_color_4', _appLanguage),
+              4,
+              const Color(0xFFC27D66)),
         ],
       ),
     );
@@ -11197,7 +12100,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Future<void> _updatePersonalization() async {
     final db = await DatabaseHelper.instance.database;
-    await db.update('users', <String, Object?>{
+    await db.update(
+      'users',
+      <String, Object?>{
         'font_size_factor': _fontSizeFactor,
         'theme_color_idx': _themeColorIdx,
         'is_dark_mode': _isDarkMode ? 1 : 0,
@@ -11235,8 +12140,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           decoration: InputDecoration(hintText: '請輸入新的暱稱'),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('取消')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
@@ -11257,7 +12161,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void> _updateNickname(String newName) async {
     final db = await DatabaseHelper.instance.database;
     final nowStr = DateTime.now().toIso8601String();
-    await db.update('users', <String, Object?>{
+    await db.update(
+      'users',
+      <String, Object?>{
         'display_name': newName,
         'username': newName, // 同步更新帳號，確保登入時可用新名稱
         'nickname_updated_at': nowStr
@@ -11291,7 +12197,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 final messenger = ScaffoldMessenger.of(context);
                 final navigator = Navigator.of(ctx);
                 final db = await DatabaseHelper.instance.database;
-                await db.update('users', <String, Object?>{'is_email_verified': 1},
+                await db.update(
+                    'users', <String, Object?>{'is_email_verified': 1},
                     where: 'id = ?', whereArgs: [widget.currentUser['id']]);
                 await _loadData();
                 navigator.pop();
@@ -11325,7 +12232,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             onPressed: () async {
               Navigator.pop(ctx);
               final db = await DatabaseHelper.instance.database;
-              await db.update('users', <String, Object?>{'deleted_at': DateTime.now().toIso8601String()},
+              await db.update(
+                'users',
+                <String, Object?>{
+                  'deleted_at': DateTime.now().toIso8601String()
+                },
                 where: 'id = ?',
                 whereArgs: [widget.currentUser['id']],
               );
@@ -11490,8 +12401,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   Row(
                     children: [
                       Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: primaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
@@ -11511,7 +12422,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       ),
                       const Spacer(),
                       Text(post['time'] as String? ?? '',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.grey)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -11528,15 +12440,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           size: 14, color: Colors.grey.shade400),
                       const SizedBox(width: 4),
                       Text('${post['likes'] ?? 0}',
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade500)),
                       const SizedBox(width: 16),
                       Icon(Icons.chat_bubble_outline,
                           size: 14, color: Colors.grey.shade400),
                       const SizedBox(width: 4),
                       Text('${post['replies'] ?? 0}',
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade500)),
                       const Spacer(),
                       Text('前往貼文',
                           style: TextStyle(
@@ -11613,7 +12525,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           children: [
                             ShaderMask(
                               shaderCallback: (bounds) => LinearGradient(
-                                colors: [Theme.of(context).primaryColor, Color(0xFFD7CCC8)],
+                                colors: [
+                                  Theme.of(context).primaryColor,
+                                  Color(0xFFD7CCC8)
+                                ],
                               ).createShader(bounds),
                               child: const Icon(
                                 Icons.analytics_outlined,
@@ -11702,7 +12617,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
                               padding: EdgeInsets.symmetric(vertical: 14),
-                              side: BorderSide(color: Theme.of(context).primaryColor),
+                              side: BorderSide(
+                                  color: Theme.of(context).primaryColor),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
                             ),
@@ -11721,8 +12637,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           Expanded(
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                padding:
-                                    EdgeInsets.symmetric(vertical: 14),
+                                padding: EdgeInsets.symmetric(vertical: 14),
                                 backgroundColor: Theme.of(context).primaryColor,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
@@ -11777,7 +12692,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 height: 14,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor),
                 ),
               ),
               const SizedBox(width: 10),
@@ -11956,7 +12872,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   )
@@ -12509,7 +13426,10 @@ class CreatePostPage extends StatefulWidget {
   final VoidCallback onPosted;
   final int? groupId; // null = 廣場貼文, 非 null = 群組貼文
   const CreatePostPage(
-      {super.key, required this.currentUser, required this.onPosted, this.groupId});
+      {super.key,
+      required this.currentUser,
+      required this.onPosted,
+      this.groupId});
   @override
   State<CreatePostPage> createState() => _CreatePostPageState();
 }
@@ -12592,8 +13512,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
   }
 
-
-
   void _pickFileWithType({
     FileType type = FileType.custom,
     List<String>? allowedExtensions,
@@ -12608,14 +13526,19 @@ class _CreatePostPageState extends State<CreatePostPage> {
       );
       if (result != null && mounted) {
         final file = result.files.single;
-        
+
         // 手動驗證副檔名 (做為部分系統選擇器忽略 allowedExtensions 的防呆機制)
-        if (type == FileType.custom && allowedExtensions != null && allowedExtensions.isNotEmpty) {
+        if (type == FileType.custom &&
+            allowedExtensions != null &&
+            allowedExtensions.isNotEmpty) {
           final ext = file.extension?.toLowerCase();
-          final allowedLower = allowedExtensions.map((e) => e.toLowerCase()).toList();
+          final allowedLower =
+              allowedExtensions.map((e) => e.toLowerCase()).toList();
           if (ext == null || !allowedLower.contains(ext)) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('格式不符！請選擇 ${allowedExtensions.join(", ")} 格式的檔案')),
+              SnackBar(
+                  content:
+                      Text('格式不符！請選擇 ${allowedExtensions.join(", ")} 格式的檔案')),
             );
             return;
           }
@@ -12690,7 +13613,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         attachedMap['scheduled_at'] =
             '${_scheduledAt!.year}-${_scheduledAt!.month.toString().padLeft(2, '0')}-${_scheduledAt!.day.toString().padLeft(2, '0')} ${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}';
       }
-      
+
       if (_postType == 'learning_pack' && _learningPackData != null) {
         attachedMap.addAll(_learningPackData!);
       }
@@ -12717,7 +13640,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const Icon(Icons.check_circle_rounded,
+                  color: Colors.white, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -12770,8 +13694,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         leading: TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('取消',
-              maxLines: 1,
-              style: TextStyle(color: Colors.grey, fontSize: 15)),
+              maxLines: 1, style: TextStyle(color: Colors.grey, fontSize: 15)),
         ),
         leadingWidth: 80,
         title: const Text('發表新貼文',
@@ -12837,10 +13760,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
                                 ? (widget.currentUser['avatar_color'] as int?)
                                 : _userAvatarColor) ??
                             getAvatarColorIdx(displayName),
-                        initial: displayName.isNotEmpty ? displayName.substring(0, 1) : '我',
+                        initial: displayName.isNotEmpty
+                            ? displayName.substring(0, 1)
+                            : '我',
                         radius: 20,
                         usePreset: ((_isLoadingUserAvatar
-                                    ? (widget.currentUser['avatar_selected'] as int? ?? 0)
+                                    ? (widget.currentUser['avatar_selected']
+                                            as int? ??
+                                        0)
                                     : _userAvatarSelected) ==
                                 1) &&
                             (_isLoadingUserAvatar
@@ -12880,7 +13807,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     controller: _typeScrollController,
                     thumbVisibility: true,
                     trackVisibility: true,
-                    thumbColor: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                    thumbColor:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.5),
                     trackColor: Colors.grey.shade200,
                     thickness: 4,
                     radius: const Radius.circular(10),
@@ -12925,42 +13853,61 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           setState(() {
                             _learningPackData = result;
                           });
-                          messenger.showSnackBar(const SnackBar(content: Text('已設定學習 Pack！')));
+                          messenger.showSnackBar(
+                              const SnackBar(content: Text('已設定學習 Pack！')));
                         }
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12, horizontal: 16),
                         decoration: BoxDecoration(
-                          color: _learningPackData != null ? Colors.orange.shade50 : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _learningPackData != null ? Colors.orange : Colors.grey.shade300)
-                        ),
+                            color: _learningPackData != null
+                                ? Colors.orange.shade50
+                                : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: _learningPackData != null
+                                    ? Colors.orange
+                                    : Colors.grey.shade300)),
                         child: Row(
                           children: [
-                            Icon(Icons.inventory_2_outlined, color: _learningPackData != null ? Colors.orange : Colors.grey.shade600),
+                            Icon(Icons.inventory_2_outlined,
+                                color: _learningPackData != null
+                                    ? Colors.orange
+                                    : Colors.grey.shade600),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _learningPackData != null 
-                                      ? ((_learningPackData!['pack_title'] as String? ?? '').isNotEmpty 
-                                          ? _learningPackData!['pack_title'] 
-                                          : '已打包 Learning Pack')
-                                      : '點擊設定你要打包的排程與試卷',
+                                    _learningPackData != null
+                                        ? ((_learningPackData!['pack_title']
+                                                        as String? ??
+                                                    '')
+                                                .isNotEmpty
+                                            ? _learningPackData!['pack_title']
+                                            : '已打包 Learning Pack')
+                                        : '點擊設定你要打包的排程與試卷',
                                     style: TextStyle(
-                                      color: _learningPackData != null ? Colors.orange.shade900 : Colors.black87,
+                                      color: _learningPackData != null
+                                          ? Colors.orange.shade900
+                                          : Colors.black87,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
                                   ),
                                   if (_learningPackData != null) ...[
-                                    if ((_learningPackData!['pack_description'] as String? ?? '').isNotEmpty) ...[
+                                    if ((_learningPackData!['pack_description']
+                                                as String? ??
+                                            '')
+                                        .isNotEmpty) ...[
                                       const SizedBox(height: 2),
                                       Text(
                                         _learningPackData!['pack_description'],
-                                        style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.orange.shade800),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -12968,13 +13915,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
                                     const SizedBox(height: 4),
                                     Text(
                                       '包含: ${_learningPackData!['calendar_events']?.length ?? 0} 個排程, ${_learningPackData!['user_papers']?.length ?? 0} 套試卷 (點擊可重新編輯)',
-                                      style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.orange.shade700),
                                     ),
                                   ],
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right, color: Colors.grey.shade400)
+                            Icon(Icons.chevron_right,
+                                color: Colors.grey.shade400)
                           ],
                         ),
                       ),
@@ -13000,80 +13950,82 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   const SizedBox(height: 12),
                   // 已選圖片預覽
                   if (_selectedImageX != null) ...[
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: 220,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade300),
+                    Stack(alignment: Alignment.center, children: [
+                      Container(
+                        width: double.infinity,
+                        height: 220,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: Image.file(
+                                  File(_selectedImageX!.path),
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment(_imgAlignX, _imgAlignY),
+                                  filterQuality: FilterQuality.high,
+                                ),
+                              ),
+                            ],
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Stack(
+                        ),
+                      ),
+                      Positioned(
+                        left: 10,
+                        bottom: 10,
+                        child: GestureDetector(
+                          onTap: () async {
+                            final bytes = await _selectedImageX!.readAsBytes();
+                            if (!context.mounted) return;
+                            final Offset? offset = await showDialog<Offset>(
+                              context: context,
+                              builder: (_) => ImageFocalPointDialog(
+                                rawBytes: bytes,
+                                initialAlignX: _imgAlignX,
+                                initialAlignY: _imgAlignY,
+                              ),
+                            );
+                            if (offset != null && mounted) {
+                              setState(() {
+                                _imgAlignX = offset.dx;
+                                _imgAlignY = offset.dy;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                  color: const Color(0xFF7C6AFF)
+                                      .withValues(alpha: 0.6)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Positioned.fill(
-                                  child: Image.file(
-                                    File(_selectedImageX!.path),
-                                    fit: BoxFit.cover,
-                                    alignment: Alignment(_imgAlignX, _imgAlignY),
-                                    filterQuality: FilterQuality.high,
+                                Icon(Icons.center_focus_strong,
+                                    color: Color(0xFF7C6AFF), size: 14),
+                                SizedBox(width: 4),
+                                Text(
+                                  '🎯 點擊微調社群顯示焦點',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        Positioned(
-                          left: 10,
-                          bottom: 10,
-                          child: GestureDetector(
-                            onTap: () async {
-                              final bytes = await _selectedImageX!.readAsBytes();
-                              if (!context.mounted) return;
-                              final Offset? offset = await showDialog<Offset>(
-                                context: context,
-                                builder: (_) => ImageFocalPointDialog(
-                                  rawBytes: bytes,
-                                  initialAlignX: _imgAlignX,
-                                  initialAlignY: _imgAlignY,
-                                ),
-                              );
-                              if (offset != null && mounted) {
-                                setState(() {
-                                  _imgAlignX = offset.dx;
-                                  _imgAlignY = offset.dy;
-                                });
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.75),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.6)),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.center_focus_strong, color: Color(0xFF7C6AFF), size: 14),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    '🎯 點擊微調社群顯示焦點',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                      ),
                       Positioned(
                         right: 8,
                         top: 8,
@@ -13202,9 +14154,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       icon: Icons.attach_file,
                       label: '文件',
                       color: Colors.blue,
-                      onTap: _isSubmitting 
-                          ? null 
-                          : () => _pickFileWithType(type: FileType.any, labelHint: '檔案'),
+                      onTap: _isSubmitting
+                          ? null
+                          : () => _pickFileWithType(
+                              type: FileType.any, labelHint: '檔案'),
                     ),
 
                     // 定時發布
@@ -13473,12 +14426,12 @@ class _PostReplyPageState extends State<PostReplyPage> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child:
-                        Text('取消', style: TextStyle(color: Colors.grey))),
+                    child: Text('取消', style: TextStyle(color: Colors.grey))),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, editController.text),
                     child: Text('儲存',
-                        style: TextStyle(color: Theme.of(context).primaryColor))),
+                        style:
+                            TextStyle(color: Theme.of(context).primaryColor))),
               ],
             ));
 
@@ -13527,8 +14480,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
     // ── 顏色自適應（PostReplyPage 自行讀 Theme，不依賴 _isDarkMode）──
     final brightness = Theme.of(context).brightness;
     final isDark = brightness == Brightness.dark;
-    final bgColor =
-        isDark ? Color(0xFF121212) : Color(0xFFF5F3F0);
+    final bgColor = isDark ? Color(0xFF121212) : Color(0xFFF5F3F0);
     final cardColor = isDark ? Color(0xFF1E1E1E) : Colors.white;
     final primaryColor = Theme.of(context).primaryColor;
     final textPrimary = isDark ? Colors.white : Colors.black87;
@@ -13586,12 +14538,9 @@ class _PostReplyPageState extends State<PostReplyPage> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Row(
                       children: [
-                        Expanded(
-                            child: Divider(
-                                color: borderColor, height: 1)),
+                        Expanded(child: Divider(color: borderColor, height: 1)),
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Text(
                             '${_comments.length} 則留言',
                             style: TextStyle(
@@ -13600,9 +14549,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                                 fontWeight: FontWeight.w500),
                           ),
                         ),
-                        Expanded(
-                            child: Divider(
-                                color: borderColor, height: 1)),
+                        Expanded(child: Divider(color: borderColor, height: 1)),
                       ],
                     ),
                   ),
@@ -13615,11 +14562,9 @@ class _PostReplyPageState extends State<PostReplyPage> {
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: GestureDetector(
-                              onTap: () =>
-                                  setState(() => _commentSort = label),
+                              onTap: () => setState(() => _commentSort = label),
                               child: AnimatedContainer(
-                                duration:
-                                    const Duration(milliseconds: 200),
+                                duration: const Duration(milliseconds: 200),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 5),
                                 decoration: BoxDecoration(
@@ -13628,8 +14573,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                                       : (isDark
                                           ? const Color(0xFF2A2A2A)
                                           : Colors.grey.shade100),
-                                  borderRadius:
-                                      BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: _commentSort == label
                                         ? primaryColor
@@ -13638,8 +14582,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
                                   boxShadow: _commentSort == label
                                       ? [
                                           BoxShadow(
-                                            color: primaryColor
-                                                .withValues(alpha: 0.3),
+                                            color: primaryColor.withValues(
+                                                alpha: 0.3),
                                             blurRadius: 6,
                                             offset: const Offset(0, 2),
                                           )
@@ -13665,31 +14609,24 @@ class _PostReplyPageState extends State<PostReplyPage> {
                   if (_comments.isEmpty)
                     Center(
                       child: Padding(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 48),
+                        padding: const EdgeInsets.symmetric(vertical: 48),
                         child: Column(
                           children: [
                             ElasticIn(
                               key: ValueKey('empty_icon_$_commentSort'),
-                              duration:
-                                  const Duration(milliseconds: 700),
-                              child: Icon(
-                                  Icons.chat_bubble_outline_rounded,
+                              duration: const Duration(milliseconds: 700),
+                              child: Icon(Icons.chat_bubble_outline_rounded,
                                   size: 56,
-                                  color: primaryColor
-                                      .withValues(alpha: 0.25)),
+                                  color: primaryColor.withValues(alpha: 0.25)),
                             ),
                             const SizedBox(height: 14),
                             FadeInUp(
                               key: ValueKey('empty_text_$_commentSort'),
-                              duration:
-                                  const Duration(milliseconds: 400),
-                              delay:
-                                  const Duration(milliseconds: 300),
+                              duration: const Duration(milliseconds: 400),
+                              delay: const Duration(milliseconds: 300),
                               child: Text('還沒有人留言，快搶沙發！',
                                   style: TextStyle(
-                                      color: textSecondary,
-                                      fontSize: 14)),
+                                      color: textSecondary, fontSize: 14)),
                             ),
                           ],
                         ),
@@ -13700,8 +14637,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                         key: ValueKey('${e.value['id']}_$_commentSort'),
                         duration: const Duration(milliseconds: 350),
                         delay: Duration(milliseconds: 50 * (e.key % 10)),
-                        child: _buildCommentTree(
-                            e.value, rootComments),
+                        child: _buildCommentTree(e.value, rootComments),
                       )),
                 ],
               ),
@@ -13711,16 +14647,16 @@ class _PostReplyPageState extends State<PostReplyPage> {
             if (_replyToId != null)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.orange.withValues(alpha: 0.12)
                       : const Color(0xFFFFF8F0),
                   border: Border(
                       top: BorderSide(
-                          color: Colors.orange.withValues(
-                              alpha: isDark ? 0.35 : 0.6),
+                          color: Colors.orange
+                              .withValues(alpha: isDark ? 0.35 : 0.6),
                           width: 1.5)),
                 ),
                 child: Row(
@@ -13760,11 +14696,9 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: cardColor,
-                  border:
-                      Border(top: BorderSide(color: borderColor, width: 1)),
+                  border: Border(top: BorderSide(color: borderColor, width: 1)),
                 ),
-                child: Text('訪客無法留言喔',
-                    style: TextStyle(color: textSecondary)),
+                child: Text('訪客無法留言喔', style: TextStyle(color: textSecondary)),
               )
             else
               _ReplyInputBar(
@@ -13838,14 +14772,15 @@ class _PostReplyPageState extends State<PostReplyPage> {
                         kPostTypeLabel.containsKey(postType)) ...[
                       SizedBox(width: 6),
                       Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 1),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 7, vertical: 1),
                         decoration: BoxDecoration(
                             color: Color(0xFFF5F0EE),
                             borderRadius: BorderRadius.circular(8)),
                         child: Text(kPostTypeLabel[postType]!,
                             style: TextStyle(
-                                fontSize: 10, color: Theme.of(context).primaryColor)),
+                                fontSize: 10,
+                                color: Theme.of(context).primaryColor)),
                       ),
                     ],
                   ]),
@@ -13870,12 +14805,15 @@ class _PostReplyPageState extends State<PostReplyPage> {
                     if (attached is Map) {
                       attachedData = Map<String, dynamic>.from(attached);
                     } else if (attached is String && attached.isNotEmpty) {
-                      attachedData = jsonDecode(attached) as Map<String, dynamic>;
+                      attachedData =
+                          jsonDecode(attached) as Map<String, dynamic>;
                     }
                   }
                 } catch (_) {}
-                final double alignX = (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
-                final double alignY = (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
+                final double alignX =
+                    (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
+                final double alignY =
+                    (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
                 final Alignment imgAlignment = Alignment(alignX, alignY);
 
                 return Container(
@@ -13890,10 +14828,15 @@ class _PostReplyPageState extends State<PostReplyPage> {
                       children: [
                         Positioned.fill(
                           child: widget.originalPost['media_blob'] != null
-                              ? Image.memory(widget.originalPost['media_blob'] as Uint8List,
-                                  fit: BoxFit.cover, alignment: imgAlignment)
-                              : Image.network(widget.originalPost['media'] as String,
-                                  fit: BoxFit.cover, alignment: imgAlignment),
+                              ? Image.memory(
+                                  widget.originalPost['media_blob']
+                                      as Uint8List,
+                                  fit: BoxFit.cover,
+                                  alignment: imgAlignment)
+                              : Image.network(
+                                  widget.originalPost['media'] as String,
+                                  fit: BoxFit.cover,
+                                  alignment: imgAlignment),
                         ),
                       ],
                     ),
@@ -13910,7 +14853,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
   Widget _buildPostAttachmentPreview(Map<String, dynamic> p) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // 檔案附件
     if (p['fileName'] != null && p['fileName'].toString().isNotEmpty) {
       final fileName = p['fileName'] as String;
@@ -13923,9 +14866,13 @@ class _PostReplyPageState extends State<PostReplyPage> {
         ),
         child: Row(
           children: [
-            Icon(Icons.insert_drive_file, color: Theme.of(context).primaryColor, size: 20),
+            Icon(Icons.insert_drive_file,
+                color: Theme.of(context).primaryColor, size: 20),
             const SizedBox(width: 8),
-            Expanded(child: Text('分享文件: $fileName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+            Expanded(
+                child: Text('分享文件: $fileName',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13))),
           ],
         ),
       );
@@ -13948,31 +14895,47 @@ class _PostReplyPageState extends State<PostReplyPage> {
           margin: const EdgeInsets.only(top: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isDark ? Colors.orange.withValues(alpha: 0.1) : Colors.orange.shade50,
+            color: isDark
+                ? Colors.orange.withValues(alpha: 0.1)
+                : Colors.orange.shade50,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isDark ? Colors.orange.withValues(alpha: 0.3) : Colors.orange.shade200),
+            border: Border.all(
+                color: isDark
+                    ? Colors.orange.withValues(alpha: 0.3)
+                    : Colors.orange.shade200),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.inventory_2_rounded, color: Colors.orange.shade700, size: 20),
+                  Icon(Icons.inventory_2_rounded,
+                      color: Colors.orange.shade700, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       title,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.orange.shade300 : Colors.orange.shade900),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isDark
+                              ? Colors.orange.shade300
+                              : Colors.orange.shade900),
                     ),
                   ),
-                  const Text('請至動態牆匯入', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  const Text('請至動態牆匯入',
+                      style: TextStyle(fontSize: 11, color: Colors.grey)),
                 ],
               ),
               if (desc.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
                   desc,
-                  style: TextStyle(fontSize: 12, color: isDark ? Colors.orange.shade200 : Colors.orange.shade800),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? Colors.orange.shade200
+                          : Colors.orange.shade800),
                 ),
               ],
             ],
@@ -13991,14 +14954,22 @@ class _PostReplyPageState extends State<PostReplyPage> {
           margin: const EdgeInsets.only(top: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white10 : Theme.of(context).primaryColor.withValues(alpha: 0.05),
+            color: isDark
+                ? Colors.white10
+                : Theme.of(context).primaryColor.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(Icons.sticky_note_2_outlined, color: Theme.of(context).primaryColor, size: 20),
+              Icon(Icons.sticky_note_2_outlined,
+                  color: Theme.of(context).primaryColor, size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text('分享筆記: $title', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).primaryColor))),
+              Expanded(
+                  child: Text('分享筆記: $title',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Theme.of(context).primaryColor))),
             ],
           ),
         );
@@ -14008,14 +14979,22 @@ class _PostReplyPageState extends State<PostReplyPage> {
           margin: const EdgeInsets.only(top: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white10 : Theme.of(context).primaryColor.withValues(alpha: 0.05),
+            color: isDark
+                ? Colors.white10
+                : Theme.of(context).primaryColor.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(Icons.help_outline_rounded, color: Theme.of(context).primaryColor, size: 20),
+              Icon(Icons.help_outline_rounded,
+                  color: Theme.of(context).primaryColor, size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text('分享題目: [$subject]', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).primaryColor))),
+              Expanded(
+                  child: Text('分享題目: [$subject]',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Theme.of(context).primaryColor))),
             ],
           ),
         );
@@ -14053,15 +15032,15 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.subdirectory_arrow_right_rounded,
                           size: 13,
-                          color:
-                              Theme.of(context).primaryColor.withValues(alpha: 0.8)),
+                          color: Theme.of(context)
+                              .primaryColor
+                              .withValues(alpha: 0.8)),
                       SizedBox(width: 6),
                       Text(
                         '查看 ${sub.length} 則回覆...',
@@ -14103,13 +15082,14 @@ class _PostReplyPageState extends State<PostReplyPage> {
                         },
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.keyboard_arrow_up_rounded,
-                                  size: 14, color: Theme.of(context).primaryColor),
+                                  size: 14,
+                                  color: Theme.of(context).primaryColor),
                               SizedBox(width: 4),
                               Text(
                                 '收合回覆',
@@ -14155,14 +15135,11 @@ class _PostReplyPageState extends State<PostReplyPage> {
     final ownBubbleBg = isDark
         ? Colors.orange.withValues(alpha: 0.12)
         : const Color(0xFFFFF8F0);
-    final ownBubbleBorder = isDark
-        ? Colors.orange.withValues(alpha: 0.25)
-        : Colors.orange.shade100;
-    final otherBubbleBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.grey.shade50;
-    final otherBubbleBorder =
-        isDark ? Colors.white12 : Colors.grey.shade200;
+    final ownBubbleBorder =
+        isDark ? Colors.orange.withValues(alpha: 0.25) : Colors.orange.shade100;
+    final otherBubbleBg =
+        isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade50;
+    final otherBubbleBorder = isDark ? Colors.white12 : Colors.grey.shade200;
 
     return Container(
       margin: EdgeInsets.only(bottom: isSub ? 8 : 12, top: isSub ? 2 : 4),
@@ -14171,8 +15148,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
         children: [
           buildAvatar(
               blob: c['authorAvatarBlob'] as Uint8List?,
-              colorIdx: (c['authorAvatarColor'] as int?) ??
-                  getAvatarColorIdx(author),
+              colorIdx:
+                  (c['authorAvatarColor'] as int?) ?? getAvatarColorIdx(author),
               initial: author.substring(0, 1),
               radius: isSub ? 11 : 14,
               usePreset: (c['authorAvatarSelected'] as int? ?? 0) == 1 &&
@@ -14195,16 +15172,14 @@ class _PostReplyPageState extends State<PostReplyPage> {
                     ),
                     const SizedBox(width: 6),
                     Text(c['time'],
-                        style:
-                            TextStyle(color: textSecondary, fontSize: 11)),
+                        style: TextStyle(color: textSecondary, fontSize: 11)),
                     const Spacer(),
                     // 編輯/刪除（自己的留言）
                     if (canEdit) ...[
                       GestureDetector(
                         onTap: () => _editComment(c['id'], c['text']),
                         child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Icon(Icons.edit_outlined,
                               size: 14, color: textSecondary),
                         ),
@@ -14212,10 +15187,10 @@ class _PostReplyPageState extends State<PostReplyPage> {
                       GestureDetector(
                         onTap: () => _deleteComment(c['id']),
                         child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Icon(Icons.delete_outline,
-                              size: 14, color: Colors.redAccent.withValues(alpha: 0.7)),
+                              size: 14,
+                              color: Colors.redAccent.withValues(alpha: 0.7)),
                         ),
                       ),
                     ],
@@ -14224,8 +15199,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
                 const SizedBox(height: 4),
                 // 留言內容氣泡
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: isOwn ? ownBubbleBg : otherBubbleBg,
                     borderRadius: const BorderRadius.only(
@@ -14331,16 +15306,14 @@ class _ReplyInputBarState extends State<_ReplyInputBar> {
     final Color fieldBg = widget.isDark
         ? Colors.white.withValues(alpha: 0.06)
         : Colors.grey.shade50;
-    final Color activeBorder = _focused
-        ? widget.primaryColor
-        : widget.borderColor;
+    final Color activeBorder =
+        _focused ? widget.primaryColor : widget.borderColor;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
         color: widget.cardColor,
-        border: Border(
-            top: BorderSide(color: widget.borderColor, width: 1)),
+        border: Border(top: BorderSide(color: widget.borderColor, width: 1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: widget.isDark ? 0.3 : 0.04),
@@ -14359,7 +15332,8 @@ class _ReplyInputBarState extends State<_ReplyInputBar> {
               decoration: BoxDecoration(
                 color: fieldBg,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: activeBorder, width: _focused ? 1.5 : 1.0),
+                border: Border.all(
+                    color: activeBorder, width: _focused ? 1.5 : 1.0),
               ),
               child: TextField(
                 controller: widget.controller,
@@ -14374,12 +15348,11 @@ class _ReplyInputBarState extends State<_ReplyInputBar> {
                       ? '回覆 ${widget.replyToName}...'
                       : '說說你的想法...',
                   hintStyle: TextStyle(
-                      color: widget.isDark
-                          ? Colors.white38
-                          : Colors.grey.shade400,
+                      color:
+                          widget.isDark ? Colors.white38 : Colors.grey.shade400,
                       fontSize: 14),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   border: InputBorder.none,
                 ),
               ),
@@ -14403,8 +15376,8 @@ class _ReplyInputBarState extends State<_ReplyInputBar> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.send_rounded,
-                  color: Colors.white, size: 18),
+              child:
+                  const Icon(Icons.send_rounded, color: Colors.white, size: 18),
             ),
           ),
         ],
@@ -14504,7 +15477,8 @@ class QuestionDiscussionPage extends StatelessWidget {
                 TextButton(
                     onPressed: () {},
                     child: Text('送出',
-                        style: TextStyle(color: Theme.of(context).primaryColor)))
+                        style:
+                            TextStyle(color: Theme.of(context).primaryColor)))
               ]))
         ])));
   }
@@ -14576,7 +15550,8 @@ class _OrganizeNotePickerWidgetState extends State<_OrganizeNotePickerWidget> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(Icons.article_outlined,
@@ -14707,7 +15682,10 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withValues(alpha: 0.7)],
+                colors: [
+                  Theme.of(context).primaryColor,
+                  Theme.of(context).primaryColor.withValues(alpha: 0.7)
+                ],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
@@ -14716,7 +15694,8 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.summarize_outlined, color: Colors.white70, size: 16),
+                const Icon(Icons.summarize_outlined,
+                    color: Colors.white70, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -14787,8 +15766,8 @@ class _OrganizedNoteResultWidget extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                             color: lightBrown.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8)),
@@ -15094,7 +16073,12 @@ class _DiagnosisLoadingProgressState extends State<_DiagnosisLoadingProgress> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(7),
                             gradient: LinearGradient(
-                              colors: [Theme.of(context).primaryColor.withValues(alpha: 0.3), Theme.of(context).primaryColor],
+                              colors: [
+                                Theme.of(context)
+                                    .primaryColor
+                                    .withValues(alpha: 0.3),
+                                Theme.of(context).primaryColor
+                              ],
                             ),
                           ),
                         ),
@@ -15239,7 +16223,10 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
                     gradient: LinearGradient(
-                      colors: [Theme.of(context).primaryColor.withValues(alpha: 0.3), Theme.of(context).primaryColor],
+                      colors: [
+                        Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                        Theme.of(context).primaryColor
+                      ],
                     ),
                   ),
                 ),
@@ -15329,7 +16316,8 @@ class _AvatarCropDialogState extends State<AvatarCropDialog> {
             // 水平位置控制
             Row(
               children: [
-                const Text('左右', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                const Text('左右',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
                 Expanded(
                   child: Slider(
                     value: _offsetX,
@@ -15343,7 +16331,8 @@ class _AvatarCropDialogState extends State<AvatarCropDialog> {
             // 垂直位置控制
             Row(
               children: [
-                const Text('上下', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                const Text('上下',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
                 Expanded(
                   child: Slider(
                     value: _offsetY,
@@ -15440,7 +16429,8 @@ class ImageQualityEnhanceSheet extends StatefulWidget {
   });
 
   @override
-  State<ImageQualityEnhanceSheet> createState() => _ImageQualityEnhanceSheetState();
+  State<ImageQualityEnhanceSheet> createState() =>
+      _ImageQualityEnhanceSheetState();
 }
 
 class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
@@ -15460,11 +16450,13 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
   @override
   void initState() {
     super.initState();
-    _scanLineCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
+    _scanLineCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1600));
     _scanLineAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _scanLineCtrl, curve: Curves.easeInOut),
     );
-    _flashCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _flashCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 500));
     _flashAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _flashCtrl, curve: Curves.easeOut),
     );
@@ -15484,9 +16476,18 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
     _scanLineCtrl.stop();
 
     final items = [
-      _DetectItem('銳利度', report.sharpnessScore, report.isBlurry ? '偵測到模糊' : '清晰'),
-      _DetectItem('亮度', report.brightnessScore, report.isDark ? '偵測到偏暗' : report.isOverExposed ? '偵測到過曝' : '正常'),
-      _DetectItem('對比度', report.contrastScore, report.isLowContrast ? '偵測到低對比' : '正常'),
+      _DetectItem(
+          '銳利度', report.sharpnessScore, report.isBlurry ? '偵測到模糊' : '清晰'),
+      _DetectItem(
+          '亮度',
+          report.brightnessScore,
+          report.isDark
+              ? '偵測到偏暗'
+              : report.isOverExposed
+                  ? '偵測到過曝'
+                  : '正常'),
+      _DetectItem(
+          '對比度', report.contrastScore, report.isLowContrast ? '偵測到低對比' : '正常'),
     ];
 
     for (int i = 0; i < items.length; i++) {
@@ -15507,7 +16508,10 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
       return;
     }
 
-    setState(() { _report = report; _phase = _ScanPhase.repairing; });
+    setState(() {
+      _report = report;
+      _phase = _ScanPhase.repairing;
+    });
 
     final enhanced = await ImageEnhancer.enhanceImage(widget.rawBytes, report);
     if (!mounted) return;
@@ -15515,7 +16519,10 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
     _flashCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 400));
 
-    setState(() { _enhancedBytes = enhanced; _phase = _ScanPhase.done; });
+    setState(() {
+      _enhancedBytes = enhanced;
+      _phase = _ScanPhase.done;
+    });
   }
 
   @override
@@ -15530,19 +16537,27 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(
+                color: Colors.white24, borderRadius: BorderRadius.circular(2)),
           ),
           Row(
             children: [
-              const Icon(Icons.auto_fix_high, color: Color(0xFF7C6AFF), size: 22),
+              const Icon(Icons.auto_fix_high,
+                  color: Color(0xFF7C6AFF), size: 22),
               const SizedBox(width: 8),
               Text(
-                _phase == _ScanPhase.scanning ? 'AI 畫質掃描中...'
-                    : _phase == _ScanPhase.repairing ? 'AI 自動修復中...'
-                    : '✨ 修復完成',
-                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                _phase == _ScanPhase.scanning
+                    ? 'AI 畫質掃描中...'
+                    : _phase == _ScanPhase.repairing
+                        ? 'AI 自動修復中...'
+                        : '✨ 修復完成',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -15559,7 +16574,8 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                     duration: const Duration(milliseconds: 500),
                     child: Image.memory(
                       (_phase == _ScanPhase.done && _enhancedBytes != null)
-                          ? _enhancedBytes! : widget.rawBytes,
+                          ? _enhancedBytes!
+                          : widget.rawBytes,
                       key: ValueKey(_phase),
                       fit: BoxFit.cover,
                       filterQuality: FilterQuality.high,
@@ -15569,12 +16585,14 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                     AnimatedBuilder(
                       animation: _scanLineAnim,
                       builder: (_, __) {
-                        final top = (_scanLineAnim.value * 200).clamp(0.0, 197.0);
+                        final top =
+                            (_scanLineAnim.value * 200).clamp(0.0, 197.0);
                         return Stack(
                           children: [
                             Positioned(
                               top: top,
-                              left: 0, right: 0,
+                              left: 0,
+                              right: 0,
                               child: Container(
                                 height: 3,
                                 decoration: const BoxDecoration(
@@ -15585,20 +16603,30 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                                     Color(0xFF7C6AFF),
                                     Colors.transparent,
                                   ]),
-                                  boxShadow: [BoxShadow(color: Color(0x887C6AFF), blurRadius: 12, spreadRadius: 4)],
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: Color(0x887C6AFF),
+                                        blurRadius: 12,
+                                        spreadRadius: 4)
+                                  ],
                                 ),
                               ),
                             ),
                             Positioned(
                               top: top + 3,
-                              left: 0, right: 0,
+                              left: 0,
+                              right: 0,
                               child: Container(
                                 height: 28,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
-                                    colors: [const Color(0xFF7C6AFF).withValues(alpha: 0.15), Colors.transparent],
+                                    colors: [
+                                      const Color(0xFF7C6AFF)
+                                          .withValues(alpha: 0.15),
+                                      Colors.transparent
+                                    ],
                                   ),
                                 ),
                               ),
@@ -15610,7 +16638,10 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                   AnimatedBuilder(
                     animation: _flashAnim,
                     builder: (_, __) => Opacity(
-                      opacity: (_phase == _ScanPhase.repairing ? 0.5 * (1 - _flashAnim.value) : 0.0).clamp(0.0, 1.0),
+                      opacity: (_phase == _ScanPhase.repairing
+                              ? 0.5 * (1 - _flashAnim.value)
+                              : 0.0)
+                          .clamp(0.0, 1.0),
                       child: Container(color: const Color(0xFF7C6AFF)),
                     ),
                   ),
@@ -15619,38 +16650,51 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.45)],
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.45)
+                        ],
                       ),
                     ),
                   ),
                   Positioned(
-                    left: 10, bottom: 10,
+                    left: 10,
+                    bottom: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.5)),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF7C6AFF).withValues(alpha: 0.5)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (_phase != _ScanPhase.done)
                             const SizedBox(
-                              width: 10, height: 10,
+                              width: 10,
+                              height: 10,
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.5,
-                                valueColor: AlwaysStoppedAnimation(Color(0xFF7C6AFF)),
+                                valueColor:
+                                    AlwaysStoppedAnimation(Color(0xFF7C6AFF)),
                               ),
                             )
                           else
-                            const Icon(Icons.auto_fix_high, color: Color(0xFF7C6AFF), size: 12),
+                            const Icon(Icons.auto_fix_high,
+                                color: Color(0xFF7C6AFF), size: 12),
                           const SizedBox(width: 6),
                           Text(
-                            _phase == _ScanPhase.scanning ? '掃描中...'
-                                : _phase == _ScanPhase.repairing ? '修復中...'
-                                : '已修復',
-                            style: const TextStyle(color: Colors.white, fontSize: 11),
+                            _phase == _ScanPhase.scanning
+                                ? '掃描中...'
+                                : _phase == _ScanPhase.repairing
+                                    ? '修復中...'
+                                    : '已修復',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 11),
                           ),
                         ],
                       ),
@@ -15661,7 +16705,9 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
             ),
           ),
           const SizedBox(height: 14),
-          ..._detectedItems.take(_visibleItemCount).map((item) => _buildDetectRow(item)),
+          ..._detectedItems
+              .take(_visibleItemCount)
+              .map((item) => _buildDetectRow(item)),
           if (_phase == _ScanPhase.done && _report != null) ...[
             const SizedBox(height: 12),
             _buildScoreBar(_report!),
@@ -15670,12 +16716,14 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context, widget.originalXFile),
+                    onPressed: () =>
+                        Navigator.pop(context, widget.originalXFile),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white60,
                       side: const BorderSide(color: Colors.white24),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text('保留原圖'),
                   ),
@@ -15687,21 +16735,24 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                     onPressed: () {
                       final enhanced = _enhancedBytes;
                       if (enhanced != null) {
-                        Navigator.pop(context, XFile.fromData(enhanced, name: 'ai_enhanced.png'));
+                        Navigator.pop(context,
+                            XFile.fromData(enhanced, name: 'ai_enhanced.png'));
                       }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF7C6AFF),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.auto_fix_high, size: 16),
                         SizedBox(width: 6),
-                        Text('套用 AI 修復', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('套用 AI 修復',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -15727,12 +16778,14 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
             color: hasIssue ? Colors.amber : Colors.greenAccent,
           ),
           const SizedBox(width: 8),
-          Text(item.name, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(item.name,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
           const Spacer(),
           Text(item.desc,
               style: TextStyle(
                 color: hasIssue ? Colors.amber : Colors.greenAccent,
-                fontSize: 12, fontWeight: FontWeight.w600,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               )),
           const SizedBox(width: 8),
           SizedBox(
@@ -15760,16 +16813,21 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.3)),
+        border:
+            Border.all(color: const Color(0xFF7C6AFF).withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           const Icon(Icons.stars_rounded, color: Color(0xFF7C6AFF), size: 20),
           const SizedBox(width: 10),
-          const Text('修復後品質評分', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const Text('修復後品質評分',
+              style: TextStyle(color: Colors.white70, fontSize: 13)),
           const Spacer(),
           Text('$score / 100',
-              style: const TextStyle(color: Color(0xFF7C6AFF), fontSize: 18, fontWeight: FontWeight.bold)),
+              style: const TextStyle(
+                  color: Color(0xFF7C6AFF),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -15829,15 +16887,20 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
           children: [
             Row(
               children: [
-                Icon(Icons.center_focus_strong, color: Theme.of(context).primaryColor, size: 22),
+                Icon(Icons.center_focus_strong,
+                    color: Theme.of(context).primaryColor, size: 22),
                 const SizedBox(width: 8),
                 Text(
                   '調整社群視圖顯示焦點',
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 17, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: Icon(Icons.close, color: isDark ? Colors.white54 : Colors.grey, size: 20),
+                  icon: Icon(Icons.close,
+                      color: isDark ? Colors.white54 : Colors.grey, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -15845,20 +16908,25 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
             const SizedBox(height: 6),
             Text(
               '可放大縮小預覽框，並手動拖曳對齊方位，決定最佳展示焦點',
-              style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(
+                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                  fontSize: 12),
             ),
             const SizedBox(height: 16),
             InteractiveViewer(
               clipBehavior: Clip.none,
               maxScale: 4.0,
               minScale: 1.0,
-              panEnabled: false, // Let GestureDetector handle 1-finger panning for alignment
+              panEnabled:
+                  false, // Let GestureDetector handle 1-finger panning for alignment
               child: GestureDetector(
                 onPanUpdate: (details) {
                   const double sens = 0.006;
                   setState(() {
-                    _alignX = (_alignX + details.delta.dx * sens).clamp(-1.0, 1.0);
-                    _alignY = (_alignY + details.delta.dy * sens).clamp(-1.0, 1.0);
+                    _alignX =
+                        (_alignX + details.delta.dx * sens).clamp(-1.0, 1.0);
+                    _alignY =
+                        (_alignY + details.delta.dy * sens).clamp(-1.0, 1.0);
                   });
                 },
                 child: ClipRRect(
@@ -15867,11 +16935,15 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                     width: double.infinity,
                     height: 220,
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.black : Colors.black.withValues(alpha: 0.05),
+                      color: isDark
+                          ? Colors.black
+                          : Colors.black.withValues(alpha: 0.05),
                       border: Border.all(
-                          color: isDark 
-                              ? Theme.of(context).primaryColor.withValues(alpha: 0.5) 
-                              : Colors.grey.shade300, 
+                          color: isDark
+                              ? Theme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.5)
+                              : Colors.grey.shade300,
                           width: 1.5),
                     ),
                     child: Stack(
@@ -15885,7 +16957,8 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                         ),
                         Center(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.65),
                               borderRadius: BorderRadius.circular(12),
@@ -15893,9 +16966,12 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.touch_app, color: Colors.white70, size: 14),
+                                Icon(Icons.touch_app,
+                                    color: Colors.white70, size: 14),
                                 SizedBox(width: 4),
-                                Text('按住滑動微調，雙指可縮放預覽', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                Text('按住滑動微調，雙指可縮放預覽',
+                                    style: TextStyle(
+                                        color: Colors.white, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -15914,9 +16990,12 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: isDark ? Colors.white60 : Colors.black54,
-                      side: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
+                      side: BorderSide(
+                          color:
+                              isDark ? Colors.white24 : Colors.grey.shade300),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text('取消'),
                   ),
@@ -15925,14 +17004,17 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                 Expanded(
                   flex: 2,
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context, Offset(_alignX, _alignY)),
+                    onPressed: () =>
+                        Navigator.pop(context, Offset(_alignX, _alignY)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('套用顯示焦點', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('套用顯示焦點',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -15942,5 +17024,4 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
       ),
     );
   }
-
 }

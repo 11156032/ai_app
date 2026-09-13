@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../database/database_helper.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/mindmap_node.dart';
+import '../../widgets/mindmap_canvas.dart';
 import '../main_screen.dart'; // for CreatePostPage, PostReplyPage (defined in main_screen.dart)
 import '../notes_screen.dart';
 import 'group_invite_page.dart';
@@ -40,7 +42,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   bool _isJoining = false;
   bool _requiresApproval = false;
   Map<String, dynamic>? _replyingPost;
-  
+
   final TextEditingController _chatController = TextEditingController();
   final FocusNode _chatFocusNode = FocusNode();
   bool _isSending = false;
@@ -86,8 +88,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       final groupId = _group['id'] as int;
       var membership = await DatabaseHelper.instance
           .getGroupMembership(groupId, _currentUserId);
-      final updatedGroup =
-          await DatabaseHelper.instance.getGroupById(groupId);
+      final updatedGroup = await DatabaseHelper.instance.getGroupById(groupId);
 
       final isOwner = _group['owner_id'].toString() == _currentUserId ||
           (membership != null && membership['role'] == 'owner');
@@ -108,22 +109,20 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       List<Map<String, dynamic>> members = [];
 
       // 如果是成員（含創辦人）或公開群組，載入貼文
-      final isMember = isOwner ||
-          (membership != null && membership['status'] == 'active');
+      final isMember =
+          isOwner || (membership != null && membership['status'] == 'active');
       final isPublic = (updatedGroup?['type'] ?? 'public') == 'public';
 
       if (isMember) {
-        await DatabaseHelper.instance
-            .markGroupAsRead(groupId, _currentUserId);
+        await DatabaseHelper.instance.markGroupAsRead(groupId, _currentUserId);
       }
 
       if (isMember || isPublic) {
-        final rawPosts = await DatabaseHelper.instance
-            .getGroupPosts(groupId);
+        final rawPosts = await DatabaseHelper.instance.getGroupPosts(groupId);
         final db = await DatabaseHelper.instance.database;
         for (var p in rawPosts) {
-          final u = await db.query('users',
-              where: 'id = ?', whereArgs: [p['user_id']]);
+          final u = await db
+              .query('users', where: 'id = ?', whereArgs: [p['user_id']]);
           final author = u.isNotEmpty
               ? u.first['display_name'] as String? ?? '未知用戶'
               : '未知用戶';
@@ -133,8 +132,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           final replies = await db.rawQuery(
               'SELECT COUNT(*) as c FROM comments WHERE post_id = ?',
               [p['id']]);
-          final attached =
-              jsonDecode((p['attached_data'] as String?) ?? '{}');
+          final attached = jsonDecode((p['attached_data'] as String?) ?? '{}');
           posts.add({
             'id': p['id'],
             'userId': p['user_id'],
@@ -145,8 +143,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 u.isNotEmpty ? u.first['avatar_blob'] as Uint8List? : null,
             'authorAvatarSelected':
                 u.isNotEmpty ? (u.first['avatar_selected'] as int? ?? 0) : 0,
-            'authorBio':
-                u.isNotEmpty ? (u.first['bio'] as String? ?? '') : '',
+            'authorBio': u.isNotEmpty ? (u.first['bio'] as String? ?? '') : '',
             'time': formatRelativeTime(p['created_at']),
             'content': p['content'],
             'postType': p['type'] ?? 'text',
@@ -166,15 +163,21 @@ class _GroupDetailPageState extends State<GroupDetailPage>
 
       members = await DatabaseHelper.instance.getGroupMembers(groupId);
 
-      bool requiresApproval = (updatedGroup?['join_requires_approval'] as int? ?? _group['join_requires_approval'] as int?) == 1 ||
-          (((updatedGroup?['join_requires_approval'] ?? _group['join_requires_approval']) == null) && _isPrivate);
+      bool requiresApproval =
+          (updatedGroup?['join_requires_approval'] as int? ??
+                      _group['join_requires_approval'] as int?) ==
+                  1 ||
+              (((updatedGroup?['join_requires_approval'] ??
+                          _group['join_requires_approval']) ==
+                      null) &&
+                  _isPrivate);
 
       if (widget.inviteType != null && widget.inviteRefId != null) {
         final db = await DatabaseHelper.instance.database;
         final refUserMembership = await db.query('group_members',
             where: 'group_id = ? AND user_id = ?',
             whereArgs: [groupId, widget.inviteRefId]);
-            
+
         bool refIsAdmin = false;
         if (refUserMembership.isNotEmpty) {
           final role = refUserMembership.first['role'] as String?;
@@ -247,11 +250,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('離開群組？'),
-        content: Text(
-            '確定要離開「${_group['name']}」嗎？之後可以再次申請加入。'),
+        content: Text('確定要離開「${_group['name']}」嗎？之後可以再次申請加入。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -270,8 +271,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       ),
     );
     if (confirm != true) return;
-    await DatabaseHelper.instance.leaveGroup(
-        _group['id'] as int, _currentUserId);
+    await DatabaseHelper.instance
+        .leaveGroup(_group['id'] as int, _currentUserId);
     if (mounted) Navigator.pop(context);
   }
 
@@ -306,8 +307,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       ),
     );
     if (confirm != true) return;
-    await DatabaseHelper.instance.leaveGroup(
-        _group['id'] as int, m['user_id'].toString());
+    await DatabaseHelper.instance
+        .leaveGroup(_group['id'] as int, m['user_id'].toString());
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -398,9 +399,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(approved
-              ? '✅ 已同意 ${member['display_name']} 加入'
-              : '已拒絕申請'),
+          content:
+              Text(approved ? '✅ 已同意 ${member['display_name']} 加入' : '已拒絕申請'),
           backgroundColor:
               approved ? Theme.of(context).primaryColor : Colors.grey,
         ),
@@ -446,8 +446,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            backgroundColor:
-                isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
             elevation: 0,
             pinned: true,
             expandedHeight: 200,
@@ -581,7 +580,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor
+                                color: Theme.of(context)
+                                    .primaryColor
                                     .withValues(alpha: 0.12),
                                 shape: BoxShape.circle,
                               ),
@@ -617,8 +617,10 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                             horizontal: 7, vertical: 3),
                                         decoration: BoxDecoration(
                                           color: _isPrivate
-                                              ? Colors.orange.withValues(alpha: 0.15)
-                                              : Colors.blue.withValues(alpha: 0.12),
+                                              ? Colors.orange
+                                                  .withValues(alpha: 0.15)
+                                              : Colors.blue
+                                                  .withValues(alpha: 0.12),
                                           borderRadius:
                                               BorderRadius.circular(8),
                                         ),
@@ -654,9 +656,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                             desc,
                             style: TextStyle(
                                 fontSize: 13,
-                                color: isDark
-                                    ? Colors.white60
-                                    : Colors.black54),
+                                color:
+                                    isDark ? Colors.white60 : Colors.black54),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -670,15 +671,16 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: Theme.of(context).primaryColor
+                                        color: Theme.of(context)
+                                            .primaryColor
                                             .withValues(alpha: 0.1),
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(t.toString(),
                                           style: TextStyle(
                                               fontSize: 11,
-                                              color: Theme.of(context).primaryColor)),
+                                              color: Theme.of(context)
+                                                  .primaryColor)),
                                     ))
                                 .toList(),
                           ),
@@ -786,8 +788,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             Text(
               '還沒有任何貼文',
               style: TextStyle(
-                  fontSize: 15,
-                  color: isDark ? Colors.white54 : Colors.grey),
+                  fontSize: 15, color: isDark ? Colors.white54 : Colors.grey),
             ),
             if (_isMember) ...[
               const SizedBox(height: 8),
@@ -857,7 +858,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? const Color(0xFFFFCC80) : const Color(0xFF8D4200)),
+                      color: isDark
+                          ? const Color(0xFFFFCC80)
+                          : const Color(0xFF8D4200)),
                 ),
                 Text(
                   '點擊「立即審核」移至成員頁面處理',
@@ -915,7 +918,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  (isDark ? Colors.black : Colors.white).withValues(alpha: 0.85),
+                  (isDark ? Colors.black : Colors.white)
+                      .withValues(alpha: 0.85),
                   (isDark ? Colors.black : Colors.white),
                 ],
               ),
@@ -978,7 +982,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   ElevatedButton.icon(
                     onPressed: _isJoining ? null : _joinOrApply,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _requiresApproval ? const Color(0xFFFF9800) : Theme.of(context).primaryColor,
+                      backgroundColor: _requiresApproval
+                          ? const Color(0xFFFF9800)
+                          : Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 28, vertical: 13),
@@ -993,7 +999,11 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                             child: CircularProgressIndicator(
                                 color: Colors.white, strokeWidth: 2),
                           )
-                        : Icon(_requiresApproval ? Icons.lock_open_rounded : Icons.group_add_rounded, size: 18),
+                        : Icon(
+                            _requiresApproval
+                                ? Icons.lock_open_rounded
+                                : Icons.group_add_rounded,
+                            size: 18),
                     label: Text(_requiresApproval ? '申請加入' : '加入群組',
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.bold)),
@@ -1052,7 +1062,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         border: Border(
-          top: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200),
+          top:
+              BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200),
         ),
       ),
       child: Column(
@@ -1073,7 +1084,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               ),
               child: Row(
                 children: [
-                  Icon(Icons.reply_rounded, size: 16, color: Theme.of(context).primaryColor),
+                  Icon(Icons.reply_rounded,
+                      size: 16, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -1091,7 +1103,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                     onTap: () => setState(() => _replyingPost = null),
                     child: Padding(
                       padding: EdgeInsets.all(2.0),
-                      child: Icon(Icons.close_rounded, size: 16, color: Theme.of(context).primaryColor),
+                      child: Icon(Icons.close_rounded,
+                          size: 16, color: Theme.of(context).primaryColor),
                     ),
                   ),
                 ],
@@ -1131,7 +1144,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                     child: TextField(
                       controller: _chatController,
                       focusNode: _chatFocusNode,
-                      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87),
                       maxLines: null,
                       keyboardType: TextInputType.multiline,
                       scrollPadding: const EdgeInsets.only(bottom: 120),
@@ -1148,7 +1162,10 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 _isSending
                     ? const Padding(
                         padding: EdgeInsets.all(12.0),
-                        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                        child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
                       )
                     : IconButton(
                         icon: const Icon(Icons.send_rounded),
@@ -1167,11 +1184,13 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     final postId = p['id'] as int;
     final isLiked = p['isLiked'] == true;
     final currentLikes = p['likes'] as int? ?? 0;
-    
+
     // Optimistic UI update
     setState(() {
       p['isLiked'] = !isLiked;
-      p['likes'] = isLiked ? (currentLikes > 0 ? currentLikes - 1 : 0) : (currentLikes + 1);
+      p['likes'] = isLiked
+          ? (currentLikes > 0 ? currentLikes - 1 : 0)
+          : (currentLikes + 1);
     });
 
     final db = await DatabaseHelper.instance.database;
@@ -1179,10 +1198,13 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       await db.delete('post_likes',
           where: 'post_id = ? AND user_id = ?',
           whereArgs: [postId, _currentUserId]);
-      await db.execute('UPDATE posts SET likes = MAX(0, likes - 1) WHERE id = ?', [postId]);
+      await db.execute(
+          'UPDATE posts SET likes = MAX(0, likes - 1) WHERE id = ?', [postId]);
     } else {
-      await db.insert('post_likes', <String, Object?>{'post_id': postId, 'user_id': _currentUserId});
-      await db.execute('UPDATE posts SET likes = likes + 1 WHERE id = ?', [postId]);
+      await db.insert('post_likes',
+          <String, Object?>{'post_id': postId, 'user_id': _currentUserId});
+      await db
+          .execute('UPDATE posts SET likes = likes + 1 WHERE id = ?', [postId]);
     }
   }
 
@@ -1203,30 +1225,44 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     final Color bubbleColor = isMe
         ? Theme.of(context).primaryColor
         : (isDark ? const Color(0xFF2C2C2C) : Colors.white);
-    final Color textColor = isMe
-        ? Colors.white
-        : (isDark ? Colors.white : Colors.black87);
+    final Color textColor =
+        isMe ? Colors.white : (isDark ? Colors.white : Colors.black87);
     final replyTo = p['replyTo'] as Map<String, dynamic>?;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
-            buildAvatar(
-              blob: p['authorAvatarBlob'] as Uint8List?,
-              colorIdx: (p['authorAvatarColor'] as int?) ?? getAvatarColorIdx(p['author'] ?? ''),
-              initial: (p['author'] ?? '?').substring(0, 1),
-              radius: 16,
-              usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 && p['authorAvatarBlob'] == null,
+            GestureDetector(
+              onTap: () => _showMemberProfileDialog(
+                name: p['author'] ?? '未知',
+                avatarBlob: p['authorAvatarBlob'] as Uint8List?,
+                avatarColor: (p['authorAvatarColor'] as int?) ??
+                    getAvatarColorIdx(p['author'] ?? ''),
+                usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                    p['authorAvatarBlob'] == null,
+                userId: p['userId']?.toString(),
+              ),
+              child: buildAvatar(
+                blob: p['authorAvatarBlob'] as Uint8List?,
+                colorIdx: (p['authorAvatarColor'] as int?) ??
+                    getAvatarColorIdx(p['author'] ?? ''),
+                initial: (p['author'] ?? '?').substring(0, 1),
+                radius: 16,
+                usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                    p['authorAvatarBlob'] == null,
+              ),
             ),
             const SizedBox(width: 8),
           ],
           Flexible(
             child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 if (!isMe)
                   Padding(
@@ -1240,14 +1276,19 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                     ),
                   ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: bubbleColor,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
-                      bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
-                      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                      bottomLeft: isMe
+                          ? const Radius.circular(16)
+                          : const Radius.circular(4),
+                      bottomRight: isMe
+                          ? const Radius.circular(4)
+                          : const Radius.circular(16),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -1268,35 +1309,53 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                             child: Container(
                               color: isMe
                                   ? Colors.black.withValues(alpha: 0.15)
-                                  : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04)),
+                                  : (isDark
+                                      ? Colors.white.withValues(alpha: 0.08)
+                                      : Colors.black.withValues(alpha: 0.04)),
                               child: IntrinsicHeight(
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     Container(
                                       width: 3,
-                                      color: isMe ? Colors.white.withValues(alpha: 0.6) : Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                                      color: isMe
+                                          ? Colors.white.withValues(alpha: 0.6)
+                                          : Theme.of(context)
+                                              .primaryColor
+                                              .withValues(alpha: 0.7),
                                     ),
                                     Flexible(
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 6),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               replyTo['author'] ?? '未知',
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                color: isMe ? Colors.white.withValues(alpha: 0.95) : Theme.of(context).primaryColor,
+                                                color: isMe
+                                                    ? Colors.white
+                                                        .withValues(alpha: 0.95)
+                                                    : Theme.of(context)
+                                                        .primaryColor,
                                               ),
                                             ),
                                             Text(
                                               replyTo['content'] ?? '',
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                color: isMe ? Colors.white.withValues(alpha: 0.85) : (isDark ? Colors.white70 : Colors.black87),
+                                                color: isMe
+                                                    ? Colors.white
+                                                        .withValues(alpha: 0.85)
+                                                    : (isDark
+                                                        ? Colors.white70
+                                                        : Colors.black87),
                                               ),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
@@ -1318,26 +1377,35 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                           try {
                             if (p['attached_data'] != null) {
                               if (p['attached_data'] is Map) {
-                                attachedData = Map<String, dynamic>.from(p['attached_data'] as Map);
-                              } else if (p['attached_data'] is String && (p['attached_data'] as String).isNotEmpty) {
-                                attachedData = jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
+                                attachedData = Map<String, dynamic>.from(
+                                    p['attached_data'] as Map);
+                              } else if (p['attached_data'] is String &&
+                                  (p['attached_data'] as String).isNotEmpty) {
+                                attachedData =
+                                    jsonDecode(p['attached_data'] as String)
+                                        as Map<String, dynamic>;
                               }
                             }
                           } catch (_) {}
 
-                          final bool isNotePost = p['postType'] == 'note' || attachedData['shared_type'] == 'note';
+                          final bool isNotePost = p['postType'] == 'note' ||
+                              attachedData['shared_type'] == 'note';
 
                           if (isNotePost) {
-                            return _buildSharedNoteCardInChat(attachedData, isMe, isDark, p);
+                            return _buildSharedNoteCardInChat(
+                                attachedData, isMe, isDark, p);
                           }
 
                           return Text(
                             p['content'] ?? '',
-                            style: TextStyle(fontSize: 15, color: textColor, height: 1.3),
+                            style: TextStyle(
+                                fontSize: 15, color: textColor, height: 1.3),
                           );
                         },
                       ),
-                      if (p['media_blob'] != null || (p['media'] != null && p['media'].toString().isNotEmpty)) ...[
+                      if (p['media_blob'] != null ||
+                          (p['media'] != null &&
+                              p['media'].toString().isNotEmpty)) ...[
                         const SizedBox(height: 8),
                         Builder(
                           builder: (context) {
@@ -1345,21 +1413,37 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                             try {
                               if (p['attached_data'] != null) {
                                 if (p['attached_data'] is Map) {
-                                  attachedData = Map<String, dynamic>.from(p['attached_data'] as Map);
-                                } else if (p['attached_data'] is String && (p['attached_data'] as String).isNotEmpty) {
-                                  attachedData = jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
+                                  attachedData = Map<String, dynamic>.from(
+                                      p['attached_data'] as Map);
+                                } else if (p['attached_data'] is String &&
+                                    (p['attached_data'] as String).isNotEmpty) {
+                                  attachedData =
+                                      jsonDecode(p['attached_data'] as String)
+                                          as Map<String, dynamic>;
                                 }
                               }
                             } catch (_) {}
-                            final double alignX = (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
-                            final double alignY = (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
-                            final Alignment imgAlignment = Alignment(alignX, alignY);
+                            final double alignX =
+                                (attachedData['img_align_x'] as num?)
+                                        ?.toDouble() ??
+                                    0.0;
+                            final double alignY =
+                                (attachedData['img_align_y'] as num?)
+                                        ?.toDouble() ??
+                                    0.0;
+                            final Alignment imgAlignment =
+                                Alignment(alignX, alignY);
 
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: (p['media_blob'] != null)
-                                  ? Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover, width: double.infinity, height: 160, alignment: imgAlignment)
-                                  : _buildNetworkOrFile(p['media'].toString(), imgAlignment),
+                                  ? Image.memory(p['media_blob'] as Uint8List,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: 160,
+                                      alignment: imgAlignment)
+                                  : _buildNetworkOrFile(
+                                      p['media'].toString(), imgAlignment),
                             );
                           },
                         ),
@@ -1374,7 +1458,10 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                     children: [
                       Text(
                         p['time'] ?? '',
-                        style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                isDark ? Colors.white38 : Colors.grey.shade500),
                       ),
                       const SizedBox(width: 12),
                       GestureDetector(
@@ -1382,12 +1469,23 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         child: Row(
                           children: [
                             Icon(
-                              p['isLiked'] == true ? Icons.favorite : Icons.favorite_border,
+                              p['isLiked'] == true
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
                               size: 14,
-                              color: p['isLiked'] == true ? Colors.redAccent : (isDark ? Colors.white38 : Colors.grey.shade400),
+                              color: p['isLiked'] == true
+                                  ? Colors.redAccent
+                                  : (isDark
+                                      ? Colors.white38
+                                      : Colors.grey.shade400),
                             ),
                             const SizedBox(width: 4),
-                            Text('${p['likes'] ?? 0}', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500)),
+                            Text('${p['likes'] ?? 0}',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark
+                                        ? Colors.white38
+                                        : Colors.grey.shade500)),
                           ],
                         ),
                       ),
@@ -1396,9 +1494,18 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         onTap: () => _replyToPost(p),
                         child: Row(
                           children: [
-                            Icon(Icons.mode_comment_outlined, size: 14, color: isDark ? Colors.white38 : Colors.grey.shade400),
+                            Icon(Icons.mode_comment_outlined,
+                                size: 14,
+                                color: isDark
+                                    ? Colors.white38
+                                    : Colors.grey.shade400),
                             const SizedBox(width: 4),
-                            Text('回覆', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500)),
+                            Text('回覆',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark
+                                        ? Colors.white38
+                                        : Colors.grey.shade500)),
                           ],
                         ),
                       ),
@@ -1415,24 +1522,29 @@ class _GroupDetailPageState extends State<GroupDetailPage>
 
   Widget _buildNetworkOrFile(String src, Alignment alignment) {
     if (src.startsWith('data:image')) {
-      return Image.memory(
-          base64Decode(src.split(',').last),
+      return Image.memory(base64Decode(src.split(',').last),
           fit: BoxFit.cover,
           width: double.infinity,
           height: 160,
           alignment: alignment);
     } else if (src.startsWith('http') || kIsWeb) {
       return Image.network(src,
-          fit: BoxFit.cover, width: double.infinity, height: 160, alignment: alignment);
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: 160,
+          alignment: alignment);
     } else {
       return Image.file(File(src),
-          fit: BoxFit.cover, width: double.infinity, height: 160, alignment: alignment);
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: 160,
+          alignment: alignment);
     }
   }
 
   // ── 群組內學習筆記卡片預覽與一鍵匯入 ──────────────────────────
-  Widget _buildSharedNoteCardInChat(
-      Map<String, dynamic> attached, bool isMe, bool isDark, Map<String, dynamic> post) {
+  Widget _buildSharedNoteCardInChat(Map<String, dynamic> attached, bool isMe,
+      bool isDark, Map<String, dynamic> post) {
     final String title = attached['title'] ?? '無標題筆記';
     final String content = attached['content'] ?? '';
     final String category = attached['category'] ?? '學習';
@@ -1446,148 +1558,646 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     final Color borderColor = isMe
         ? Colors.white.withValues(alpha: 0.3)
         : (isDark ? Colors.white12 : const Color(0xFFE2D6CA));
-    final Color titleColor = isMe
-        ? Colors.white
-        : (isDark ? Colors.white : const Color(0xFF3E2723));
+    final Color titleColor =
+        isMe ? Colors.white : (isDark ? Colors.white : const Color(0xFF3E2723));
     final Color subtitleColor = isMe
         ? Colors.white.withValues(alpha: 0.85)
         : (isDark ? Colors.white70 : Colors.black87);
 
-    return Container(
-      width: 275,
-      margin: const EdgeInsets.only(top: 2),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 頂部標籤列
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: isMe
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : Theme.of(context).primaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
+    final bool hasMindmap = attached['mindmap_json'] != null;
+
+    return InkWell(
+      onTap: () => _showNotePreviewDialog(post, attached),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 275,
+        margin: const EdgeInsets.only(top: 2),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: 1.2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 頂部標籤列
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.edit_note_rounded,
+                    size: 16,
+                    color: isMe ? Colors.white : Theme.of(context).primaryColor,
+                  ),
                 ),
-                child: Icon(
-                  Icons.edit_note_rounded,
-                  size: 16,
-                  color: isMe ? Colors.white : Theme.of(context).primaryColor,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '學習筆記分享',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: isMe ? Colors.white : Theme.of(context).primaryColor,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isMe
-                      ? Colors.white.withValues(alpha: 0.25)
-                      : Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  category,
+                const SizedBox(width: 6),
+                Text(
+                  '學習筆記分享',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: isMe ? Colors.white : Theme.of(context).primaryColor,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // 筆記標題
-          Text(
-            '《$title》',
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.bold,
-              color: titleColor,
-              height: 1.25,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 5),
-
-          // 內容摘要
-          Text(
-            content.isEmpty
-                ? '（空白筆記內容）'
-                : content.replaceAll('#', '').replaceAll('**', '').trim(),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              color: subtitleColor,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // 塗鴉標記 + 一鍵匯入按鈕
-          Row(
-            children: [
-              if (hasStrokes)
-                Row(
-                  children: [
-                    Icon(
-                      Icons.palette_outlined,
-                      size: 13,
-                      color: isMe
-                          ? Colors.white70
-                          : (isDark ? Colors.white60 : Colors.blueGrey),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.25)
+                        : Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    category,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color:
+                          isMe ? Colors.white : Theme.of(context).primaryColor,
                     ),
-                    const SizedBox(width: 3),
-                    Text(
-                      '含手繪塗鴉',
-                      style: TextStyle(
-                        fontSize: 10.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // 筆記標題
+            Text(
+              '《$title》',
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.bold,
+                color: titleColor,
+                height: 1.25,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 5),
+
+            // 內容摘要
+            Text(
+              content.isEmpty
+                  ? '（空白筆記內容）'
+                  : content.replaceAll('#', '').replaceAll('**', '').trim(),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: subtitleColor,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // 塗鴉/心智圖標記 + 預覽與匯入按鈕
+            Row(
+              children: [
+                if (hasMindmap)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isMe
+                            ? Colors.white.withValues(alpha: 0.25)
+                            : const Color(0xFF4A148C).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.hub_outlined,
+                              size: 10,
+                              color: isMe
+                                  ? Colors.white
+                                  : const Color(0xFF4A148C)),
+                          const SizedBox(width: 2),
+                          Text('心智圖',
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: isMe
+                                      ? Colors.white
+                                      : const Color(0xFF4A148C))),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (hasStrokes)
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.palette_outlined,
+                        size: 13,
                         color: isMe
                             ? Colors.white70
                             : (isDark ? Colors.white60 : Colors.blueGrey),
                       ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '手繪',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: isMe
+                              ? Colors.white70
+                              : (isDark ? Colors.white60 : Colors.blueGrey),
+                        ),
+                      ),
+                    ],
+                  ),
+                const Spacer(),
+                OutlinedButton(
+                  onPressed: () => _showNotePreviewDialog(post, attached),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor:
+                        isMe ? Colors.white : Theme.of(context).primaryColor,
+                    side: BorderSide(
+                        color: isMe
+                            ? Colors.white70
+                            : Theme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.5)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.visibility_rounded, size: 13),
+                      SizedBox(width: 3),
+                      Text('預覽',
+                          style: TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 5),
+                ElevatedButton.icon(
+                  onPressed: () => _importSharedNote(post),
+                  icon: const Icon(Icons.download_rounded, size: 13),
+                  label: const Text('匯入',
+                      style:
+                          TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        isMe ? Colors.white : Theme.of(context).primaryColor,
+                    foregroundColor:
+                        isMe ? Theme.of(context).primaryColor : Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 1,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNotePreviewDialog(
+      Map<String, dynamic> p, Map<String, dynamic> attached) {
+    final String rawTitle = attached['title'] as String? ?? '';
+    final String rawContent = attached['content'] as String? ?? '';
+    final String pContent = p['content'] as String? ?? '';
+    final String title = rawTitle.isNotEmpty ? rawTitle : '無標題筆記';
+    final String content = rawContent.isNotEmpty ? rawContent : pContent;
+    final String category = (attached['category'] as String? ?? '').isNotEmpty
+        ? (attached['category'] as String)
+        : '學習';
+    final String authorName = p['author'] as String? ?? '未知用戶';
+    final String timeStr = p['time'] as String? ??
+        (p['created_at']?.toString().split('T').first ?? '');
+
+    // 解析 strokes
+    final List<Stroke> strokes = [];
+    final String? strokesJson = attached['strokes'];
+    if (strokesJson != null && strokesJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(strokesJson) as List;
+        for (var s in decoded) {
+          strokes.add(Stroke.fromJson(s as Map<String, dynamic>));
+        }
+      } catch (e) {
+        debugPrint('解析筆記繪圖失敗: $e');
+      }
+    }
+
+    // 解析 mindmap
+    MindMapNode? mindmapNode;
+    if (attached['mindmap_json'] != null) {
+      try {
+        final mindmapMap = attached['mindmap_json'] is Map
+            ? Map<String, dynamic>.from(attached['mindmap_json'] as Map)
+            : jsonDecode(attached['mindmap_json'].toString())
+                as Map<String, dynamic>;
+        mindmapNode = MindMapNode.fromJson(mindmapMap);
+      } catch (e) {
+        debugPrint('解析心智圖失敗: $e');
+      }
+    }
+
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+    final dialogBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final borderCol =
+        isDark ? Colors.white12 : primaryColor.withValues(alpha: 0.18);
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        int selectedTab = 0; // 0: 文字, 1: 塗鴉, 2: 心智圖
+
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            final hasStrokes = strokes.isNotEmpty;
+            final hasMindmap = mindmapNode != null;
+
+            return Dialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                  maxWidth: 600,
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 頂部標題與關閉按鈕
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.sticky_note_2_rounded,
+                              color: primaryColor, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF3E2723),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(ctx),
+                          style: IconButton.styleFrom(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 作者資訊與分類標籤
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            category,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '•  由 $authorName 分享${timeStr.isNotEmpty ? ' 於 $timeStr' : ''}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark
+                                  ? Colors.white38
+                                  : Colors.grey.shade600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // 頁籤切換器 (若包含多種媒體類型)
+                    if (hasStrokes || hasMindmap) ...[
+                      Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white10 : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.all(3),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () =>
+                                    setStateDialog(() => selectedTab = 0),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: selectedTab == 0
+                                        ? (isDark
+                                            ? const Color(0xFF2C2C2C)
+                                            : Colors.white)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: selectedTab == 0
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black
+                                                  .withValues(alpha: 0.06),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 1),
+                                            )
+                                          ]
+                                        : null,
+                                  ),
+                                  child: Text(
+                                    '📝 文字紀錄',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: selectedTab == 0
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: selectedTab == 0
+                                          ? primaryColor
+                                          : (isDark
+                                              ? Colors.white60
+                                              : Colors.black54),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (hasStrokes)
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () =>
+                                      setStateDialog(() => selectedTab = 1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: selectedTab == 1
+                                          ? (isDark
+                                              ? const Color(0xFF2C2C2C)
+                                              : Colors.white)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: selectedTab == 1
+                                          ? [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withValues(alpha: 0.06),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 1),
+                                              )
+                                            ]
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      '🎨 手寫塗鴉',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: selectedTab == 1
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: selectedTab == 1
+                                            ? primaryColor
+                                            : (isDark
+                                                ? Colors.white60
+                                                : Colors.black54),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (hasMindmap)
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () =>
+                                      setStateDialog(() => selectedTab = 2),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: selectedTab == 2
+                                          ? (isDark
+                                              ? const Color(0xFF2C2C2C)
+                                              : Colors.white)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: selectedTab == 2
+                                          ? [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withValues(alpha: 0.06),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 1),
+                                              )
+                                            ]
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      '🧠 心智圖',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: selectedTab == 2
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: selectedTab == 2
+                                            ? const Color(0xFF4A148C)
+                                            : (isDark
+                                                ? Colors.white60
+                                                : Colors.black54),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 筆記內容主要呈現區
+                    Flexible(
+                      child: Container(
+                        height: 380,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF25252A)
+                              : const Color(0xFFFDFCFA),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: borderCol, width: 1.2),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: selectedTab == 1 && hasStrokes
+                              ? CustomPaint(
+                                  painter: StrokePainter(strokes: strokes),
+                                )
+                              : selectedTab == 2 && hasMindmap
+                                  ? Stack(
+                                      children: [
+                                        InteractiveMindMapView(
+                                            root: mindmapNode),
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: TextButton.icon(
+                                            onPressed: () {
+                                              FullscreenMindMapView.open(
+                                                context,
+                                                root: mindmapNode!,
+                                                title: title,
+                                              );
+                                            },
+                                            icon: const Icon(
+                                                Icons.fullscreen_rounded,
+                                                size: 16),
+                                            label: const Text('全螢幕',
+                                                style: TextStyle(fontSize: 11)),
+                                            style: TextButton.styleFrom(
+                                              backgroundColor: Colors.white
+                                                  .withValues(alpha: 0.9),
+                                              foregroundColor:
+                                                  const Color(0xFF4A148C),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2),
+                                              shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8)),
+                                              elevation: 1,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Stack(
+                                      children: [
+                                        Positioned.fill(
+                                          child: CustomPaint(
+                                            painter: PaperBackgroundPainter(),
+                                          ),
+                                        ),
+                                        Positioned.fill(
+                                          child: SingleChildScrollView(
+                                            padding: const EdgeInsets.fromLTRB(
+                                                48, 16, 20, 16),
+                                            child: RichNoteContentView(
+                                              content: content,
+                                              isDark: isDark,
+                                              selectable: true,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 底部操作列
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('關閉',
+                              style: TextStyle(
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.download_rounded, size: 17),
+                          label: const Text('匯入至我的筆記本',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _importSharedNote(p);
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              const Spacer(),
-              ElevatedButton.icon(
-                onPressed: () => _importSharedNote(post),
-                icon: const Icon(Icons.download_rounded, size: 14),
-                label: const Text('一鍵匯入',
-                    style: TextStyle(
-                        fontSize: 11.5, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isMe ? Colors.white : Theme.of(context).primaryColor,
-                  foregroundColor: isMe ? Theme.of(context).primaryColor : Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 1,
-                  visualDensity: VisualDensity.compact,
-                ),
               ),
-            ],
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1621,6 +2231,17 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         }
       }
 
+      final Map<String, dynamic>? mindmapJson = attachedData['mindmap_json'] !=
+              null
+          ? (attachedData['mindmap_json'] is Map
+              ? Map<String, dynamic>.from(attachedData['mindmap_json'] as Map)
+              : (attachedData['mindmap_json'] is String &&
+                      (attachedData['mindmap_json'] as String).isNotEmpty
+                  ? jsonDecode(attachedData['mindmap_json'] as String)
+                      as Map<String, dynamic>
+                  : null))
+          : null;
+
       final newNote = Note(
         id: 'note_${DateTime.now().millisecondsSinceEpoch}',
         userId: widget.currentUser['id'],
@@ -1633,6 +2254,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         authorName: authorName,
         authorUserId: authorUserId,
         authorAvatarColor: authorAvatarColor,
+        mindmapJson: mindmapJson,
       );
 
       // 匯入至 NotesDatabase 運行時列表中
@@ -1651,7 +2273,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           backgroundColor: Theme.of(context).primaryColor,
           duration: const Duration(milliseconds: 1400),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } catch (e) {
@@ -1662,7 +2285,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           backgroundColor: Colors.redAccent,
           duration: const Duration(milliseconds: 1400),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -1674,12 +2298,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       return const Center(child: CircularProgressIndicator());
     }
 
-    final active = _members
-        .where((m) => m['status'] == 'active')
-        .toList();
-    final pending = _members
-        .where((m) => m['status'] == 'pending')
-        .toList();
+    final active = _members.where((m) => m['status'] == 'active').toList();
+    final pending = _members.where((m) => m['status'] == 'pending').toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -1710,8 +2330,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         ),
         const SizedBox(width: 6),
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
             color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(10),
@@ -1730,9 +2349,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     final name = m['display_name'] as String? ?? '未知用戶';
     final role = m['role'] as String? ?? 'member';
     final targetUserId = m['user_id'].toString();
-    final bool canKick = _isOwnerOrAdmin &&
-        role != 'owner' &&
-        targetUserId != _currentUserId;
+    final bool canKick =
+        _isOwnerOrAdmin && role != 'owner' && targetUserId != _currentUserId;
     final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final borderCol = isDark ? Colors.white10 : Colors.grey.shade100;
 
@@ -1746,13 +2364,24 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       ),
       child: Row(
         children: [
-          buildAvatar(
-            blob: m['avatar_blob'] as Uint8List?,
-            colorIdx: m['avatar_color'] as int? ?? 0,
-            initial: name.substring(0, 1),
-            radius: 18,
-            usePreset: (m['avatar_selected'] as int? ?? 0) == 1 &&
-                m['avatar_blob'] == null,
+          GestureDetector(
+            onTap: () => _showMemberProfileDialog(
+              name: name,
+              avatarBlob: m['avatar_blob'] as Uint8List?,
+              avatarColor: m['avatar_color'] as int? ?? 0,
+              usePreset: (m['avatar_selected'] as int? ?? 0) == 1 &&
+                  m['avatar_blob'] == null,
+              role: role,
+              userId: m['user_id']?.toString(),
+            ),
+            child: buildAvatar(
+              blob: m['avatar_blob'] as Uint8List?,
+              colorIdx: m['avatar_color'] as int? ?? 0,
+              initial: name.isNotEmpty ? name.substring(0, 1) : '?',
+              radius: 18,
+              usePreset: (m['avatar_selected'] as int? ?? 0) == 1 &&
+                  m['avatar_blob'] == null,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1779,9 +2408,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
 
   Widget _buildPendingCard(Map<String, dynamic> m, bool isDark) {
     final name = m['display_name'] as String? ?? '未知用戶';
-    final cardBg = isDark
-        ? Colors.orange.withValues(alpha: 0.08)
-        : Colors.orange.shade50;
+    final cardBg =
+        isDark ? Colors.orange.withValues(alpha: 0.08) : Colors.orange.shade50;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1812,8 +2440,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         fontWeight: FontWeight.w600,
                         color: isDark ? Colors.white : Colors.black87)),
                 const Text('⏳ 申請中',
-                    style:
-                        TextStyle(fontSize: 11, color: Colors.orange)),
+                    style: TextStyle(fontSize: 11, color: Colors.orange)),
               ],
             ),
           ),
@@ -1826,8 +2453,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 onPressed: () => _approveRequest(m, true),
               ),
               IconButton(
-                icon: const Icon(Icons.cancel,
-                    color: Colors.redAccent, size: 26),
+                icon:
+                    const Icon(Icons.cancel, color: Colors.redAccent, size: 26),
                 tooltip: '拒絕',
                 onPressed: () => _approveRequest(m, false),
               ),
@@ -1873,21 +2500,249 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     return FloatingActionButton.extended(
       heroTag: 'group_join_fab',
       onPressed: _isJoining ? null : _joinOrApply,
-      backgroundColor:
-          _requiresApproval ? const Color(0xFFFF9800) : Theme.of(context).primaryColor,
+      backgroundColor: _requiresApproval
+          ? const Color(0xFFFF9800)
+          : Theme.of(context).primaryColor,
       icon: _isJoining
           ? const SizedBox(
               width: 18,
               height: 18,
-              child:
-                  CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              child: CircularProgressIndicator(
+                  color: Colors.white, strokeWidth: 2),
             )
-          : Icon(_requiresApproval ? Icons.lock_open_rounded : Icons.group_add_rounded,
+          : Icon(
+              _requiresApproval
+                  ? Icons.lock_open_rounded
+                  : Icons.group_add_rounded,
               color: Colors.white),
       label: Text(
         _requiresApproval ? '申請加入' : '加入群組',
         style: const TextStyle(
             fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+    );
+  }
+
+  // ── 查看群組成員名片與簡介 ──
+  Future<void> _showMemberProfileDialog({
+    required String name,
+    Uint8List? avatarBlob,
+    int avatarColor = 0,
+    bool usePreset = false,
+    String? bio,
+    String? role,
+    String? userId,
+  }) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).primaryColor;
+    final bool isMe =
+        userId != null && userId == widget.currentUser['id'].toString();
+
+    String effectiveBio = (bio ?? '').trim();
+    if (userId != null && effectiveBio.isEmpty) {
+      try {
+        final db = await DatabaseHelper.instance.database;
+        final rows =
+            await db.query('users', where: 'id = ?', whereArgs: [userId]);
+        if (rows.isNotEmpty) {
+          effectiveBio = (rows.first['bio'] as String? ?? '').trim();
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E22) : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 頂部橫幅
+              Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    height: 90,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [primary, primary.withValues(alpha: 0.75)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 16,
+                          top: 14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.group_rounded,
+                                    size: 13, color: Colors.white),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isMe ? '我的群組身分' : '群組成員名片',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: IconButton(
+                            icon: const Icon(Icons.close_rounded,
+                                color: Colors.white, size: 20),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -35,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color:
+                              isDark ? const Color(0xFF1E1E22) : Colors.white,
+                          width: 4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black
+                                .withValues(alpha: isDark ? 0.4 : 0.15),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: buildAvatar(
+                        blob: avatarBlob,
+                        colorIdx: avatarColor,
+                        initial: name.isNotEmpty ? name.substring(0, 1) : '?',
+                        radius: 35,
+                        usePreset: usePreset,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 42),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    if (role != null) ...[
+                      _buildRoleBadge(role),
+                      const SizedBox(height: 12),
+                    ],
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF26262B)
+                            : const Color(0xFFF7F8FA),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.format_quote_rounded,
+                                  size: 15, color: primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                '個人簡介',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            effectiveBio.isNotEmpty
+                                ? effectiveBio
+                                : '這位成員很專注，尚未填寫個人簡介 🌱',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.45,
+                              fontStyle: effectiveBio.isEmpty
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
+                              color: effectiveBio.isNotEmpty
+                                  ? (isDark ? Colors.white70 : Colors.black87)
+                                  : (isDark
+                                      ? Colors.white38
+                                      : Colors.grey.shade500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: TextButton.styleFrom(
+                          foregroundColor:
+                              isDark ? Colors.white60 : Colors.grey.shade700,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('關閉',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

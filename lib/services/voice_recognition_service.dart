@@ -38,7 +38,8 @@ class VoiceRecognitionService {
           _handleStatusChange(status);
         },
         onError: (errorNotification) {
-          debugPrint('語音辨識底層錯誤: ${errorNotification.errorMsg} (permanent: ${errorNotification.permanent})');
+          debugPrint(
+              '語音辨識底層錯誤: ${errorNotification.errorMsg} (permanent: ${errorNotification.permanent})');
           _handleError(errorNotification);
         },
         debugLogging: kDebugMode,
@@ -88,7 +89,9 @@ class VoiceRecognitionService {
         final normalizedPrefix = prefix.toLowerCase().replaceAll('_', '-');
         for (final locale in _systemLocales) {
           final locId = locale.localeId.toLowerCase().replaceAll('_', '-');
-          if (locId == normalizedPrefix || locId.startsWith('$normalizedPrefix-') || locId.startsWith(normalizedPrefix)) {
+          if (locId == normalizedPrefix ||
+              locId.startsWith('$normalizedPrefix-') ||
+              locId.startsWith(normalizedPrefix)) {
             return locale.localeId;
           }
         }
@@ -98,7 +101,8 @@ class VoiceRecognitionService {
       for (final prefix in targetPrefixes) {
         final pShort = prefix.split(RegExp(r'[-_]')).first.toLowerCase();
         for (final locale in _systemLocales) {
-          final locShort = locale.localeId.split(RegExp(r'[-_]')).first.toLowerCase();
+          final locShort =
+              locale.localeId.split(RegExp(r'[-_]')).first.toLowerCase();
           if (locShort == pShort) {
             return locale.localeId;
           }
@@ -170,18 +174,21 @@ class VoiceRecognitionService {
   }
 
   void _handleStatusChange(String status) {
-    debugPrint('VoiceRecognitionService 狀態變更: $status (shouldKeepListening: $_shouldKeepListening)');
+    debugPrint(
+        'VoiceRecognitionService 狀態變更: $status (shouldKeepListening: $_shouldKeepListening)');
     _onStatusCallback?.call(status);
 
     // 若底層 Session 結束（notListening / done），但最後辨識出的文字尚未標記為 Final，強制交付定稿
     if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
-      debugPrint('VoiceRecognitionService: 原生階段結束，強制保存未定稿字詞: $_lastRecognizedWords');
+      debugPrint(
+          'VoiceRecognitionService: 原生階段結束，強制保存未定稿字詞: $_lastRecognizedWords');
       _onResultCallback?.call(_lastRecognizedWords.trim(), true);
       _lastRecognizedWords = '';
       _lastWasFinal = true;
     }
 
-    if (_shouldKeepListening && (status == 'notListening' || status == 'done')) {
+    if (_shouldKeepListening &&
+        (status == 'notListening' || status == 'done')) {
       _scheduleAutoRestart();
     }
   }
@@ -301,7 +308,6 @@ class VoiceRecognitionService {
 
     return cleaned;
   }
-
 
   /// 取消語音辨識
   Future<void> cancelListening() async {

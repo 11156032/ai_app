@@ -209,9 +209,10 @@ class _ReviewPageState extends State<ReviewPage>
   }
   */
 
-  void _showAiExplanationSheet(
-      BuildContext context, int qIdx, Map<String, dynamic> q, int correctIndex, int? chosenIndex) {
-    final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u4';
+  void _showAiExplanationSheet(BuildContext context, int qIdx,
+      Map<String, dynamic> q, int correctIndex, int? chosenIndex) {
+    final uid =
+        widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u4';
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -794,7 +795,8 @@ class _ReviewPageState extends State<ReviewPage>
                       try {
                         final db = await DatabaseHelper.instance.database;
                         final nextVal = isFav ? 0 : 1;
-                        await db.update('questions', <String, Object?>{'bookmarked': nextVal},
+                        await db.update('questions',
+                            <String, Object?>{'bookmarked': nextVal},
                             where: 'id = ?', whereArgs: [qid]);
                         setState(() {
                           if (isFav) {
@@ -935,15 +937,20 @@ class _ReviewPageState extends State<ReviewPage>
                 ],
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: () => _showAiExplanationSheet(context, qIdx, q, correct, chosen),
+                  onPressed: () => _showAiExplanationSheet(
+                      context, qIdx, q, correct, chosen),
                   icon: const Icon(Icons.auto_awesome_rounded, size: 18),
                   label: const Text('詢問 AI 解析'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Theme.of(context).primaryColor,
-                    side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.5)),
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
                 ),
                 if (widget.saveResult) ...[
@@ -1303,7 +1310,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
     final cs = Theme.of(context).colorScheme;
     final size = MediaQuery.of(context).size;
     final rawText = _explanationBuffer.toString();
-    
+
     return Container(
       constraints: BoxConstraints(maxHeight: size.height * 0.85),
       decoration: const BoxDecoration(
@@ -1338,7 +1345,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                     color: cs.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.auto_awesome_rounded, color: cs.primary, size: 20),
+                  child: Icon(Icons.auto_awesome_rounded,
+                      color: cs.primary, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -1384,7 +1392,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                           color: cs.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.psychology_rounded, size: 16, color: cs.primary),
+                        child: Icon(Icons.psychology_rounded,
+                            size: 16, color: cs.primary),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -1409,7 +1418,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                             const SizedBox(height: 16),
                             const Text(
                               'AI 導師正在深度解析本題觀念...',
-                              style: TextStyle(color: Colors.grey, fontSize: 13),
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 13),
                             ),
                           ],
                         ),
@@ -1429,7 +1439,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
 
   /// 題目內容、選項與作答狀況回顧卡片
   Widget _buildQuestionPreview(ColorScheme cs) {
-    final qText = (widget.question['question'] ?? widget.question['text'] ?? '').toString();
+    final qText = (widget.question['question'] ?? widget.question['text'] ?? '')
+        .toString();
     final chapter = widget.question['chapter'] ?? widget.question['unit'];
     final difficulty = widget.question['difficulty'];
     final rawOptions = widget.question['options'];
@@ -1454,7 +1465,9 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
     }
 
     final correctOpt = String.fromCharCode(65 + widget.correctIndex);
-    final chosenOpt = widget.chosenIndex != null ? String.fromCharCode(65 + widget.chosenIndex!) : '未作答';
+    final chosenOpt = widget.chosenIndex != null
+        ? String.fromCharCode(65 + widget.chosenIndex!)
+        : '未作答';
     final isCorrect = widget.chosenIndex == widget.correctIndex;
 
     return Container(
@@ -1480,7 +1493,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
               if (chapter != null && chapter.toString().isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                   decoration: BoxDecoration(
                     color: cs.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(6),
@@ -1496,7 +1510,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                 ),
               if (difficulty != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(6),
@@ -1513,16 +1528,31 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isCorrect ? Colors.green.shade50 : (widget.chosenIndex != null ? Colors.red.shade50 : Colors.grey.shade100),
+                  color: isCorrect
+                      ? Colors.green.shade50
+                      : (widget.chosenIndex != null
+                          ? Colors.red.shade50
+                          : Colors.grey.shade100),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: isCorrect ? Colors.green.shade200 : (widget.chosenIndex != null ? Colors.red.shade200 : Colors.grey.shade300)),
+                  border: Border.all(
+                      color: isCorrect
+                          ? Colors.green.shade200
+                          : (widget.chosenIndex != null
+                              ? Colors.red.shade200
+                              : Colors.grey.shade300)),
                 ),
                 child: Text(
-                  isCorrect ? '✓ 答對' : (widget.chosenIndex != null ? '✗ 答錯' : '未作答'),
+                  isCorrect
+                      ? '✓ 答對'
+                      : (widget.chosenIndex != null ? '✗ 答錯' : '未作答'),
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: isCorrect ? Colors.green.shade800 : (widget.chosenIndex != null ? Colors.red.shade700 : Colors.grey.shade700),
+                    color: isCorrect
+                        ? Colors.green.shade800
+                        : (widget.chosenIndex != null
+                            ? Colors.red.shade700
+                            : Colors.grey.shade700),
                   ),
                 ),
               ),
@@ -1541,7 +1571,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                 height: 1.5,
               ),
             ),
-          
+
           if (options.isNotEmpty) ...[
             const SizedBox(height: 12),
             ...options.asMap().entries.map((e) {
@@ -1566,7 +1596,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: bgClr,
                   borderRadius: BorderRadius.circular(8),
@@ -1579,7 +1610,9 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                       height: 20,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isOptCorrect ? Colors.green : (isOptChosen ? Colors.red : Colors.grey.shade300),
+                        color: isOptCorrect
+                            ? Colors.green
+                            : (isOptChosen ? Colors.red : Colors.grey.shade300),
                       ),
                       child: Center(
                         child: Text(
@@ -1587,7 +1620,9 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
-                            color: (isOptCorrect || isOptChosen) ? Colors.white : Colors.grey.shade700,
+                            color: (isOptCorrect || isOptChosen)
+                                ? Colors.white
+                                : Colors.grey.shade700,
                           ),
                         ),
                       ),
@@ -1598,15 +1633,19 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                         optText,
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: isOptCorrect ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isOptCorrect
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           color: textClr,
                         ),
                       ),
                     ),
                     if (isOptCorrect)
-                      const Icon(Icons.check_circle_rounded, size: 16, color: Colors.green)
+                      const Icon(Icons.check_circle_rounded,
+                          size: 16, color: Colors.green)
                     else if (isOptChosen)
-                      const Icon(Icons.cancel_rounded, size: 16, color: Colors.red),
+                      const Icon(Icons.cancel_rounded,
+                          size: 16, color: Colors.red),
                   ],
                 ),
               );
@@ -1620,9 +1659,20 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
           // 正確解答 vs 學生作答提示
           Row(
             children: [
-              Text('正確答案：($correctOpt)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+              Text('正確答案：($correctOpt)',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade800)),
               const Spacer(),
-              Text('您的作答：${widget.chosenIndex != null ? '($chosenOpt)' : '未作答'}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isCorrect ? Colors.green.shade800 : Colors.red.shade700)),
+              Text(
+                  '您的作答：${widget.chosenIndex != null ? '($chosenOpt)' : '未作答'}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isCorrect
+                          ? Colors.green.shade800
+                          : Colors.red.shade700)),
             ],
           ),
         ],
@@ -1683,9 +1733,14 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
 
         if (trimmed.contains('觀念') || trimmed.contains('正確')) {
           if (!formatTitle.startsWith('🎯')) formatTitle = '🎯 $formatTitle';
-        } else if (trimmed.contains('盲點') || trimmed.contains('誤解') || trimmed.contains('迷思')) {
+        } else if (trimmed.contains('盲點') ||
+            trimmed.contains('誤解') ||
+            trimmed.contains('迷思')) {
           if (!formatTitle.startsWith('🔍')) formatTitle = '🔍 $formatTitle';
-        } else if (trimmed.contains('核心') || trimmed.contains('總結') || trimmed.contains('口訣') || trimmed.contains('一秒')) {
+        } else if (trimmed.contains('核心') ||
+            trimmed.contains('總結') ||
+            trimmed.contains('口訣') ||
+            trimmed.contains('一秒')) {
           if (!formatTitle.startsWith('💡')) formatTitle = '💡 $formatTitle';
         }
       }
@@ -1705,9 +1760,12 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
       if (paragraphs.length > 1) {
         final List<Widget> autoCards = [];
         for (int i = 0; i < paragraphs.length; i++) {
-          final pLines = paragraphs[i].split('\n').where((l) => l.trim().isNotEmpty).toList();
+          final pLines = paragraphs[i]
+              .split('\n')
+              .where((l) => l.trim().isNotEmpty)
+              .toList();
           if (pLines.isEmpty) continue;
-          
+
           String autoTitle;
           if (i == 0) {
             autoTitle = '🎯 觀念剖析與正確解答';
@@ -1735,22 +1793,31 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
   }
 
   /// 渲染單一結構區塊卡片（簡潔優雅白底 + 微質感主題 Header）
-  Widget _buildSectionCard(String? title, List<String> bodyLines, ColorScheme cs) {
+  Widget _buildSectionCard(
+      String? title, List<String> bodyLines, ColorScheme cs) {
     // 依標題類型決定主題顏色與圖示
     Color primaryColor = cs.primary;
     Color headerBgColor = cs.primary.withValues(alpha: 0.06);
     IconData iconData = Icons.auto_awesome_rounded;
 
     if (title != null) {
-      if (title.contains('🎯') || title.contains('正確') || title.contains('觀念')) {
+      if (title.contains('🎯') ||
+          title.contains('正確') ||
+          title.contains('觀念')) {
         primaryColor = const Color(0xFF0F766E); // 質感深翡翠綠 (Deep Emerald/Teal)
         headerBgColor = const Color(0xFFF0FDF4); // 極淡柔和薄荷色
         iconData = Icons.task_alt_rounded;
-      } else if (title.contains('🔍') || title.contains('盲點') || title.contains('誤解') || title.contains('迷思')) {
+      } else if (title.contains('🔍') ||
+          title.contains('盲點') ||
+          title.contains('誤解') ||
+          title.contains('迷思')) {
         primaryColor = const Color(0xFFC2410C); // 質感溫暖琥珀赤陶 (Warm Amber/Orange)
         headerBgColor = const Color(0xFFFFF7ED); // 極淡暖色
         iconData = Icons.find_in_page_rounded;
-      } else if (title.contains('💡') || title.contains('口訣') || title.contains('總結') || title.contains('一秒')) {
+      } else if (title.contains('💡') ||
+          title.contains('口訣') ||
+          title.contains('總結') ||
+          title.contains('一秒')) {
         primaryColor = const Color(0xFF4338CA); // 質感深綻藍紫 (Deep Indigo)
         headerBgColor = const Color(0xFFEEF2FF); // 極淡靛藍色
         iconData = Icons.lightbulb_rounded;
@@ -1779,7 +1846,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
                 color: headerBgColor,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(13)),
               ),
               child: Row(
                 children: [
@@ -1806,8 +1874,10 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: bodyLines.map((line) {
                 final trimmed = line.trim();
-                final isBullet = trimmed.startsWith('•') || trimmed.startsWith('-');
-                final cleanContent = isBullet ? trimmed.substring(1).trim() : line;
+                final isBullet =
+                    trimmed.startsWith('•') || trimmed.startsWith('-');
+                final cleanContent =
+                    isBullet ? trimmed.substring(1).trim() : line;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
@@ -1849,14 +1919,16 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
   }
 
   /// 將 【關鍵字】 解析為獨立視覺化的微型標籤 (WidgetSpan Chip)
-  Widget _buildRichTextWithKeywordChips(String text, TextStyle baseStyle, Color primaryColor) {
+  Widget _buildRichTextWithKeywordChips(
+      String text, TextStyle baseStyle, Color primaryColor) {
     final List<InlineSpan> spans = [];
     final RegExp regExp = RegExp(r'【([^】]+)】');
     int lastIndex = 0;
 
     for (final Match match in regExp.allMatches(text)) {
       if (match.start > lastIndex) {
-        spans.add(TextSpan(text: text.substring(lastIndex, match.start), style: baseStyle));
+        spans.add(TextSpan(
+            text: text.substring(lastIndex, match.start), style: baseStyle));
       }
       final keyword = match.group(1) ?? '';
       spans.add(
@@ -1868,7 +1940,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
             decoration: BoxDecoration(
               color: primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: primaryColor.withValues(alpha: 0.3), width: 0.8),
+              border: Border.all(
+                  color: primaryColor.withValues(alpha: 0.3), width: 0.8),
             ),
             child: Text(
               keyword,
@@ -1893,4 +1966,4 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
       style: baseStyle,
     );
   }
-}
+}

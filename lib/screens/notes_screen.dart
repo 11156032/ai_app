@@ -1,3 +1,4 @@
+import '../widgets/common_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
@@ -61,11 +62,11 @@ class Note {
   String category;
   List<Stroke> strokes;
   DateTime updatedAt;
-  String? authorName;       // 原作者顯示名稱
-  String? authorUserId;     // 原作者的 userId
-  int? authorAvatarColor;   // 原作者頭像顏色索引
+  String? authorName; // 原作者顯示名稱
+  String? authorUserId; // 原作者的 userId
+  int? authorAvatarColor; // 原作者頭像顏色索引
   Map<String, dynamic>? mindmapJson; // 🧠 關聯心智圖 JSON
-  List<ActionItem>? actionItems;    // ✅ 關聯待辦行動清單
+  List<ActionItem>? actionItems; // ✅ 關聯待辦行動清單
 
   Note({
     required this.id,
@@ -232,14 +233,39 @@ class MarkdownTextController extends TextEditingController {
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
       TextStyle lineStyle = style ??
-          const TextStyle(fontSize: 15, color: Colors.black87, height: 1.6);
+          const TextStyle(fontSize: 14, color: Colors.black87, height: 1.71);
       String content = line;
       TextSpan? prefixSpan;
 
-      // A. 解析標頭: "# " 或 "## "
+      final trimmed = line.trim();
+
+      // A. 解析水平分隔線: "---", "***", "___" (橫條效果)
+      if (trimmed.length >= 3 &&
+          (trimmed.replaceAll('-', '').isEmpty ||
+              trimmed.replaceAll('*', '').isEmpty ||
+              trimmed.replaceAll('_', '').isEmpty)) {
+        spans.add(TextSpan(
+          text: line,
+          style: lineStyle.copyWith(
+            fontSize: 13,
+            letterSpacing: 3.0,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFFBCAAA4), // 雅緻暖灰木紋橫條
+            decoration: TextDecoration.lineThrough,
+            decorationColor: const Color(0xFF8D6E63),
+            decorationThickness: 2.8,
+          ),
+        ));
+        if (i < lines.length - 1) {
+          spans.add(const TextSpan(text: '\n'));
+        }
+        continue;
+      }
+
+      // B. 解析標頭: "# ", "## ", "### ", "#### "
       if (line.startsWith('# ')) {
         lineStyle = lineStyle.copyWith(
-          fontSize: 22,
+          fontSize: 21,
           fontWeight: FontWeight.bold,
           color: const Color(0xFF3E2723), // 經典暖深褐
         );
@@ -250,7 +276,7 @@ class MarkdownTextController extends TextEditingController {
         content = line.substring(2);
       } else if (line.startsWith('## ')) {
         lineStyle = lineStyle.copyWith(
-          fontSize: 18,
+          fontSize: 17.5,
           fontWeight: FontWeight.bold,
           color: const Color(0xFF5D4037),
         );
@@ -259,16 +285,77 @@ class MarkdownTextController extends TextEditingController {
           style: TextStyle(fontSize: 0, color: Colors.transparent),
         );
         content = line.substring(3);
-      } else if (line.startsWith('- ')) {
-        prefixSpan = TextSpan(
-          text: '• ',
-          style: lineStyle.copyWith(
-            color: Theme.of(context).primaryColor,
+      } else if (line.startsWith('### ')) {
+        lineStyle = lineStyle.copyWith(
+          fontSize: 15.5,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF4A148C), // 紫色精選小標
+        );
+        prefixSpan = const TextSpan(
+          text: '### ',
+          style: TextStyle(fontSize: 0, color: Colors.transparent),
+        );
+        content = line.substring(4);
+      } else if (line.startsWith('#### ')) {
+        lineStyle = lineStyle.copyWith(
+          fontSize: 14.5,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF795548),
+        );
+        prefixSpan = const TextSpan(
+          text: '#### ',
+          style: TextStyle(fontSize: 0, color: Colors.transparent),
+        );
+        content = line.substring(5);
+      } else if (line.startsWith('> ')) {
+        // C. 引用塊 (Blockquote)
+        prefixSpan = const TextSpan(
+          text: '▎ ',
+          style: TextStyle(
+            color: Color(0xFF673AB7),
             fontWeight: FontWeight.bold,
+            fontSize: 15,
           ),
         );
+        lineStyle = lineStyle.copyWith(
+          color: const Color(0xFF4A148C),
+          fontStyle: FontStyle.italic,
+        );
         content = line.substring(2);
-      } else if (line.startsWith('• ')) {
+      } else if (line.startsWith('- [ ] ') || line.startsWith('* [ ] ')) {
+        // D. 待辦清單 (未完成)
+        prefixSpan = TextSpan(
+          text: '☐ ',
+          style: lineStyle.copyWith(
+            color: const Color(0xFF8D6E63),
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        );
+        content = line.substring(6);
+      } else if (line.startsWith('- [x] ') ||
+          line.startsWith('- [X] ') ||
+          line.startsWith('* [x] ') ||
+          line.startsWith('* [X] ')) {
+        // D. 待辦清單 (已完成)
+        prefixSpan = TextSpan(
+          text: '☑ ',
+          style: lineStyle.copyWith(
+            color: const Color(0xFF2E7D32),
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        );
+        lineStyle = lineStyle.copyWith(
+          color: Colors.grey.shade500,
+          decoration: TextDecoration.lineThrough,
+        );
+        content = line.substring(6);
+      } else if (line.startsWith('- ') ||
+          line.startsWith('* ') ||
+          line.startsWith('+ ') ||
+          line.startsWith('• ')) {
+        // E. 項目清單
         prefixSpan = TextSpan(
           text: '• ',
           style: lineStyle.copyWith(
@@ -283,44 +370,80 @@ class MarkdownTextController extends TextEditingController {
         spans.add(prefixSpan);
       }
 
-      // C. 解析行內文字：**粗體** 與 [color=0xFF...]...[/color]
+      // F. 解析行內文字：**粗體**、~~刪除線~~、`行內代碼` 與 [color=0xFF...]...[/color]
       int index = 0;
       bool isBold = false;
+      bool isStrike = false;
+      bool isCode = false;
       List<Color> colorStack = [];
 
       while (index < content.length) {
         int nextBold = content.indexOf('**', index);
+        int nextStrike = content.indexOf('~~', index);
+        int nextCode = content.indexOf('`', index);
         int nextColor = content.indexOf('[color=', index);
         int nextColorEnd = content.indexOf('[/color]', index);
 
         // Find the closest tag
         int minIndex = content.length;
         String tagType = '';
-        if (nextBold != -1 && nextBold < minIndex) { minIndex = nextBold; tagType = 'bold'; }
-        if (nextColor != -1 && nextColor < minIndex) { minIndex = nextColor; tagType = 'color'; }
-        if (nextColorEnd != -1 && nextColorEnd < minIndex) { minIndex = nextColorEnd; tagType = 'colorEnd'; }
+        if (nextBold != -1 && nextBold < minIndex) {
+          minIndex = nextBold;
+          tagType = 'bold';
+        }
+        if (nextStrike != -1 && nextStrike < minIndex) {
+          minIndex = nextStrike;
+          tagType = 'strike';
+        }
+        if (nextCode != -1 && nextCode < minIndex) {
+          minIndex = nextCode;
+          tagType = 'code';
+        }
+        if (nextColor != -1 && nextColor < minIndex) {
+          minIndex = nextColor;
+          tagType = 'color';
+        }
+        if (nextColorEnd != -1 && nextColorEnd < minIndex) {
+          minIndex = nextColorEnd;
+          tagType = 'colorEnd';
+        }
 
         if (minIndex > index) {
           // Process text before the tag
           String plainText = content.substring(index, minIndex);
           TextStyle currentStyle = lineStyle;
-          if (isBold) currentStyle = currentStyle.copyWith(fontWeight: FontWeight.bold);
-          if (colorStack.isNotEmpty) currentStyle = currentStyle.copyWith(color: colorStack.last);
-          
+          if (isBold) {
+            currentStyle = currentStyle.copyWith(fontWeight: FontWeight.bold);
+          }
+          if (isStrike) {
+            currentStyle =
+                currentStyle.copyWith(decoration: TextDecoration.lineThrough);
+          }
+          if (isCode) {
+            currentStyle = currentStyle.copyWith(
+              fontFamily: 'monospace',
+              color: const Color(0xFF4A148C),
+              backgroundColor: const Color(0xFFEDE7F6),
+            );
+          }
+          if (colorStack.isNotEmpty) {
+            currentStyle = currentStyle.copyWith(color: colorStack.last);
+          }
+
           int plainIndex = 0;
           while (plainIndex < plainText.length) {
-             int charLength = 1;
-             if (plainIndex < plainText.length - 1) {
-               final code = plainText.codeUnitAt(plainIndex);
-               if (code >= 0xD800 && code <= 0xDBFF) {
-                 charLength = 2;
-               }
-             }
-             spans.add(TextSpan(
-               text: plainText.substring(plainIndex, plainIndex + charLength),
-               style: currentStyle,
-             ));
-             plainIndex += charLength;
+            int charLength = 1;
+            if (plainIndex < plainText.length - 1) {
+              final code = plainText.codeUnitAt(plainIndex);
+              if (code >= 0xD800 && code <= 0xDBFF) {
+                charLength = 2;
+              }
+            }
+            spans.add(TextSpan(
+              text: plainText.substring(plainIndex, plainIndex + charLength),
+              style: currentStyle,
+            ));
+            plainIndex += charLength;
           }
         }
 
@@ -334,6 +457,20 @@ class MarkdownTextController extends TextEditingController {
           ));
           isBold = !isBold;
           index = minIndex + 2;
+        } else if (tagType == 'strike') {
+          spans.add(const TextSpan(
+            text: '~~',
+            style: TextStyle(fontSize: 0, color: Colors.transparent),
+          ));
+          isStrike = !isStrike;
+          index = minIndex + 2;
+        } else if (tagType == 'code') {
+          spans.add(const TextSpan(
+            text: '`',
+            style: TextStyle(fontSize: 0, color: Colors.transparent),
+          ));
+          isCode = !isCode;
+          index = minIndex + 1;
         } else if (tagType == 'color') {
           int closeBracket = content.indexOf(']', minIndex);
           if (closeBracket != -1) {
@@ -346,12 +483,12 @@ class MarkdownTextController extends TextEditingController {
             ));
             index = closeBracket + 1;
           } else {
-             // Malformed tag, just treat as text
-             spans.add(TextSpan(
-               text: '[color=',
-               style: lineStyle,
-             ));
-             index = minIndex + 7;
+            // Malformed tag, just treat as text
+            spans.add(TextSpan(
+              text: '[color=',
+              style: lineStyle,
+            ));
+            index = minIndex + 7;
           }
         } else if (tagType == 'colorEnd') {
           if (colorStack.isNotEmpty) colorStack.removeLast();
@@ -387,6 +524,8 @@ class NotesScreen extends StatefulWidget {
 
 class _NotesScreenState extends State<NotesScreen> {
   String _selectedCategory = '全部';
+  bool _isMultiSelectMode = false;
+  final Set<String> _selectedNoteIds = {};
 
   @override
   void initState() {
@@ -447,7 +586,8 @@ class _NotesScreenState extends State<NotesScreen> {
         expand: false,
         builder: (_, scrollController) => VoiceNoteSheet(
           scrollController: scrollController,
-          onNoteReady: (title, category, markdownContent, mindmapJson, actionItems) {
+          onNoteReady:
+              (title, category, markdownContent, mindmapJson, actionItems) {
             // 確保分類存在
             if (!NotesDatabase.categories.contains(category)) {
               NotesDatabase.categories.add(category);
@@ -465,13 +605,29 @@ class _NotesScreenState extends State<NotesScreen> {
             );
             NotesDatabase.notes.insert(0, newNote);
             _refresh();
-            // 跳轉至筆記編輯器
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => NoteEditorScreen(note: newNote),
-              ),
-            ).then((_) => _refresh());
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline,
+                          color: Colors.white, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '「${newNote.title}」已成功建立並存入筆記本！',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
           },
         ),
       ),
@@ -571,7 +727,8 @@ class _NotesScreenState extends State<NotesScreen> {
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: const Color(0xFF8E24AA).withValues(alpha: isDark ? 0.45 : 0.35),
+                      color: const Color(0xFF8E24AA)
+                          .withValues(alpha: isDark ? 0.45 : 0.35),
                       width: 1.5,
                     ),
                   ),
@@ -587,13 +744,15 @@ class _NotesScreenState extends State<NotesScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF4A148C).withValues(alpha: 0.35),
+                              color: const Color(0xFF4A148C)
+                                  .withValues(alpha: 0.35),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.mic_rounded, color: Colors.white, size: 28),
+                        child: const Icon(Icons.mic_rounded,
+                            color: Colors.white, size: 28),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -607,12 +766,15 @@ class _NotesScreenState extends State<NotesScreen> {
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: isDark ? const Color(0xFFCE93D8) : const Color(0xFF4A148C),
+                                    color: isDark
+                                        ? const Color(0xFFCE93D8)
+                                        : const Color(0xFF4A148C),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF8E24AA),
                                     borderRadius: BorderRadius.circular(8),
@@ -633,7 +795,9 @@ class _NotesScreenState extends State<NotesScreen> {
                               '長錄音完整收錄・自動標點・去贅字整理與心智圖',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                color: isDark
+                                    ? Colors.white70
+                                    : Colors.grey.shade700,
                                 height: 1.3,
                               ),
                             ),
@@ -642,7 +806,9 @@ class _NotesScreenState extends State<NotesScreen> {
                       ),
                       Icon(
                         Icons.chevron_right_rounded,
-                        color: isDark ? const Color(0xFFCE93D8) : const Color(0xFF4A148C),
+                        color: isDark
+                            ? const Color(0xFFCE93D8)
+                            : const Color(0xFF4A148C),
                       ),
                     ],
                   ),
@@ -661,7 +827,9 @@ class _NotesScreenState extends State<NotesScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF282832) : const Color(0xFFFBF9F7),
+                    color: isDark
+                        ? const Color(0xFF282832)
+                        : const Color(0xFFFBF9F7),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isDark ? Colors.white12 : const Color(0xFFE5DCD3),
@@ -674,11 +842,13 @@ class _NotesScreenState extends State<NotesScreen> {
                         height: 50,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: primaryColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                          color: primaryColor.withValues(
+                              alpha: isDark ? 0.2 : 0.12),
                         ),
                         child: Icon(
                           Icons.edit_note_rounded,
-                          color: isDark ? Colors.white70 : const Color(0xFF5D4037),
+                          color:
+                              isDark ? Colors.white70 : const Color(0xFF5D4037),
                           size: 30,
                         ),
                       ),
@@ -692,7 +862,9 @@ class _NotesScreenState extends State<NotesScreen> {
                               style: TextStyle(
                                 fontSize: 15.5,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : const Color(0xFF3E2723),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF3E2723),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -700,7 +872,9 @@ class _NotesScreenState extends State<NotesScreen> {
                               'Markdown 文本排版、莫蘭迪手寫繪圖、標籤管理',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                color: isDark
+                                    ? Colors.white60
+                                    : Colors.grey.shade600,
                                 height: 1.3,
                               ),
                             ),
@@ -742,12 +916,84 @@ class _NotesScreenState extends State<NotesScreen> {
     return myNotes.where((note) => note.category == category).length;
   }
 
+  void _toggleSelectAll() {
+    final currentList = _filteredNotes;
+    setState(() {
+      if (_selectedNoteIds.length == currentList.length) {
+        _selectedNoteIds.clear();
+      } else {
+        _selectedNoteIds.clear();
+        for (final n in currentList) {
+          _selectedNoteIds.add(n.id);
+        }
+      }
+    });
+  }
+
+  void _toggleSelectNote(String noteId) {
+    setState(() {
+      if (_selectedNoteIds.contains(noteId)) {
+        _selectedNoteIds.remove(noteId);
+      } else {
+        _selectedNoteIds.add(noteId);
+      }
+    });
+  }
+
+  void _exitMultiSelectMode() {
+    setState(() {
+      _isMultiSelectMode = false;
+      _selectedNoteIds.clear();
+    });
+  }
+
+  void _batchDeleteSelectedNotes() {
+    if (_selectedNoteIds.isEmpty) return;
+    final count = _selectedNoteIds.length;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('批次刪除確認'),
+        content: Text('確定要刪除選取的 $count 篇筆記嗎？此動作無法復原。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                NotesDatabase.notes
+                    .removeWhere((note) => _selectedNoteIds.contains(note.id));
+                _selectedNoteIds.clear();
+                _isMultiSelectMode = false;
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('已成功刪除 $count 篇筆記 🗑️'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('確定刪除'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _deleteNote(Note note) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('刪除確認'),
-        content: Text('確定要刪除「${note.title}」這篇筆記嗎？此動作無法復原。'),
+        content: Text(
+            '確定要刪除「${note.title.isEmpty ? '無標題筆記' : note.title}」這篇筆記嗎？此動作無法復原。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -761,11 +1007,12 @@ class _NotesScreenState extends State<NotesScreen> {
             onPressed: () {
               setState(() {
                 NotesDatabase.notes.remove(note);
+                _selectedNoteIds.remove(note.id);
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                    content: Text('筆記已刪除'), duration: Duration(seconds: 1)),
+                    content: Text('筆記已刪除 🗑️'), duration: Duration(seconds: 1)),
               );
             },
             child: const Text('確定刪除'),
@@ -787,7 +1034,8 @@ class _NotesScreenState extends State<NotesScreen> {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
-                Icon(Icons.label_important_outline, color: Theme.of(context).primaryColor),
+                Icon(Icons.label_important_outline,
+                    color: Theme.of(context).primaryColor),
                 SizedBox(width: 8),
                 Text('管理分類標籤'),
               ],
@@ -841,7 +1089,8 @@ class _NotesScreenState extends State<NotesScreen> {
                                   SnackBar(
                                     content:
                                         Text('🎉 分類標籤「$newCat」新增成功！已排在列表最前。'),
-                                    backgroundColor: Theme.of(context).primaryColor,
+                                    backgroundColor:
+                                        Theme.of(context).primaryColor,
                                     duration: const Duration(seconds: 2),
                                   ),
                                 );
@@ -963,85 +1212,185 @@ class _NotesScreenState extends State<NotesScreen> {
       backgroundColor: const Color(0xFFF8F6F4),
       body: Column(
         children: [
-          // 頂部橫向滾動分類導覽晶片 (Chips)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: NotesDatabase.categories.map((cat) {
-                        final isSelected = _selectedCategory == cat;
-                        final count = _getNoteCount(cat);
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text('$cat ($count)'),
-                            selected: isSelected,
-                            selectedColor: Theme.of(context).primaryColor,
-                            backgroundColor: const Color(0xFFEFEBE9),
-                            labelStyle: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : const Color(0xFF5D4037),
-                              fontSize: 13,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: BorderSide(
-                                color: isSelected
-                                    ? Colors.transparent
-                                    : Colors.grey.shade300,
-                              ),
-                            ),
-                            elevation: isSelected ? 2 : 0,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 4),
-                            onSelected: (selected) {
-                              if (selected) {
-                                setState(() {
-                                  _selectedCategory = cat;
-                                });
-                              }
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // 管理分類按鈕
-                Container(
+          // 頂部導覽列：多選模式 vs 一般分類導覽
+          _isMultiSelectMode
+              ? Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: IconButton(
-                    icon: Icon(Icons.settings,
-                        color: Theme.of(context).primaryColor, size: 20),
-                    tooltip: '管理分類',
-                    onPressed: _showCategoryManagementDialog,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 22),
+                        tooltip: '取消多選',
+                        onPressed: _exitMultiSelectMode,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '已選取 ${_selectedNoteIds.length} 篇',
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF3E2723),
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: _toggleSelectAll,
+                        icon: Icon(
+                          _selectedNoteIds.length == filtered.length &&
+                                  filtered.isNotEmpty
+                              ? Icons.deselect_rounded
+                              : Icons.select_all_rounded,
+                          size: 17,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        label: Text(
+                          _selectedNoteIds.length == filtered.length &&
+                                  filtered.isNotEmpty
+                              ? '取消全選'
+                              : '全選',
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      ElevatedButton.icon(
+                        onPressed: _selectedNoteIds.isEmpty
+                            ? null
+                            : _batchDeleteSelectedNotes,
+                        icon:
+                            const Icon(Icons.delete_outline_rounded, size: 16),
+                        label: Text('刪除 (${_selectedNoteIds.length})'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD32F2F),
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          disabledForegroundColor: Colors.grey.shade500,
+                          elevation: _selectedNoteIds.isEmpty ? 0 : 2,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: NotesDatabase.categories.map((cat) {
+                              final isSelected = _selectedCategory == cat;
+                              final count = _getNoteCount(cat);
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: ChoiceChip(
+                                  label: Text('$cat ($count)'),
+                                  selected: isSelected,
+                                  selectedColor: Theme.of(context).primaryColor,
+                                  backgroundColor: const Color(0xFFEFEBE9),
+                                  labelStyle: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF5D4037),
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(
+                                      color: isSelected
+                                          ? Colors.transparent
+                                          : Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  elevation: isSelected ? 2 : 0,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 4),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        _selectedCategory = cat;
+                                      });
+                                    }
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // 多選管理按鈕
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .primaryColor
+                              .withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.checklist_rounded,
+                              color: Theme.of(context).primaryColor, size: 20),
+                          tooltip: '多選筆記',
+                          onPressed: () {
+                            setState(() {
+                              _isMultiSelectMode = true;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // 管理分類按鈕
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .primaryColor
+                              .withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.settings,
+                              color: Theme.of(context).primaryColor, size: 20),
+                          tooltip: '管理分類',
+                          onPressed: _showCategoryManagementDialog,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
 
           // 筆記卡片網格 (Grid View)
           Expanded(
@@ -1066,11 +1415,13 @@ class _NotesScreenState extends State<NotesScreen> {
                           children: [
                             OutlinedButton.icon(
                               onPressed: _createNewRegularNote,
-                              icon: const Icon(Icons.edit_note_rounded, size: 18),
+                              icon:
+                                  const Icon(Icons.edit_note_rounded, size: 18),
                               label: const Text('一般筆記'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Theme.of(context).primaryColor,
-                                side: BorderSide(color: Theme.of(context).primaryColor),
+                                side: BorderSide(
+                                    color: Theme.of(context).primaryColor),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -1106,6 +1457,7 @@ class _NotesScreenState extends State<NotesScreen> {
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final note = filtered[index];
+                      final isSelected = _selectedNoteIds.contains(note.id);
                       final cardColors = [
                         const Color(0xFFE8ECE9),
                         const Color(0xFFF1EAE4),
@@ -1118,6 +1470,10 @@ class _NotesScreenState extends State<NotesScreen> {
 
                       return GestureDetector(
                         onTap: () async {
+                          if (_isMultiSelectMode) {
+                            _toggleSelectNote(note.id);
+                            return;
+                          }
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1127,20 +1483,35 @@ class _NotesScreenState extends State<NotesScreen> {
                           );
                           _refresh();
                         },
-                        child: Container(
+                        onLongPress: () {
+                          if (!_isMultiSelectMode) {
+                            setState(() {
+                              _isMultiSelectMode = true;
+                              _selectedNoteIds.add(note.id);
+                            });
+                          }
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
                           decoration: BoxDecoration(
                             color: bgColor,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 6,
+                                color: isSelected
+                                    ? Theme.of(context)
+                                        .primaryColor
+                                        .withValues(alpha: 0.2)
+                                    : Colors.black.withValues(alpha: 0.04),
+                                blurRadius: isSelected ? 8 : 6,
                                 offset: const Offset(0, 3),
                               )
                             ],
                             border: Border.all(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              width: 1,
+                              color: isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.black.withValues(alpha: 0.05),
+                              width: isSelected ? 2.2 : 1,
                             ),
                           ),
                           padding: const EdgeInsets.all(14),
@@ -1153,7 +1524,8 @@ class _NotesScreenState extends State<NotesScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: Theme.of(context).primaryColor
+                                      color: Theme.of(context)
+                                          .primaryColor
                                           .withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -1169,34 +1541,87 @@ class _NotesScreenState extends State<NotesScreen> {
                                   const Spacer(),
                                   if (note.mindmapJson != null)
                                     Padding(
-                                      padding: const EdgeInsets.only(right: 6.0),
+                                      padding:
+                                          const EdgeInsets.only(right: 6.0),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF4A148C).withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(6),
+                                          color: const Color(0xFF4A148C)
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
                                         ),
                                         child: const Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.hub_outlined, size: 11, color: Color(0xFF4A148C)),
+                                            Icon(Icons.hub_outlined,
+                                                size: 11,
+                                                color: Color(0xFF4A148C)),
                                             SizedBox(width: 2),
-                                            Text('心智圖', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF4A148C))),
+                                            Text('心智圖',
+                                                style: TextStyle(
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF4A148C))),
                                           ],
                                         ),
                                       ),
                                     ),
                                   if (note.strokes.isNotEmpty)
                                     Padding(
-                                      padding: const EdgeInsets.only(right: 4.0),
+                                      padding:
+                                          const EdgeInsets.only(right: 4.0),
                                       child: Icon(Icons.palette_outlined,
-                                          size: 14, color: Theme.of(context).primaryColor),
+                                          size: 14,
+                                          color:
+                                              Theme.of(context).primaryColor),
                                     ),
-                                  GestureDetector(
-                                    onTap: () => _deleteNote(note),
-                                    child: const Icon(Icons.delete_outline,
-                                        size: 16, color: Colors.black54),
-                                  ),
+                                  // 多選狀態勾選框 vs 加大垃圾桶刪除按鈕
+                                  if (_isMultiSelectMode)
+                                    AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 150),
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? Theme.of(context).primaryColor
+                                            : Colors.white70,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? Theme.of(context).primaryColor
+                                              : Colors.grey.shade400,
+                                          width: 1.6,
+                                        ),
+                                      ),
+                                      child: isSelected
+                                          ? const Icon(Icons.check,
+                                              size: 15, color: Colors.white)
+                                          : null,
+                                    )
+                                  else
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () => _deleteNote(note),
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black
+                                                .withValues(alpha: 0.05),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.delete_outline_rounded,
+                                            size: 19,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                               const SizedBox(height: 10),
@@ -1257,15 +1682,18 @@ class _NotesScreenState extends State<NotesScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'main_notes_fab',
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        onPressed: _showCreateNoteOptions,
-        child: const Icon(Icons.add_rounded, size: 30),
-      ),
+      floatingActionButton: _isMultiSelectMode
+          ? null
+          : FloatingActionButton(
+              heroTag: 'main_notes_fab',
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
+              onPressed: _showCreateNoteOptions,
+              child: const Icon(Icons.add_rounded, size: 30),
+            ),
     );
   }
 }
@@ -1289,6 +1717,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
   late MarkdownTextController _contentController;
   late String _currentCategory;
   final FocusNode _contentFocusNode = FocusNode();
+  bool _isExplicitlyDeleted = false;
+  bool _isMarkdownPreview = false;
 
   // 畫布軌跡狀態
   List<Stroke> _strokes = [];
@@ -1383,362 +1813,374 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
 
     final result = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.75,
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4.5,
-                    margin: const EdgeInsets.only(bottom: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
+          final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+          return SafeArea(
+            top: false,
+            bottom: true,
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.82,
+              ),
+              margin: EdgeInsets.only(bottom: bottomPadding),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4.5,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: theme.primaryColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.share_rounded,
+                            color: theme.primaryColor, size: 20),
                       ),
-                      child: Icon(Icons.share_rounded,
-                          color: theme.primaryColor, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '分享筆記',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF3E2723),
+                              ),
+                            ),
+                            Text(
+                              '《${widget.note.title.isEmpty ? "無標題筆記" : widget.note.title}》',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '選擇分享目的地：',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF5D4037),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
+                  ),
+                  const SizedBox(height: 10),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '分享筆記',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF3E2723),
-                            ),
-                          ),
-                          Text(
-                            '《${widget.note.title.isEmpty ? "無標題筆記" : widget.note.title}》',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '選擇分享目的地：',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF5D4037),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 選項 A: 公開社群論壇
-                        InkWell(
-                          onTap: () {
-                            setModalState(() => selectedTarget = 'public');
-                          },
-                          borderRadius: BorderRadius.circular(14),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: selectedTarget == 'public'
-                                  ? theme.primaryColor.withValues(alpha: 0.08)
-                                  : const Color(0xFFFBF9F7),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
+                          // 選項 A: 公開社群論壇
+                          InkWell(
+                            onTap: () {
+                              setModalState(() => selectedTarget = 'public');
+                            },
+                            borderRadius: BorderRadius.circular(14),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
                                 color: selectedTarget == 'public'
-                                    ? theme.primaryColor
-                                    : const Color(0xFFE5DCD3),
-                                width: selectedTarget == 'public' ? 1.5 : 1.0,
+                                    ? theme.primaryColor.withValues(alpha: 0.08)
+                                    : const Color(0xFFFBF9F7),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: selectedTarget == 'public'
+                                      ? theme.primaryColor
+                                      : const Color(0xFFE5DCD3),
+                                  width: selectedTarget == 'public' ? 1.5 : 1.0,
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.blue.shade50,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.blue.shade50,
+                                    ),
+                                    child: Icon(Icons.public_rounded,
+                                        color: Colors.blue.shade700, size: 22),
                                   ),
-                                  child: Icon(Icons.public_rounded,
-                                      color: Colors.blue.shade700, size: 22),
-                                ),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '公開社群論壇',
-                                        style: TextStyle(
-                                          fontSize: 14.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF3E2723),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '公開社群論壇',
+                                          style: TextStyle(
+                                            fontSize: 14.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF3E2723),
+                                          ),
                                         ),
-                                      ),
-                                      SizedBox(height: 2),
-                                      Text(
-                                        '發佈至全站動態牆，所有同學皆可瀏覽與匯入',
-                                        style: TextStyle(
-                                            fontSize: 11.5, color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: selectedTarget == 'public'
-                                          ? theme.primaryColor
-                                          : Colors.grey.shade400,
-                                      width: selectedTarget == 'public' ? 6 : 2,
+                                        SizedBox(height: 2),
+                                        Text(
+                                          '發佈至全站動態牆，所有同學皆可瀏覽與匯入',
+                                          style: TextStyle(
+                                              fontSize: 11.5,
+                                              color: Colors.grey),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                              ],
+                                  Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: selectedTarget == 'public'
+                                            ? theme.primaryColor
+                                            : Colors.grey.shade400,
+                                        width:
+                                            selectedTarget == 'public' ? 6 : 2,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      const SizedBox(height: 14),
+                          const SizedBox(height: 14),
 
-                      // 選項 B: 指定學習群組
-                      Row(
-                        children: [
-                          const Icon(Icons.groups_rounded,
-                              size: 16, color: Color(0xFF4A148C)),
-                          const SizedBox(width: 6),
-                          const Text(
-                            '分享至我的學習群組',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF3E2723),
-                            ),
-                          ),
-                          if (myGroups.isNotEmpty)
-                            Text(
-                              ' (${myGroups.length})',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.grey.shade600),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      if (myGroups.isEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Row(
+                          // 選項 B: 指定學習群組
+                          Row(
                             children: [
-                              Icon(Icons.info_outline,
-                                  size: 18, color: Colors.grey.shade600),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '您目前尚未加入任何群組，可先至社群探索並加入學習群組喔！',
+                              const Icon(Icons.groups_rounded,
+                                  size: 16, color: Color(0xFF4A148C)),
+                              const SizedBox(width: 6),
+                              const Text(
+                                '分享至我的學習群組',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF3E2723),
+                                ),
+                              ),
+                              if (myGroups.isNotEmpty)
+                                Text(
+                                  ' (${myGroups.length})',
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey.shade600),
                                 ),
-                              ),
                             ],
                           ),
-                        )
-                      else
-                        ...myGroups.map((g) {
-                          final groupId = g['id'] as int;
-                          final isSelected = selectedTarget == groupId;
-                          final emoji = g['icon_emoji']?.toString() ?? '📚';
-                          final name = g['name']?.toString() ?? '未命名群組';
-                          final memberCount = g['member_count'] ?? 1;
+                          const SizedBox(height: 8),
 
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: InkWell(
-                              onTap: () {
-                                setModalState(
-                                    () => selectedTarget = groupId);
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? const Color(0xFF4A148C)
-                                          .withValues(alpha: 0.08)
-                                      : const Color(0xFFFBF9F7),
+                          if (myGroups.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline,
+                                      size: 18, color: Colors.grey.shade600),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '您目前尚未加入任何群組，可先至社群探索並加入學習群組喔！',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            ...myGroups.map((g) {
+                              final groupId = g['id'] as int;
+                              final isSelected = selectedTarget == groupId;
+                              final emoji = g['icon_emoji']?.toString() ?? '📚';
+                              final name = g['name']?.toString() ?? '未命名群組';
+                              final memberCount = g['member_count'] ?? 1;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: InkWell(
+                                  onTap: () {
+                                    setModalState(
+                                        () => selectedTarget = groupId);
+                                  },
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? const Color(0xFF4A148C)
-                                        : const Color(0xFFE5DCD3),
-                                    width: isSelected ? 1.5 : 1.0,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? const Color(0xFF4A148C)
+                                              .withValues(alpha: 0.08)
+                                          : const Color(0xFFFBF9F7),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? const Color(0xFF4A148C)
+                                            : const Color(0xFFE5DCD3),
+                                        width: isSelected ? 1.5 : 1.0,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF4A148C)
+                                                .withValues(alpha: 0.1),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Text(emoji,
+                                              style: const TextStyle(
+                                                  fontSize: 18)),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                name,
+                                                style: const TextStyle(
+                                                  fontSize: 13.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF3E2723),
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                '$memberCount 位成員',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        Colors.grey.shade600),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 20,
+                                          height: 20,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? const Color(0xFF4A148C)
+                                                  : Colors.grey.shade400,
+                                              width: isSelected ? 6 : 2,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF4A148C)
-                                            .withValues(alpha: 0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Text(emoji,
-                                          style:
-                                              const TextStyle(fontSize: 18)),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            name,
-                                            style: const TextStyle(
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF3E2723),
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          Text(
-                                            '$memberCount 位成員',
-                                            style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey.shade600),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? const Color(0xFF4A148C)
-                                              : Colors.grey.shade400,
-                                          width: isSelected ? 6 : 2,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
+                              );
+                            }),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx, null),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: const Text('取消'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          if (selectedTarget == 'public') {
-                            Navigator.pop(ctx, {
-                              'type': 'public',
-                              'targetName': '社群論壇',
-                              'groupId': null,
-                            });
-                          } else {
-                            final targetGroup = myGroups.firstWhere(
-                              (g) => g['id'] == selectedTarget,
-                              orElse: () => {'name': '群組'},
-                            );
-                            Navigator.pop(ctx, {
-                              'type': 'group',
-                              'targetName': targetGroup['name'] ?? '群組',
-                              'groupId': selectedTarget as int,
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.send_rounded, size: 18),
-                        label: const Text('確定分享',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14.5)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, null),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('取消'),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            if (selectedTarget == 'public') {
+                              Navigator.pop(ctx, {
+                                'type': 'public',
+                                'targetName': '社群論壇',
+                                'groupId': null,
+                              });
+                            } else {
+                              final targetGroup = myGroups.firstWhere(
+                                (g) => g['id'] == selectedTarget,
+                                orElse: () => {'name': '群組'},
+                              );
+                              Navigator.pop(ctx, {
+                                'type': 'group',
+                                'targetName': targetGroup['name'] ?? '群組',
+                                'groupId': selectedTarget as int,
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.send_rounded, size: 18),
+                          label: const Text('確定分享',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14.5)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -1776,6 +2218,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             'content': widget.note.content,
             'category': widget.note.category,
             'strokes': strokesJson,
+            'mindmap_json': widget.note.mindmapJson,
           }),
           'created_at': DateTime.now().toIso8601String(),
         });
@@ -1787,7 +2230,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                  const Icon(Icons.check_circle_rounded,
+                      color: Colors.white, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(isGroup
@@ -1796,10 +2240,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   ),
                 ],
               ),
-              backgroundColor: isGroup ? const Color(0xFF4A148C) : theme.primaryColor,
+              backgroundColor:
+                  isGroup ? const Color(0xFF4A148C) : theme.primaryColor,
               duration: const Duration(milliseconds: 1400),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           );
         }
@@ -1813,7 +2259,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               backgroundColor: Colors.redAccent,
               duration: const Duration(milliseconds: 1400),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           );
         }
@@ -1822,6 +2269,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
   }
 
   Future<bool> _onWillPop() async {
+    if (_isExplicitlyDeleted) {
+      return true;
+    }
+
     if (_isBlank) {
       NotesDatabase.notes.remove(widget.note);
       if (mounted) {
@@ -1847,6 +2298,45 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     return true;
   }
 
+  void _deleteCurrentNoteFromEditor() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('刪除確認'),
+        content: Text(
+          widget.note.title.trim().isNotEmpty
+              ? '確定要刪除「${widget.note.title}」這篇筆記嗎？此動作無法復原。'
+              : '確定要刪除此篇筆記嗎？此動作無法復原。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              _isExplicitlyDeleted = true;
+              NotesDatabase.notes.remove(widget.note);
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('筆記已刪除 🗑️'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+            child: const Text('確定刪除'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==========================================
   // 語音速記整理（編輯器版）
   // ==========================================
@@ -1865,10 +2355,14 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         builder: (_, scrollController) => VoiceNoteSheet(
           scrollController: scrollController,
           existingContent: _contentController.text,
-          onNoteReady: (title, category, markdownContent, mindmapJson, actionItems) {
+          onNoteReady:
+              (title, category, markdownContent, mindmapJson, actionItems) {
             // 插入至目前筆記內容末端
             final currentText = _contentController.text;
-            final separator = currentText.isNotEmpty && !currentText.endsWith('\n') ? '\n\n' : '';
+            final separator =
+                currentText.isNotEmpty && !currentText.endsWith('\n')
+                    ? '\n\n'
+                    : '';
             _contentController.text = '$currentText$separator$markdownContent';
             // 自動更新標題（若原標題為空）
             if (_titleController.text.trim().isEmpty) {
@@ -1899,7 +2393,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   ),
                   backgroundColor: const Color(0xFF4A148C),
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               );
             }
@@ -1919,7 +2414,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     final selection = _contentController.selection;
     if (selection.isValid && !selection.isCollapsed) {
       final selectedText = textVal.substring(selection.start, selection.end);
-      
+
       String cleanText = selectedText.replaceAll('**', '');
       final lines = cleanText.split('\n');
       final formattedText = lines.map((l) {
@@ -1929,9 +2424,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         if (l.startsWith('- ')) return '- **${l.substring(2)}**';
         return '**$l**';
       }).join('\n');
-      
-      final newText = textVal.replaceRange(
-          selection.start, selection.end, formattedText);
+
+      final newText =
+          textVal.replaceRange(selection.start, selection.end, formattedText);
       _contentController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(
@@ -2057,19 +2552,27 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
 
     if (selection.isValid && !selection.isCollapsed) {
       final selectedText = textVal.substring(selection.start, selection.end);
-      
-      String cleanText = selectedText.replaceAll(RegExp(r'\[/?color(?:=0x[0-9A-Fa-f]{8})?\]', caseSensitive: false), '');
+
+      String cleanText = selectedText.replaceAll(
+          RegExp(r'\[/?color(?:=0x[0-9A-Fa-f]{8})?\]', caseSensitive: false),
+          '');
       final lines = cleanText.split('\n');
       final formattedText = lines.map((l) {
         if (l.trim().isEmpty) return l;
-        if (l.startsWith('# ')) return '# $tagPrefix${l.substring(2)}$tagSuffix';
-        if (l.startsWith('## ')) return '## $tagPrefix${l.substring(3)}$tagSuffix';
-        if (l.startsWith('- ')) return '- $tagPrefix${l.substring(2)}$tagSuffix';
+        if (l.startsWith('# ')) {
+          return '# $tagPrefix${l.substring(2)}$tagSuffix';
+        }
+        if (l.startsWith('## ')) {
+          return '## $tagPrefix${l.substring(3)}$tagSuffix';
+        }
+        if (l.startsWith('- ')) {
+          return '- $tagPrefix${l.substring(2)}$tagSuffix';
+        }
         return '$tagPrefix$l$tagSuffix';
       }).join('\n');
-      
-      final newText = textVal.replaceRange(
-          selection.start, selection.end, formattedText);
+
+      final newText =
+          textVal.replaceRange(selection.start, selection.end, formattedText);
       _contentController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(
@@ -2082,6 +2585,88 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
       _contentController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: start + tagPrefix.length),
+      );
+    }
+  }
+
+  // 7. 插入水平分隔橫條 (---)
+  void _insertHorizontalRule() {
+    final textVal = _contentController.text;
+    final selection = _contentController.selection;
+    final start = selection.isValid ? selection.start : textVal.length;
+
+    final prefix = (start > 0 && !textVal.substring(0, start).endsWith('\n'))
+        ? '\n\n'
+        : (start > 0 && !textVal.substring(0, start).endsWith('\n\n')
+            ? '\n'
+            : '');
+    final suffix =
+        (start < textVal.length && !textVal.substring(start).startsWith('\n'))
+            ? '\n\n'
+            : '\n';
+    final insertStr = '$prefix---$suffix';
+
+    final newText = textVal.replaceRange(start, start, insertStr);
+    _contentController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + insertStr.length),
+    );
+  }
+
+  // 8. 待辦清單 (- [ ] )
+  void _toggleCheckbox() {
+    final textVal = _contentController.text;
+    final selection = _contentController.selection;
+    final start = selection.isValid ? selection.start : textVal.length;
+
+    int lineStart = textVal.lastIndexOf('\n', start - 1);
+    lineStart = lineStart == -1 ? 0 : lineStart + 1;
+    int lineEnd = textVal.indexOf('\n', start);
+    lineEnd = lineEnd == -1 ? textVal.length : lineEnd;
+
+    final fullLine = textVal.substring(lineStart, lineEnd);
+    if (fullLine.startsWith('- [ ] ') ||
+        fullLine.startsWith('- [x] ') ||
+        fullLine.startsWith('- [X] ')) {
+      final newText = textVal.replaceRange(lineStart, lineStart + 6, '');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+            offset: (start - 6).clamp(lineStart, newText.length)),
+      );
+    } else {
+      final newText = textVal.replaceRange(lineStart, lineStart, '- [ ] ');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: start + 6),
+      );
+    }
+  }
+
+  // 9. 引用塊 (> )
+  void _toggleQuote() {
+    final textVal = _contentController.text;
+    final selection = _contentController.selection;
+    final start = selection.isValid ? selection.start : textVal.length;
+
+    int lineStart = textVal.lastIndexOf('\n', start - 1);
+    lineStart = lineStart == -1 ? 0 : lineStart + 1;
+    int lineEnd = textVal.indexOf('\n', start);
+    lineEnd = lineEnd == -1 ? textVal.length : lineEnd;
+
+    final fullLine = textVal.substring(lineStart, lineEnd);
+    if (fullLine.startsWith('> ')) {
+      final newText = textVal.replaceRange(lineStart, lineStart + 2, '');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+            offset: (start - 2).clamp(lineStart, newText.length)),
+      );
+    } else {
+      final newText = textVal.replaceRange(lineStart, lineStart, '> ');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: start + 2),
       );
     }
   }
@@ -2186,6 +2771,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
+        if (_isExplicitlyDeleted) {
+          Navigator.of(context).pop();
+          return;
+        }
         final navigator = Navigator.of(context);
         final shouldPop = await _onWillPop();
         if (shouldPop) {
@@ -2201,6 +2790,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             icon: const Icon(Icons.arrow_back_ios,
                 color: Colors.black87, size: 20),
             onPressed: () async {
+              if (_isExplicitlyDeleted) {
+                Navigator.of(context).pop();
+                return;
+              }
               final navigator = Navigator.of(context);
               final shouldPop = await _onWillPop();
               if (shouldPop) {
@@ -2211,7 +2804,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           title: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _currentCategory,
-              icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).primaryColor),
+              icon: Icon(Icons.arrow_drop_down,
+                  color: Theme.of(context).primaryColor),
               style: TextStyle(
                 color: Theme.of(context).primaryColor,
                 fontWeight: FontWeight.bold,
@@ -2257,7 +2851,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
               child: ElevatedButton.icon(
                 onPressed: _openVoiceNoteSheetForEditor,
-                icon: const Icon(Icons.mic_rounded, size: 16, color: Colors.white),
+                icon: const Icon(Icons.mic_rounded,
+                    size: 16, color: Colors.white),
                 label: const Text(
                   '錄音',
                   style: TextStyle(
@@ -2282,15 +2877,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               onPressed: _shareNote,
             ),
             IconButton(
-              icon: Icon(Icons.save, color: Theme.of(context).primaryColor),
-              tooltip: '儲存筆記',
-              onPressed: () {
-                _autoSave();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('筆記已儲存'), duration: Duration(seconds: 1)),
-                );
-              },
+              icon: const Icon(Icons.delete_outline_rounded,
+                  color: Color(0xFFD32F2F), size: 23),
+              tooltip: '刪除筆記',
+              onPressed: _deleteCurrentNoteFromEditor,
             ),
           ],
           bottom: TabBar(
@@ -2327,7 +2917,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.hub_outlined, size: 16, color: Color(0xFF4A148C)),
+                      Icon(Icons.hub_outlined,
+                          size: 16, color: Color(0xFF4A148C)),
                       SizedBox(width: 4),
                       Text('心智圖', style: TextStyle(color: Color(0xFF4A148C))),
                     ],
@@ -2341,160 +2932,171 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             children: [
               Column(
                 children: [
-              // 1. 無邊框標題輸入框 (常駐頂部)
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                child: TextField(
-                  controller: _titleController,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF3E2723),
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: '請輸入筆記標題...',
-                    hintStyle: TextStyle(color: Colors.black26),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFEFEBE9)),
-
-              // 2. Tab 內容切換
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  physics: const NeverScrollableScrollPhysics(), // 避免手勢衝突
-                  children: [
-                    // --- A. 文字紀錄頁面 (寬敞滿版) ---
-                    Container(
-                      margin: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: const Color(0xFFE5DCD3), width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+                  // 1. 無邊框標題輸入框 (常駐頂部)
+                  Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                    child: TextField(
+                      controller: _titleController,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF3E2723),
                       ),
-                      child: Column(
-                        children: [
-                          // 筆記打字本體 (帶有橫線底圖)
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(16)),
-                              child: Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: CustomPaint(
-                                      painter: PaperBackgroundPainter(),
-                                    ),
-                                  ),
-                                  Positioned.fill(
-                                    child: SingleChildScrollView(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          48, 16, 20, 16),
-                                      child: TextField(
-                                        controller: _contentController,
-                                        focusNode: _contentFocusNode,
-                                        maxLines: null,
-                                        keyboardType: TextInputType.multiline,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          height: 1.71, // 配合行格高度 (24.0px 行高)
-                                          color: Colors.black87,
-                                        ),
-                                        decoration: const InputDecoration(
-                                          hintText: '在此輸入文字內容...\n可以使用下方格式工具列。',
-                                          hintStyle:
-                                              TextStyle(color: Colors.black26),
-                                          border: InputBorder.none,
-                                          isDense: true,
-                                          contentPadding: EdgeInsets.zero,
+                      decoration: const InputDecoration(
+                        hintText: '請輸入筆記標題...',
+                        hintStyle: TextStyle(color: Colors.black26),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFEFEBE9)),
+
+                  // 2. Tab 內容切換
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      physics: const NeverScrollableScrollPhysics(), // 避免手勢衝突
+                      children: [
+                        // --- A. 文字紀錄頁面 (寬敞滿版) ---
+                        Container(
+                          margin: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: const Color(0xFFE5DCD3), width: 1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // 筆記打字本體 (帶有橫線底圖與成果預覽切換)
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(16)),
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: CustomPaint(
+                                          painter: PaperBackgroundPainter(),
                                         ),
                                       ),
-                                    ),
+                                      Positioned.fill(
+                                        child: SingleChildScrollView(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              48, 16, 20, 16),
+                                          child: _isMarkdownPreview
+                                              ? RichNoteContentView(
+                                                  content:
+                                                      _contentController.text,
+                                                  isDark: false,
+                                                  selectable: true,
+                                                )
+                                              : TextField(
+                                                  controller:
+                                                      _contentController,
+                                                  focusNode: _contentFocusNode,
+                                                  maxLines: null,
+                                                  keyboardType:
+                                                      TextInputType.multiline,
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    height: 1.71,
+                                                    color: Colors.black87,
+                                                  ),
+                                                  decoration:
+                                                      const InputDecoration(
+                                                    hintText:
+                                                        '在此輸入文字內容...\n可以使用下方格式工具列。',
+                                                    hintStyle: TextStyle(
+                                                        color: Colors.black26),
+                                                    border: InputBorder.none,
+                                                    isDense: true,
+                                                    contentPadding:
+                                                        EdgeInsets.zero,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
+                              _buildFormattingToolbar(),
+                            ],
                           ),
-                          // 打字格式工具列
-                          _buildFormattingToolbar(),
-                        ],
-                      ),
-                    ),
+                        ),
 
-                    // --- B. 手寫畫布頁面 (寬敞滿版) ---
-                    Container(
-                      margin: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: const Color(0xFFE5DCD3), width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          // 手寫畫布本體 (以微格子作為底圖)
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(16)),
-                              child: Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: Container(
-                                      color: const Color(0xFFFAF9F6), // 極淡象牙白
-                                    ),
-                                  ),
-                                  Positioned.fill(
-                                    child: DrawingCanvas(
-                                      strokes: _strokes,
-                                      onStrokeStart: _onStrokeStart,
-                                      onStrokeUpdate: _onStrokeUpdate,
-                                    ),
-                                  ),
-                                ],
+                        // --- B. 手寫畫布頁面 (寬敞滿版) ---
+                        Container(
+                          margin: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: const Color(0xFFE5DCD3), width: 1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
                               ),
-                            ),
+                            ],
                           ),
-                          // 畫筆調色盤工具列
-                          _buildDrawingToolbar(),
-                        ],
-                      ),
-                    ),
+                          child: Column(
+                            children: [
+                              // 手寫畫布本體 (以微格子作為底圖)
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(16)),
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: Container(
+                                          color:
+                                              const Color(0xFFFAF9F6), // 極淡象牙白
+                                        ),
+                                      ),
+                                      Positioned.fill(
+                                        child: DrawingCanvas(
+                                          strokes: _strokes,
+                                          onStrokeStart: _onStrokeStart,
+                                          onStrokeUpdate: _onStrokeUpdate,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              // 畫筆調色盤工具列
+                              _buildDrawingToolbar(),
+                            ],
+                          ),
+                        ),
 
-                    // --- C. 🧠 心智圖互動畫布頁面 ---
-                    if (_hasMindMap) _buildMindMapTab(),
-                  ],
-                ),
+                        // --- C. 🧠 心智圖互動畫布頁面 ---
+                        if (_hasMindMap) _buildMindMapTab(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-
-        ],
+        ),
       ),
-    ),
-  ),
-);
-}
+    );
+  }
 
   // ==========================================
   // 🧠 C. 心智圖互動畫布 Tab
@@ -2507,9 +3109,11 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           children: [
             Icon(Icons.hub_outlined, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            Text('此筆記尚無關聯心智圖', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+            Text('此筆記尚無關聯心智圖',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
             const SizedBox(height: 8),
-            Text('可透過上方 🎙️ 語音速記生成結構化心智圖', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+            Text('可透過上方 🎙️ 語音速記生成結構化心智圖',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
           ],
         ),
       );
@@ -2524,11 +3128,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             children: [
               Row(
                 children: [
-                  Icon(Icons.touch_app_rounded, size: 14, color: Colors.grey.shade600),
+                  Icon(Icons.touch_app_rounded,
+                      size: 14, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
                   Text(
                     '支援雙指縮放與拖曳移動',
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                    style:
+                        TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -2546,7 +3152,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                 label: const Text('全螢幕橫向畫布', style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF4A148C),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 ),
               ),
             ],
@@ -2591,52 +3198,97 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           // 格式動作按鈕
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.format_bold,
-                    color: Color(0xFF5D4037), size: 20),
-                tooltip: '粗體',
-                onPressed: _toggleBold,
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon:
-                    const Icon(Icons.title, color: Color(0xFF5D4037), size: 20),
-                tooltip: '大標頭 H1',
-                onPressed: _toggleH1,
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.text_fields,
-                    color: Color(0xFF5D4037), size: 20),
-                tooltip: '次標頭 H2',
-                onPressed: _toggleH2,
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.format_list_bulleted,
-                    color: Color(0xFF5D4037), size: 20),
-                tooltip: '列點',
-                onPressed: _toggleBullet,
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.format_indent_increase,
-                    color: Color(0xFF5D4037), size: 20),
-                tooltip: '縮排',
-                onPressed: _toggleIndent,
-              ),
-              // 語音補充按鈕
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.mic_rounded, color: Color(0xFF7B1FA2), size: 20),
-                tooltip: '語音補充內容',
-                onPressed: _openVoiceNoteSheetForEditor,
-              ),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    _isMarkdownPreview
+                        ? Icons.edit_note_rounded
+                        : Icons.visibility_rounded,
+                    color: _isMarkdownPreview
+                        ? const Color(0xFF673AB7)
+                        : const Color(0xFF5D4037),
+                    size: 21,
+                  ),
+                  tooltip: _isMarkdownPreview ? '切換為編輯模式' : '切換為成果預覽',
+                  onPressed: () =>
+                      setState(() => _isMarkdownPreview = !_isMarkdownPreview),
+                ),
+                Container(
+                  height: 18,
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  color: Colors.grey.shade300,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.format_bold,
+                      color: Color(0xFF5D4037), size: 20),
+                  tooltip: '粗體',
+                  onPressed: _toggleBold,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.title,
+                      color: Color(0xFF5D4037), size: 20),
+                  tooltip: '大標頭 H1',
+                  onPressed: _toggleH1,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.text_fields,
+                      color: Color(0xFF5D4037), size: 20),
+                  tooltip: '次標頭 H2',
+                  onPressed: _toggleH2,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.horizontal_rule_rounded,
+                      color: Color(0xFF5D4037), size: 20),
+                  tooltip: '橫條分隔線 (---)',
+                  onPressed: _insertHorizontalRule,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.check_box_outlined,
+                      color: Color(0xFF2E7D32), size: 19),
+                  tooltip: '待辦項目 (- [ ])',
+                  onPressed: _toggleCheckbox,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.format_quote_rounded,
+                      color: Color(0xFF673AB7), size: 20),
+                  tooltip: '引用重點 (>)',
+                  onPressed: _toggleQuote,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.format_list_bulleted,
+                      color: Color(0xFF5D4037), size: 20),
+                  tooltip: '列點',
+                  onPressed: _toggleBullet,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.format_indent_increase,
+                      color: Color(0xFF5D4037), size: 20),
+                  tooltip: '縮排',
+                  onPressed: _toggleIndent,
+                ),
+                // 語音補充按鈕
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.mic_rounded,
+                      color: Color(0xFF7B1FA2), size: 20),
+                  tooltip: '語音補充內容',
+                  onPressed: _openVoiceNoteSheetForEditor,
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 6),
           // 打字字色選擇調色盤 (莫蘭迪色系)

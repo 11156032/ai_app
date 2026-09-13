@@ -88,9 +88,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   @override
   void initState() {
     super.initState();
-    _selectedTopicSubject = widget.allSubjects.isNotEmpty
-        ? widget.allSubjects.first
-        : '數學';
+    _selectedTopicSubject =
+        widget.allSubjects.isNotEmpty ? widget.allSubjects.first : '數學';
   }
 
   // For displaying file preview
@@ -100,9 +99,12 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   Future<String> _getApiKey() async {
     // 1. Check user custom api key in db
     try {
-      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+      final uid =
+          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+              .toString();
       final db = await DatabaseHelper.instance.database;
-      final userRows = await db.query('users', where: 'id = ?', whereArgs: [uid]);
+      final userRows =
+          await db.query('users', where: 'id = ?', whereArgs: [uid]);
       if (userRows.isNotEmpty) {
         final customKey = userRows.first['gemini_api_key'] as String?;
         if (customKey != null && customKey.trim().isNotEmpty) {
@@ -273,8 +275,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     ),
                     child: Icon(Icons.camera_alt_rounded, color: cs.primary),
                   ),
-                  title: const Text('拍照辨識', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('即時拍攝實體考卷或試題講義', style: TextStyle(fontSize: 12)),
+                  title: const Text('拍照辨識',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('即時拍攝實體考卷或試題講義',
+                      style: TextStyle(fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _pickImage(ImageSource.camera);
@@ -289,8 +293,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     ),
                     child: Icon(Icons.photo_library_rounded, color: cs.primary),
                   ),
-                  title: const Text('相簿選取', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('從手機相簿選取已保存的考卷照片', style: TextStyle(fontSize: 12)),
+                  title: const Text('相簿選取',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('從手機相簿選取已保存的考卷照片',
+                      style: TextStyle(fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _pickImage(ImageSource.gallery);
@@ -320,7 +326,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       _currentStep = 0;
     });
 
-    final stepTimer = Stream.periodic(const Duration(seconds: 2), (i) => i + 1).listen((step) {
+    final stepTimer = Stream.periodic(const Duration(seconds: 2), (i) => i + 1)
+        .listen((step) {
       if (step < _loadingSteps.length && mounted) {
         setState(() {
           _currentStep = step;
@@ -388,7 +395,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
       // 順位 3：Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)
       if (responseText == null || responseText.trim().isEmpty) {
-        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)...');
+        debugPrint(
+            'AiUploadPaper: 切換 Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)...');
         responseText = await _tryCloudflareProxy(
           provider: 'groq',
           model: 'openai/gpt-oss-120b',
@@ -449,7 +457,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       _currentStep = 0;
     });
 
-    final stepTimer = Stream.periodic(const Duration(seconds: 2), (i) => i + 1).listen((step) {
+    final stepTimer = Stream.periodic(const Duration(seconds: 2), (i) => i + 1)
+        .listen((step) {
       if (step < _loadingSteps.length && mounted) {
         setState(() {
           _currentStep = step;
@@ -491,7 +500,11 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     try {
       String? responseText;
       final apiKey = await _getApiKey();
-      final modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      final modelsToTry = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash'
+      ];
 
       // 順位 1：透過 Gemini SDK 多模型依序嘗試多模態視覺辨識
       if (apiKey.isNotEmpty) {
@@ -504,8 +517,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               safetySettings: [
                 SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
                 SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
-                SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
-                SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.none),
+                SafetySetting(
+                    HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
+                SafetySetting(
+                    HarmCategory.dangerousContent, HarmBlockThreshold.none),
               ],
             );
             final content = [
@@ -532,56 +547,75 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       }
 
       // 順位 2：若 SDK 因網路代理或平台問題失敗，使用直接 Google REST API 直連多模態
-      if ((responseText == null || responseText.trim().isEmpty) && apiKey.isNotEmpty) {
+      if ((responseText == null || responseText.trim().isEmpty) &&
+          apiKey.isNotEmpty) {
         final base64Data = base64Encode(_fileBytes!);
         for (final modelName in modelsToTry) {
           try {
-            debugPrint('AiUploadPaper: 嘗試 Gemini 原生 REST API 多模態直連 ($modelName)...');
+            debugPrint(
+                'AiUploadPaper: 嘗試 Gemini 原生 REST API 多模態直連 ($modelName)...');
             final url = Uri.parse(
               'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey',
             );
-            final res = await http.post(
-              url,
-              headers: {'Content-Type': 'application/json; charset=utf-8'},
-              body: jsonEncode({
-                'contents': [
-                  {
-                    'parts': [
-                      {'text': systemPrompt},
+            final res = await http
+                .post(
+                  url,
+                  headers: {'Content-Type': 'application/json; charset=utf-8'},
+                  body: jsonEncode({
+                    'contents': [
                       {
-                        'inline_data': {
-                          'mime_type': _mimeType!,
-                          'data': base64Data,
-                        }
+                        'parts': [
+                          {'text': systemPrompt},
+                          {
+                            'inline_data': {
+                              'mime_type': _mimeType!,
+                              'data': base64Data,
+                            }
+                          }
+                        ]
                       }
-                    ]
-                  }
-                ],
-                'safetySettings': [
-                  {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_NONE'},
-                  {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_NONE'},
-                  {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_NONE'},
-                  {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_NONE'},
-                ],
-                'generationConfig': {
-                  'responseMimeType': 'application/json',
-                },
-              }),
-            ).timeout(const Duration(seconds: 35));
+                    ],
+                    'safetySettings': [
+                      {
+                        'category': 'HARM_CATEGORY_HARASSMENT',
+                        'threshold': 'BLOCK_NONE'
+                      },
+                      {
+                        'category': 'HARM_CATEGORY_HATE_SPEECH',
+                        'threshold': 'BLOCK_NONE'
+                      },
+                      {
+                        'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                        'threshold': 'BLOCK_NONE'
+                      },
+                      {
+                        'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                        'threshold': 'BLOCK_NONE'
+                      },
+                    ],
+                    'generationConfig': {
+                      'responseMimeType': 'application/json',
+                    },
+                  }),
+                )
+                .timeout(const Duration(seconds: 35));
 
             if (res.statusCode == 200) {
               final data = jsonDecode(utf8.decode(res.bodyBytes));
-              final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+              final text = data['candidates']?[0]?['content']?['parts']?[0]
+                  ?['text'] as String?;
               if (text != null && text.trim().isNotEmpty) {
                 responseText = text;
                 debugPrint('AiUploadPaper: Gemini REST API ($modelName) 辨識成功！');
                 break;
               }
             } else {
-              debugPrint('AiUploadPaper: Gemini REST API ($modelName) 回應失敗 [${res.statusCode}]: ${res.body}');
+              debugPrint(
+                  'AiUploadPaper: Gemini REST API ($modelName) 回應失敗 [${res.statusCode}]: ${res.body}');
             }
           } catch (restErr) {
-            debugPrint('AiUploadPaper: Gemini REST API ($modelName) 例外: $restErr');
+            debugPrint(
+                'AiUploadPaper: Gemini REST API ($modelName) 例外: $restErr');
           }
         }
       }
@@ -609,11 +643,13 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     String text = raw;
 
     // 1. 移除模型思考鏈標籤 (如 <think>...</think> 或單獨標籤)
-    text = text.replaceAll(RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false), '');
+    text = text.replaceAll(
+        RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false), '');
     text = text.replaceAll(RegExp(r'</?think>', caseSensitive: false), '');
 
     // 2. 移除 LaTeX 數學定界符 ($$...$$, $...$, \(...\), \[...\])
-    text = text.replaceAllMapped(RegExp(r'\$\$(.*?)\$\$', dotAll: true), (m) => m.group(1) ?? '');
+    text = text.replaceAllMapped(
+        RegExp(r'\$\$(.*?)\$\$', dotAll: true), (m) => m.group(1) ?? '');
     text = text.replaceAllMapped(RegExp(r'\$(.*?)\$'), (m) => m.group(1) ?? '');
     text = text.replaceAll(r'\(', '').replaceAll(r'\)', '');
     text = text.replaceAll(r'\[', '').replaceAll(r'\]', '');
@@ -674,13 +710,16 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     });
 
     // 移除 \text{...}, \mathbf{...}, \mathit{...} 等指令包裹
-    text = text.replaceAllMapped(RegExp(r'\\(?:text|mathbf|mathit|mathrm|mathbb)\{([^}]+)\}'), (m) {
+    text = text.replaceAllMapped(
+        RegExp(r'\\(?:text|mathbf|mathit|mathrm|mathbb)\{([^}]+)\}'), (m) {
       return m.group(1) ?? '';
     });
 
     // 4. 清理 Markdown 粗體、斜體殘留星號
-    text = text.replaceAllMapped(RegExp(r'\*\*([^*]+)\*\*'), (m) => m.group(1) ?? '');
-    text = text.replaceAllMapped(RegExp(r'__([^_]+)__'), (m) => m.group(1) ?? '');
+    text = text.replaceAllMapped(
+        RegExp(r'\*\*([^*]+)\*\*'), (m) => m.group(1) ?? '');
+    text =
+        text.replaceAllMapped(RegExp(r'__([^_]+)__'), (m) => m.group(1) ?? '');
 
     // 5. 移除不可見特殊字元、零寬字符與控制符
     text = text.replaceAll(RegExp(r'[\u200B-\u200D\uFEFF\u00A0]'), ' ');
@@ -696,7 +735,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     String opt = _cleanAiSymbols(raw);
     // 移除選項開頭重複的 A. B. C. D.、(A) (B)、[A] [B]、① ② 或 1. 2. 標號
     opt = opt.replaceAll(
-      RegExp(r'^(?:[A-Da-d][\.\、\:\)\s\-]+|\([A-Da-d]\)\s*|\[[A-Da-d]\]\s*|[①②③④⑤]\s*|\d+[\.\、\:\)\s\-]+)'),
+      RegExp(
+          r'^(?:[A-Da-d][\.\、\:\)\s\-]+|\([A-Da-d]\)\s*|\[[A-Da-d]\]\s*|[①②③④⑤]\s*|\d+[\.\、\:\)\s\-]+)'),
       '',
     );
     return opt.trim();
@@ -722,14 +762,18 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     }
 
     final Map<String, dynamic> parsedData = jsonDecode(cleanText.trim());
-    final String rawPaperName = (parsedData['paper_name'] ?? 'AI 智慧生成題本').toString();
+    final String rawPaperName =
+        (parsedData['paper_name'] ?? 'AI 智慧生成題本').toString();
     final String paperName = _cleanAiSymbols(rawPaperName);
-    final String subject = _cleanAiSymbols((parsedData['subject'] ?? _selectedTopicSubject).toString());
-    final String chapter = _cleanAiSymbols((parsedData['chapter'] ?? 'AI 核心單元').toString());
+    final String subject = _cleanAiSymbols(
+        (parsedData['subject'] ?? _selectedTopicSubject).toString());
+    final String chapter =
+        _cleanAiSymbols((parsedData['chapter'] ?? 'AI 核心單元').toString());
     final List<dynamic> qList = parsedData['questions'] ?? [];
 
     if (paperName.contains('無法辨識') || qList.isEmpty) {
-      throw Exception('未能從上傳的文件/相片中辨識出有效的考卷題目。請確保上傳的試卷清晰無反光、文字清楚端正，且確實包含考卷題目內容。');
+      throw Exception(
+          '未能從上傳的文件/相片中辨識出有效的考卷題目。請確保上傳的試卷清晰無反光、文字清楚端正，且確實包含考卷題目內容。');
     }
 
     List<Map<String, dynamic>> questions = [];
@@ -801,11 +845,14 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
     try {
       final db = await DatabaseHelper.instance.database;
-      final String userId = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+      final String userId =
+          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+              .toString();
 
       // 1. Insert Chapter/Tag if not exists
       int tagId;
-      final tagRows = await db.query('tags', where: 'name = ?', whereArgs: [chapter]);
+      final tagRows =
+          await db.query('tags', where: 'name = ?', whereArgs: [chapter]);
       if (tagRows.isNotEmpty) {
         tagId = tagRows.first['id'] as int;
       } else {
@@ -846,7 +893,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       }
 
       // 3. Create Paper
-      final paperId = await DatabaseHelper.instance.createPaper(userId, paperName, questionIds);
+      final paperId = await DatabaseHelper.instance
+          .createPaper(userId, paperName, questionIds);
 
       // Close loading dialog
       if (mounted) {
@@ -906,7 +954,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.red, size: 28),
+            const Icon(Icons.error_outline_rounded,
+                color: Colors.red, size: 28),
             const SizedBox(width: 8),
             Text(title),
           ],
@@ -928,7 +977,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI 智慧匯入題本', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('AI 智慧匯入題本',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
@@ -986,7 +1036,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: _activeTab == 0 ? cs.primary : Colors.transparent,
+                        color:
+                            _activeTab == 0 ? cs.primary : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: _activeTab == 0
                             ? [
@@ -1004,15 +1055,21 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                           Icon(
                             Icons.upload_file_rounded,
                             size: 18,
-                            color: _activeTab == 0 ? cs.onPrimary : cs.onSurfaceVariant,
+                            color: _activeTab == 0
+                                ? cs.onPrimary
+                                : cs.onSurfaceVariant,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             '考卷文件辨識',
                             style: TextStyle(
                               fontSize: 13.5,
-                              fontWeight: _activeTab == 0 ? FontWeight.bold : FontWeight.w500,
-                              color: _activeTab == 0 ? cs.onPrimary : cs.onSurfaceVariant,
+                              fontWeight: _activeTab == 0
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              color: _activeTab == 0
+                                  ? cs.onPrimary
+                                  : cs.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -1026,7 +1083,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: _activeTab == 1 ? cs.primary : Colors.transparent,
+                        color:
+                            _activeTab == 1 ? cs.primary : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: _activeTab == 1
                             ? [
@@ -1044,15 +1102,21 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                           Icon(
                             Icons.auto_awesome_rounded,
                             size: 18,
-                            color: _activeTab == 1 ? cs.onPrimary : cs.onSurfaceVariant,
+                            color: _activeTab == 1
+                                ? cs.onPrimary
+                                : cs.onSurfaceVariant,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             '智慧主題命題',
                             style: TextStyle(
                               fontSize: 13.5,
-                              fontWeight: _activeTab == 1 ? FontWeight.bold : FontWeight.w500,
-                              color: _activeTab == 1 ? cs.onPrimary : cs.onSurfaceVariant,
+                              fontWeight: _activeTab == 1
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              color: _activeTab == 1
+                                  ? cs.onPrimary
+                                  : cs.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -1084,11 +1148,16 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.image_search_rounded, size: 44, color: cs.primary),
+                    Icon(Icons.image_search_rounded,
+                        size: 44, color: cs.primary),
                     const SizedBox(height: 10),
-                    const Text('拍照或上傳考卷相片', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text('拍照或上傳考卷相片',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 4),
-                    Text('支援相機即時拍照、相簿選取（PNG, JPG, WebP）', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+                    Text('支援相機即時拍照、相簿選取（PNG, JPG, WebP）',
+                        style: TextStyle(
+                            fontSize: 11.5, color: cs.onSurfaceVariant)),
                   ],
                 ),
               ),
@@ -1102,20 +1171,26 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: cs.outline.withValues(alpha: 0.2), width: 1.5),
+                  border: Border.all(
+                      color: cs.outline.withValues(alpha: 0.2), width: 1.5),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.picture_as_pdf_rounded, size: 34, color: Colors.redAccent.shade200),
+                    Icon(Icons.picture_as_pdf_rounded,
+                        size: 34, color: Colors.redAccent.shade200),
                     const SizedBox(width: 14),
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('上傳 PDF 考卷檔案', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
+                        const Text('上傳 PDF 考卷檔案',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14.5)),
                         const SizedBox(height: 2),
-                        Text('適合掃描版或電子試卷文件', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                        Text('適合掃描版或電子試卷文件',
+                            style: TextStyle(
+                                fontSize: 11, color: cs.onSurfaceVariant)),
                       ],
                     )
                   ],
@@ -1137,7 +1212,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                   Expanded(
                     child: Text(
                       '小叮嚀：相片請保持光線充足且文字清晰，AI 將自動辨識題目並生成詳解！',
-                      style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant, height: 1.4),
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          color: cs.onSurfaceVariant,
+                          height: 1.4),
                     ),
                   ),
                 ],
@@ -1156,27 +1234,36 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('1. 選擇考試學科', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                  Text('1. 選擇考試學科',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface)),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
                       color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+                      border:
+                          Border.all(color: cs.outline.withValues(alpha: 0.2)),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         isExpanded: true,
-                        value: widget.allSubjects.contains(_selectedTopicSubject)
-                            ? _selectedTopicSubject
-                            : (widget.allSubjects.isNotEmpty ? widget.allSubjects.first : '數學'),
+                        value:
+                            widget.allSubjects.contains(_selectedTopicSubject)
+                                ? _selectedTopicSubject
+                                : (widget.allSubjects.isNotEmpty
+                                    ? widget.allSubjects.first
+                                    : '數學'),
                         items: (widget.allSubjects.isNotEmpty
                                 ? widget.allSubjects
                                 : ['數學', '英文', '國文', '理化', '歷史', '地理', '資訊管理'])
                             .map((sub) => DropdownMenuItem(
                                   value: sub,
-                                  child: Text(sub, style: const TextStyle(fontSize: 14)),
+                                  child: Text(sub,
+                                      style: const TextStyle(fontSize: 14)),
                                 ))
                             .toList(),
                         onChanged: (val) {
@@ -1189,92 +1276,76 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  Text('2. 單元或考科主題', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                  Text('2. 單元或考科主題',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _topicChapterCtrl,
                     style: const TextStyle(fontSize: 14),
                     decoration: InputDecoration(
                       hintText: '例如：空間幾何、牛頓運動定律、一元二次方程式…',
-                      hintStyle: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+                      hintStyle: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
                       filled: true,
                       fillColor: Theme.of(context).scaffoldBackgroundColor,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+                        borderSide: BorderSide(
+                            color: cs.outline.withValues(alpha: 0.2)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+                        borderSide: BorderSide(
+                            color: cs.outline.withValues(alpha: 0.2)),
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
 
+                  // 3. 命題數量
+                  Text(
+                    '3. 命題數量',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('3. 命題數量', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [3, 5, 10].map((c) {
-                                final isSel = _topicQuestionCount == c;
-                                return Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 6),
-                                    child: ChoiceChip(
-                                      label: Center(child: Text('$c 題', style: const TextStyle(fontSize: 12))),
-                                      selected: isSel,
-                                      selectedColor: cs.primary,
-                                      labelStyle: TextStyle(
-                                        color: isSel ? cs.onPrimary : cs.onSurface,
-                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                                      ),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                      onSelected: (_) => setState(() => _topicQuestionCount = c),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _buildCountOption(cs, 3, '3 題'),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('4. 難易度', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: ['基礎', '中等', '進階'].map((d) {
-                                final isSel = _topicDifficulty == d;
-                                return Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 4),
-                                    child: ChoiceChip(
-                                      label: Center(child: Text(d, style: const TextStyle(fontSize: 11.5))),
-                                      selected: isSel,
-                                      selectedColor: cs.primary,
-                                      labelStyle: TextStyle(
-                                        color: isSel ? cs.onPrimary : cs.onSurface,
-                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                                      ),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                      onSelected: (_) => setState(() => _topicDifficulty = d),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _buildCountOption(cs, 5, '5 題'),
+                      const SizedBox(width: 8),
+                      _buildCountOption(cs, 10, '10 題'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 4. 難易度
+                  Text(
+                    '4. 難易度設定',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _buildDifficultyOption(cs, '基礎', '🌱 基礎'),
+                      const SizedBox(width: 8),
+                      _buildDifficultyOption(cs, '中等', '⚡ 中等'),
+                      const SizedBox(width: 8),
+                      _buildDifficultyOption(cs, '進階', '🔥 進階'),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -1283,12 +1354,15 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.bolt_rounded, size: 20),
-                      label: const Text('開始 AI 智慧命題生成題本', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      label: const Text('開始 AI 智慧命題生成題本',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: cs.primary,
                         foregroundColor: cs.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
                         elevation: 2,
                       ),
                       onPressed: _startAiTopicGeneration,
@@ -1299,6 +1373,102 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCountOption(ColorScheme cs, int count, String title) {
+    final isSel = _topicQuestionCount == count;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _topicQuestionCount = count),
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSel
+                ? cs.primary
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.4)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSel ? cs.primary : cs.outline.withValues(alpha: 0.18),
+              width: isSel ? 1.8 : 1.0,
+            ),
+            boxShadow: isSel
+                ? [
+                    BoxShadow(
+                      color: cs.primary.withValues(alpha: 0.28),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                color: isSel ? cs.onPrimary : cs.onSurface,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDifficultyOption(ColorScheme cs, String value, String label) {
+    final isSel = _topicDifficulty == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _topicDifficulty = value),
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSel
+                ? cs.primary
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.4)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSel ? cs.primary : cs.outline.withValues(alpha: 0.18),
+              width: isSel ? 1.8 : 1.0,
+            ),
+            boxShadow: isSel
+                ? [
+                    BoxShadow(
+                      color: cs.primary.withValues(alpha: 0.28),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                color: isSel ? cs.onPrimary : cs.onSurface,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1342,7 +1512,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
             const SizedBox(height: 40),
             Text(
               'AI 正在辨識您的檔案',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1365,18 +1538,21 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                   final isDone = index < _currentStep;
 
                   Color itemColor = cs.onSurfaceVariant;
-                  Widget icon = Icon(Icons.circle_outlined, size: 16, color: cs.outline.withValues(alpha: 0.5));
+                  Widget icon = Icon(Icons.circle_outlined,
+                      size: 16, color: cs.outline.withValues(alpha: 0.5));
 
                   if (isActive) {
                     itemColor = cs.primary;
                     icon = SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: cs.primary),
                     );
                   } else if (isDone) {
                     itemColor = Colors.green;
-                    icon = const Icon(Icons.check_circle, size: 16, color: Colors.green);
+                    icon = const Icon(Icons.check_circle,
+                        size: 16, color: Colors.green);
                   }
 
                   return Padding(
@@ -1391,7 +1567,9 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                             style: TextStyle(
                               fontSize: 13.5,
                               color: itemColor,
-                              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isActive
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                           ),
                         ),
@@ -1426,7 +1604,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               Expanded(
                 child: Text(
                   _selectedFileName ?? '已載入檔案',
-                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.bold),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1472,9 +1653,12 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.assignment_ind_rounded, color: Colors.blue, size: 20),
+                          Icon(Icons.assignment_ind_rounded,
+                              color: Colors.blue, size: 20),
                           SizedBox(width: 8),
-                          Text('題本與科目設定', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          Text('題本與科目設定',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15)),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -1483,8 +1667,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                         decoration: InputDecoration(
                           labelText: '題本名稱',
                           prefixIcon: const Icon(Icons.assignment_rounded),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -1496,8 +1682,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                               decoration: InputDecoration(
                                 labelText: '學科分類',
                                 prefixIcon: const Icon(Icons.school_rounded),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
                               ),
                             ),
                           ),
@@ -1508,8 +1696,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                               decoration: InputDecoration(
                                 labelText: '單元名稱',
                                 prefixIcon: const Icon(Icons.tag_rounded),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
                               ),
                             ),
                           ),
@@ -1527,7 +1717,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                 children: [
                   Text(
                     'AI 提取題目預覽 (${_questions.length} 題)',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface),
                   ),
                   TextButton.icon(
                     onPressed: () {
@@ -1584,7 +1777,9 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                         title: const Text('放棄辨識'),
                         content: const Text('確定要放棄目前辨識出來的題目並返回上傳畫面嗎？'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('取消')),
                           TextButton(
                             onPressed: () {
                               Navigator.pop(ctx);
@@ -1593,7 +1788,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                                 _questions.clear();
                               });
                             },
-                            child: const Text('確認放棄', style: TextStyle(color: Colors.red)),
+                            child: const Text('確認放棄',
+                                style: TextStyle(color: Colors.red)),
                           ),
                         ],
                       ),
@@ -1601,7 +1797,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                   },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text('放棄'),
                 ),
@@ -1615,10 +1812,13 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     backgroundColor: cs.primary,
                     foregroundColor: cs.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  child: const Text('確認建立題本', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  child: const Text('確認建立題本',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
               ),
             ],
@@ -1629,7 +1829,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   }
 
   // Question Card Editor
-  Widget _buildQuestionEditorCard(int qIndex, Map<String, dynamic> q, ColorScheme cs) {
+  Widget _buildQuestionEditorCard(
+      int qIndex, Map<String, dynamic> q, ColorScheme cs) {
     final List<String> options = List<String>.from(q['options']);
     final int ansIndex = q['answerIndex'] as int;
 
@@ -1650,14 +1851,18 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: cs.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '第 ${qIndex + 1} 題',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: cs.primary, fontSize: 13),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: cs.primary,
+                        fontSize: 13),
                   ),
                 ),
                 Row(
@@ -1666,9 +1871,15 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     DropdownButton<String>(
                       value: q['difficulty'],
                       items: const [
-                        DropdownMenuItem(value: 'easy', child: Text('簡單', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'medium', child: Text('中等', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'hard', child: Text('困難', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(
+                            value: 'easy',
+                            child: Text('簡單', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(
+                            value: 'medium',
+                            child: Text('中等', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(
+                            value: 'hard',
+                            child: Text('困難', style: TextStyle(fontSize: 12))),
                       ],
                       onChanged: (val) {
                         if (val != null) {
@@ -1680,7 +1891,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                       underline: const SizedBox(),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.redAccent, size: 20),
                       onPressed: () {
                         setState(() {
                           _questions.removeAt(qIndex);
@@ -1695,15 +1907,21 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
             const SizedBox(height: 12),
 
             // Question Text Input
-            const Text('題目描述', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const Text('題目描述',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey)),
             const SizedBox(height: 4),
             TextFormField(
               initialValue: q['text'],
               maxLines: null,
               decoration: InputDecoration(
                 hintText: '請輸入題目敘述',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               onChanged: (val) {
                 q['text'] = val;
@@ -1712,7 +1930,11 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
             const SizedBox(height: 16),
 
             // Options list
-            const Text('選項與正解 (點擊選取正確答案)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const Text('選項與正解 (點擊選取正確答案)',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey)),
             const SizedBox(height: 8),
             ...List.generate(options.length, (oIdx) {
               final isCorrect = oIdx == ansIndex;
@@ -1735,7 +1957,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                         decoration: BoxDecoration(
                           color: isCorrect ? Colors.green : Colors.transparent,
                           shape: BoxShape.circle,
-                          border: Border.all(color: isCorrect ? Colors.green : cs.outline),
+                          border: Border.all(
+                              color: isCorrect ? Colors.green : cs.outline),
                         ),
                         child: Center(
                           child: Text(
@@ -1756,11 +1979,14 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                         initialValue: options[oIdx],
                         decoration: InputDecoration(
                           hintText: '選項 $char',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           focusedBorder: isCorrect
                               ? const OutlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.green, width: 1.5),
+                                  borderSide: BorderSide(
+                                      color: Colors.green, width: 1.5),
                                 )
                               : null,
                         ),
@@ -1777,15 +2003,21 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
             const SizedBox(height: 12),
 
             // Explanation Input
-            const Text('題目解析', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const Text('題目解析',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey)),
             const SizedBox(height: 4),
             TextFormField(
               initialValue: q['explanation'],
               maxLines: null,
               decoration: InputDecoration(
                 hintText: '請輸入題目詳細解析（選填）',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               onChanged: (val) {
                 q['explanation'] = val;

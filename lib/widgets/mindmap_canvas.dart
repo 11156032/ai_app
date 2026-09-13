@@ -141,7 +141,8 @@ class InteractiveMindMapView extends StatefulWidget {
 }
 
 class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
-  final TransformationController _transformController = TransformationController();
+  final TransformationController _transformController =
+      TransformationController();
   late MindMapNode _root;
   Size? _lastViewportSize;
 
@@ -188,12 +189,13 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
     // 依可視區域大小計算最舒適的縮放比 (兼顧手機小螢幕與全螢幕檢視)
     final scaleX = (viewportSize.width - 48) / math.max(1.0, treeWidth);
     final scaleY = (viewportSize.height - 48) / math.max(1.0, treeHeight);
-    final double scale = math.min(scaleX, scaleY).clamp(0.65, 1.05);
+    final double scale = math.min(scaleX, scaleY).clamp(0.45, 1.05);
 
     double dx;
     // 若縮放後能完整納入視窗則水平置中，否則靠左預留 24px 邊距以利閱讀主節點
     if (treeWidth * scale <= viewportSize.width - 48) {
-      dx = (viewportSize.width - (treeWidth * scale)) / 2 - (bounds.left * scale);
+      dx = (viewportSize.width - (treeWidth * scale)) / 2 -
+          (bounds.left * scale);
     } else {
       dx = 24.0 - (bounds.left * scale);
     }
@@ -212,7 +214,8 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
     final currentScale = _transformController.value.getMaxScaleOnAxis();
     final targetScale = (currentScale * factor).clamp(0.3, 2.5);
 
-    final center = Offset(_lastViewportSize!.width / 2, _lastViewportSize!.height / 2);
+    final center =
+        Offset(_lastViewportSize!.width / 2, _lastViewportSize!.height / 2);
     final scenePoint = _transformController.toScene(center);
 
     final matrix = Matrix4.identity()
@@ -343,29 +346,66 @@ class MindMapPainter extends CustomPainter {
   final MindMapNode root;
   final void Function(MindMapNode) onNodeTap;
 
-  static const double kCanvasWidth = 1600.0;
-  static const double kCanvasHeight = 1000.0;
-  static const double kStartX = 40.0;
-  static const double kNodeWidth = 136.0;
-  static const double kNodeHeight = 44.0;
-  static const double kHGap = 56.0;
+  static const double kCanvasWidth = 3200.0;
+  static const double kCanvasHeight = 2400.0;
+  static const double kStartX = 60.0;
+  static const double kHGap = 52.0;
   static const double kVGap = 18.0;
 
   MindMapPainter({required this.root, required this.onNodeTap});
 
+  /// 靜態輔助：量測節點自適應尺寸（支援完整多行文字）
+  static Size _measureNode(MindMapNode node, {bool isRoot = false}) {
+    final double fontSize = isRoot ? 13.5 : 12.0;
+    final FontWeight fontWeight = isRoot ? FontWeight.bold : FontWeight.w600;
+    final double maxTextWidth = isRoot ? 240.0 : 210.0;
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: node.label.isEmpty ? (isRoot ? '核心主題' : '分支主題') : node.label,
+        style: TextStyle(
+          color: const Color(0xFF2C2523),
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          height: 1.35,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxTextWidth);
+
+    final double extraW = node.children.isNotEmpty ? 40.0 : 26.0;
+    final double nodeWidth =
+        math.max(120.0, math.min(280.0, tp.width + extraW));
+    final double minH = isRoot ? 46.0 : 42.0;
+    final double nodeHeight = math.max(minH, tp.height + 18.0);
+
+    final size = Size(nodeWidth, nodeHeight);
+    node.size = size;
+    return size;
+  }
+
   /// 靜態輔助：計算樹狀圖幾何包圍盒
-  static Rect computeTreeBounds(MindMapNode root, double startX, double centerY) {
-    _layoutSubtree(root, startX, centerY);
+  static Rect computeTreeBounds(
+      MindMapNode root, double startX, double centerY) {
+    _layoutSubtree(root, startX, centerY, isRoot: true);
     double minX = double.infinity;
     double minY = double.infinity;
     double maxX = -double.infinity;
     double maxY = -double.infinity;
 
     void traverse(MindMapNode node) {
-      if (node.position.dx < minX) minX = node.position.dx;
-      if (node.position.dy < minY) minY = node.position.dy;
-      if (node.position.dx + kNodeWidth > maxX) maxX = node.position.dx + kNodeWidth;
-      if (node.position.dy + kNodeHeight > maxY) maxY = node.position.dy + kNodeHeight;
+      if (node.position.dx < minX) {
+        minX = node.position.dx;
+      }
+      if (node.position.dy < minY) {
+        minY = node.position.dy;
+      }
+      if (node.position.dx + node.size.width > maxX) {
+        maxX = node.position.dx + node.size.width;
+      }
+      if (node.position.dy + node.size.height > maxY) {
+        maxY = node.position.dy + node.size.height;
+      }
 
       if (node.isExpanded) {
         for (final child in node.children) {
@@ -376,17 +416,20 @@ class MindMapPainter extends CustomPainter {
 
     traverse(root);
     if (minX == double.infinity) {
-      return Rect.fromLTWH(startX, centerY - kNodeHeight / 2, kNodeWidth, kNodeHeight);
+      return Rect.fromLTWH(startX, centerY - root.size.height / 2,
+          root.size.width, root.size.height);
     }
     return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
-  static double _layoutSubtree(MindMapNode node, double x, double centerY) {
-    node.position = Offset(x, centerY - kNodeHeight / 2);
+  static double _layoutSubtree(MindMapNode node, double x, double centerY,
+      {bool isRoot = false}) {
+    _measureNode(node, isRoot: isRoot);
+    node.position = Offset(x, centerY - node.size.height / 2);
 
     if (!node.isExpanded || node.children.isEmpty) {
-      node.subtreeHeight = kNodeHeight;
-      return kNodeHeight;
+      node.subtreeHeight = node.size.height;
+      return node.size.height;
     }
 
     double totalChildrenHeight = 0;
@@ -394,12 +437,13 @@ class MindMapPainter extends CustomPainter {
       totalChildrenHeight += _estimateSubtreeHeight(child) + kVGap;
     }
     totalChildrenHeight -= kVGap;
-    node.subtreeHeight = math.max(kNodeHeight, totalChildrenHeight);
+    node.subtreeHeight = math.max(node.size.height, totalChildrenHeight);
 
     double childY = centerY - totalChildrenHeight / 2;
     for (final child in node.children) {
       final childH = _estimateSubtreeHeight(child);
-      _layoutSubtree(child, x + kNodeWidth + kHGap, childY + childH / 2);
+      _layoutSubtree(child, x + node.size.width + kHGap, childY + childH / 2,
+          isRoot: false);
       childY += childH + kVGap;
     }
     return node.subtreeHeight;
@@ -407,18 +451,19 @@ class MindMapPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    _layoutSubtree(root, kStartX, size.height / 2);
+    _layoutSubtree(root, kStartX, size.height / 2, isRoot: true);
     _drawConnections(canvas, root);
-    _drawNodes(canvas, root);
+    _drawNodes(canvas, root, isRoot: true);
   }
 
   static double _estimateSubtreeHeight(MindMapNode node) {
-    if (!node.isExpanded || node.children.isEmpty) return kNodeHeight;
+    _measureNode(node);
+    if (!node.isExpanded || node.children.isEmpty) return node.size.height;
     double total = 0;
     for (final c in node.children) {
       total += _estimateSubtreeHeight(c) + kVGap;
     }
-    return math.max(kNodeHeight, total - kVGap);
+    return math.max(node.size.height, total - kVGap);
   }
 
   // ─── 繪製連接線（S 型三次貝茲曲線） ───
@@ -426,12 +471,12 @@ class MindMapPainter extends CustomPainter {
     if (!parent.isExpanded) return;
     for (final child in parent.children) {
       final p1 = Offset(
-        parent.position.dx + kNodeWidth,
-        parent.position.dy + kNodeHeight / 2,
+        parent.position.dx + parent.size.width,
+        parent.position.dy + parent.size.height / 2,
       );
       final p2 = Offset(
         child.position.dx,
-        child.position.dy + kNodeHeight / 2,
+        child.position.dy + child.size.height / 2,
       );
       final midX = (p1.dx + p2.dx) / 2;
       final path = Path()
@@ -452,70 +497,86 @@ class MindMapPainter extends CustomPainter {
   }
 
   // ─── 繪製節點 ───
-  void _drawNodes(Canvas canvas, MindMapNode node) {
+  void _drawNodes(Canvas canvas, MindMapNode node, {bool isRoot = false}) {
     final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-          node.position.dx, node.position.dy, kNodeWidth, kNodeHeight),
-      const Radius.circular(10),
+      Rect.fromLTWH(node.position.dx, node.position.dy, node.size.width,
+          node.size.height),
+      const Radius.circular(12),
     );
 
-    // 白底 + 陰影
+    // 陰影
     canvas.drawRRect(
       rect,
       Paint()
-        ..color = Colors.white
+        ..color = Colors.black.withValues(alpha: 0.05)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
     );
+    // 卡片背景 (Root 帶有柔和主題底色)
     canvas.drawRRect(
       rect,
-      Paint()..color = Colors.white,
+      Paint()
+        ..color = isRoot ? node.color.withValues(alpha: 0.08) : Colors.white,
+    );
+    // 精緻外邊框
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..color = isRoot
+            ? node.color.withValues(alpha: 0.35)
+            : const Color(0xFFE5DCD3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
     );
 
     // 左側彩色 accent bar
     canvas.drawRRect(
       RRect.fromRectAndCorners(
-        Rect.fromLTWH(node.position.dx, node.position.dy, 4, kNodeHeight),
-        topLeft: const Radius.circular(10),
-        bottomLeft: const Radius.circular(10),
+        Rect.fromLTWH(
+            node.position.dx, node.position.dy, 4.5, node.size.height),
+        topLeft: const Radius.circular(12),
+        bottomLeft: const Radius.circular(12),
       ),
       Paint()..color = node.color,
     );
 
-    // 文字
+    // 文字繪製 (完全呈現文字內容，支援多行排版)
+    final double maxTextWidth =
+        node.size.width - (node.children.isNotEmpty ? 36.0 : 20.0);
     final tp = TextPainter(
       text: TextSpan(
-        text: node.label.length > 14
-            ? '${node.label.substring(0, 13)}…'
-            : node.label,
+        text: node.label.isEmpty ? (isRoot ? '核心主題' : '分支主題') : node.label,
         style: TextStyle(
           color: const Color(0xFF2C2523),
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontSize: isRoot ? 13.5 : 12.0,
+          fontWeight: isRoot ? FontWeight.bold : FontWeight.w600,
+          height: 1.35,
         ),
       ),
       textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: kNodeWidth - 14);
+    )..layout(maxWidth: math.max(10.0, maxTextWidth));
+
     tp.paint(
-        canvas,
-        Offset(node.position.dx + 10,
-            node.position.dy + (kNodeHeight - tp.height) / 2));
+      canvas,
+      Offset(
+        node.position.dx + 10,
+        node.position.dy + (node.size.height - tp.height) / 2,
+      ),
+    );
 
     // 折疊/展開圓點（有子節點才顯示）
     if (node.children.isNotEmpty) {
       final dotCenter = Offset(
-        node.position.dx + kNodeWidth - 10,
-        node.position.dy + kNodeHeight / 2,
+        node.position.dx + node.size.width - 12,
+        node.position.dy + node.size.height / 2,
       );
       canvas.drawCircle(
         dotCenter,
-        6,
+        7,
         Paint()..color = node.color.withValues(alpha: 0.15),
       );
       canvas.drawCircle(
         dotCenter,
-        6,
+        7,
         Paint()
           ..color = node.color
           ..style = PaintingStyle.stroke
@@ -531,14 +592,16 @@ class MindMapPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      iconTp.paint(canvas,
-          dotCenter - Offset(iconTp.width / 2, iconTp.height / 2));
+      iconTp.paint(
+        canvas,
+        dotCenter - Offset(iconTp.width / 2, iconTp.height / 2),
+      );
     }
 
     // 遞迴繪製子節點
     if (node.isExpanded) {
       for (final child in node.children) {
-        _drawNodes(canvas, child);
+        _drawNodes(canvas, child, isRoot: false);
       }
     }
   }
@@ -577,8 +640,8 @@ class _MindMapGestureLayer extends StatelessWidget {
     final rect = Rect.fromLTWH(
       node.position.dx,
       node.position.dy,
-      MindMapPainter.kNodeWidth,
-      MindMapPainter.kNodeHeight,
+      node.size.width,
+      node.size.height,
     );
     if (rect.contains(tap)) {
       onNodeTap(node);

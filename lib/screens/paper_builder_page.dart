@@ -45,7 +45,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         final p = await DatabaseHelper.instance.getPaperById(widget.paperId!);
         if (p != null) {
           _nameCtrl.text = p['name']?.toString() ?? '';
-          final qIds = await DatabaseHelper.instance.getQuestionIdsForPaper(widget.paperId!);
+          final qIds = await DatabaseHelper.instance
+              .getQuestionIdsForPaper(widget.paperId!);
           if (qIds.isNotEmpty) {
             final db = await DatabaseHelper.instance.database;
             final placeholders = List.filled(qIds.length, '?').join(',');
@@ -66,7 +67,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                 'id': id,
                 'question': (r['text'] ?? '').toString(),
                 'options': opts.map((e) => e.toString()).toList(),
-                'answerIndex': int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
+                'answerIndex':
+                    int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
                 'explanation': (r['explanation'] ?? '').toString(),
                 'subject': r['subject'] ?? '一般',
                 'difficulty': r['difficulty'] ?? '中',
@@ -84,7 +86,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
 
             _paperQuestions = ordered;
             if (_paperQuestions.isNotEmpty) {
-              final firstSub = _paperQuestions.first['subject']?.toString() ?? '';
+              final firstSub =
+                  _paperQuestions.first['subject']?.toString() ?? '';
               if (_subjects.contains(firstSub)) {
                 _selectedSubject = firstSub;
               }
@@ -126,7 +129,9 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     if (result != null) {
       // Reload latest questions by looking up the most recently added question or by ID
       final db = await DatabaseHelper.instance.database;
-      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+      final uid =
+          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+              .toString();
       final latestRows = await db.query(
         'questions',
         where: 'user_id = ?',
@@ -194,7 +199,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
               if (filterSub != '全部' && sub != filterSub) return false;
 
               final text = (r['text'] ?? '').toString().toLowerCase();
-              if (searchKeyword.isNotEmpty && !text.contains(searchKeyword.toLowerCase())) {
+              if (searchKeyword.isNotEmpty &&
+                  !text.contains(searchKeyword.toLowerCase())) {
                 return false;
               }
               return true;
@@ -211,7 +217,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                     children: [
                       const Text(
                         '從題庫挑選題目',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded),
@@ -226,8 +233,10 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                     decoration: InputDecoration(
                       hintText: '搜尋題目關鍵字...',
                       prefixIcon: const Icon(Icons.search_rounded),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       filled: true,
                       fillColor: Colors.grey.shade100,
                     ),
@@ -278,14 +287,20 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                               return CheckboxListTile(
                                 value: isChecked,
                                 activeColor: Theme.of(context).primaryColor,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                                 title: Text(
                                   text,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600),
                                 ),
-                                subtitle: Text('學科：$sub', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                                subtitle: Text('學科：$sub',
+                                    style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.grey.shade600)),
                                 onChanged: (val) {
                                   setModalState(() {
                                     if (val == true) {
@@ -308,18 +323,24 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                           ? null
                           : () {
                               for (final id in newlySelectedIds) {
-                                final row = allRows.firstWhere((r) => int.tryParse(r['id'].toString()) == id);
+                                final row = allRows.firstWhere((r) =>
+                                    int.tryParse(r['id'].toString()) == id);
                                 final rawOpts = row['options'];
                                 final opts = rawOpts is String
-                                    ? (jsonDecode(rawOpts) as List<dynamic>? ?? [])
+                                    ? (jsonDecode(rawOpts) as List<dynamic>? ??
+                                        [])
                                     : (rawOpts as List<dynamic>? ?? []);
 
                                 _paperQuestions.add({
                                   'id': id,
                                   'question': (row['text'] ?? '').toString(),
-                                  'options': opts.map((e) => e.toString()).toList(),
-                                  'answerIndex': int.tryParse((row['answer'] ?? '0').toString()) ?? 0,
-                                  'explanation': (row['explanation'] ?? '').toString(),
+                                  'options':
+                                      opts.map((e) => e.toString()).toList(),
+                                  'answerIndex': int.tryParse(
+                                          (row['answer'] ?? '0').toString()) ??
+                                      0,
+                                  'explanation':
+                                      (row['explanation'] ?? '').toString(),
                                   'subject': row['subject'] ?? '一般',
                                   'difficulty': row['difficulty'] ?? '中',
                                   'type': row['type'] ?? '單選題',
@@ -330,9 +351,11 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                             },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text('確認加入 (${newlySelectedIds.length} 題)', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('確認加入 (${newlySelectedIds.length} 題)',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -360,7 +383,9 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     if (result == true) {
       // Reload newly created questions
       final db = await DatabaseHelper.instance.database;
-      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+      final uid =
+          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+              .toString();
       final papers = await DatabaseHelper.instance.getPapersForUser(uid);
       if (papers.isNotEmpty) {
         final latestPaper = papers.first;
@@ -368,7 +393,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         final qIds = await DatabaseHelper.instance.getQuestionIdsForPaper(pid);
         for (final qId in qIds) {
           if (!_paperQuestions.any((q) => q['id'] == qId)) {
-            final rows = await db.query('questions', where: 'id = ?', whereArgs: [qId]);
+            final rows =
+                await db.query('questions', where: 'id = ?', whereArgs: [qId]);
             if (rows.isNotEmpty) {
               final r = rows.first;
               final rawOpts = r['options'];
@@ -380,7 +406,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                 'id': qId,
                 'question': (r['text'] ?? '').toString(),
                 'options': opts.map((e) => e.toString()).toList(),
-                'answerIndex': int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
+                'answerIndex':
+                    int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
                 'explanation': (r['explanation'] ?? '').toString(),
                 'subject': r['subject'] ?? '一般',
                 'difficulty': r['difficulty'] ?? '中',
@@ -414,15 +441,20 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     setState(() => _saving = true);
 
     try {
-      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
-      final List<int> questionIds = _paperQuestions.map((q) => q['id'] as int).toList();
+      final uid =
+          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+              .toString();
+      final List<int> questionIds =
+          _paperQuestions.map((q) => q['id'] as int).toList();
 
       int finalPaperId;
       if (widget.paperId != null) {
-        await DatabaseHelper.instance.updatePaper(widget.paperId!, name, questionIds);
+        await DatabaseHelper.instance
+            .updatePaper(widget.paperId!, name, questionIds);
         finalPaperId = widget.paperId!;
       } else {
-        finalPaperId = await DatabaseHelper.instance.createPaper(uid, name, questionIds);
+        finalPaperId =
+            await DatabaseHelper.instance.createPaper(uid, name, questionIds);
       }
 
       if (!mounted) return;
@@ -527,7 +559,9 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              child: const Text('清空題目', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                              child: const Text('清空題目',
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 12)),
                             ),
                         ],
                       ),
@@ -572,7 +606,11 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('題本名稱', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF4B5563))),
+          const Text('題本名稱',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Color(0xFF4B5563))),
           const SizedBox(height: 8),
           TextField(
             controller: _nameCtrl,
@@ -581,13 +619,22 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
               prefixIcon: Icon(Icons.assignment_rounded, color: cs.primary),
               filled: true,
               fillColor: const Color(0xFFF9FAFB),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade200)),
             ),
           ),
           const SizedBox(height: 16),
-          const Text('學科領域', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF4B5563))),
+          const Text('學科領域',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Color(0xFF4B5563))),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -603,12 +650,14 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                     backgroundColor: Colors.grey.shade100,
                     labelStyle: TextStyle(
                       color: isSelected ? cs.primary : const Color(0xFF374151),
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                       fontSize: 12.5,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: isSelected ? cs.primary : Colors.transparent),
+                      side: BorderSide(
+                          color: isSelected ? cs.primary : Colors.transparent),
                     ),
                     onSelected: (val) {
                       if (val) {
@@ -719,7 +768,10 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
           const SizedBox(height: 12),
           const Text(
             '題本目前尚未包含題目',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF374151)),
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: Color(0xFF374151)),
           ),
           const SizedBox(height: 4),
           Text(
@@ -762,14 +814,18 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: cs.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       '第 ${index + 1} 題',
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: cs.primary),
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: cs.primary),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -780,7 +836,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
+                icon: const Icon(Icons.delete_outline_rounded,
+                    color: Colors.redAccent, size: 18),
                 onPressed: () {
                   setState(() {
                     _paperQuestions.removeAt(index);
@@ -815,10 +872,14 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: isCorrect ? const Color(0xFFECFDF5) : const Color(0xFFF9FAFB),
+                color: isCorrect
+                    ? const Color(0xFFECFDF5)
+                    : const Color(0xFFF9FAFB),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isCorrect ? const Color(0xFF10B981) : Colors.grey.shade200,
+                  color: isCorrect
+                      ? const Color(0xFF10B981)
+                      : Colors.grey.shade200,
                 ),
               ),
               child: Row(
@@ -828,7 +889,9 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      color: isCorrect ? const Color(0xFF059669) : Colors.grey.shade700,
+                      color: isCorrect
+                          ? const Color(0xFF059669)
+                          : Colors.grey.shade700,
                     ),
                   ),
                   Expanded(
@@ -836,13 +899,17 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                       options[oIdx],
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: isCorrect ? const Color(0xFF065F46) : const Color(0xFF374151),
-                        fontWeight: isCorrect ? FontWeight.w600 : FontWeight.normal,
+                        color: isCorrect
+                            ? const Color(0xFF065F46)
+                            : const Color(0xFF374151),
+                        fontWeight:
+                            isCorrect ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ),
                   if (isCorrect)
-                    const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+                    const Icon(Icons.check_circle_rounded,
+                        color: Color(0xFF10B981), size: 16),
                 ],
               ),
             );
@@ -861,7 +928,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
               ),
               child: Text(
                 '解析：$explanation',
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFF92400E), height: 1.3),
+                style: const TextStyle(
+                    fontSize: 11.5, color: Color(0xFF92400E), height: 1.3),
               ),
             ),
           ],
@@ -872,7 +940,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
 
   Widget _buildBottomSaveBar(ColorScheme cs) {
     return Container(
-      padding: EdgeInsets.fromLTRB(18, 12, 18, MediaQuery.of(context).padding.bottom + 12),
+      padding: EdgeInsets.fromLTRB(
+          18, 12, 18, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -889,7 +958,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('目前收錄', style: TextStyle(fontSize: 11.5, color: Colors.grey)),
+              const Text('目前收錄',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey)),
               Text(
                 '${_paperQuestions.length} 道題目',
                 style: TextStyle(
@@ -905,17 +975,25 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
             child: ElevatedButton.icon(
               onPressed: _saving ? null : _savePaper,
               icon: _saving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.check_circle_rounded),
               label: Text(
-                _saving ? '儲存中...' : (widget.paperId == null ? '建立並開始測驗' : '更新題本'),
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                _saving
+                    ? '儲存中...'
+                    : (widget.paperId == null ? '建立並開始測驗' : '更新題本'),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: cs.primary,
                 foregroundColor: cs.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
             ),

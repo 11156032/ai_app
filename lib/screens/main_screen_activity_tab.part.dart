@@ -13,21 +13,21 @@ extension MainScreenActivityTab on _MainScreenState {
   static const Map<String, Color> _postTypeBadgeBg = {
     'note': Color(0xFFF5EEE8),
     'mood': Color(0xFFFCE4EC),
-    'doc':  Color(0xFFE3F2FD),
+    'doc': Color(0xFFE3F2FD),
   };
 
   static const Map<String, Color> _postTypeBadgeBgDark = {
     'note': Color(0xFF3E2723),
     'mood': Color(0xFF880E4F),
-    'doc':  Color(0xFF0D47A1),
+    'doc': Color(0xFF0D47A1),
   };
 
   // ─── 篩選 chip 定義（與類型對應）────────────────────────────────
   static const List<Map<String, dynamic>> _activityFilterChips = [
-    {'label': '全部',      'type': null},
-    {'label': '📝 筆記',   'type': 'note'},
-    {'label': '💭 心情',   'type': 'mood'},
-    {'label': '📄 分享',   'type': 'doc'},
+    {'label': '全部', 'type': null},
+    {'label': '📝 筆記', 'type': 'note'},
+    {'label': '💭 心情', 'type': 'mood'},
+    {'label': '📄 分享', 'type': 'doc'},
   ];
 
   // ─── 主入口 ─────────────────────────────────────────────────────
@@ -49,7 +49,9 @@ extension MainScreenActivityTab on _MainScreenState {
                 child: Container(
                   height: 40,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0EDEB),
+                    color: isDark
+                        ? const Color(0xFF2A2A2A)
+                        : const Color(0xFFF0EDEB),
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: Row(
@@ -75,26 +77,33 @@ extension MainScreenActivityTab on _MainScreenState {
                           itemCount: _activityFilterChips.length,
                           itemBuilder: (context, i) {
                             final chip = _activityFilterChips[i];
-                            final isSelected = _activityTypeFilter == (chip['type'] as String? ?? '全部');
+                            final isSelected = _activityTypeFilter ==
+                                (chip['type'] as String? ?? '全部');
                             return GestureDetector(
                               onTap: () {
                                 _updateState(() {
-                                  _activityTypeFilter = chip['type'] as String? ?? '全部';
+                                  _activityTypeFilter =
+                                      chip['type'] as String? ?? '全部';
                                 });
                               },
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 180),
                                 margin: const EdgeInsets.only(right: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? _currentPrimaryColor
-                                      : (isDark ? Colors.white10 : Colors.grey.shade100),
+                                      : (isDark
+                                          ? Colors.white10
+                                          : Colors.grey.shade100),
                                   borderRadius: BorderRadius.circular(20),
                                   border: isSelected
                                       ? null
                                       : Border.all(
-                                          color: isDark ? Colors.white12 : Colors.grey.shade200,
+                                          color: isDark
+                                              ? Colors.white12
+                                              : Colors.grey.shade200,
                                           width: 1,
                                         ),
                                 ),
@@ -102,10 +111,14 @@ extension MainScreenActivityTab on _MainScreenState {
                                   chip['label'] as String,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                     color: isSelected
                                         ? Colors.white
-                                        : (isDark ? Colors.white60 : Colors.grey.shade700),
+                                        : (isDark
+                                            ? Colors.white60
+                                            : Colors.grey.shade700),
                                   ),
                                 ),
                               ),
@@ -122,12 +135,14 @@ extension MainScreenActivityTab on _MainScreenState {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: isDark ? Colors.white10 : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isDark ? Colors.white12 : Colors.grey.shade200,
+                            color:
+                                isDark ? Colors.white12 : Colors.grey.shade200,
                             width: 1,
                           ),
                         ),
@@ -139,14 +154,18 @@ extension MainScreenActivityTab on _MainScreenState {
                                   ? Icons.arrow_downward_rounded
                                   : Icons.arrow_upward_rounded,
                               size: 13,
-                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                              color: isDark
+                                  ? Colors.white60
+                                  : Colors.grey.shade600,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               _activitySortNewest ? '最新' : '最舊',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isDark ? Colors.white60 : Colors.grey.shade700,
+                                color: isDark
+                                    ? Colors.white60
+                                    : Colors.grey.shade700,
                               ),
                             ),
                           ],
@@ -179,9 +198,7 @@ extension MainScreenActivityTab on _MainScreenState {
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: isSelected
-                ? _currentPrimaryColor
-                : Colors.transparent,
+            color: isSelected ? _currentPrimaryColor : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             boxShadow: isSelected
                 ? [
@@ -218,14 +235,17 @@ extension MainScreenActivityTab on _MainScreenState {
 
     // 類型篩選
     if (_activityTypeFilter != '全部') {
-      myPosts = myPosts.where((p) => p['postType'] == _activityTypeFilter).toList();
+      myPosts =
+          myPosts.where((p) => p['postType'] == _activityTypeFilter).toList();
     }
 
     // 排序
     myPosts.sort((a, b) {
       final aTime = a['createdAt'] as String? ?? a['time'] as String? ?? '';
       final bTime = b['createdAt'] as String? ?? b['time'] as String? ?? '';
-      return _activitySortNewest ? bTime.compareTo(aTime) : aTime.compareTo(bTime);
+      return _activitySortNewest
+          ? bTime.compareTo(aTime)
+          : aTime.compareTo(bTime);
     });
 
     if (myPosts.isEmpty) {
@@ -246,20 +266,23 @@ extension MainScreenActivityTab on _MainScreenState {
 
   // ─── 收藏貼文 ────────────────────────────────────────────────────
   Widget _buildBookmarkedContent(bool isDark) {
-    var bookmarked = socialPosts
-        .where((p) => p['isBookmarked'] as bool? ?? false)
-        .toList();
+    var bookmarked =
+        socialPosts.where((p) => p['isBookmarked'] as bool? ?? false).toList();
 
     // 類型篩選
     if (_activityTypeFilter != '全部') {
-      bookmarked = bookmarked.where((p) => p['postType'] == _activityTypeFilter).toList();
+      bookmarked = bookmarked
+          .where((p) => p['postType'] == _activityTypeFilter)
+          .toList();
     }
 
     // 排序
     bookmarked.sort((a, b) {
       final aTime = a['createdAt'] as String? ?? a['time'] as String? ?? '';
       final bTime = b['createdAt'] as String? ?? b['time'] as String? ?? '';
-      return _activitySortNewest ? bTime.compareTo(aTime) : aTime.compareTo(bTime);
+      return _activitySortNewest
+          ? bTime.compareTo(aTime)
+          : aTime.compareTo(bTime);
     });
 
     if (bookmarked.isEmpty) {
@@ -300,18 +323,20 @@ extension MainScreenActivityTab on _MainScreenState {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
       children: [
         // 含媒體 - 全寬
-        ...mediaPosts.asMap().entries.map((e) =>
-          _buildActivityFullWidthCard(e.value, e.key, isDark)),
+        ...mediaPosts
+            .asMap()
+            .entries
+            .map((e) => _buildActivityFullWidthCard(e.value, e.key, isDark)),
 
         // 純文字 - 雙欄瀑布流
-        if (textPosts.isNotEmpty)
-          _buildTwoColumnGrid(textPosts, isDark),
+        if (textPosts.isNotEmpty) _buildTwoColumnGrid(textPosts, isDark),
       ],
     );
   }
 
   // ─── 全寬卡片（含媒體）─────────────────────────────────────────
-  Widget _buildActivityFullWidthCard(Map<String, dynamic> p, int index, bool isDark) {
+  Widget _buildActivityFullWidthCard(
+      Map<String, dynamic> p, int index, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final postType = p['postType'] as String? ?? '';
     final accentColor = _getPostTypeAccentColor(postType);
@@ -365,11 +390,13 @@ extension MainScreenActivityTab on _MainScreenState {
                     children: [
                       buildAvatar(
                         blob: p['authorAvatarBlob'] as Uint8List?,
-                        colorIdx: (p['authorAvatarColor'] as int?) ?? getAvatarColorIdx(author),
+                        colorIdx: (p['authorAvatarColor'] as int?) ??
+                            getAvatarColorIdx(author),
                         initial: author.isEmpty ? '?' : author.substring(0, 1),
                         radius: 14,
-                        usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
-                            p['authorAvatarBlob'] == null,
+                        usePreset:
+                            (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
+                                p['authorAvatarBlob'] == null,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -385,14 +412,17 @@ extension MainScreenActivityTab on _MainScreenState {
                             Text(time,
                                 style: TextStyle(
                                   fontSize: 10.5,
-                                  color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.grey.shade500,
                                 )),
                           ],
                         ),
                       ),
                       if (typeLabel != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
                             color: badgeBg,
                             borderRadius: BorderRadius.circular(8),
@@ -423,7 +453,8 @@ extension MainScreenActivityTab on _MainScreenState {
                   ],
                   const SizedBox(height: 10),
                   // 動作列
-                  _buildActivityActions(p, isDark, likes, replies, isLiked, isBookmarked),
+                  _buildActivityActions(
+                      p, isDark, likes, replies, isLiked, isBookmarked),
                 ],
               ),
             ),
@@ -451,15 +482,23 @@ extension MainScreenActivityTab on _MainScreenState {
       children: [
         Expanded(
           child: Column(
-            children: leftPosts.asMap().entries.map((e) =>
-              _buildActivityCompactCard(e.value, e.key * 2, isDark)).toList(),
+            children: leftPosts
+                .asMap()
+                .entries
+                .map((e) =>
+                    _buildActivityCompactCard(e.value, e.key * 2, isDark))
+                .toList(),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
-            children: rightPosts.asMap().entries.map((e) =>
-              _buildActivityCompactCard(e.value, e.key * 2 + 1, isDark)).toList(),
+            children: rightPosts
+                .asMap()
+                .entries
+                .map((e) =>
+                    _buildActivityCompactCard(e.value, e.key * 2 + 1, isDark))
+                .toList(),
           ),
         ),
       ],
@@ -467,7 +506,8 @@ extension MainScreenActivityTab on _MainScreenState {
   }
 
   // ─── 緊湊卡片（純文字雙欄用）────────────────────────────────────
-  Widget _buildActivityCompactCard(Map<String, dynamic> p, int index, bool isDark) {
+  Widget _buildActivityCompactCard(
+      Map<String, dynamic> p, int index, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final postType = p['postType'] as String? ?? '';
     final accentColor = _getPostTypeAccentColor(postType);
@@ -513,7 +553,8 @@ extension MainScreenActivityTab on _MainScreenState {
               // 類型 badge
               if (typeLabel != null) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: badgeBg,
                     borderRadius: BorderRadius.circular(6),
@@ -534,7 +575,8 @@ extension MainScreenActivityTab on _MainScreenState {
                 children: [
                   buildAvatar(
                     blob: p['authorAvatarBlob'] as Uint8List?,
-                    colorIdx: (p['authorAvatarColor'] as int?) ?? getAvatarColorIdx(author),
+                    colorIdx: (p['authorAvatarColor'] as int?) ??
+                        getAvatarColorIdx(author),
                     initial: author.isEmpty ? '?' : author.substring(0, 1),
                     radius: 11,
                     usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
@@ -583,7 +625,9 @@ extension MainScreenActivityTab on _MainScreenState {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade50,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isDark ? Colors.white12 : Colors.grey.shade200,
@@ -600,12 +644,14 @@ extension MainScreenActivityTab on _MainScreenState {
                       Expanded(
                         child: Text(
                           attached['title'] as String? ??
-                              attached['shared_type'] as String? ?? '附件',
+                              attached['shared_type'] as String? ??
+                              '附件',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark ? Colors.white54 : Colors.grey.shade700,
+                            color:
+                                isDark ? Colors.white54 : Colors.grey.shade700,
                           ),
                         ),
                       ),
@@ -620,7 +666,9 @@ extension MainScreenActivityTab on _MainScreenState {
                   Icon(
                     isLiked ? Icons.favorite : Icons.favorite_border,
                     size: 13,
-                    color: isLiked ? Colors.redAccent : (isDark ? Colors.white38 : Colors.grey.shade400),
+                    color: isLiked
+                        ? Colors.redAccent
+                        : (isDark ? Colors.white38 : Colors.grey.shade400),
                   ),
                   const SizedBox(width: 3),
                   Text('$likes',
@@ -664,20 +712,25 @@ extension MainScreenActivityTab on _MainScreenState {
       if (p['attached_data'] != null) {
         if (p['attached_data'] is Map) {
           attachedData = Map<String, dynamic>.from(p['attached_data'] as Map);
-        } else if (p['attached_data'] is String && (p['attached_data'] as String).isNotEmpty) {
-          attachedData = jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
+        } else if (p['attached_data'] is String &&
+            (p['attached_data'] as String).isNotEmpty) {
+          attachedData =
+              jsonDecode(p['attached_data'] as String) as Map<String, dynamic>;
         }
       }
     } catch (_) {}
-    final double alignX = (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
-    final double alignY = (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
+    final double alignX =
+        (attachedData['img_align_x'] as num?)?.toDouble() ?? 0.0;
+    final double alignY =
+        (attachedData['img_align_y'] as num?)?.toDouble() ?? 0.0;
     final Alignment imgAlignment = Alignment(alignX, alignY);
 
     if (p['media_blob'] != null) {
       return SizedBox(
         width: double.infinity,
         height: height,
-        child: Image.memory(p['media_blob'] as Uint8List, fit: BoxFit.cover, alignment: imgAlignment),
+        child: Image.memory(p['media_blob'] as Uint8List,
+            fit: BoxFit.cover, alignment: imgAlignment),
       );
     }
     final media = p['media']?.toString() ?? '';
@@ -702,7 +755,8 @@ extension MainScreenActivityTab on _MainScreenState {
     return SizedBox(
       width: double.infinity,
       height: height,
-      child: Image.file(File(media), fit: BoxFit.cover, alignment: imgAlignment),
+      child:
+          Image.file(File(media), fit: BoxFit.cover, alignment: imgAlignment),
     );
   }
 
@@ -727,7 +781,9 @@ extension MainScreenActivityTab on _MainScreenState {
                 size: 16,
                 color: isGuest
                     ? Colors.grey.shade300
-                    : (isLiked ? Colors.redAccent : (isDark ? Colors.white38 : Colors.grey.shade400)),
+                    : (isLiked
+                        ? Colors.redAccent
+                        : (isDark ? Colors.white38 : Colors.grey.shade400)),
               ),
               const SizedBox(width: 4),
               Text('$likes',
@@ -760,7 +816,9 @@ extension MainScreenActivityTab on _MainScreenState {
               Icon(
                 Icons.mode_comment_outlined,
                 size: 16,
-                color: isGuest ? Colors.grey.shade300 : (isDark ? Colors.white38 : Colors.grey.shade400),
+                color: isGuest
+                    ? Colors.grey.shade300
+                    : (isDark ? Colors.white38 : Colors.grey.shade400),
               ),
               const SizedBox(width: 4),
               Text('$replies',
@@ -795,7 +853,8 @@ extension MainScreenActivityTab on _MainScreenState {
       return;
     }
     final attached = p['attached_data'];
-    final bool isSharedNote = attached != null && attached['shared_type'] == 'note';
+    final bool isSharedNote =
+        attached != null && attached['shared_type'] == 'note';
     if (isSharedNote) {
       _showNotePreviewDialog(p);
     } else {
@@ -830,7 +889,8 @@ extension MainScreenActivityTab on _MainScreenState {
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: _currentPrimaryColor.withValues(alpha: isDark ? 0.15 : 0.1),
+                color:
+                    _currentPrimaryColor.withValues(alpha: isDark ? 0.15 : 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -866,7 +926,8 @@ extension MainScreenActivityTab on _MainScreenState {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _currentPrimaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),

@@ -45,7 +45,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     subject = widget.initialData?['subject'] ?? widget.allSubjects.first;
     type = widget.initialData?['type'] ?? '單選題';
     final rawDiff = widget.initialData?['difficulty'];
-    difficulty = (rawDiff == 'easy' || rawDiff == null) ? '無' : rawDiff.toString();
+    difficulty =
+        (rawDiff == 'easy' || rawDiff == null) ? '無' : rawDiff.toString();
     chapter = widget.initialData?['chapter'] ?? '未分類';
     isBookmarked = (widget.initialData?['bookmarked'] as int? ?? 0) == 1;
 
@@ -261,10 +262,12 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                         color: Colors.white,
                       ),
                     )
-                  : Icon(Icons.check_circle_outline_rounded, color: cs.onPrimary, size: 20),
+                  : Icon(Icons.check_circle_outline_rounded,
+                      color: cs.onPrimary, size: 20),
               label: Text(
                 _saving ? '儲存中' : '儲存',
-                style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.bold),
+                style:
+                    TextStyle(color: cs.onPrimary, fontWeight: FontWeight.bold),
               ),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -318,7 +321,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // 科目與章節 (並排在一行)
                   Row(
                     children: [
@@ -384,7 +387,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  
+
                   // 難度
                   DropdownButtonFormField<String>(
                     isExpanded: true,
@@ -411,21 +414,24 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  
+
                   // 題目內容
                   TextFormField(
                     controller: _questionCtrl,
-                    decoration: _fieldDecoration(context, '題目內容', hint: '請輸入題目敘述...'),
+                    decoration:
+                        _fieldDecoration(context, '題目內容', hint: '請輸入題目敘述...'),
                     minLines: 3,
                     maxLines: 6,
                     validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? '請輸入題目' : null,
+                        (value == null || value.trim().isEmpty)
+                            ? '請輸入題目'
+                            : null,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // ── Card 2: 選項與正確答案 ──
             Container(
               padding: const EdgeInsets.all(20),
@@ -467,10 +473,12 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                       TextButton.icon(
                         onPressed: _addOption,
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('新增選項', style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: const Text('新增選項',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         style: TextButton.styleFrom(
                           foregroundColor: cs.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                         ),
                       ),
                     ],
@@ -484,7 +492,6 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
                   ..._optionCtrls.asMap().entries.map((entry) {
                     final index = entry.key;
                     final controller = entry.value;
@@ -503,21 +510,27 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isCorrect ? Colors.green.shade50 : Colors.grey.shade50,
+                                color: isCorrect
+                                    ? Colors.green.shade50
+                                    : Colors.grey.shade50,
                                 border: Border.all(
-                                  color: isCorrect ? Colors.green.shade600 : Colors.grey.shade300,
+                                  color: isCorrect
+                                      ? Colors.green.shade600
+                                      : Colors.grey.shade300,
                                   width: 2.0,
                                 ),
                               ),
                               child: Icon(
                                 Icons.check_circle_rounded,
                                 size: 20,
-                                color: isCorrect ? Colors.green.shade600 : Colors.transparent,
+                                color: isCorrect
+                                    ? Colors.green.shade600
+                                    : Colors.transparent,
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
-                          
+
                           // TextFormField for option
                           Expanded(
                             child: TextFormField(
@@ -532,7 +545,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                                       : null,
                             ),
                           ),
-                          
+
                           // Delete option button
                           if (_optionCtrls.length > 2) ...[
                             const SizedBox(width: 4),
@@ -554,7 +567,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // ── Card 3: 附加資訊與發佈設定 ──
             Container(
               padding: const EdgeInsets.all(20),
@@ -595,21 +608,25 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // 解析說明
                   TextFormField(
                     controller: _explanationCtrl,
-                    decoration: _fieldDecoration(context, '解析說明（選填）', hint: '寫下這題的詳細解說或提示...'),
+                    decoration: _fieldDecoration(context, '解析說明（選填）',
+                        hint: '寫下這題的詳細解說或提示...'),
                     minLines: 2,
                     maxLines: 4,
                   ),
                   const SizedBox(height: 12),
-                  
+
                   // 僅剩加入我的收藏 Switch
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('加入我的收藏', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: const Text('將這題加入我的收藏，方便之後快速複習', style: TextStyle(fontSize: 11.5)),
+                    title: const Text('加入我的收藏',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('將這題加入我的收藏，方便之後快速複習',
+                        style: TextStyle(fontSize: 11.5)),
                     activeColor: Colors.amber.shade700,
                     value: isBookmarked,
                     onChanged: (value) => setState(() => isBookmarked = value),

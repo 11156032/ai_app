@@ -63,13 +63,13 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     try {
       final db = await DatabaseHelper.instance.database;
       List<Map<String, Object?>> rows = [];
-      
+
       if (widget.isFavoriteOnly) {
         rows = await db.query('questions',
-            where: 'bookmarked = 1',
-            orderBy: 'created_at DESC');
+            where: 'bookmarked = 1', orderBy: 'created_at DESC');
       } else if (widget.isCustomOnly) {
-        final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+        final uid =
+            widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
         rows = await db.rawQuery('''
           SELECT q.*, u.display_name as author
           FROM questions q
@@ -78,7 +78,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           ORDER BY q.created_at DESC
         ''', [uid.toString()]);
       } else if (widget.paperId != null) {
-        final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(widget.paperId!);
+        final ids = await DatabaseHelper.instance
+            .getQuestionIdsForPaper(widget.paperId!);
         if (ids.isNotEmpty) {
           rows = await db.query('questions',
               where: 'id IN (${List.filled(ids.length, '?').join(',')})',
@@ -160,7 +161,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     }
   }
 
-  void _openPractice(int initialIndex, {bool saveResult = false, bool isPaperMode = false}) {
+  void _openPractice(int initialIndex,
+      {bool saveResult = false, bool isPaperMode = false}) {
     if (_questions.isEmpty) return;
     Navigator.push(
       context,
@@ -207,7 +209,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             InkWell(
               onTap: () {
                 Navigator.pop(ctx);
-                _openPractice(0, saveResult: false, isPaperMode: widget.paperId != null);
+                _openPractice(0,
+                    saveResult: false, isPaperMode: widget.paperId != null);
               },
               borderRadius: BorderRadius.circular(16),
               child: Container(
@@ -225,7 +228,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                         color: Colors.blue.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.menu_book_rounded, color: Colors.blue),
+                      child: const Icon(Icons.menu_book_rounded,
+                          color: Colors.blue),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -234,12 +238,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                         children: [
                           const Text(
                             '一般練習 (不記錄成績)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '直接作答，作答結果不存入個人學習歷程。',
-                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                            style: TextStyle(
+                                fontSize: 12, color: cs.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -276,7 +282,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                         color: Colors.orange.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.assignment_turned_in_rounded, color: Colors.orange),
+                      child: const Icon(Icons.assignment_turned_in_rounded,
+                          color: Colors.orange),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -285,14 +292,16 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                         children: [
                           const Text(
                             '模擬測驗 (儲存測驗紀錄)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             widget.paperId != null
                                 ? '交卷後自動儲存測驗分數與歷史。'
                                 : '交卷後將自動儲存測驗分數，並將錯題加入錯題本。',
-                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                            style: TextStyle(
+                                fontSize: 12, color: cs.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -355,9 +364,11 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       final db = await DatabaseHelper.instance.database;
       if (widget.paperId != null) {
         // Remove from paper
-        final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(widget.paperId!);
+        final ids = await DatabaseHelper.instance
+            .getQuestionIdsForPaper(widget.paperId!);
         ids.remove(question['id']);
-        await DatabaseHelper.instance.updatePaper(widget.paperId!, widget.title, ids);
+        await DatabaseHelper.instance
+            .updatePaper(widget.paperId!, widget.title, ids);
       } else {
         // Delete completely
         await db.delete(
@@ -366,7 +377,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           whereArgs: [question['id']],
         );
       }
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('題目已移除')),
@@ -383,10 +394,12 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
   Future<void> _addQuestionToPaper(Map<String, dynamic> question) async {
     try {
-      final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
-      final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
+      final uid =
+          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+      final papers =
+          await DatabaseHelper.instance.getPapersForUser(uid.toString());
       final questionId = int.tryParse(question['id'].toString()) ?? 0;
-      
+
       if (!mounted) return;
 
       final selectedPaper = await showDialog<Map<String, dynamic>>(
@@ -402,13 +415,16 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 if (index == 0) {
                   return ListTile(
                     leading: const Icon(Icons.add, color: Colors.blue),
-                    title: const Text('建立新題本並加入', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                    title: const Text('建立新題本並加入',
+                        style: TextStyle(
+                            color: Colors.blue, fontWeight: FontWeight.bold)),
                     onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
                   );
                 }
                 final p = papers[index - 1];
                 return ListTile(
-                  leading: const Icon(Icons.assignment_rounded, color: Colors.orange),
+                  leading: const Icon(Icons.assignment_rounded,
+                      color: Colors.orange),
                   title: Text(p['name'] ?? '未命名題本'),
                   onTap: () => Navigator.pop(ctx, p),
                 );
@@ -430,7 +446,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         if (!mounted) return;
         final newNameController = TextEditingController();
         final defaultName = '題本 ${papers.length + 1}';
-        
+
         final newPaperName = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -503,9 +519,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   Future<Map<String, dynamic>?> _importAllQuestionsToPaper() async {
     if (_questions.isEmpty) return null;
     try {
-      final uid = widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
-      final papers = await DatabaseHelper.instance.getPapersForUser(uid.toString());
-      final allIds = _questions.map((q) => int.tryParse(q['id'].toString()) ?? 0).where((id) => id > 0).toList();
+      final uid =
+          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+      final papers =
+          await DatabaseHelper.instance.getPapersForUser(uid.toString());
+      final allIds = _questions
+          .map((q) => int.tryParse(q['id'].toString()) ?? 0)
+          .where((id) => id > 0)
+          .toList();
 
       if (!mounted) return null;
 
@@ -522,13 +543,16 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 if (index == 0) {
                   return ListTile(
                     leading: const Icon(Icons.add, color: Colors.blue),
-                    title: const Text('建立新題本並匯入', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                    title: const Text('建立新題本並匯入',
+                        style: TextStyle(
+                            color: Colors.blue, fontWeight: FontWeight.bold)),
                     onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
                   );
                 }
                 final p = papers[index - 1];
                 return ListTile(
-                  leading: const Icon(Icons.assignment_rounded, color: Colors.orange),
+                  leading: const Icon(Icons.assignment_rounded,
+                      color: Colors.orange),
                   title: Text(p['name'] ?? '未命名題本'),
                   onTap: () => Navigator.pop(ctx, p),
                 );
@@ -593,19 +617,22 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
         if (!mounted) return null;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已建立並成功匯入 ${allIds.length} 題至「$newPaperName」')),
+          SnackBar(
+              content: Text('已建立並成功匯入 ${allIds.length} 題至「$newPaperName」')),
         );
       } else {
         finalPaperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
         finalPaperName = selectedPaper['name'] ?? '未命名題本';
 
-        final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(finalPaperId);
+        final ids =
+            await DatabaseHelper.instance.getQuestionIdsForPaper(finalPaperId);
         final int originalCount = ids.length;
         final Set<int> mergedSet = {...ids, ...allIds};
         final int addedCount = mergedSet.length - originalCount;
 
-        await DatabaseHelper.instance.updatePaper(finalPaperId, finalPaperName, mergedSet.toList());
-        
+        await DatabaseHelper.instance
+            .updatePaper(finalPaperId, finalPaperName, mergedSet.toList());
+
         if (!mounted) return null;
         if (addedCount == 0) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -628,16 +655,17 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     }
   }
 
-  Widget _buildQuestionItem(BuildContext context, Map<String, dynamic> question, int index, ColorScheme cs) {
+  Widget _buildQuestionItem(BuildContext context, Map<String, dynamic> question,
+      int index, ColorScheme cs) {
     final options = question['options'] is List
         ? (question['options'] as List).map((item) => item.toString()).toList()
         : <String>[];
-    
+
     final answerIndex = question['answerIndex'] as int;
-    final correctAnswerText = (answerIndex >= 0 && answerIndex < options.length) 
-        ? options[answerIndex] 
+    final correctAnswerText = (answerIndex >= 0 && answerIndex < options.length)
+        ? options[answerIndex]
         : '未知';
-        
+
     final explanation = question['explanation']?.toString() ?? '';
 
     final cardContent = Padding(
@@ -678,15 +706,21 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 icon: Icon(
-                  question['isFavorite'] == true ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: question['isFavorite'] == true ? Colors.amber : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  question['isFavorite'] == true
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: question['isFavorite'] == true
+                      ? Colors.amber
+                      : cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
                 onPressed: () async {
                   final messenger = ScaffoldMessenger.of(context);
                   try {
                     final db = await DatabaseHelper.instance.database;
                     final nextVal = question['isFavorite'] == true ? 0 : 1;
-                    await db.update('questions', <String, Object?>{'bookmarked': nextVal}, where: 'id = ?', whereArgs: [question['id']]);
+                    await db.update(
+                        'questions', <String, Object?>{'bookmarked': nextVal},
+                        where: 'id = ?', whereArgs: [question['id']]);
                     setState(() {
                       question['isFavorite'] = nextVal == 1;
                     });
@@ -705,25 +739,40 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   if (value == 'delete') _deleteQuestion(question);
                   if (value == 'add_to_paper') _addQuestionToPaper(question);
                   if (value == 'add_to_notebook') {
-                    NotebookHelper.showAddToNotebookDialog(context, widget.currentUser, question);
+                    NotebookHelper.showAddToNotebookDialog(
+                        context, widget.currentUser, question);
                   }
                 },
                 itemBuilder: (context) {
-                  final currentUserId = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
-                  final isOwner = question['user_id']?.toString() == currentUserId;
-                  
+                  final currentUserId = (widget.currentUser['id'] ??
+                          widget.currentUser['user_id'] ??
+                          'u1')
+                      .toString();
+                  final isOwner =
+                      question['user_id']?.toString() == currentUserId;
+
                   final items = <PopupMenuEntry<String>>[];
                   if (isOwner) {
-                    items.add(const PopupMenuItem(value: 'edit', child: Text('編輯題目')));
+                    items.add(const PopupMenuItem(
+                        value: 'edit', child: Text('編輯題目')));
                   }
                   if (widget.paperId != null) {
-                    items.add(const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')));
-                    items.add(const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))));
+                    items.add(const PopupMenuItem(
+                        value: 'add_to_notebook', child: Text('加入筆記本')));
+                    items.add(const PopupMenuItem(
+                        value: 'delete',
+                        child:
+                            Text('移除題目', style: TextStyle(color: Colors.red))));
                   } else {
-                    items.add(const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')));
-                    items.add(const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')));
+                    items.add(const PopupMenuItem(
+                        value: 'add_to_paper', child: Text('加到自訂題本')));
+                    items.add(const PopupMenuItem(
+                        value: 'add_to_notebook', child: Text('加入筆記本')));
                     if (isOwner) {
-                      items.add(const PopupMenuItem(value: 'delete', child: Text('刪除題目', style: TextStyle(color: Colors.red))));
+                      items.add(const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('刪除題目',
+                              style: TextStyle(color: Colors.red))));
                     }
                   }
                   return items;
@@ -738,10 +787,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: isCorrect ? Colors.green.withValues(alpha: 0.1) : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                color: isCorrect
+                    ? Colors.green.withValues(alpha: 0.1)
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isCorrect ? Colors.green.withValues(alpha: 0.5) : Colors.transparent,
+                  color: isCorrect
+                      ? Colors.green.withValues(alpha: 0.5)
+                      : Colors.transparent,
                 ),
               ),
               child: Row(
@@ -750,7 +803,9 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     '${String.fromCharCode(65 + opt.key)}.',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: isCorrect ? Colors.green.shade700 : cs.onSurfaceVariant,
+                      color: isCorrect
+                          ? Colors.green.shade700
+                          : cs.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -763,7 +818,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     ),
                   ),
                   if (isCorrect)
-                    const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                    const Icon(Icons.check_circle,
+                        color: Colors.green, size: 20),
                 ],
               ),
             );
@@ -782,7 +838,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.lightbulb_outline, size: 18, color: Colors.blue),
+                    const Icon(Icons.lightbulb_outline,
+                        size: 18, color: Colors.blue),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -871,7 +928,9 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    widget.paperId != null ? Icons.assignment_rounded : Icons.folder_open_rounded,
+                    widget.paperId != null
+                        ? Icons.assignment_rounded
+                        : Icons.folder_open_rounded,
                     color: cs.onPrimary,
                     size: 32,
                   ),
@@ -891,7 +950,11 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        widget.isCustomOnly ? '個人自訂' : (widget.paperId != null ? '自訂題本' : '${widget.subject ?? "公共題庫"} • ${widget.chapter ?? "全部章節"}'),
+                        widget.isCustomOnly
+                            ? '個人自訂'
+                            : (widget.paperId != null
+                                ? '自訂題本'
+                                : '${widget.subject ?? "公共題庫"} • ${widget.chapter ?? "全部章節"}'),
                         style: TextStyle(
                           color: cs.onPrimary.withValues(alpha: 0.8),
                           fontSize: 13,
@@ -940,7 +1003,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             child: ElevatedButton.icon(
               onPressed: _showPracticeModeSelectionDialog,
               icon: const Icon(Icons.play_arrow_rounded, size: 22),
-              label: const Text('開始作答', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              label: const Text('開始作答',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: cs.primary,
                 foregroundColor: cs.onPrimary,
@@ -964,10 +1028,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 });
               },
               icon: Icon(
-                _showAnswers ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                _showAnswers
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
                 size: 20,
               ),
-              label: Text(_showAnswers ? '隱藏解析' : '顯示解析', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              label: Text(_showAnswers ? '隱藏解析' : '顯示解析',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: cs.primary,
                 side: BorderSide(color: cs.primary.withValues(alpha: 0.5)),
@@ -985,7 +1053,9 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
               child: OutlinedButton.icon(
                 onPressed: _importAllQuestionsToPaper,
                 icon: const Icon(Icons.copy_all_rounded, size: 20),
-                label: const Text('收錄題本', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                label: const Text('收錄題本',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: cs.secondary,
                   side: BorderSide(color: cs.secondary.withValues(alpha: 0.5)),
@@ -1002,7 +1072,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     );
   }
 
-  Widget _buildCompactQuestionItem(BuildContext context, Map<String, dynamic> question, int index, ColorScheme cs) {
+  Widget _buildCompactQuestionItem(BuildContext context,
+      Map<String, dynamic> question, int index, ColorScheme cs) {
     final snippet = question['question']?.toString() ?? '';
     return Card(
       elevation: 0,
@@ -1024,7 +1095,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: cs.secondaryContainer,
                   borderRadius: BorderRadius.circular(10),
@@ -1059,8 +1131,11 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        if ((question['difficulty'] ?? '').toString().isNotEmpty)
-                          _buildMiniTag(question['difficulty'].toString(), cs.tertiary, cs),
+                        if ((question['difficulty'] ?? '')
+                            .toString()
+                            .isNotEmpty)
+                          _buildMiniTag(question['difficulty'].toString(),
+                              cs.tertiary, cs),
                       ],
                     ),
                   ],
@@ -1070,15 +1145,21 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 icon: Icon(
-                  question['isFavorite'] == true ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: question['isFavorite'] == true ? Colors.amber : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  question['isFavorite'] == true
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: question['isFavorite'] == true
+                      ? Colors.amber
+                      : cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
                 onPressed: () async {
                   final messenger = ScaffoldMessenger.of(context);
                   try {
                     final db = await DatabaseHelper.instance.database;
                     final nextVal = question['isFavorite'] == true ? 0 : 1;
-                    await db.update('questions', <String, Object?>{'bookmarked': nextVal}, where: 'id = ?', whereArgs: [question['id']]);
+                    await db.update(
+                        'questions', <String, Object?>{'bookmarked': nextVal},
+                        where: 'id = ?', whereArgs: [question['id']]);
                     setState(() {
                       question['isFavorite'] = nextVal == 1;
                     });
@@ -1100,25 +1181,40 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   if (value == 'delete') _deleteQuestion(question);
                   if (value == 'add_to_paper') _addQuestionToPaper(question);
                   if (value == 'add_to_notebook') {
-                    NotebookHelper.showAddToNotebookDialog(context, widget.currentUser, question);
+                    NotebookHelper.showAddToNotebookDialog(
+                        context, widget.currentUser, question);
                   }
                 },
                 itemBuilder: (context) {
-                  final currentUserId = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
-                  final isOwner = question['user_id']?.toString() == currentUserId;
-                  
+                  final currentUserId = (widget.currentUser['id'] ??
+                          widget.currentUser['user_id'] ??
+                          'u1')
+                      .toString();
+                  final isOwner =
+                      question['user_id']?.toString() == currentUserId;
+
                   final items = <PopupMenuEntry<String>>[];
                   if (isOwner) {
-                    items.add(const PopupMenuItem(value: 'edit', child: Text('編輯題目')));
+                    items.add(const PopupMenuItem(
+                        value: 'edit', child: Text('編輯題目')));
                   }
                   if (widget.paperId != null) {
-                    items.add(const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')));
-                    items.add(const PopupMenuItem(value: 'delete', child: Text('移除題目', style: TextStyle(color: Colors.red))));
+                    items.add(const PopupMenuItem(
+                        value: 'add_to_notebook', child: Text('加入筆記本')));
+                    items.add(const PopupMenuItem(
+                        value: 'delete',
+                        child:
+                            Text('移除題目', style: TextStyle(color: Colors.red))));
                   } else {
-                    items.add(const PopupMenuItem(value: 'add_to_paper', child: Text('加到自訂題本')));
-                    items.add(const PopupMenuItem(value: 'add_to_notebook', child: Text('加入筆記本')));
+                    items.add(const PopupMenuItem(
+                        value: 'add_to_paper', child: Text('加到自訂題本')));
+                    items.add(const PopupMenuItem(
+                        value: 'add_to_notebook', child: Text('加入筆記本')));
                     if (isOwner) {
-                      items.add(const PopupMenuItem(value: 'delete', child: Text('刪除題目', style: TextStyle(color: Colors.red))));
+                      items.add(const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('刪除題目',
+                              style: TextStyle(color: Colors.red))));
                     }
                   }
                   return items;
@@ -1194,8 +1290,10 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   }
 
   Widget _buildFloatingNavigator(ColorScheme cs) {
-    final double maxExpandedHeight = (_questions.length * 48.0 + 56.0).clamp(100.0, 320.0);
-    final double targetHeight = _isFloatingNavExpanded ? maxExpandedHeight : 56.0;
+    final double maxExpandedHeight =
+        (_questions.length * 48.0 + 56.0).clamp(100.0, 320.0);
+    final double targetHeight =
+        _isFloatingNavExpanded ? maxExpandedHeight : 56.0;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
@@ -1263,7 +1361,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                                   itemCount: _questions.length,
                                   itemBuilder: (context, index) {
                                     return Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
                                       child: SizedBox(
                                         width: 40,
                                         height: 40,
@@ -1275,7 +1374,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                               ),
                               const Divider(height: 1, indent: 8, endIndent: 8),
                               IconButton(
-                                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                icon: const Icon(
+                                    Icons.keyboard_arrow_down_rounded),
                                 onPressed: () {
                                   setState(() {
                                     _isFloatingNavExpanded = false;
@@ -1320,9 +1420,12 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.folder_open, size: 64, color: cs.primary.withValues(alpha: 0.5)),
+                        Icon(Icons.folder_open,
+                            size: 64, color: cs.primary.withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
-                        Text('這個資料夾目前沒有題目', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 16)),
+                        Text('這個資料夾目前沒有題目',
+                            style: TextStyle(
+                                color: cs.onSurfaceVariant, fontSize: 16)),
                       ],
                     ),
                   )
@@ -1333,19 +1436,23 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                           Expanded(
                             child: SingleChildScrollView(
                               controller: _scrollController,
-                              padding: EdgeInsets.fromLTRB(16, 16, 16, 100 + MediaQuery.of(context).padding.bottom),
+                              padding: EdgeInsets.fromLTRB(16, 16, 16,
+                                  100 + MediaQuery.of(context).padding.bottom),
                               child: Column(
                                 children: [
                                   _buildHeroHeader(cs),
                                   _buildActionBar(cs),
                                   ...List.generate(_questions.length, (qIdx) {
                                     final question = _questions[qIdx];
-                                    final isExpanded = _showAnswers || _expandedIndices.contains(qIdx);
+                                    final isExpanded = _showAnswers ||
+                                        _expandedIndices.contains(qIdx);
                                     return Container(
                                       key: _itemKeys[qIdx],
                                       child: isExpanded
-                                          ? _buildQuestionItem(context, question, qIdx, cs)
-                                          : _buildCompactQuestionItem(context, question, qIdx, cs),
+                                          ? _buildQuestionItem(
+                                              context, question, qIdx, cs)
+                                          : _buildCompactQuestionItem(
+                                              context, question, qIdx, cs),
                                     );
                                   }),
                                 ],
@@ -1366,7 +1473,9 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => QuestionEditPage(
-                      initialData: widget.subject != null ? {'subject': widget.subject} : null,
+                      initialData: widget.subject != null
+                          ? {'subject': widget.subject}
+                          : null,
                       currentUser: widget.currentUser,
                       allSubjects: widget.allSubjects,
                       subjectChapters: widget.subjectChapters,

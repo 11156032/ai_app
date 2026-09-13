@@ -10,12 +10,12 @@ import 'app_locale_service.dart';
 // 1. 整理風格列舉 (比照業界主流 AI 筆記應用規格)
 // ============================================================
 enum VoiceNoteStyle {
-  classKeyPoints,   // 課堂重點 (考點 + 觀念)
-  meetingSummary,   // 會議紀錄 (決策 + 待辦)
-  outlineMindmap,   // 結構大綱 (階層 + 圖譜)
+  classKeyPoints, // 課堂重點 (考點 + 觀念)
+  meetingSummary, // 會議紀錄 (決策 + 待辦)
+  outlineMindmap, // 結構大綱 (階層 + 圖譜)
   actionConclusion, // 決策待辦 (行動導向)
   executiveSummary, // 精華摘要 (3大結論)
-  dailyJournal,     // 日常隨筆 (靈感 + 反思)
+  dailyJournal, // 日常隨筆 (靈感 + 反思)
 }
 
 extension VoiceNoteStyleExtension on VoiceNoteStyle {
@@ -165,8 +165,8 @@ extension VoiceNoteStyleExtension on VoiceNoteStyle {
 // ============================================================
 class ActionItem {
   final String task;
-  final String owner;    // 負責人（無則 "未指定"）
-  final String dueDate;  // 期限（無則 "無"）
+  final String owner; // 負責人（無則 "未指定"）
+  final String dueDate; // 期限（無則 "無"）
   bool isCompleted;
 
   ActionItem({
@@ -186,11 +186,11 @@ class ActionItem {
   }
 
   Map<String, dynamic> toJson() => {
-    'task': task,
-    'owner': owner,
-    'due_date': dueDate,
-    'is_completed': isCompleted,
-  };
+        'task': task,
+        'owner': owner,
+        'due_date': dueDate,
+        'is_completed': isCompleted,
+      };
 }
 
 // ============================================================
@@ -206,9 +206,9 @@ class VoiceNoteResult {
   final bool isAiGenerated;
 
   // 新增欄位（nullable，向前相容）
-  final String? summary;                   // 核心摘要 1~2 句
-  final List<String>? keyPoints;           // 條列重點
-  final List<ActionItem>? actionItems;     // 待辦清單（含負責人/期限）
+  final String? summary; // 核心摘要 1~2 句
+  final List<String>? keyPoints; // 條列重點
+  final List<ActionItem>? actionItems; // 待辦清單（含負責人/期限）
   final Map<String, dynamic>? mindmapJson; // 心智圖樹狀 JSON
 
   const VoiceNoteResult({
@@ -336,7 +336,8 @@ class VoiceNoteService {
 
     // 順位 2-A：Cloudflare Groq 快速引擎 (groq/compound)
     if (responseText == null || responseText.trim().isEmpty) {
-      debugPrint('VoiceNoteService: 切換 Cloudflare Groq 極速引擎 (groq/compound)...');
+      debugPrint(
+          'VoiceNoteService: 切換 Cloudflare Groq 極速引擎 (groq/compound)...');
       responseText = await _tryCloudflareProxy(
         provider: 'groq',
         model: 'groq/compound',
@@ -347,7 +348,8 @@ class VoiceNoteService {
 
     // 順位 2-B：Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)
     if (responseText == null || responseText.trim().isEmpty) {
-      debugPrint('VoiceNoteService: 切換 Cloudflare Groq 深度模型 (openai/gpt-oss-120b)...');
+      debugPrint(
+          'VoiceNoteService: 切換 Cloudflare Groq 深度模型 (openai/gpt-oss-120b)...');
       responseText = await _tryCloudflareProxy(
         provider: 'groq',
         model: 'openai/gpt-oss-120b',
@@ -367,7 +369,8 @@ class VoiceNoteService {
     }
 
     // 順位 4：全部中繼站失敗時，降級直連 Gemini API
-    if ((responseText == null || responseText.trim().isEmpty) && _kGeminiApiKey.isNotEmpty) {
+    if ((responseText == null || responseText.trim().isEmpty) &&
+        _kGeminiApiKey.isNotEmpty) {
       debugPrint('VoiceNoteService: 中繼站無回應，降級直連 Gemini API...');
       responseText = await _tryDirectGemini(prompt);
     }
@@ -376,7 +379,8 @@ class VoiceNoteService {
     if (responseText != null && responseText.trim().isNotEmpty) {
       try {
         // 清理思考標籤與 markdown 程式碼區塊
-        String cleanedResponse = AiDiagnosisService.cleanThinkingTags(responseText).trim();
+        String cleanedResponse =
+            AiDiagnosisService.cleanThinkingTags(responseText).trim();
         if (cleanedResponse.startsWith('```')) {
           cleanedResponse = cleanedResponse
               .replaceFirst(RegExp(r'^```[a-z]*\n?'), '')
@@ -393,7 +397,8 @@ class VoiceNoteService {
         final rawTags = decoded['tags'];
         final tags = rawTags is List
             ? rawTags
-                .map((e) => AiDiagnosisService.toTraditionalChinese(e.toString()))
+                .map((e) =>
+                    AiDiagnosisService.toTraditionalChinese(e.toString()))
                 .toList()
             : <String>[];
 
@@ -407,7 +412,8 @@ class VoiceNoteService {
         final rawKeyPoints = decoded['key_points'];
         final keyPoints = rawKeyPoints is List
             ? rawKeyPoints
-                .map((e) => AiDiagnosisService.toTraditionalChinese(e.toString()))
+                .map((e) =>
+                    AiDiagnosisService.toTraditionalChinese(e.toString()))
                 .toList()
             : null;
 
@@ -427,10 +433,12 @@ class VoiceNoteService {
 
         final title = AiDiagnosisService.toTraditionalChinese(rawTitle);
         final cleanedContent = cleanRawMarkdown(rawContent);
-        final markdownContent = AiDiagnosisService.toTraditionalChinese(cleanedContent);
+        final markdownContent =
+            AiDiagnosisService.toTraditionalChinese(cleanedContent);
 
         return VoiceNoteResult(
-          title: title.isEmpty ? _generateFallbackTitle(transcript, style) : title,
+          title:
+              title.isEmpty ? _generateFallbackTitle(transcript, style) : title,
           category: _validateCategory(rawCategory, style),
           markdownContent: markdownContent.isEmpty
               ? _buildFallbackContent(transcript, style)
@@ -600,7 +608,8 @@ $langInstruction
         }
         return rawText;
       }
-      debugPrint('VoiceNoteService Cloudflare [$provider] ${response.statusCode}: ${response.body.substring(0, response.body.length.clamp(0, 200))}');
+      debugPrint(
+          'VoiceNoteService Cloudflare [$provider] ${response.statusCode}: ${response.body.substring(0, response.body.length.clamp(0, 200))}');
       return null;
     } catch (e) {
       debugPrint('VoiceNoteService Cloudflare [$provider] exception: $e');
@@ -617,9 +626,8 @@ $langInstruction
         model: 'gemini-2.5-flash',
         apiKey: _kGeminiApiKey,
       );
-      final response = await model
-          .generateContent([Content.text(prompt)])
-          .timeout(const Duration(seconds: 25));
+      final response = await model.generateContent(
+          [Content.text(prompt)]).timeout(const Duration(seconds: 25));
       return response.text;
     } on GenerativeAIException catch (e) {
       debugPrint('VoiceNoteService Gemini direct error: $e');
@@ -652,7 +660,8 @@ $langInstruction
     final words = transcript.trim().split(RegExp(r'\s+'));
     final preview =
         words.take(8).join('').replaceAll(RegExp(r'[^\u4e00-\u9fff\w]'), '');
-    final truncated = preview.length > 12 ? '${preview.substring(0, 12)}...' : preview;
+    final truncated =
+        preview.length > 12 ? '${preview.substring(0, 12)}...' : preview;
     if (truncated.isEmpty) return '${style.emoji} ${style.label}';
     return '${style.emoji} $truncated';
   }

@@ -12,6 +12,7 @@ class MindMapNode {
 
   // 佈局計算（由 MindMapPainter 填入）
   Offset position = Offset.zero;
+  Size size = const Size(140, 46);
   double subtreeHeight = 0;
 
   MindMapNode({

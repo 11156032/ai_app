@@ -23,6 +23,7 @@ class GroqWhisperService {
   bool _isPaused = false;
   String? _currentRecordingPath;
   StreamSubscription<Amplitude>? _amplitudeSubscription;
+  double _maxAmplitudeSeen = -160.0;
 
   bool get isRecording => _isRecording;
   bool get isPaused => _isPaused;
@@ -64,16 +65,18 @@ class GroqWhisperService {
 
       // 取得應用程式暫存路徑
       final tempDir = await getTemporaryDirectory();
-      final fileName = 'voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final fileName =
+          'voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
       final filePath = p.join(tempDir.path, fileName);
       _currentRecordingPath = filePath;
+      _maxAmplitudeSeen = -160.0;
 
-      // 啟動 16kHz AAC-LC 高品質壓縮錄音 (Whisper 原生聲學取樣率，辨識率最高且無雜音)
+      // 啟動 44.1kHz AAC-LC 標準高品質壓縮錄音 (最相容 iOS/Android 硬體麥克風，無破音或靜音)
       await _audioRecorder.start(
         const RecordConfig(
           encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          sampleRate: 16000,
+          bitRate: 64000,
+          sampleRate: 44100,
           numChannels: 1,
         ),
         path: filePath,
@@ -87,10 +90,15 @@ class GroqWhisperService {
       _amplitudeSubscription = _audioRecorder
           .onAmplitudeChanged(const Duration(milliseconds: 100))
           .listen((amp) {
+        final currentDb = amp.current;
+        if (!currentDb.isInfinite && !currentDb.isNaN) {
+          if (currentDb > _maxAmplitudeSeen) {
+            _maxAmplitudeSeen = currentDb;
+          }
+        }
         if (onAmplitudeChange != null) {
           // amp.current 通常落在 -160.0 到 0.0 dBFS
           // 將 -60.0 dBFS ~ 0.0 dBFS 正規化至 0.0 ~ 10.0
-          final currentDb = amp.current;
           if (currentDb.isInfinite || currentDb.isNaN || currentDb <= -60.0) {
             onAmplitudeChange(0.0);
           } else {
@@ -146,7 +154,8 @@ class GroqWhisperService {
       _isRecording = false;
       _isPaused = false;
       final resolvedPath = path ?? _currentRecordingPath;
-      debugPrint('GroqWhisperService: 錄音完成，檔案大小: ${resolvedPath != null ? File(resolvedPath).lengthSync() : 0} bytes');
+      debugPrint(
+          'GroqWhisperService: 錄音完成，檔案大小: ${resolvedPath != null ? File(resolvedPath).lengthSync() : 0} bytes, 最大振幅: $_maxAmplitudeSeen dBFS');
       return resolvedPath;
     } catch (e) {
       debugPrint('GroqWhisperService stopRecording error: $e');
@@ -205,16 +214,24 @@ class GroqWhisperService {
   /// 停止當前錄音並轉錄為繁體中文文字
   Future<String> stopAndTranscribe({String? prompt}) async {
     final audioPath = await stopRecording();
-    // 給予作業系統 I/O 緩衝區 200ms 刷新寫入
-    await Future.delayed(const Duration(milliseconds: 200));
+    // 給予作業系統底層 I/O 緩衝區 250ms 確保 MP4/M4A moov header 完整寫入
+    await Future.delayed(const Duration(milliseconds: 250));
 
     if (audioPath == null || audioPath.isEmpty) {
       throw Exception('未取得音訊錄音檔案，請確認已說話並重新錄音 🎙️');
     }
 
     final audioFile = File(audioPath);
-    if (!await audioFile.exists() || audioFile.lengthSync() < 300) {
+    // 實測空白 M4A 標頭約為 800~1500 bytes，小於 2500 bytes 代表未錄進任何有效音軌數據
+    if (!await audioFile.exists() || audioFile.lengthSync() < 2500) {
       throw Exception('錄音時間過短或音訊無聲音，請長按或點擊麥克風說話 🎙️');
+    }
+
+    // 若全程音量振幅皆為極低靜音（例如麥克風被系統靜音）
+    if (_maxAmplitudeSeen < -58.0) {
+      debugPrint(
+          'GroqWhisperService: 錄音全程音量過低 (maxAmp: $_maxAmplitudeSeen dBFS)');
+      throw Exception('未偵測到清晰語音，請靠近麥克風並確認已開口說話 🎙️');
     }
 
     try {
@@ -237,9 +254,11 @@ class GroqWhisperService {
     String? prompt,
     String language = 'zh',
   }) async {
-    // 使用自然繁體詞彙引導，嚴禁傳入指示性長句（避免 Whisper 產生提示詞幻覺）
-    const defaultPrompt = '繁體中文，臺灣慣用語，標點符號。';
-    final effectivePrompt = prompt ?? defaultPrompt;
+    // 預設提示詞保持極簡，避免 Whisper 觸發自回歸前文續寫幻覺
+    const defaultPrompt = '繁體中文。';
+    final effectivePrompt = (prompt != null && prompt.trim().isNotEmpty)
+        ? prompt.trim()
+        : defaultPrompt;
 
     // 引擎 1: Groq Whisper (Turbo ➔ V3)
     final groqKey = _kGroqApiKey;
@@ -249,11 +268,12 @@ class GroqWhisperService {
           debugPrint('GroqWhisperService: 正在發送音檔至 Groq Whisper ($model)...');
           final stopwatch = Stopwatch()..start();
 
-          final uri = Uri.parse('https://api.groq.com/openai/v1/audio/transcriptions');
+          final uri =
+              Uri.parse('https://api.groq.com/openai/v1/audio/transcriptions');
           final request = http.MultipartRequest('POST', uri)
             ..headers['Authorization'] = 'Bearer $groqKey'
             ..fields['model'] = model
-            ..fields['response_format'] = 'json'
+            ..fields['response_format'] = 'verbose_json'
             ..fields['temperature'] = '0.0'
             ..fields['language'] = language
             ..fields['prompt'] = effectivePrompt
@@ -267,15 +287,41 @@ class GroqWhisperService {
 
           final streamedResponse = await request.send().timeout(
                 const Duration(seconds: 25),
-                onTimeout: () => throw TimeoutException('Groq Whisper 轉錄超時（25s）'),
+                onTimeout: () =>
+                    throw TimeoutException('Groq Whisper 轉錄超時（25s）'),
               );
 
           final response = await http.Response.fromStream(streamedResponse);
           stopwatch.stop();
-          debugPrint('GroqWhisperService: [$model] 轉錄完成，耗時 ${stopwatch.elapsedMilliseconds}ms, Status: ${response.statusCode}');
+          debugPrint(
+              'GroqWhisperService: [$model] 轉錄完成，耗時 ${stopwatch.elapsedMilliseconds}ms, Status: ${response.statusCode}');
 
           if (response.statusCode == 200) {
-            final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+            final data = jsonDecode(utf8.decode(response.bodyBytes))
+                as Map<String, dynamic>;
+
+            // 檢查是否為靜音無聲幻覺 (no_speech_prob)
+            final segments = data['segments'] as List<dynamic>?;
+            double noSpeechProb = 0.0;
+            if (segments != null && segments.isNotEmpty) {
+              double sumProb = 0.0;
+              for (final s in segments) {
+                if (s is Map<String, dynamic>) {
+                  sumProb += (s['no_speech_prob'] as num?)?.toDouble() ?? 0.0;
+                }
+              }
+              noSpeechProb = sumProb / segments.length;
+            } else if (data['no_speech_prob'] != null) {
+              noSpeechProb =
+                  (data['no_speech_prob'] as num?)?.toDouble() ?? 0.0;
+            }
+
+            if (noSpeechProb > 0.72) {
+              debugPrint(
+                  'GroqWhisperService: [$model] 判定為無聲或噪音 (no_speech_prob: $noSpeechProb)，攔截幻覺');
+              throw Exception('未偵測到清晰語音，請靠近麥克風說話 🎙️');
+            }
+
             final rawText = (data['text'] as String? ?? '').trim();
 
             if (rawText.isNotEmpty) {
@@ -285,9 +331,11 @@ class GroqWhisperService {
               }
             }
           } else {
-            debugPrint('Groq Whisper API [$model] 回應 ${response.statusCode}: ${utf8.decode(response.bodyBytes)}');
+            debugPrint(
+                'Groq Whisper API [$model] 回應 ${response.statusCode}: ${utf8.decode(response.bodyBytes)}');
           }
         } catch (e) {
+          if (e.toString().contains('未偵測到清晰語音')) rethrow;
           debugPrint('Groq Whisper [$model] 轉錄異常: $e，嘗試備援引擎...');
         }
       }
@@ -297,7 +345,8 @@ class GroqWhisperService {
     final geminiKey = _kGeminiApiKey;
     if (geminiKey.isNotEmpty) {
       try {
-        debugPrint('GroqWhisperService: 切換至備援引擎 Google Gemini 1.5 Flash 音訊轉錄...');
+        debugPrint(
+            'GroqWhisperService: 切換至備援引擎 Google Gemini 1.5 Flash 音訊轉錄...');
         final audioBytes = await audioFile.readAsBytes();
         if (audioBytes.isNotEmpty) {
           final model = GenerativeModel(
@@ -315,7 +364,8 @@ class GroqWhisperService {
                 '1. 保留正確且完整的標點符號（逗號、句號、問號、頓號等）。\n'
                 '2. 去除語意無關的「呃、啊、嗯、那個」等停頓口吃詞。\n'
                 '3. 保留專有名詞、數字與英文縮寫。\n'
-                '4. 直接輸出純文字逐字稿內容，絕對不要加任何引言、前綴、標記或註解。',
+                '4. 若音訊為純靜音或無法辨識之背景噪音，請輸出空字串。\n'
+                '5. 直接輸出純文字逐字稿內容，絕對不要加任何引言、前綴、標記或註解。',
               ),
             ]),
           ];
@@ -325,7 +375,8 @@ class GroqWhisperService {
               );
           final text = response.text?.trim() ?? '';
           if (text.isNotEmpty) {
-            debugPrint('GroqWhisperService: Gemini 1.5 Flash 音訊轉錄成功 (${text.length} 字)');
+            debugPrint(
+                'GroqWhisperService: Gemini 1.5 Flash 音訊轉錄成功 (${text.length} 字)');
             return AiDiagnosisService.toTraditionalChinese(text);
           }
         }
@@ -350,7 +401,7 @@ class GroqWhisperService {
               body: jsonEncode({
                 'provider': 'gemini',
                 'model': 'gemini-1.5-flash',
-                'prompt': '請精準轉錄這段音訊為繁體中文，保留標點，去除贅字，直接輸出逐字稿：',
+                'prompt': '請精準轉錄這段音訊為繁體中文，保留標點，去除贅字，若無人聲請直接輸出空字串：',
                 'audioBase64': base64Audio,
                 'mimeType': 'audio/m4a',
               }),
@@ -359,7 +410,8 @@ class GroqWhisperService {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(utf8.decode(response.bodyBytes));
-          final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+          final text = data['candidates']?[0]?['content']?['parts']?[0]?['text']
+              as String?;
           if (text != null && text.trim().isNotEmpty) {
             return AiDiagnosisService.toTraditionalChinese(text.trim());
           }
@@ -378,15 +430,23 @@ class GroqWhisperService {
 
     var cleaned = raw.trim();
 
-    // 1. 移除 Whisper 常見的幻覺字幕或中繼詞
+    // 1. 移除 Whisper 常見的幻覺字幕、片尾詞或提示詞回波
     final hallucinations = [
       RegExp(r'字幕由\s*.+?\s*提供', caseSensitive: false),
       RegExp(r'請訂閱\s*.+?(頻道|關注)?', caseSensitive: false),
-      RegExp(r'Thank you for watching', caseSensitive: false),
+      RegExp(r'點讚[、，\s]*訂閱[、，\s]*開啟小鈴鐺', caseSensitive: false),
+      RegExp(r'Thank you for watching.*', caseSensitive: false),
+      RegExp(r'Thanks for watching.*', caseSensitive: false),
       RegExp(r'Amara\.org', caseSensitive: false),
+      RegExp(r'感謝您的?收看.*?[。！\n]?', caseSensitive: false),
+      RegExp(r'謝謝大家(的)?收看.*?[。！\n]?', caseSensitive: false),
+      RegExp(r'繁體中文[。！\n]?', caseSensitive: false),
+      RegExp(r'臺灣慣用語[。！\n]?', caseSensitive: false),
+      RegExp(r'標點符號[。！\n]?', caseSensitive: false),
       RegExp(r'以下為繁體中文語音筆記.*?[。！\n]?', caseSensitive: false),
       RegExp(r'請保留完整標點符號.*?[。！\n]?', caseSensitive: false),
       RegExp(r'專有名詞與中英夾雜.*?[。！\n]?', caseSensitive: false),
+      RegExp(r'^[。，、？！\.\,\s]+$'),
     ];
     for (final h in hallucinations) {
       cleaned = cleaned.replaceAll(h, '');

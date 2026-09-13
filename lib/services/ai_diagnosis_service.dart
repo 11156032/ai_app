@@ -333,7 +333,8 @@ class AiDiagnosisService {
 
     // 移除 LaTeX 數學定界符
     cleaned = cleaned
-        .replaceAllMapped(RegExp(r'\$\$(.*?)\$\$', dotAll: true), (m) => m.group(1) ?? '')
+        .replaceAllMapped(
+            RegExp(r'\$\$(.*?)\$\$', dotAll: true), (m) => m.group(1) ?? '')
         .replaceAllMapped(RegExp(r'\$(.*?)\$'), (m) => m.group(1) ?? '')
         .replaceAll(r'\(', '')
         .replaceAll(r'\)', '')
@@ -341,8 +342,10 @@ class AiDiagnosisService {
         .replaceAll(r'\]', '');
 
     // 轉換常見 LaTeX 分數與符號為易讀標準符號
-    cleaned = cleaned.replaceAllMapped(RegExp(r'\\frac\{([^}]+)\}\{([^}]+)\}'), (m) => '(${m.group(1)}/${m.group(2)})');
-    cleaned = cleaned.replaceAllMapped(RegExp(r'\\sqrt\{([^}]+)\}'), (m) => '√(${m.group(1)})');
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\\frac\{([^}]+)\}\{([^}]+)\}'),
+        (m) => '(${m.group(1)}/${m.group(2)})');
+    cleaned = cleaned.replaceAllMapped(
+        RegExp(r'\\sqrt\{([^}]+)\}'), (m) => '√(${m.group(1)})');
 
     const mathSymbols = {
       r'\times': '×',
@@ -358,7 +361,9 @@ class AiDiagnosisService {
       r'\pi': 'π',
     };
     mathSymbols.forEach((k, v) => cleaned = cleaned.replaceAll(k, v));
-    cleaned = cleaned.replaceAllMapped(RegExp(r'\\(?:text|mathbf|mathit)\{([^}]+)\}'), (m) => m.group(1) ?? '');
+    cleaned = cleaned.replaceAllMapped(
+        RegExp(r'\\(?:text|mathbf|mathit)\{([^}]+)\}'),
+        (m) => m.group(1) ?? '');
 
     cleaned = cleaned
         .replaceAllMapped(
@@ -396,7 +401,7 @@ class AiDiagnosisService {
    • 💡「系統協助」（重要！客服與系統資訊皆在此）：
      -「常見問題與線上客服」：各功能常見問答與 24H 智慧線上客服專員對談。
      -「客服與意見回饋」：填寫表單回報 Bug 或功能建議，支援上傳截圖。
-     -「關於我們」：了解 App 核心技術、品牌理念、代表 Logo 意涵與最新版本 (v1.6.8) 資訊。
+     -「關於我們」：了解 App 核心技術、品牌理念、代表 Logo 意涵與最新版本 (v1.7.0) 資訊。
      -「互動式功能引導」：重新體驗新手操作教學。
      -「服務條款」與「隱私權政策」。
 2. 📚 題庫（底部導航「題庫」）：
@@ -687,7 +692,7 @@ class AiDiagnosisService {
    - 提供學生互相分享讀書心得、發布貼文與互動討論。
 7. ⚙️ 個人設定、自訂導覽列與帳號安全：
    - **個人檔案** > **設定與安全**：支援修改暱稱、頭像、個人簡介、**自訂導覽列項目順序與側邊抽屜配置**、深淺色主題切換、字體大小、通知開關、密碼修改。
-   - **個人檔案** > **系統協助**：包含「常見問題與線上客服」（24H 智能客服）、「客服與意見回饋」（表單回報）與「關於我們」（品牌理念、代表 Logo 解讀與 v1.6.8 版本資訊）。
+   - **個人檔案** > **系統協助**：包含「常見問題與線上客服」（24H 智能客服）、「客服與意見回饋」（表單回報）與「關於我們」（品牌理念、代表 Logo 解讀與 v1.7.0 版本資訊）。
 
 【回答規範】
 - $langDirective（嚴禁出現「笔记」、「关键词」、「要点」等簡體字，一律使用繁體字「筆記」、「關鍵字」、「要點」）。
@@ -1507,7 +1512,6 @@ ${AppLocaleService.getAiLanguageInstruction()}
       'isAiGenerated': true,
     };
   }
-
 
   static Map<String, dynamic> _generateLocalNoteSummaryMap(String content) {
     String cleanContent = content

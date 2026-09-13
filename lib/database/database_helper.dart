@@ -257,7 +257,7 @@ class DatabaseHelper {
 
       if (!userCols.any((c) => c['name'] == 'nav_bar_items')) {
         await db.execute(
-            "ALTER TABLE users ADD COLUMN nav_bar_items TEXT DEFAULT 'calendar,quiz,social,notes'");
+            "ALTER TABLE users ADD COLUMN nav_bar_items TEXT DEFAULT 'calendar,quiz,social,notes,social_feed'");
         debugPrint(
             'Dynamic migration: Added nav_bar_items column to users table.');
       }
@@ -582,7 +582,7 @@ class DatabaseHelper {
         social_feed_layout TEXT DEFAULT 'card',
         is_currently_logged_in INTEGER DEFAULT 0,
         show_floating_nav_bar INTEGER DEFAULT 0,
-        nav_bar_items TEXT DEFAULT 'calendar,quiz,social,notes',
+        nav_bar_items TEXT DEFAULT 'calendar,quiz,social,notes,social_feed',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');

@@ -76,14 +76,16 @@ class NotebookHelper {
     Map<String, dynamic> currentUser,
     Map<String, dynamic> question,
   ) async {
-    final String userId = (currentUser['id'] ?? currentUser['user_id'] ?? 'u1').toString();
-    
+    final String userId =
+        (currentUser['id'] ?? currentUser['user_id'] ?? 'u1').toString();
+
     // Check for guest account restriction (u4)
     if (userId == 'u4') {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           icon: Container(
             padding: const EdgeInsets.all(12),
             decoration: const BoxDecoration(
@@ -99,7 +101,8 @@ class NotebookHelper {
           content: const Text(
             '訪客帳戶無法使用筆記本功能，請先登入！',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13.5, color: Colors.black54, height: 1.6),
+            style:
+                TextStyle(fontSize: 13.5, color: Colors.black54, height: 1.6),
           ),
           actions: [
             Center(
@@ -124,21 +127,24 @@ class NotebookHelper {
     NotesDatabase.initializeForUser(userId);
 
     // Filter out '全部' category for creation
-    final categories = NotesDatabase.categories.where((cat) => cat != '全部').toList();
+    final categories =
+        NotesDatabase.categories.where((cat) => cat != '全部').toList();
     if (categories.isEmpty) {
       categories.add('未分類');
     }
 
-    String selectedCategory = categories.contains('學習') ? '學習' : categories.first;
-    
+    String selectedCategory =
+        categories.contains('學習') ? '學習' : categories.first;
+
     final String subject = (question['subject'] ?? '一般').toString();
-    final String qText = (question['question'] ?? question['text'] ?? '').toString();
+    final String qText =
+        (question['question'] ?? question['text'] ?? '').toString();
     final List<String> options = parseOptions(question['options']);
-    
+
     // Get correct answer index
     final rawAns = question['answerIndex'] ?? question['answer'] ?? 0;
     final int ansIdx = int.tryParse(rawAns.toString()) ?? 0;
-    
+
     final String explanation = (question['explanation'] ?? '').toString();
 
     // Default note title
@@ -155,12 +161,15 @@ class NotebookHelper {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               title: Row(
                 children: [
                   Icon(Icons.edit_note_rounded, color: cs.primary, size: 28),
                   const SizedBox(width: 8),
-                  const Text('加入我的筆記本', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const Text('加入我的筆記本',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 ],
               ),
               content: SingleChildScrollView(
@@ -169,7 +178,11 @@ class NotebookHelper {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Category dropdown
-                    const Text('選擇分類', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                    const Text('選擇分類',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.grey)),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -199,14 +212,20 @@ class NotebookHelper {
                     const SizedBox(height: 16),
 
                     // Note Title
-                    const Text('筆記標題', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                    const Text('筆記標題',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.grey)),
                     const SizedBox(height: 6),
                     TextField(
                       controller: titleController,
                       decoration: InputDecoration(
                         hintText: '輸入筆記標題...',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
                         filled: true,
                         fillColor: Colors.grey.shade100,
                       ),
@@ -214,7 +233,11 @@ class NotebookHelper {
                     const SizedBox(height: 16),
 
                     // Custom comment
-                    const Text('我的心得與筆記 (選填)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                    const Text('我的心得與筆記 (選填)',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.grey)),
                     const SizedBox(height: 6),
                     TextField(
                       controller: commentController,
@@ -222,8 +245,10 @@ class NotebookHelper {
                       maxLines: 6,
                       decoration: InputDecoration(
                         hintText: '在此寫下關於這題的想法、重點或錯誤原因...',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
                         filled: true,
                         fillColor: Colors.grey.shade100,
                       ),
@@ -240,11 +265,13 @@ class NotebookHelper {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () {
                     final String titleText = titleController.text.trim();
-                    final String finalTitle = titleText.isEmpty ? '題目筆記 - $subject' : titleText;
+                    final String finalTitle =
+                        titleText.isEmpty ? '題目筆記 - $subject' : titleText;
                     final String userComment = commentController.text.trim();
 
                     // Generate beautiful markdown content
@@ -264,9 +291,10 @@ class NotebookHelper {
                       buffer.writeln();
                     }
 
-                    final String correctChar = (ansIdx >= 0 && ansIdx < options.length) 
-                        ? String.fromCharCode(65 + ansIdx) 
-                        : 'A';
+                    final String correctChar =
+                        (ansIdx >= 0 && ansIdx < options.length)
+                            ? String.fromCharCode(65 + ansIdx)
+                            : 'A';
                     buffer.writeln('### 💡 正確答案');
                     buffer.writeln('**正確解答為：[$correctChar]**');
                     buffer.writeln();
@@ -293,23 +321,25 @@ class NotebookHelper {
                       strokes: [],
                       updatedAt: DateTime.now(),
                     );
-                    
+
                     NotesDatabase.notes.insert(0, newNote);
 
                     Navigator.pop(ctx);
-                    
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Row(
                           children: [
-                            const Icon(Icons.check_circle_rounded, color: Colors.white),
+                            const Icon(Icons.check_circle_rounded,
+                                color: Colors.white),
                             const SizedBox(width: 8),
                             Text('已將題目成功加入筆記本「$selectedCategory」！'),
                           ],
                         ),
                         backgroundColor: Theme.of(context).primaryColor,
                         behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     );
                   },

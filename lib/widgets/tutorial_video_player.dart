@@ -58,7 +58,8 @@ class TutorialVideoPlayer extends StatefulWidget {
                 padding: const EdgeInsets.fromLTRB(18, 14, 10, 10),
                 child: Row(
                   children: [
-                    const Icon(Icons.play_circle_fill_rounded, color: Color(0xFF8D6E63), size: 22),
+                    const Icon(Icons.play_circle_fill_rounded,
+                        color: Color(0xFF8D6E63), size: 22),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -71,7 +72,8 @@ class TutorialVideoPlayer extends StatefulWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF757575)),
+                      icon: const Icon(Icons.close_rounded,
+                          color: Color(0xFF757575)),
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -115,7 +117,8 @@ class TutorialVideoPlayer extends StatefulWidget {
         ),
         title: const Row(
           children: [
-            Icon(Icons.ondemand_video_rounded, color: Color(0xFF8D6E63), size: 24),
+            Icon(Icons.ondemand_video_rounded,
+                color: Color(0xFF8D6E63), size: 24),
             SizedBox(width: 10),
             Text(
               '操作教學示範影片',
@@ -195,13 +198,17 @@ class TutorialVideoPlayer extends StatefulWidget {
       ),
       title: Text(
         title,
-        style: const TextStyle(color: Color(0xFF3E2723), fontSize: 13.5, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+            color: Color(0xFF3E2723),
+            fontSize: 13.5,
+            fontWeight: FontWeight.bold),
       ),
       subtitle: Text(
         desc,
         style: const TextStyle(color: Color(0xFF8D6E63), fontSize: 11),
       ),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF8D6E63), size: 14),
+      trailing: const Icon(Icons.arrow_forward_ios_rounded,
+          color: Color(0xFF8D6E63), size: 14),
       onTap: () {
         onClose();
         TutorialVideoPlayer.showVideoDialog(
@@ -225,7 +232,12 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
   bool _hasError = false;
   late bool _isMuted;
   double _playbackSpeed = 1.0;
-  static const List<double> _speedOptions = [1.0, 1.25, 0.5, 0.75]; // 支援慢放 (0.5x, 0.75x) 與微快 (1.25x)
+  static const List<double> _speedOptions = [
+    1.0,
+    1.25,
+    0.5,
+    0.75
+  ]; // 支援慢放 (0.5x, 0.75x) 與微快 (1.25x)
 
   late AnimationController _pulseCtrl;
 
@@ -332,17 +344,22 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
         decoration: BoxDecoration(
           color: const Color(0xFF2C221E),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF8D6E63).withValues(alpha: 0.5)),
+          border:
+              Border.all(color: const Color(0xFF8D6E63).withValues(alpha: 0.5)),
         ),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.videocam_off_outlined, color: Color(0xFFD7CCC8), size: 38),
+              const Icon(Icons.videocam_off_outlined,
+                  color: Color(0xFFD7CCC8), size: 38),
               const SizedBox(height: 8),
               const Text(
                 '無法載入操作導覽影片',
-                style: TextStyle(color: Color(0xFFFDFBF7), fontSize: 13, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Color(0xFFFDFBF7),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               TextButton.icon(
@@ -350,8 +367,10 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                   setState(() => _hasError = false);
                   _initPlayer();
                 },
-                icon: const Icon(Icons.refresh, size: 16, color: Color(0xFFFFB300)),
-                label: const Text('重試', style: TextStyle(color: Color(0xFFFFB300), fontSize: 12)),
+                icon: const Icon(Icons.refresh,
+                    size: 16, color: Color(0xFFFFB300)),
+                label: const Text('重試',
+                    style: TextStyle(color: Color(0xFFFFB300), fontSize: 12)),
               ),
             ],
           ),
@@ -370,7 +389,8 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: Color(0xFFFFB300), strokeWidth: 2.5),
+              CircularProgressIndicator(
+                  color: Color(0xFFFFB300), strokeWidth: 2.5),
               SizedBox(height: 12),
               Text(
                 '正在準備操作示範影片...',
@@ -383,7 +403,9 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
     }
 
     final isPlaying = _controller.value.isPlaying;
-    final videoRatio = _controller.value.aspectRatio > 0 ? _controller.value.aspectRatio : 9 / 19.5;
+    final videoRatio = _controller.value.aspectRatio > 0
+        ? _controller.value.aspectRatio
+        : 9 / 19.5;
 
     Widget playerWidget = AspectRatio(
       aspectRatio: videoRatio,
@@ -458,7 +480,8 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                               child: Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2C221E).withValues(alpha: 0.85),
+                                  color: const Color(0xFF2C221E)
+                                      .withValues(alpha: 0.85),
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: const Color(0xFFFFB300),
@@ -466,7 +489,8 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFFFFB300).withValues(alpha: 0.4),
+                                      color: const Color(0xFFFFB300)
+                                          .withValues(alpha: 0.4),
                                       blurRadius: 22,
                                       spreadRadius: 2,
                                     ),
@@ -495,20 +519,28 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                   children: [
                     // 功能標籤
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFF2C221E).withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF8D6E63).withValues(alpha: 0.5), width: 0.8),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF8D6E63).withValues(alpha: 0.5),
+                            width: 0.8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.play_circle_fill_rounded, color: Color(0xFFFFB300), size: 12),
+                          const Icon(Icons.play_circle_fill_rounded,
+                              color: Color(0xFFFFB300), size: 12),
                           const SizedBox(width: 4),
                           Text(
                             widget.badgeLabel,
-                            style: const TextStyle(color: Color(0xFFFDFBF7), fontSize: 10.5, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                color: Color(0xFFFDFBF7),
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -519,16 +551,22 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                     GestureDetector(
                       onTap: _cyclePlaybackSpeed,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3.5),
                         decoration: BoxDecoration(
                           color: _playbackSpeed != 1.0
-                              ? (_playbackSpeed < 1.0 ? const Color(0xFF81D4FA) : const Color(0xFFFFB300))
+                              ? (_playbackSpeed < 1.0
+                                  ? const Color(0xFF81D4FA)
+                                  : const Color(0xFFFFB300))
                               : const Color(0xFF2C221E).withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: _playbackSpeed != 1.0
-                                ? (_playbackSpeed < 1.0 ? const Color(0xFF4FC3F7) : const Color(0xFFFFA000))
-                                : const Color(0xFF8D6E63).withValues(alpha: 0.5),
+                                ? (_playbackSpeed < 1.0
+                                    ? const Color(0xFF4FC3F7)
+                                    : const Color(0xFFFFA000))
+                                : const Color(0xFF8D6E63)
+                                    .withValues(alpha: 0.5),
                             width: 0.8,
                           ),
                         ),
@@ -536,8 +574,12 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _playbackSpeed < 1.0 ? Icons.slow_motion_video_rounded : Icons.speed_rounded,
-                              color: _playbackSpeed != 1.0 ? const Color(0xFF2C221E) : const Color(0xFFFFB300),
+                              _playbackSpeed < 1.0
+                                  ? Icons.slow_motion_video_rounded
+                                  : Icons.speed_rounded,
+                              color: _playbackSpeed != 1.0
+                                  ? const Color(0xFF2C221E)
+                                  : const Color(0xFFFFB300),
                               size: 13,
                             ),
                             const SizedBox(width: 3.5),
@@ -548,7 +590,9 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                                       ? '慢放 ${_playbackSpeed == 0.5 ? '0.5x' : '0.75x'}'
                                       : '1.25x'),
                               style: TextStyle(
-                                color: _playbackSpeed != 1.0 ? const Color(0xFF2C221E) : const Color(0xFFFDFBF7),
+                                color: _playbackSpeed != 1.0
+                                    ? const Color(0xFF2C221E)
+                                    : const Color(0xFFFDFBF7),
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -617,7 +661,9 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                                    _isMuted
+                                        ? Icons.volume_off_rounded
+                                        : Icons.volume_up_rounded,
                                     color: Colors.white,
                                     size: 14,
                                   ),

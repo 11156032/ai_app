@@ -13,14 +13,15 @@ class CreateLearningPackDialog extends StatefulWidget {
   });
 
   @override
-  State<CreateLearningPackDialog> createState() => _CreateLearningPackDialogState();
+  State<CreateLearningPackDialog> createState() =>
+      _CreateLearningPackDialogState();
 }
 
 class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
   bool _isLoading = true;
   late DateTime _startDate;
   late DateTime _endDate;
-  
+
   List<Map<String, dynamic>> _allPapers = [];
   final Set<int> _selectedPaperIds = {};
   int _selectedEventCount = 0;
@@ -31,17 +32,23 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.initialData?['pack_title'] as String? ?? '');
-    _descController = TextEditingController(text: widget.initialData?['pack_description'] as String? ?? '');
+    _titleController = TextEditingController(
+        text: widget.initialData?['pack_title'] as String? ?? '');
+    _descController = TextEditingController(
+        text: widget.initialData?['pack_description'] as String? ?? '');
 
     if (widget.initialData != null) {
       if (widget.initialData!['start_date'] != null) {
-        _startDate = DateTime.tryParse(widget.initialData!['start_date'] as String) ?? DateTime.now();
+        _startDate =
+            DateTime.tryParse(widget.initialData!['start_date'] as String) ??
+                DateTime.now();
       } else {
         _startDate = DateTime.now();
       }
       if (widget.initialData!['end_date'] != null) {
-        _endDate = DateTime.tryParse(widget.initialData!['end_date'] as String) ?? DateTime.now().add(const Duration(days: 7));
+        _endDate =
+            DateTime.tryParse(widget.initialData!['end_date'] as String) ??
+                DateTime.now().add(const Duration(days: 7));
       } else {
         _endDate = DateTime.now().add(const Duration(days: 7));
       }
@@ -65,7 +72,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
     final db = await DatabaseHelper.instance.database;
     final papers = await db.query('user_papers',
         where: 'user_id = ?', whereArgs: [widget.currentUser['id']]);
-    
+
     if (mounted) {
       setState(() {
         _allPapers = papers;
@@ -97,7 +104,8 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
 
   Future<void> _buildAndReturnPack() async {
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('請輸入 Pack 標題')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('請輸入 Pack 標題')));
       return;
     }
 
@@ -105,7 +113,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
 
     try {
       final db = await DatabaseHelper.instance.database;
-      
+
       // 1. Fetch Calendar Events
       final events = await db.query('calendar_events',
           where: 'user_id = ? AND start_time >= ? AND start_time <= ?',
@@ -118,14 +126,16 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
 
       List<Map<String, dynamic>> packEvents = [];
       if (events.isNotEmpty) {
-        DateTime firstEventDate = DateTime.parse(events.first['start_time'] as String);
-        firstEventDate = DateTime(firstEventDate.year, firstEventDate.month, firstEventDate.day);
+        DateTime firstEventDate =
+            DateTime.parse(events.first['start_time'] as String);
+        firstEventDate = DateTime(
+            firstEventDate.year, firstEventDate.month, firstEventDate.day);
 
         for (var e in events) {
           DateTime eStart = DateTime.parse(e['start_time'] as String);
           DateTime eDate = DateTime(eStart.year, eStart.month, eStart.day);
           int offset = eDate.difference(firstEventDate).inDays;
-          
+
           packEvents.add({
             'title': e['title'],
             'description': e['description'],
@@ -133,7 +143,9 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
             'day_offset': offset,
             'start_hour': eStart.hour,
             'start_minute': eStart.minute,
-            'end_time_offset_minutes': DateTime.parse(e['end_time'] as String).difference(eStart).inMinutes,
+            'end_time_offset_minutes': DateTime.parse(e['end_time'] as String)
+                .difference(eStart)
+                .inMinutes,
             'color': e['color'],
             'location': e['location']
           });
@@ -145,10 +157,11 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
       for (var paperId in _selectedPaperIds) {
         final paper = _allPapers.firstWhere((p) => p['id'] == paperId);
         List<dynamic> qIds = jsonDecode(paper['question_ids'] as String);
-        
+
         List<Map<String, dynamic>> questions = [];
         for (var qId in qIds) {
-          final qList = await db.query('questions', where: 'id = ?', whereArgs: [qId]);
+          final qList =
+              await db.query('questions', where: 'id = ?', whereArgs: [qId]);
           if (qList.isNotEmpty) {
             final q = Map<String, dynamic>.from(qList.first);
             q.remove('id');
@@ -156,12 +169,9 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
             questions.add(q);
           }
         }
-        
-        packPapers.add({
-          'id': paper['id'],
-          'name': paper['name'],
-          'questions': questions
-        });
+
+        packPapers.add(
+            {'id': paper['id'], 'name': paper['name'], 'questions': questions});
       }
 
       final packData = {
@@ -178,7 +188,8 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('打包失敗: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('打包失敗: $e')));
         setState(() => _isLoading = false);
       }
     }
@@ -208,38 +219,52 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
         width: MediaQuery.of(context).size.width * 0.9,
         padding: const EdgeInsets.all(20),
         child: _isLoading
-            ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()))
+            ? const SizedBox(
+                height: 200, child: Center(child: CircularProgressIndicator()))
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('📦 建立學習 Pack', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text('📦 建立學習 Pack',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _titleController,
-                    decoration: const InputDecoration(labelText: 'Pack 標題 (必填)', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                        labelText: 'Pack 標題 (必填)',
+                        border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _descController,
                     maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Pack 描述 (選填)', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                        labelText: 'Pack 描述 (選填)',
+                        border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 16),
-                  const Text('📅 包含行事曆區間', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('📅 包含行事曆區間',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text('${_startDate.toIso8601String().split('T')[0]} ~ ${_endDate.toIso8601String().split('T')[0]}'),
-                    subtitle: Text('此區間共包含 $_selectedEventCount 個排程', style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold)),
+                    title: Text(
+                        '${_startDate.toIso8601String().split('T')[0]} ~ ${_endDate.toIso8601String().split('T')[0]}'),
+                    subtitle: Text('此區間共包含 $_selectedEventCount 個排程',
+                        style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.bold)),
                     trailing: const Icon(Icons.calendar_month),
                     onTap: _pickDateRange,
                   ),
                   const Divider(),
-                  const Text('📝 包含試卷', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('📝 包含試卷',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   if (_allPapers.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('目前沒有任何自訂試卷', style: TextStyle(color: Colors.grey)),
+                      child: Text('目前沒有任何自訂試卷',
+                          style: TextStyle(color: Colors.grey)),
                     )
                   else
                     Flexible(
@@ -272,7 +297,8 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('取消', style: TextStyle(color: Colors.grey)),
+                        child: const Text('取消',
+                            style: TextStyle(color: Colors.grey)),
                       ),
                       ElevatedButton(
                         onPressed: _buildAndReturnPack,

@@ -1226,7 +1226,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   try {
                     final db = await DatabaseHelper.instance.database;
-                    await db.update('users', <String, Object?>{'hashed_password': newPass},
+                    await db.update(
+                      'users',
+                      <String, Object?>{'hashed_password': newPass},
                       where: 'email = ?',
                       whereArgs: [targetEmail],
                     );
@@ -1266,7 +1268,8 @@ class _LoginScreenState extends State<LoginScreen> {
     required IconData icon,
   }) {
     final isTerms = title == '服務條款';
-    final themeColor = isTerms ? const Color(0xFFD97706) : const Color(0xFF0D9488);
+    final themeColor =
+        isTerms ? const Color(0xFFD97706) : const Color(0xFF0D9488);
 
     showDialog(
       context: context,
@@ -1306,13 +1309,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1.5),
                         decoration: BoxDecoration(
                           color: themeColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'v1.6.8',
+                          'v1.7.0',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
@@ -1365,7 +1369,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       _buildInlineSection(
                         '5. 免責聲明與管轄法院',
-                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.6.8（修訂發布：2026 年 9 月 13 日）。',
+                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.7.0（修訂發布：2026 年 9 月 13 日）。',
                         themeColor,
                       ),
                     ]
@@ -1392,7 +1396,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       _buildInlineSection(
                         '5. 第三方服務安全規範',
-                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.6.8（修訂發布：2026 年 9 月 13 日）。',
+                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.7.0（修訂發布：2026 年 9 月 13 日）。',
                         themeColor,
                       ),
                     ],
@@ -1545,8 +1549,8 @@ class _LoginScreenState extends State<LoginScreen> {
           userMap['session_comment_ids'] = <int>{};
           _showSuccessOverlay(userMap);
         } else {
-          final userCheck = await db
-              .query('users', where: 'LOWER(email) = LOWER(?)', whereArgs: [inputEmail]);
+          final userCheck = await db.query('users',
+              where: 'LOWER(email) = LOWER(?)', whereArgs: [inputEmail]);
           if (!mounted) return;
           if (userCheck.isNotEmpty) {
             showDialog(
@@ -1581,7 +1585,7 @@ class _LoginScreenState extends State<LoginScreen> {
           final checkRes = await db.query('users',
               where: 'LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)',
               whereArgs: [inputUsername, inputEmail]);
-              
+
           if (checkRes.isNotEmpty) {
             if (!mounted) return;
             showDialog(
@@ -2011,8 +2015,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Color(0xFF8D6E63)
-                                      .withValues(alpha: 0.32),
+                                  color:
+                                      Color(0xFF8D6E63).withValues(alpha: 0.32),
                                   blurRadius: 18,
                                   offset: const Offset(0, 8),
                                 ),
@@ -2308,7 +2312,9 @@ class _GoogleSignInModalState extends State<_GoogleSignInModal> {
     try {
       final db = await DatabaseHelper.instance.database;
       // 方案一：僅將 is_google 設為 0
-      await db.update('users', <String, Object?>{'is_google': 0},
+      await db.update(
+        'users',
+        <String, Object?>{'is_google': 0},
         where: 'email = ?',
         whereArgs: [email],
       );

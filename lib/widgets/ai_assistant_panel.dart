@@ -48,7 +48,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       if (mounted) {
         setState(() {
           _isVoiceListening = false;
-          _modalController.text = VoiceRecognitionService.cleanFillerWords(_modalController.text);
+          _modalController.text =
+              VoiceRecognitionService.cleanFillerWords(_modalController.text);
           _modalController.selection = TextSelection.collapsed(
             offset: _modalController.text.length,
           );
@@ -71,7 +72,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           setState(() {
             final prefix = _voiceBaseText.isNotEmpty ? '$_voiceBaseText ' : '';
             if (isFinal) {
-              final cleaned = VoiceRecognitionService.cleanFillerWords('$prefix$words');
+              final cleaned =
+                  VoiceRecognitionService.cleanFillerWords('$prefix$words');
               _modalController.text = cleaned;
               _voiceBaseText = cleaned;
             } else {
@@ -94,7 +96,9 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             if (mounted) {
               setState(() {
                 _isVoiceListening = false;
-                _modalController.text = VoiceRecognitionService.cleanFillerWords(_modalController.text);
+                _modalController.text =
+                    VoiceRecognitionService.cleanFillerWords(
+                        _modalController.text);
               });
             }
           } else if (status == 'listening') {
@@ -363,7 +367,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4))
               ],
@@ -901,7 +906,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(Icons.schedule,
@@ -931,7 +937,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 Container(
                   height: 38,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -1452,8 +1459,9 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     if (isMobile) {
                       return KeyEventResult.ignored;
                     }
-                    final isEnter = event.logicalKey == LogicalKeyboardKey.enter ||
-                        event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                    final isEnter =
+                        event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.numpadEnter;
                     if (event is KeyDownEvent && isEnter) {
                       if (HardwareKeyboard.instance.isShiftPressed) {
                         final text = _modalController.text;
@@ -1506,8 +1514,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(20),
                           borderSide: BorderSide.none),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
                     ),
                   ),
                 ),
@@ -1778,7 +1786,10 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
                     gradient: LinearGradient(
-                      colors: [Color(0xFFD7CCC8), Theme.of(context).primaryColor],
+                      colors: [
+                        Color(0xFFD7CCC8),
+                        Theme.of(context).primaryColor
+                      ],
                     ),
                   ),
                 ),

@@ -66,12 +66,17 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
   void _scrollToCurrentIndex() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_horizontalScrollController.hasClients) {
-        const double itemWidth = 46.0; // 38px item + 8px margins (4px left + 4px right)
+        const double itemWidth =
+            46.0; // 38px item + 8px margins (4px left + 4px right)
         final double viewportWidth = MediaQuery.of(context).size.width;
         // Center the active element in the viewport
-        final double targetOffset = (itemWidth * _currentIndex) - (viewportWidth / 2) + (itemWidth / 2) + 12.0;
+        final double targetOffset = (itemWidth * _currentIndex) -
+            (viewportWidth / 2) +
+            (itemWidth / 2) +
+            12.0;
         _horizontalScrollController.animateTo(
-          targetOffset.clamp(0.0, _horizontalScrollController.position.maxScrollExtent),
+          targetOffset.clamp(
+              0.0, _horizontalScrollController.position.maxScrollExtent),
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
@@ -120,13 +125,11 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     return (question['question'] ?? question['text'] ?? '').toString();
   }
 
-
-
   Widget _buildNavigationItem(ColorScheme cs, int index) {
     final isCurrent = index == _currentIndex;
     final hasAnswered = _selectedAnswers.containsKey(index);
     final isRevealed = _revealed.contains(index);
-    
+
     Color bgColor;
     Color textColor;
     Border? border;
@@ -209,7 +212,8 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
       height: 54,
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-        border: Border(bottom: BorderSide(color: cs.outline.withValues(alpha: 0.12))),
+        border: Border(
+            bottom: BorderSide(color: cs.outline.withValues(alpha: 0.12))),
       ),
       child: ListView.builder(
         controller: _horizontalScrollController,
@@ -285,14 +289,63 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
       body: SafeArea(
         child: Column(
           children: [
-          _buildFixedTopNavigationRow(cs),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (widget.questions.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
+            _buildFixedTopNavigationRow(cs),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (widget.questions.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '答題進度',
+                                style: TextStyle(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '$answeredCount / ${widget.questions.length}',
+                                style: TextStyle(
+                                  color: cs.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: LinearProgressIndicator(
+                              minHeight: 6,
+                              value: widget.questions.isEmpty
+                                  ? 0
+                                  : answeredCount / widget.questions.length,
+                              backgroundColor:
+                                  cs.outline.withValues(alpha: 0.12),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(cs.primary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border:
+                          Border.all(color: cs.outline.withValues(alpha: 0.12)),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -300,303 +353,273 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '答題進度',
+                              '第 ${_currentIndex + 1} 題  •  ${currentQuestion['type']?.toString() ?? '單選題'}',
                               style: TextStyle(
-                                color: cs.onSurfaceVariant,
+                                color: cs.onSurface.withValues(alpha: 0.6),
                                 fontSize: 12,
-                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Text(
-                              '$answeredCount / ${widget.questions.length}',
-                              style: TextStyle(
-                                color: cs.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                            IconButton(
+                              iconSize: 20,
+                              visualDensity: VisualDensity.compact,
+                              tooltip: _flagged.contains(_currentIndex)
+                                  ? '取消標記'
+                                  : '標記此題',
+                              onPressed: () {
+                                setState(() {
+                                  if (_flagged.contains(_currentIndex)) {
+                                    _flagged.remove(_currentIndex);
+                                  } else {
+                                    _flagged.add(_currentIndex);
+                                  }
+                                });
+                              },
+                              icon: Icon(
+                                _flagged.contains(_currentIndex)
+                                    ? Icons.flag_rounded
+                                    : Icons.flag_outlined,
                               ),
+                              color: _flagged.contains(_currentIndex)
+                                  ? Colors.orange.shade700
+                                  : cs.onSurfaceVariant.withValues(alpha: 0.6),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            minHeight: 6,
-                            value: widget.questions.isEmpty
-                                ? 0
-                                : answeredCount / widget.questions.length,
-                            backgroundColor: cs.outline.withValues(alpha: 0.12),
-                            valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                        const SizedBox(height: 10),
+                        Text(
+                          _questionText(currentQuestion).isEmpty
+                              ? '題目內容遺失'
+                              : _questionText(currentQuestion),
+                          style: TextStyle(
+                            color: cs.onSurface,
+                            fontSize: 18,
+                            height: 1.6,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
                   ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '第 ${_currentIndex + 1} 題  •  ${currentQuestion['type']?.toString() ?? '單選題'}',
-                      style: TextStyle(
-                        color: cs.onSurface.withValues(alpha: 0.6),
-                        fontSize: 12,
-                      ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '請選擇答案',
+                    style: TextStyle(
+                      color: cs.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
-                    IconButton(
-                      iconSize: 20,
-                      visualDensity: VisualDensity.compact,
-                      tooltip: _flagged.contains(_currentIndex) ? '取消標記' : '標記此題',
-                      onPressed: () {
-                        setState(() {
-                          if (_flagged.contains(_currentIndex)) {
-                            _flagged.remove(_currentIndex);
-                          } else {
-                            _flagged.add(_currentIndex);
-                          }
-                        });
-                      },
-                      icon: Icon(
-                        _flagged.contains(_currentIndex)
-                            ? Icons.flag_rounded
-                            : Icons.flag_outlined,
-                      ),
-                      color: _flagged.contains(_currentIndex)
-                          ? Colors.orange.shade700
-                          : cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _questionText(currentQuestion).isEmpty
-                      ? '題目內容遺失'
-                      : _questionText(currentQuestion),
-                  style: TextStyle(
-                    color: cs.onSurface,
-                    fontSize: 18,
-                    height: 1.6,
-                    fontWeight: FontWeight.w700,
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '請選擇答案',
-            style: TextStyle(
-              color: cs.onSurface,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (options.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
-              ),
-              child: Text(
-                '這題沒有設定選項，請直接閱讀解析。',
-                style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
-              ),
-            )
-          else
-            ...List.generate(options.length, (index) {
-              final isSelected = selectedIndex == index;
-              final isCorrect = revealed && index == answerIndex;
-              final isWrongSelection = revealed && isSelected && !isCorrect;
-              final borderColor = isCorrect
-                  ? Colors.green
-                  : isWrongSelection
-                      ? Colors.red
-                      : (isSelected ? cs.primary : cs.outline.withValues(alpha: 0.18));
-              final backgroundColor = isCorrect
-                  ? Colors.green.withValues(alpha: 0.08)
-                  : isWrongSelection
-                      ? Colors.red.withValues(alpha: 0.08)
-                      : isSelected
-                          ? cs.primary.withValues(alpha: 0.08)
-                          : cs.surface;
+                  const SizedBox(height: 12),
+                  if (options.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cs.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: cs.outline.withValues(alpha: 0.12)),
+                      ),
+                      child: Text(
+                        '這題沒有設定選項，請直接閱讀解析。',
+                        style: TextStyle(
+                            color: cs.onSurface.withValues(alpha: 0.7)),
+                      ),
+                    )
+                  else
+                    ...List.generate(options.length, (index) {
+                      final isSelected = selectedIndex == index;
+                      final isCorrect = revealed && index == answerIndex;
+                      final isWrongSelection =
+                          revealed && isSelected && !isCorrect;
+                      final borderColor = isCorrect
+                          ? Colors.green
+                          : isWrongSelection
+                              ? Colors.red
+                              : (isSelected
+                                  ? cs.primary
+                                  : cs.outline.withValues(alpha: 0.18));
+                      final backgroundColor = isCorrect
+                          ? Colors.green.withValues(alpha: 0.08)
+                          : isWrongSelection
+                              ? Colors.red.withValues(alpha: 0.08)
+                              : isSelected
+                                  ? cs.primary.withValues(alpha: 0.08)
+                                  : cs.surface;
 
-              return GestureDetector(
-                onTap: revealed
-                    ? null
-                    : () => setState(() {
-                          _selectedAnswers[_currentIndex] = index;
-                        }),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: borderColor, width: 1.4),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: borderColor,
+                      return GestureDetector(
+                        onTap: revealed
+                            ? null
+                            : () => setState(() {
+                                  _selectedAnswers[_currentIndex] = index;
+                                }),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: backgroundColor,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: borderColor, width: 1.4),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: borderColor,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    String.fromCharCode(65 + index),
+                                    style: TextStyle(
+                                      color: cs.onPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  options[index],
+                                  style: TextStyle(
+                                    color: cs.onSurface,
+                                    fontSize: 14,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                              if (revealed && isCorrect)
+                                Icon(Icons.check_circle_rounded,
+                                    color: Colors.green.shade700)
+                              else if (revealed && isWrongSelection)
+                                Icon(Icons.cancel_rounded,
+                                    color: Colors.red.shade700),
+                            ],
+                          ),
                         ),
-                        child: Center(
-                          child: Text(
-                            String.fromCharCode(65 + index),
+                      );
+                    }),
+                  const SizedBox(height: 8),
+                  if (revealed)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: (selectedIndex == answerIndex)
+                            ? Colors.green.withValues(alpha: 0.08)
+                            : Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: (selectedIndex == answerIndex)
+                              ? Colors.green
+                              : Colors.red,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                (selectedIndex == answerIndex)
+                                    ? Icons.check_circle_rounded
+                                    : Icons.warning_amber_rounded,
+                                color: (selectedIndex == answerIndex)
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                (selectedIndex == answerIndex) ? '答對了' : '再想想',
+                                style: TextStyle(
+                                  color: (selectedIndex == answerIndex)
+                                      ? Colors.green.shade700
+                                      : Colors.red.shade700,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '正確答案：${String.fromCharCode(65 + answerIndex)} ${options.isNotEmpty && answerIndex < options.length ? options[answerIndex] : ''}',
                             style: TextStyle(
-                              color: cs.onPrimary,
+                              color: cs.onSurface,
                               fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          if ((currentQuestion['explanation'] ?? '')
+                              .toString()
+                              .trim()
+                              .isNotEmpty)
+                            Text(
+                              currentQuestion['explanation'].toString(),
+                              style: TextStyle(
+                                color: cs.onSurface.withValues(alpha: 0.8),
+                                height: 1.6,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _currentIndex == 0
+                              ? null
+                              : () => _updateCurrentIndex(_currentIndex - 1),
+                          icon: const Icon(Icons.chevron_left_rounded),
+                          label: const Text('上一題'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          options[index],
-                          style: TextStyle(
-                            color: cs.onSurface,
-                            fontSize: 14,
-                            height: 1.5,
+                        child: ElevatedButton.icon(
+                          onPressed: _currentIndex >=
+                                  widget.questions.length - 1
+                              ? (_selectedAnswers.isEmpty ? null : _submitPaper)
+                              : () => _updateCurrentIndex(_currentIndex + 1),
+                          icon: Icon(
+                            _currentIndex >= widget.questions.length - 1
+                                ? Icons.send_rounded
+                                : Icons.chevron_right_rounded,
+                          ),
+                          label: Text(
+                            _currentIndex >= widget.questions.length - 1
+                                ? '確認交卷'
+                                : '下一題',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: cs.primary,
+                            foregroundColor: cs.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
                         ),
                       ),
-                      if (revealed && isCorrect)
-                        Icon(Icons.check_circle_rounded, color: Colors.green.shade700)
-                      else if (revealed && isWrongSelection)
-                        Icon(Icons.cancel_rounded, color: Colors.red.shade700),
                     ],
                   ),
-                ),
-              );
-            }),
-          const SizedBox(height: 8),
-          if (revealed)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: (selectedIndex == answerIndex)
-                    ? Colors.green.withValues(alpha: 0.08)
-                    : Colors.red.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: (selectedIndex == answerIndex) ? Colors.green : Colors.red,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        (selectedIndex == answerIndex)
-                            ? Icons.check_circle_rounded
-                            : Icons.warning_amber_rounded,
-                        color: (selectedIndex == answerIndex)
-                            ? Colors.green
-                            : Colors.red,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        (selectedIndex == answerIndex) ? '答對了' : '再想想',
-                        style: TextStyle(
-                          color: (selectedIndex == answerIndex)
-                              ? Colors.green.shade700
-                              : Colors.red.shade700,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '正確答案：${String.fromCharCode(65 + answerIndex)} ${options.isNotEmpty && answerIndex < options.length ? options[answerIndex] : ''}',
-                    style: TextStyle(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  if ((currentQuestion['explanation'] ?? '').toString().trim().isNotEmpty)
-                    Text(
-                      currentQuestion['explanation'].toString(),
-                      style: TextStyle(
-                        color: cs.onSurface.withValues(alpha: 0.8),
-                        height: 1.6,
-                      ),
-                    ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _currentIndex == 0
-                      ? null
-                      : () => _updateCurrentIndex(_currentIndex - 1),
-                  icon: const Icon(Icons.chevron_left_rounded),
-                  label: const Text('上一題'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _currentIndex >= widget.questions.length - 1
-                      ? (_selectedAnswers.isEmpty ? null : _submitPaper)
-                      : () => _updateCurrentIndex(_currentIndex + 1),
-                  icon: Icon(
-                    _currentIndex >= widget.questions.length - 1
-                        ? Icons.send_rounded
-                        : Icons.chevron_right_rounded,
-                  ),
-                  label: Text(
-                    _currentIndex >= widget.questions.length - 1 ? '確認交卷' : '下一題',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    foregroundColor: cs.onPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    ),
-  ],
-),
+          ],
+        ),
       ),
     );
   }
-
 
   Future<void> _submitPaper() async {
     final unanswered = widget.questions.length - _selectedAnswers.length;
@@ -604,7 +627,8 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
 
     String contentText;
     if (unanswered > 0 && flaggedCount > 0) {
-      contentText = '您還有 $unanswered 題尚未作答，且尚有 $flaggedCount 題已標記的題目，確定要結束作答並直接交卷嗎？';
+      contentText =
+          '您還有 $unanswered 題尚未作答，且尚有 $flaggedCount 題已標記的題目，確定要結束作答並直接交卷嗎？';
     } else if (unanswered > 0) {
       contentText = '您還有 $unanswered 題尚未作答，確定要結束作答並直接交卷嗎？';
     } else if (flaggedCount > 0) {
@@ -637,7 +661,8 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('確認交卷'),
@@ -665,8 +690,12 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     }
 
     if (widget.saveResult && widget.currentUser != null) {
-      final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u1';
-      final int durationSeconds = DateTime.now().difference(_practiceStartTime).inSeconds.clamp(1, 86400);
+      final uid =
+          widget.currentUser?['id'] ?? widget.currentUser?['user_id'] ?? 'u1';
+      final int durationSeconds = DateTime.now()
+          .difference(_practiceStartTime)
+          .inSeconds
+          .clamp(1, 86400);
       try {
         final db = await DatabaseHelper.instance.database;
         await db.insert('quiz_results', <String, Object?>{
@@ -712,7 +741,3 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     );
   }
 }
-
-
-
-

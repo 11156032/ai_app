@@ -12,16 +12,16 @@ class TourKeys {
 
 /// 每一個引導步驟的資料描述
 class TourStep {
-  final String featureTitle;   // 功能名稱，例如「🤖 AI 排程」
-  final int featureIndex;      // 功能索引 0/1/2
-  final int stepInFeature;     // 在該功能中的步驟 1/2/3
-  final int totalInFeature;    // 該功能總步驟數
-  final int targetPageIndex;   // 需要切換的主頁 index（-1 表示維持當前頁）
-  final GlobalKey? targetKey;  // 目標元件的 GlobalKey（null = 無聚光燈）
+  final String featureTitle; // 功能名稱，例如「🤖 AI 排程」
+  final int featureIndex; // 功能索引 0/1/2
+  final int stepInFeature; // 在該功能中的步驟 1/2/3
+  final int totalInFeature; // 該功能總步驟數
+  final int targetPageIndex; // 需要切換的主頁 index（-1 表示維持當前頁）
+  final GlobalKey? targetKey; // 目標元件的 GlobalKey（null = 無聚光燈）
   final String title;
   final String description;
   final bool skipForGuest;
-  final String? guestNote;     // 訪客顯示的替代說明
+  final String? guestNote; // 訪客顯示的替代說明
   final String? tutorialVideoAsset; // 教學示範影片路徑（例如 'assets/demo_tutorial.mp4'）
   final String? tutorialVideoTitle; // 教學示範影片標題
   final VoidCallback? onEnter; // 進入此步驟時執行
@@ -54,7 +54,8 @@ class SpotlightPainter extends CustomPainter {
   final double borderRadius;
   final double pulseValue;
 
-  SpotlightPainter({this.highlightRect, this.borderRadius = 8.0, this.pulseValue = 0.0});
+  SpotlightPainter(
+      {this.highlightRect, this.borderRadius = 8.0, this.pulseValue = 0.0});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -70,22 +71,23 @@ class SpotlightPainter extends CustomPainter {
 
     final path = Path()
       ..addRect(fullRect)
-      ..addRRect(RRect.fromRectAndRadius(
-          inflated, Radius.circular(borderRadius)))
+      ..addRRect(
+          RRect.fromRectAndRadius(inflated, Radius.circular(borderRadius)))
       ..fillType = PathFillType.evenOdd;
 
     canvas.drawPath(path, overlayPaint);
-    
+
     // 繪製動態脈衝光圈 (Pulsing ring) 提示使用者點擊
     if (pulseValue > 0) {
       final borderPaint = Paint()
         ..color = Colors.amberAccent.withValues(alpha: 1.0 - pulseValue)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0 + (pulseValue * 4.0);
-      
+
       final pulseRect = highlightRect!.inflate(8 + pulseValue * 10);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(pulseRect, Radius.circular(borderRadius + pulseValue * 5)),
+        RRect.fromRectAndRadius(
+            pulseRect, Radius.circular(borderRadius + pulseValue * 5)),
         borderPaint,
       );
     }
@@ -94,8 +96,8 @@ class SpotlightPainter extends CustomPainter {
   @override
   bool shouldRepaint(SpotlightPainter oldDelegate) {
     return oldDelegate.highlightRect != highlightRect ||
-           oldDelegate.borderRadius != borderRadius ||
-           oldDelegate.pulseValue != pulseValue;
+        oldDelegate.borderRadius != borderRadius ||
+        oldDelegate.pulseValue != pulseValue;
   }
 }
 
@@ -141,7 +143,7 @@ class _TourOverlayState extends State<TourOverlay>
       duration: const Duration(milliseconds: 350),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    
+
     _pulseCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1000))
       ..repeat(reverse: true);
@@ -216,7 +218,6 @@ class _TourOverlayState extends State<TourOverlay>
     });
   }
 
-
   void _goBack() {
     if (_stepIndex <= 0) return;
     final prevPageIndex = _currentStep.targetPageIndex;
@@ -225,9 +226,7 @@ class _TourOverlayState extends State<TourOverlay>
       if (!mounted) return;
       setState(() {
         int prev = _stepIndex - 1;
-        while (prev >= 0 &&
-            widget.isGuest &&
-            widget.steps[prev].skipForGuest) {
+        while (prev >= 0 && widget.isGuest && widget.steps[prev].skipForGuest) {
           prev--;
         }
         if (prev >= 0) _stepIndex = prev;
@@ -273,9 +272,8 @@ class _TourOverlayState extends State<TourOverlay>
     final effectiveIdx = _effectiveIndex;
 
     // 計算可見步驟（訪客非跳過的）
-    final visibleSteps = widget.steps
-        .where((s) => !(widget.isGuest && s.skipForGuest))
-        .toList();
+    final visibleSteps =
+        widget.steps.where((s) => !(widget.isGuest && s.skipForGuest)).toList();
     final visibleStepNumber = visibleSteps.indexWhere(
           (s) =>
               s.featureIndex == step.featureIndex &&
@@ -286,8 +284,9 @@ class _TourOverlayState extends State<TourOverlay>
     final targetRect = _getTargetRect(step.targetKey);
     final screenSize = MediaQuery.of(context).size;
     final primaryColor = Theme.of(context).primaryColor;
-    final displayDesc =
-        (widget.isGuest && step.guestNote != null) ? step.guestNote! : step.description;
+    final displayDesc = (widget.isGuest && step.guestNote != null)
+        ? step.guestNote!
+        : step.description;
 
     // 決定提示卡位置：目標元件下方有空間則放下方，否則放上方
     double? cardTop, cardBottom;
@@ -322,10 +321,12 @@ class _TourOverlayState extends State<TourOverlay>
                 child: AnimatedBuilder(
                   animation: _pulseCtrl,
                   builder: (context, child) {
-                    final liveRect = isVideoOpen ? null : _getTargetRect(step.targetKey);
+                    final liveRect =
+                        isVideoOpen ? null : _getTargetRect(step.targetKey);
                     return CustomPaint(
                       painter: SpotlightPainter(
-                        highlightRect: isVideoOpen ? null : (liveRect ?? targetRect),
+                        highlightRect:
+                            isVideoOpen ? null : (liveRect ?? targetRect),
                         pulseValue: isVideoOpen ? 0.0 : _pulseCtrl.value,
                       ),
                     );
@@ -440,22 +441,26 @@ class _TourOverlayState extends State<TourOverlay>
                       ),
                       const SizedBox(height: 12),
 
-                      // 若該步驟有教學影片（如題庫測驗），顯示點擊觀看示範按鈕
-                      if (step.tutorialVideoAsset != null || step.featureIndex == 2) ...[
+                      // 若該步驟有教學影片，顯示點擊觀看示範按鈕
+                      if (step.tutorialVideoAsset != null) ...[
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
                               setState(() {
-                                _activeVideoAsset = step.tutorialVideoAsset ?? 'assets/learning_pack_tutorial.mp4';
-                                _activeVideoTitle = step.tutorialVideoTitle ?? '操作示範';
-                                _activeVideoBadge = step.featureIndex == 2 ? '題庫測驗教學' : '操作教學';
+                                _activeVideoAsset = step.tutorialVideoAsset ??
+                                    'assets/learning_pack_tutorial.mp4';
+                                _activeVideoTitle =
+                                    step.tutorialVideoTitle ?? '操作示範';
+                                _activeVideoBadge =
+                                    step.featureIndex == 2 ? '題庫測驗教學' : '操作教學';
                               });
                             },
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 9),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -464,10 +469,12 @@ class _TourOverlayState extends State<TourOverlay>
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.amber.shade400, width: 1.2),
+                                border: Border.all(
+                                    color: Colors.amber.shade400, width: 1.2),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.amber.shade100.withValues(alpha: 0.6),
+                                    color: Colors.amber.shade100
+                                        .withValues(alpha: 0.6),
                                     blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
@@ -475,11 +482,13 @@ class _TourOverlayState extends State<TourOverlay>
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.play_circle_fill_rounded, color: Colors.amber.shade800, size: 22),
+                                  Icon(Icons.play_circle_fill_rounded,
+                                      color: Colors.amber.shade800, size: 22),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      step.tutorialVideoTitle ?? '觀看題庫測驗操作示範影片 🎬',
+                                      step.tutorialVideoTitle ??
+                                          '觀看題庫測驗操作示範影片 🎬',
                                       style: TextStyle(
                                         color: Colors.amber.shade900,
                                         fontSize: 12.5,
@@ -487,7 +496,8 @@ class _TourOverlayState extends State<TourOverlay>
                                       ),
                                     ),
                                   ),
-                                  Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.amber.shade800),
+                                  Icon(Icons.arrow_forward_ios_rounded,
+                                      size: 12, color: Colors.amber.shade800),
                                 ],
                               ),
                             ),
@@ -503,7 +513,8 @@ class _TourOverlayState extends State<TourOverlay>
                             onPressed: widget.onSkip,
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.grey.shade500,
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
                               minimumSize: const Size(0, 36),
                             ),
                             child: const Text('略過'),
@@ -515,10 +526,15 @@ class _TourOverlayState extends State<TourOverlay>
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: primaryColor,
                                 side: BorderSide(color: primaryColor),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
-                              child: const Text('← 上一步', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              child: const Text('← 上一步',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13)),
                             ),
                             const SizedBox(width: 8),
                           ],
@@ -552,7 +568,8 @@ class _TourOverlayState extends State<TourOverlay>
             Positioned.fill(
               child: Container(
                 color: Colors.black.withValues(alpha: 0.85),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
                 alignment: Alignment.center,
                 child: Container(
                   constraints: BoxConstraints(
@@ -581,7 +598,8 @@ class _TourOverlayState extends State<TourOverlay>
                         padding: const EdgeInsets.fromLTRB(18, 14, 10, 10),
                         child: Row(
                           children: [
-                            const Icon(Icons.play_circle_fill_rounded, color: Color(0xFF8D6E63), size: 22),
+                            const Icon(Icons.play_circle_fill_rounded,
+                                color: Color(0xFF8D6E63), size: 22),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -594,7 +612,8 @@ class _TourOverlayState extends State<TourOverlay>
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.close_rounded, color: Color(0xFF757575)),
+                              icon: const Icon(Icons.close_rounded,
+                                  color: Color(0xFF757575)),
                               onPressed: () {
                                 setState(() {
                                   _activeVideoAsset = null;

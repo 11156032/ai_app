@@ -148,9 +148,8 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
 
       String strongest = '', weakest = '';
       if (stats.isNotEmpty) {
-        final sorted = [...stats]
-          ..sort((a, b) =>
-              (b['accuracy'] as double).compareTo(a['accuracy'] as double));
+        final sorted = [...stats]..sort((a, b) =>
+            (b['accuracy'] as double).compareTo(a['accuracy'] as double));
         strongest = sorted.first['subject'] as String;
         weakest = sorted.last['subject'] as String;
       }
@@ -283,7 +282,9 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
             children: [
               _buildBanner(primaryBrown),
               const SizedBox(height: 16),
-              _buildCard(cardColor: cardColor, child: _buildBarChartSection(textColor)),
+              _buildCard(
+                  cardColor: cardColor,
+                  child: _buildBarChartSection(textColor)),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -293,9 +294,11 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
                 ],
               ),
               const SizedBox(height: 16),
-              _buildCard(cardColor: cardColor, child: _buildRadarSection(textColor)),
+              _buildCard(
+                  cardColor: cardColor, child: _buildRadarSection(textColor)),
               const SizedBox(height: 16),
-              _buildCard(cardColor: cardColor, child: _buildInsightSection(textColor)),
+              _buildCard(
+                  cardColor: cardColor, child: _buildInsightSection(textColor)),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -411,9 +414,8 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
 
   Widget _buildBarChartSection(Color textColor) {
     final days = ['一', '二', '三', '四', '五', '六', '日'];
-    final maxH = _dailyHours.isEmpty
-        ? 1.0
-        : _dailyHours.reduce((a, b) => a > b ? a : b);
+    final maxH =
+        _dailyHours.isEmpty ? 1.0 : _dailyHours.reduce((a, b) => a > b ? a : b);
     final scale = maxH > 0 ? 80.0 / maxH : 80.0;
 
     return Column(
@@ -503,8 +505,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
             style: TextStyle(
                 color: isToday ? const Color(0xFF6D5448) : textColor,
                 fontSize: 12,
-                fontWeight:
-                    isToday ? FontWeight.bold : FontWeight.normal)),
+                fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
       ],
     );
   }
@@ -515,11 +516,9 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
         Container(
             width: 10,
             height: 10,
-            decoration:
-                BoxDecoration(color: color, shape: BoxShape.circle)),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 4),
-        Text(label,
-            style: const TextStyle(color: Colors.grey, fontSize: 11)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
       ],
     );
   }
@@ -547,24 +546,21 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
               Icon(Icons.local_fire_department,
                   color: Color(0xFFFF6B35), size: 18),
               SizedBox(width: 4),
-              Text('連續學習',
-                  style: TextStyle(color: Colors.grey, fontSize: 12)),
+              Text('連續學習', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 8),
           Text('${widget.streakDays} 天',
               style: TextStyle(
-                  color: textColor,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold)),
+                  color: textColor, fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: ratio,
               backgroundColor: Colors.grey.shade200,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFFF6B35)),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFFFF6B35)),
               minHeight: 6,
             ),
           ),
@@ -601,17 +597,15 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
           const SizedBox(height: 8),
           Text('$pct%',
               style: TextStyle(
-                  color: textColor,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold)),
+                  color: textColor, fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: _overallProficiency.clamp(0.0, 1.0),
               backgroundColor: Colors.grey.shade200,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFF6D5448)),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF6D5448)),
               minHeight: 6,
             ),
           ),
@@ -674,7 +668,8 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
                         ? '請多完成幾次各科測驗\n雷達圖將自動更新為您的能力分佈 📊'
                         : '多邊形雷達圖需至少 3 個測驗科目（目前已有 ${testedSubjects.length} 科）\n請多完成其他科目的測驗！🎯',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey, fontSize: 13, height: 1.5),
+                    style: const TextStyle(
+                        color: Colors.grey, fontSize: 13, height: 1.5),
                   ),
                 ],
               ),
@@ -713,8 +708,8 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
                       ? Colors.orange
                       : const Color(0xFF6D5448);
               return Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: chipColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -749,8 +744,6 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       ],
     );
   }
-
-
 
   Widget _buildInsightSection(Color textColor) {
     return Column(
