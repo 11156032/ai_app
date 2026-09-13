@@ -4005,8 +4005,7 @@ startxref
           .replaceAll(RegExp(r'\n+'), ' ')
           .trim();
       if (cleanExcerpt.isEmpty) {
-        cleanExcerpt =
-            hasStrokes ? '🎨 手寫繪圖筆記，點擊即可開啟全版面預覽' : '（點擊卡片即可檢視完整圖文筆記）';
+        cleanExcerpt = '（點擊卡片即可檢視完整純文字筆記）';
       }
 
       return GestureDetector(
@@ -4137,7 +4136,7 @@ startxref
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        Icons.draw_rounded,
+                                        Icons.article_rounded,
                                         size: 12,
                                         color: isDark
                                             ? const Color(0xFFCE93D8)
@@ -4145,7 +4144,7 @@ startxref
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        '含手寫繪圖',
+                                        '純文字筆記',
                                         style: TextStyle(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.w500,

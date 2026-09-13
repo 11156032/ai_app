@@ -723,9 +723,9 @@ class _AboutUsScreenState extends State<AboutUsScreen>
       (Icons.mic_rounded, 'AI 代理人助理 (語音即時輸入)', '支援邊講話邊即時文字轉寫、自然語言意圖排程與全站智慧導覽'),
       (Icons.menu_book_rounded, '題庫測驗與錯題本', '學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習'),
       (
-        Icons.draw_rounded,
-        '雙模個人筆記 (Markdown & 手寫塗鴉)',
-        '支援豐富文字排版與手寫畫布繪圖，並提供一鍵 AI 重點摘要整理'
+        Icons.edit_note_rounded,
+        '智慧個人筆記 (Markdown 富文字)',
+        '支援豐富文字排版與一鍵 AI 重點摘要整理'
       ),
       (Icons.bar_chart_rounded, '學習歷程與弱項診斷', '知識掌握度矩陣圖、能力雷達圖與一鍵生成客製化弱項補強教材'),
       (

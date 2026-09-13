@@ -1349,7 +1349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? [
                       _buildInlineSection(
                         '1. 接受條款與服務範疇',
-                        '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、AI 步驟詳解、AI 語音速記（6 大整理風格）、互動心智圖、學科能力診斷、弱項補強教材、雙模筆記（Markdown與手寫畫布）、智慧行事曆排程與 24H 線上客服等多元功能。',
+                        '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、AI 步驟詳解、AI 語音速記（6 大整理風格）、互動心智圖、學科能力診斷、弱項補強教材、智慧筆記（Markdown與 AI 摘要）、智慧行事曆排程與 24H 線上客服等多元功能。',
                         themeColor,
                       ),
                       _buildInlineSection(
@@ -1376,7 +1376,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   : [
                       _buildInlineSection(
                         '1. 蒐集的資料類型（最小化原則）',
-                        '帳號資訊（姓名、Email、頭像）、學習歷程（測驗紀錄、正確率、錯題本、手寫與文字筆記、心智圖、行事曆待辦）、即時語音輸入串流（僅主動點擊錄音時轉換，不持久保存錄音）及系統偏好（深淺色、主題色、語系）。',
+                        '帳號資訊（姓名、Email、頭像）、學習歷程（測驗紀錄、正確率、錯題本、文字筆記、心智圖、行事曆待辦）、即時語音輸入串流（僅主動點擊錄音時轉換，不持久保存錄音）及系統偏好（深淺色、主題色、語系）。',
                         themeColor,
                       ),
                       _buildInlineSection(

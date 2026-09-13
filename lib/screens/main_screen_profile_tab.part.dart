@@ -41,7 +41,9 @@ extension MainScreenProfileTab on _MainScreenState {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
                     children: [
                       _buildProfileDashboardHeader(context),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+                      _buildVipMembershipBanner(context),
+                      const SizedBox(height: 16),
                       _buildPersonalizedDashboard(context),
                       const SizedBox(height: 20),
                       _buildJoinedTopicsModule(context),
@@ -491,6 +493,93 @@ extension MainScreenProfileTab on _MainScreenState {
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  Widget _buildVipMembershipBanner(BuildContext context) {
+    final userId = widget.currentUser['id'].toString();
+
+    return FutureBuilder<Map<String, dynamic>>(
+      future: DatabaseHelper.instance.getUserMembershipInfo(userId),
+      builder: (context, snapshot) {
+        final tier = snapshot.data?['membership_tier'] as String? ?? 'free';
+        final points = snapshot.data?['points_balance'] as int? ?? 100;
+        final tierInfo = MembershipService.tiers[tier] ?? MembershipService.tiers['free']!;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3E2723), Color(0xFF5D4037), Color(0xFF8D6E63)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFD54F),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.workspace_premium, color: Color(0xFF3E2723), size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          tierInfo.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        VipBadgeWidget(tierCode: tier, fontSize: 10),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '當前點數：$points Pts | 享 ${tierInfo.name == '普通會員' ? '原價' : (tierInfo.discountRate * 10).toStringAsFixed(0) + '折'} 優惠',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MembershipCenterScreen(currentUser: widget.currentUser),
+                    ),
+                  ).then((_) => setState(() {}));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFD54F),
+                  foregroundColor: const Color(0xFF3E2723),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                child: const Text('會員中心', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ],
+          ),
         );
       },
     );

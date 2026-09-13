@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'app_locale_service.dart';
+import 'membership_service.dart';
 
 class AssistantResponseChunk {
   final String text;
@@ -918,6 +919,13 @@ class AiDiagnosisService {
   }) async* {
     if (userId == 'u4') return;
 
+    await MembershipService.instance.deductPoints(
+      userId: userId,
+      actionType: 'ai_diagnosis',
+      basePoints: 10,
+      description: 'AI 測驗診斷分析',
+    );
+
     final wrongDetails = wrongQuestions.map((q) {
       final opts = q['options'] as List?;
       final ansIdx = q['answerIndex'] as int?;
@@ -1434,6 +1442,13 @@ ${AppLocaleService.getAiLanguageInstruction()}
     required String noteContent,
   }) async* {
     if (userId == 'u4') return;
+
+    await MembershipService.instance.deductPoints(
+      userId: userId,
+      actionType: 'ai_note',
+      basePoints: 5,
+      description: 'AI 筆記摘要整理',
+    );
 
     final prompt = '''
 你是一個專業的學習筆記整理小助手。請閱讀使用者的筆記內容，生成重點摘要與行動建議。
