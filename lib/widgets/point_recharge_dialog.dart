@@ -5,16 +5,24 @@ import 'vip_badge_widget.dart';
 class PointRechargeDialog extends StatefulWidget {
   final String userId;
   final String? defaultTab; // 'points' or 'tiers'
+  final Color? primaryColor;
   final VoidCallback? onSuccess;
 
   const PointRechargeDialog({
     super.key,
     required this.userId,
     this.defaultTab = 'points',
+    this.primaryColor,
     this.onSuccess,
   });
 
-  static Future<void> show(BuildContext context, {required String userId, String? defaultTab, VoidCallback? onSuccess}) {
+  static Future<void> show(
+    BuildContext context, {
+    required String userId,
+    String? defaultTab,
+    Color? primaryColor,
+    VoidCallback? onSuccess,
+  }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -22,6 +30,7 @@ class PointRechargeDialog extends StatefulWidget {
       builder: (ctx) => PointRechargeDialog(
         userId: userId,
         defaultTab: defaultTab,
+        primaryColor: primaryColor ?? Theme.of(context).primaryColor,
         onSuccess: onSuccess,
       ),
     );
@@ -133,13 +142,15 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final themeColor = widget.primaryColor ?? Theme.of(context).primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       margin: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: const [
           BoxShadow(color: Colors.black26, blurRadius: 20, spreadRadius: 2)
         ],
       ),
@@ -155,7 +166,7 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: isDark ? Colors.white24 : Colors.grey[300],
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -163,22 +174,22 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
 
               if (_isProcessing) ...[
                 const SizedBox(height: 30),
-                const SizedBox(
+                SizedBox(
                   width: 50,
                   height: 50,
                   child: CircularProgressIndicator(
                     strokeWidth: 3.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8D6E63)),
+                    valueColor: AlwaysStoppedAnimation<Color>(themeColor),
                   ),
                 ),
                 const SizedBox(height: 24),
                 Text(
                   _processingMessage,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF4E342E),
+                    color: isDark ? Colors.white : const Color(0xFF1F2937),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -211,9 +222,9 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   '已自動更新您的點數餘額與 VIP 階級權益 🎉',
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                  style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black54),
                 ),
                 const SizedBox(height: 24),
               ] else ...[
@@ -223,13 +234,13 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF3E0),
+                        color: themeColor.withValues(alpha: isDark ? 0.2 : 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.bolt, color: Color(0xFFFF9800)),
+                      child: Icon(Icons.bolt, color: themeColor),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -238,12 +249,12 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF4E342E),
+                              color: isDark ? Colors.white : const Color(0xFF1F2937),
                             ),
                           ),
                           Text(
                             '解鎖 AI 全效診斷與無限對話',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.grey),
                           ),
                         ],
                       ),
@@ -259,15 +270,15 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                 // 分頁按鈕
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F5F5),
+                    color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF5F5F5),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(
                     controller: _tabController,
-                    indicatorColor: const Color(0xFF8D6E63),
+                    indicatorColor: themeColor,
                     indicatorSize: TabBarIndicatorSize.tab,
-                    labelColor: const Color(0xFF4E342E),
-                    unselectedLabelColor: Colors.grey,
+                    labelColor: themeColor,
+                    unselectedLabelColor: isDark ? Colors.white54 : Colors.grey,
                     labelStyle: const TextStyle(fontWeight: FontWeight.bold),
                     tabs: const [
                       Tab(text: '⚡ 點數儲值包'),
@@ -297,16 +308,18 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                               width: 135,
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFFFFF8E1) : Colors.white,
+                                color: isSelected
+                                    ? themeColor.withValues(alpha: isDark ? 0.2 : 0.1)
+                                    : (isDark ? const Color(0xFF2C2C34) : Colors.white),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: isSelected ? const Color(0xFFFFB300) : Colors.grey[300]!,
+                                  color: isSelected ? themeColor : (isDark ? Colors.white12 : Colors.grey[300]!),
                                   width: isSelected ? 2.5 : 1.0,
                                 ),
                                 boxShadow: isSelected
                                     ? [
                                         BoxShadow(
-                                          color: const Color(0xFFFFB300).withValues(alpha: 0.25),
+                                          color: themeColor.withValues(alpha: 0.25),
                                           blurRadius: 10,
                                           offset: const Offset(0, 4),
                                         )

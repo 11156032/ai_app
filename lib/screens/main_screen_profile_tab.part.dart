@@ -500,6 +500,13 @@ extension MainScreenProfileTab on _MainScreenState {
 
   Widget _buildVipMembershipBanner(BuildContext context) {
     final userId = widget.currentUser['id'].toString();
+    final primary = _currentPrimaryColor;
+    final isDark = _isDarkMode;
+
+    final hsl = HSLColor.fromColor(primary);
+    final darkTone = hsl.withLightness((hsl.lightness * (isDark ? 0.35 : 0.48)).clamp(0.08, 0.85)).toColor();
+    final midTone = hsl.withLightness((hsl.lightness * (isDark ? 0.65 : 0.78)).clamp(0.15, 0.9)).toColor();
+    final lightTone = primary;
 
     return FutureBuilder<Map<String, dynamic>>(
       future: DatabaseHelper.instance.getUserMembershipInfo(userId),
@@ -509,74 +516,95 @@ extension MainScreenProfileTab on _MainScreenState {
         final tierInfo = MembershipService.tiers[tier] ?? MembershipService.tiers['free']!;
 
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF3E2723), Color(0xFF5D4037), Color(0xFF8D6E63)],
+            gradient: LinearGradient(
+              colors: [darkTone, midTone, lightTone],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
-                color: Colors.black26,
+                color: primary.withValues(alpha: isDark ? 0.35 : 0.22),
                 blurRadius: 10,
-                offset: Offset(0, 4),
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFD54F),
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
                 ),
-                child: const Icon(Icons.workspace_premium, color: Color(0xFF3E2723), size: 24),
+                child: const Icon(Icons.workspace_premium_rounded, color: Colors.white, size: 24),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       children: [
-                        Text(
-                          tierInfo.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: Text(
+                            tierInfo.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        VipBadgeWidget(tierCode: tier, fontSize: 10),
+                        const SizedBox(width: 6),
+                        VipBadgeWidget(tierCode: tier, fontSize: 9.5),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
-  '當前點數：$points Pts | 享 ${tierInfo.name == '普通會員' ? '原價' : '${(tierInfo.discountRate * 10).toStringAsFixed(0)}折'} 優惠',
-  style: const TextStyle(color: Colors.white70, fontSize: 12),
-),
+                      '點數：$points Pts · ${tierInfo.name == '普通會員' ? '享原價' : '享 ${(tierInfo.discountRate * 10).toStringAsFixed(0)} 折'}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => MembershipCenterScreen(currentUser: widget.currentUser),
+                      builder: (_) => MembershipCenterScreen(
+                        currentUser: widget.currentUser,
+                        primaryColor: primary,
+                      ),
                     ),
                   ).then((_) => setState(() {}));
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFD54F),
-                  foregroundColor: const Color(0xFF3E2723),
+                  backgroundColor: Colors.white,
+                  foregroundColor: darkTone,
+                  elevation: 2,
+                  shadowColor: Colors.black26,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
-                child: const Text('會員中心', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                child: const Text('會員中心', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
               ),
             ],
           ),
