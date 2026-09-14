@@ -42,22 +42,28 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
     super.dispose();
   }
 
+  Future<void> _stopVoiceListening() async {
+    if (!_isVoiceListening) return;
+    await VoiceRecognitionService.instance.stopListening();
+    if (mounted) {
+      setState(() {
+        _isVoiceListening = false;
+        _voiceSoundLevel = 0.0;
+        _modalController.text =
+            VoiceRecognitionService.cleanFillerWords(_modalController.text);
+        _modalController.selection = TextSelection.collapsed(
+          offset: _modalController.text.length,
+        );
+      });
+    }
+  }
+
   Future<void> _toggleVoice() async {
     if (_isVoiceListening) {
-      await VoiceRecognitionService.instance.stopListening();
-      if (mounted) {
-        setState(() {
-          _isVoiceListening = false;
-          _modalController.text =
-              VoiceRecognitionService.cleanFillerWords(_modalController.text);
-          _modalController.selection = TextSelection.collapsed(
-            offset: _modalController.text.length,
-          );
-        });
-      }
+      await _stopVoiceListening();
     } else {
       FocusScope.of(context).unfocus();
-      _voiceBaseText = _modalController.text;
+      _voiceBaseText = _modalController.text.trim();
       if (mounted) {
         setState(() {
           _isVoiceListening = true;
@@ -67,18 +73,17 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       final started = await VoiceRecognitionService.instance.startListening(
         onResult: (words, isFinal) {
           if (!mounted) return;
-          if (words.trim().isEmpty && !isFinal) return;
+          final currentWords = words.trim();
+          if (currentWords.isEmpty && !isFinal) return;
 
           setState(() {
-            final prefix = _voiceBaseText.isNotEmpty ? '$_voiceBaseText ' : '';
-            if (isFinal) {
-              final cleaned =
-                  VoiceRecognitionService.cleanFillerWords('$prefix$words');
-              _modalController.text = cleaned;
-              _voiceBaseText = cleaned;
-            } else {
-              _modalController.text = '$prefix$words';
-            }
+            final fullText = _voiceBaseText.isNotEmpty
+                ? '$_voiceBaseText $currentWords'
+                : currentWords;
+            final cleaned = isFinal
+                ? VoiceRecognitionService.cleanFillerWords(fullText)
+                : fullText;
+            _modalController.text = cleaned;
             _modalController.selection = TextSelection.collapsed(
               offset: _modalController.text.length,
             );
@@ -93,9 +98,10 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         },
         onStatusChange: (status) {
           if (status == 'done' || status == 'notListening') {
-            if (mounted) {
+            if (mounted && _isVoiceListening) {
               setState(() {
                 _isVoiceListening = false;
+                _voiceSoundLevel = 0.0;
                 _modalController.text =
                     VoiceRecognitionService.cleanFillerWords(
                         _modalController.text);
@@ -113,6 +119,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           if (mounted) {
             setState(() {
               _isVoiceListening = false;
+              _voiceSoundLevel = 0.0;
             });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -1501,6 +1508,11 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   },
                   child: TextField(
                     controller: _modalController,
+                    onTap: () {
+                      if (_isVoiceListening) {
+                        _stopVoiceListening();
+                      }
+                    },
                     minLines: 1,
                     maxLines: 5,
                     keyboardType: TextInputType.multiline,

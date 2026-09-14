@@ -337,7 +337,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
     final prompt = '''
 你是一個精通臺灣國高中升學與各級考試的「專業頂級命題教授兼解題大師」。
-請針對以下科目與單元，設計一份高鑑別度、具備詳細步驟解析的標準選擇題（單選題）題本：
+請針對以下科目與單元，設計一份高鑑別度、精簡明瞭且具備關鍵解析的標準選擇題（單選題）題本：
 
 【命題需求】
 ・學科：$subject
@@ -353,22 +353,22 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   "chapter": "$chapter",
   "questions": [
     {
-      "text": "完整題目敘述（包含題目情境、條件、圖表說明或題意）",
+      "text": "精煉題目敘述（30~80字以內，切入核心情境與條件）",
       "options": ["選項一", "選項二", "選項三", "選項四"],
       "answer": "0",
-      "explanation": "完整詳細的計算流程、觀念詳解與陷阱提示",
+      "explanation": "極簡解析（30~60字以內，一兩句話說明解法關鍵即可）",
       "difficulty": "${diff == '基礎' ? 'easy' : (diff == '進階' ? 'hard' : 'medium')}"
     }
   ]
 }
 
-【重要品質與標點規範】
-1. 繁體中文：全部內容（題目、選項、單元、詳解）必須為臺灣正體繁體中文。
-2. 選項乾淨純文字：選項陣列中的文字請去除 A. B. C. D.、(A) (B) 或 ① ② 等前綴標籤，保持純文字。
-3. 嚴禁奇怪符號與 LaTeX 原始指令：嚴禁出現 \\frac, \\times, \\pm, \\text 等 LaTeX 反斜線代碼。數學算式請用常規標準符號（例如寫 (a/b) 而非 \\frac{a}{b}；寫 × 而非 \\times；寫 ± 而非 \\pm；寫 √(x) 而非 \\sqrt{x}；寫 x^2、+、-、*、/、= 等）。
-4. 嚴禁出現 <think> 思考標籤或對話開場白。
-5. 答案索引精確：answer 必須是 0-based 索引字串（"0", "1", "2", "3"）。
-6. 專業詳解：每題務必提供富有教育價值的深度詳解與步驟。
+【重要品質與字數規範】
+1. 嚴格字數限制：每題題幹 30~80 字內、每個選項 25 字內、解析 30~60 字內，觀念解析精簡扼要，一兩句話說明核心關鍵即可，切勿拖泥帶水。
+2. 繁體中文：全部內容（題目、選項、單元、詳解）必須為臺灣正體繁體中文。
+3. 選項純文字：選項陣列中的文字請去除 A. B. C. D. 或 (A) (B) 等前綴標籤。
+4. 嚴禁 LaTeX 原始指令：嚴禁出現 \\frac, \\times, \\pm 等反斜線語法，請使用標準文字符號（例如 (a/b), ×, ±, √(x), x^2, +, -, *, /, =）。
+5. 嚴禁出現 <think> 思考標籤或對話開場白。
+6. 答案索引精確：answer 必須是 0-based 索引字串（"0", "1", "2", "3"）。
 ''';
 
     try {
@@ -413,6 +413,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
           final model = GenerativeModel(
             model: 'gemini-2.5-flash',
             apiKey: apiKey,
+            generationConfig: GenerationConfig(
+              maxOutputTokens: (count * 350) + 300,
+              temperature: 0.2,
+            ),
           );
           final res = await model.generateContent([Content.text(prompt)]);
           responseText = res.text;

@@ -77,14 +77,15 @@ class _AiTrainingPageState extends State<AiTrainingPage>
 題目要求：
 - 每題都有 4 個選項 (A/B/C/D)
 - 難度適中，針對 $focus 的核心概念
+- 字數嚴格限制：每題題幹 30~70 字以內、選項各 20 字以內、解析 30~50 字以內，觀念解析極簡扼要，一兩句話說明關鍵解法即可
 - 嚴格輸出合法 JSON 陣列，格式如下，不要有任何其他文字：
 
 [
   {
-    "question": "題目內容",
+    "question": "題目內容（30~70字）",
     "options": ["A. 選項一", "B. 選項二", "C. 選項三", "D. 選項四"],
     "answer": 0,
-    "explanation": "解析說明"
+    "explanation": "極簡解析說明（30~50字）"
   }
 ]
 

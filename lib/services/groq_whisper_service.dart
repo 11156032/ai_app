@@ -208,30 +208,23 @@ class GroqWhisperService {
   static const String _kAppSecretHeader = 'X-App-Secret';
 
   // ----------------------------------------------------------
-  // 2. 雲端極速音訊轉錄 (Groq Whisper ➔ Gemini 1.5 Flash ➔ Cloudflare Relay)
+  // 2. 雲端極速音訊轉錄 (Groq Whisper ➔ Gemini 2.5 Flash ➔ Cloudflare Relay)
   // ----------------------------------------------------------
 
   /// 停止當前錄音並轉錄為繁體中文文字
   Future<String> stopAndTranscribe({String? prompt}) async {
     final audioPath = await stopRecording();
-    // 給予作業系統底層 I/O 緩衝區 250ms 確保 MP4/M4A moov header 完整寫入
-    await Future.delayed(const Duration(milliseconds: 250));
+    // 給予作業系統底層 I/O 緩衝區 200ms 確保 MP4/M4A moov header 完整寫入
+    await Future.delayed(const Duration(milliseconds: 200));
 
     if (audioPath == null || audioPath.isEmpty) {
       throw Exception('未取得音訊錄音檔案，請確認已說話並重新錄音 🎙️');
     }
 
     final audioFile = File(audioPath);
-    // 實測空白 M4A 標頭約為 800~1500 bytes，小於 2500 bytes 代表未錄進任何有效音軌數據
-    if (!await audioFile.exists() || audioFile.lengthSync() < 2500) {
-      throw Exception('錄音時間過短或音訊無聲音，請長按或點擊麥克風說話 🎙️');
-    }
-
-    // 若全程音量振幅皆為極低靜音（例如麥克風被系統靜音）
-    if (_maxAmplitudeSeen < -58.0) {
-      debugPrint(
-          'GroqWhisperService: 錄音全程音量過低 (maxAmp: $_maxAmplitudeSeen dBFS)');
-      throw Exception('未偵測到清晰語音，請靠近麥克風並確認已開口說話 🎙️');
+    // 實測真正損壞或完全為空的音訊標頭通常 < 400 bytes
+    if (!await audioFile.exists() || audioFile.lengthSync() < 400) {
+      throw Exception('錄音時間過短或無音訊數據，請點擊麥克風說話 🎙️');
     }
 
     try {
@@ -248,7 +241,7 @@ class GroqWhisperService {
     }
   }
 
-  /// 將指定音訊檔案進行轉錄（自動多重引擎輪詢降級）
+  /// 將指定音訊檔案進行轉錄（自動多重引擎輪詢降級：Groq Whisper ➔ Gemini 2.5 Flash ➔ Cloudflare）
   Future<String> transcribeAudioFile(
     File audioFile, {
     String? prompt,
@@ -300,28 +293,6 @@ class GroqWhisperService {
             final data = jsonDecode(utf8.decode(response.bodyBytes))
                 as Map<String, dynamic>;
 
-            // 檢查是否為靜音無聲幻覺 (no_speech_prob)
-            final segments = data['segments'] as List<dynamic>?;
-            double noSpeechProb = 0.0;
-            if (segments != null && segments.isNotEmpty) {
-              double sumProb = 0.0;
-              for (final s in segments) {
-                if (s is Map<String, dynamic>) {
-                  sumProb += (s['no_speech_prob'] as num?)?.toDouble() ?? 0.0;
-                }
-              }
-              noSpeechProb = sumProb / segments.length;
-            } else if (data['no_speech_prob'] != null) {
-              noSpeechProb =
-                  (data['no_speech_prob'] as num?)?.toDouble() ?? 0.0;
-            }
-
-            if (noSpeechProb > 0.72) {
-              debugPrint(
-                  'GroqWhisperService: [$model] 判定為無聲或噪音 (no_speech_prob: $noSpeechProb)，攔截幻覺');
-              throw Exception('未偵測到清晰語音，請靠近麥克風說話 🎙️');
-            }
-
             final rawText = (data['text'] as String? ?? '').trim();
 
             if (rawText.isNotEmpty) {
@@ -335,22 +306,21 @@ class GroqWhisperService {
                 'Groq Whisper API [$model] 回應 ${response.statusCode}: ${utf8.decode(response.bodyBytes)}');
           }
         } catch (e) {
-          if (e.toString().contains('未偵測到清晰語音')) rethrow;
           debugPrint('Groq Whisper [$model] 轉錄異常: $e，嘗試備援引擎...');
         }
       }
     }
 
-    // 引擎 2: Google Gemini 1.5 Flash 多模態音訊直接轉錄
+    // 引擎 2: Google Gemini 2.5 Flash 多模態音訊直接轉錄
     final geminiKey = _kGeminiApiKey;
     if (geminiKey.isNotEmpty) {
       try {
         debugPrint(
-            'GroqWhisperService: 切換至備援引擎 Google Gemini 1.5 Flash 音訊轉錄...');
+            'GroqWhisperService: 切換至備援引擎 Google Gemini 2.5 Flash 音訊轉錄...');
         final audioBytes = await audioFile.readAsBytes();
         if (audioBytes.isNotEmpty) {
           final model = GenerativeModel(
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.5-flash',
             apiKey: geminiKey,
             generationConfig: GenerationConfig(temperature: 0.1),
           );
@@ -376,12 +346,12 @@ class GroqWhisperService {
           final text = response.text?.trim() ?? '';
           if (text.isNotEmpty) {
             debugPrint(
-                'GroqWhisperService: Gemini 1.5 Flash 音訊轉錄成功 (${text.length} 字)');
+                'GroqWhisperService: Gemini 2.5 Flash 音訊轉錄成功 (${text.length} 字)');
             return AiDiagnosisService.toTraditionalChinese(text);
           }
         }
       } catch (e) {
-        debugPrint('GroqWhisperService Gemini 音訊轉錄異常: $e');
+        debugPrint('GroqWhisperService Gemini 2.5 Flash 音訊轉錄異常: $e');
       }
     }
 
@@ -400,7 +370,7 @@ class GroqWhisperService {
               },
               body: jsonEncode({
                 'provider': 'gemini',
-                'model': 'gemini-1.5-flash',
+                'model': 'gemini-2.5-flash',
                 'prompt': '請精準轉錄這段音訊為繁體中文，保留標點，去除贅字，若無人聲請直接輸出空字串：',
                 'audioBase64': base64Audio,
                 'mimeType': 'audio/m4a',

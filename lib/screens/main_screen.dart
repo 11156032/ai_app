@@ -3068,20 +3068,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     String voiceBaseText = '';
     double voiceSoundLevel = 0.0;
 
+    Future<void> stopVoiceListening(StateSetter setModalState) async {
+      if (!isVoiceListening) return;
+      await VoiceRecognitionService.instance.stopListening();
+      setModalState(() {
+        isVoiceListening = false;
+        voiceSoundLevel = 0.0;
+        modalController.text =
+            VoiceRecognitionService.cleanFillerWords(modalController.text);
+        modalController.selection = TextSelection.collapsed(
+          offset: modalController.text.length,
+        );
+      });
+    }
+
     Future<void> toggleVoice(StateSetter setModalState) async {
       if (isVoiceListening) {
-        await VoiceRecognitionService.instance.stopListening();
-        setModalState(() {
-          isVoiceListening = false;
-          modalController.text =
-              VoiceRecognitionService.cleanFillerWords(modalController.text);
-          modalController.selection = TextSelection.collapsed(
-            offset: modalController.text.length,
-          );
-        });
+        await stopVoiceListening(setModalState);
       } else {
         FocusScope.of(context).unfocus();
-        voiceBaseText = modalController.text;
+        voiceBaseText = modalController.text.trim();
         setModalState(() {
           isVoiceListening = true;
           voiceSoundLevel = 0.0;
@@ -3089,17 +3095,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final started = await VoiceRecognitionService.instance.startListening(
           languageCode: _appLanguage,
           onResult: (words, isFinal) {
-            if (words.trim().isEmpty && !isFinal) return;
+            final currentWords = words.trim();
+            if (currentWords.isEmpty && !isFinal) return;
             setModalState(() {
-              final prefix = voiceBaseText.isNotEmpty ? '$voiceBaseText ' : '';
-              if (isFinal) {
-                final cleaned =
-                    VoiceRecognitionService.cleanFillerWords('$prefix$words');
-                modalController.text = cleaned;
-                voiceBaseText = cleaned;
-              } else {
-                modalController.text = '$prefix$words';
-              }
+              final fullText = voiceBaseText.isNotEmpty
+                  ? '$voiceBaseText $currentWords'
+                  : currentWords;
+              final cleaned = isFinal
+                  ? VoiceRecognitionService.cleanFillerWords(fullText)
+                  : fullText;
+              modalController.text = cleaned;
               modalController.selection = TextSelection.collapsed(
                 offset: modalController.text.length,
               );
@@ -3112,11 +3117,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           },
           onStatusChange: (status) {
             if (status == 'done' || status == 'notListening') {
-              setModalState(() {
-                isVoiceListening = false;
-                modalController.text = VoiceRecognitionService.cleanFillerWords(
-                    modalController.text);
-              });
+              if (isVoiceListening) {
+                setModalState(() {
+                  isVoiceListening = false;
+                  voiceSoundLevel = 0.0;
+                  modalController.text =
+                      VoiceRecognitionService.cleanFillerWords(
+                          modalController.text);
+                });
+              }
             } else if (status == 'listening') {
               setModalState(() {
                 isVoiceListening = true;
@@ -3126,6 +3135,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           onError: (errMsg) {
             setModalState(() {
               isVoiceListening = false;
+              voiceSoundLevel = 0.0;
             });
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -5950,6 +5960,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 },
                                 child: TextField(
                                   controller: modalController,
+                                  onTap: () {
+                                    if (isVoiceListening) {
+                                      stopVoiceListening(setModalState);
+                                    }
+                                  },
                                   minLines: 1,
                                   maxLines: 5,
                                   keyboardType: TextInputType.multiline,

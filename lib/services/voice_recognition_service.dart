@@ -264,12 +264,18 @@ class VoiceRecognitionService {
   Future<void> stopListening() async {
     _shouldKeepListening = false;
     _restartTimer?.cancel();
+    _restartTimer = null;
+
+    final callback = _onResultCallback;
+    final lastWords = _lastRecognizedWords.trim();
+    final wasFinal = _lastWasFinal;
+
+    _lastRecognizedWords = '';
+    _lastWasFinal = true;
 
     // 如果還有未交付的字詞，立即交付定稿
-    if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
-      _onResultCallback?.call(_lastRecognizedWords.trim(), true);
-      _lastRecognizedWords = '';
-      _lastWasFinal = true;
+    if (lastWords.isNotEmpty && !wasFinal) {
+      callback?.call(lastWords, true);
     }
 
     try {
@@ -305,6 +311,18 @@ class VoiceRecognitionService {
         .replaceAll(RegExp(r'[ \t]+'), ' ')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
+
+    // 5. 去除相鄰重複的完整片語 (如 "你好 你好" -> "你好")
+    final words = cleaned.split(' ');
+    if (words.length > 1) {
+      final deduped = <String>[];
+      for (final w in words) {
+        if (deduped.isEmpty || deduped.last != w) {
+          deduped.add(w);
+        }
+      }
+      cleaned = deduped.join(' ');
+    }
 
     return cleaned;
   }

@@ -3413,7 +3413,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       child: _buildPreviewPill(
                                         icon: _getNavBarItemIcon(tempOrder[0]),
                                         name: _getNavBarItemName(tempOrder[0]),
-                                        badge: '第 1 格',
+                                        badge: '第1格',
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: true,
@@ -3425,7 +3425,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       child: _buildPreviewPill(
                                         icon: _getNavBarItemIcon(tempOrder[1]),
                                         name: _getNavBarItemName(tempOrder[1]),
-                                        badge: '第 2 格',
+                                        badge: '第2格',
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: true,
@@ -3437,7 +3437,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       child: _buildPreviewPill(
                                         icon: Icons.auto_awesome_rounded,
                                         name: 'AI特助',
-                                        badge: '🔒 核心固定',
+                                        badge: '固定',
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: false,
@@ -3449,7 +3449,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       child: _buildPreviewPill(
                                         icon: _getNavBarItemIcon(tempOrder[2]),
                                         name: _getNavBarItemName(tempOrder[2]),
-                                        badge: '第 4 格',
+                                        badge: '第4格',
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: true,
@@ -3461,7 +3461,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       child: _buildPreviewPill(
                                         icon: Icons.person_rounded,
                                         name: '個人',
-                                        badge: '🔒 核心固定',
+                                        badge: '固定',
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: false,
@@ -3522,7 +3522,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                                   tempOrder[3]),
                                               name: _getNavBarItemName(
                                                   tempOrder[3]),
-                                              badge: '抽屜備用 1',
+                                              badge: '備用 1',
                                               isDark: isDark,
                                             ),
                                           ),
@@ -3533,7 +3533,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                                   tempOrder[4]),
                                               name: _getNavBarItemName(
                                                   tempOrder[4]),
-                                              badge: '抽屜備用 2',
+                                              badge: '備用 2',
                                               isDark: isDark,
                                             ),
                                           ),
@@ -3547,54 +3547,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           ),
                         ),
 
-                        // 選取調換提示橫條
-                        if (selectedForSwap != null) ...[
-                          const SizedBox(height: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: primaryColor.withValues(
-                                  alpha: isDark ? 0.25 : 0.12),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: primaryColor, width: 1.5),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.touch_app_rounded,
-                                    size: 16, color: Colors.amber),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '👉 已選取【${_getNavBarItemName(tempOrder[selectedForSwap!])}】，請點選任意目標完成對調',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF2E1C18),
-                                    ),
-                                  ),
-                                ),
-                                InkWell(
-                                  onTap: () =>
-                                      setSheetState(() => selectedForSwap = null),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4.0),
-                                    child: Icon(Icons.close_rounded,
-                                        size: 16,
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.black54),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
                         // ── Section 1: 🟢 底部導覽列自訂項目 ──
                         Row(
@@ -3622,7 +3575,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                '常駐底欄 · 點擊交換',
+                                selectedForSwap != null ? '已選中 · 點目標對調' : '常駐底欄 · 點擊交換',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -3632,14 +3585,19 @@ extension MainScreenProfileTab on _MainScreenState {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
-                          '點擊項目可與下方「側邊抽屜備用庫」的功能互換位置',
+                          selectedForSwap != null
+                              ? '👉 已選取【${_getNavBarItemName(tempOrder[selectedForSwap!])}】，請點選任意目標完成對調'
+                              : '點擊項目可與下方「側邊抽屜備用庫」的功能互換位置',
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: isDark
-                                ? Colors.white54
-                                : Colors.grey.shade600,
+                            fontWeight: selectedForSwap != null ? FontWeight.bold : FontWeight.normal,
+                            color: selectedForSwap != null
+                                ? primaryColor
+                                : (isDark
+                                    ? Colors.white54
+                                    : Colors.grey.shade600),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -3681,7 +3639,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           );
                         }),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
                         // ── Section 2: 📱 側邊抽屜備用庫 ──
                         Container(
@@ -3799,100 +3757,6 @@ extension MainScreenProfileTab on _MainScreenState {
                             ],
                           ),
                         ),
-
-                        const SizedBox(height: 16),
-
-                        // ── Section 3: 🔒 系統核心固定功能 ──
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF1B1B22)
-                                : const Color(0xFFF8F9FA),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white12
-                                  : Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.lock_rounded,
-                                      size: 16,
-                                      color: isDark
-                                          ? const Color(0xFFA5B4FC)
-                                          : const Color(0xFF4F46E5)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '系統核心固定功能（導覽列永久常駐）',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF1E293B),
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? Colors.white10
-                                          : Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '不可調換',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark
-                                            ? Colors.white60
-                                            : Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '🔒 核心功能常駐於導覽列中央與末尾，提供隨時智慧諮詢與歷程管理。',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: isDark
-                                      ? Colors.white60
-                                      : Colors.grey.shade600,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-
-                              // 固定卡片 1: AI特助
-                              _buildFixedFeatureCard(
-                                icon: Icons.auto_awesome_rounded,
-                                name: '✨ AI特助',
-                                slotLabel: '第 3 格 · 常駐固定',
-                                desc: '全天候智慧解題助手、即時諮詢與個人化學習規劃',
-                                isDark: isDark,
-                              ),
-
-                              // 固定卡片 2: 個人中心
-                              _buildFixedFeatureCard(
-                                icon: Icons.person_rounded,
-                                name: '👤 個人中心',
-                                slotLabel: '第 5 格 · 常駐固定',
-                                desc: '學習歷程數據、錯題盲點分析、自訂設定與名片',
-                                isDark: isDark,
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -3997,57 +3861,7 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  // 抽屜備用小預覽膠囊組件
-  Widget _buildDrawerPreviewPill({
-    required IconData icon,
-    required String name,
-    required String badge,
-    required bool isDark,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 6),
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDark
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
-              : const Color(0xFFFFCC80),
-          width: 0.9,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 13,
-            color: isDark
-                ? const Color(0xFFFFB74D)
-                : const Color(0xFFE65100),
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              name,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF422006),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 互換項目卡片組件（防溢位彈性排版）
+  // 導覽列/抽屜互換卡片組件
   Widget _buildSwapItemCard({
     required String itemKey,
     required int index,
@@ -4066,12 +3880,12 @@ extension MainScreenProfileTab on _MainScreenState {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: isSelected
-            ? primaryColor.withValues(alpha: isDark ? 0.25 : 0.1)
-            : (isDark
-                ? (isDrawer
-                    ? const Color(0xFF262630)
-                    : const Color(0xFF282832))
-                : Colors.white),
+            ? primaryColor.withValues(alpha: isDark ? 0.25 : 0.12)
+            : (isDrawer
+                ? (isDark
+                    ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                    : Colors.white)
+                : (isDark ? const Color(0xFF2C2C34) : Colors.white)),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isSelected
@@ -4081,14 +3895,14 @@ extension MainScreenProfileTab on _MainScreenState {
                       ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
                       : const Color(0xFFFFCC80))
                   : (isDark ? Colors.white10 : const Color(0xFFE8E0D7))),
-          width: isSelected ? 2.0 : 1.0,
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
             color: isSelected
                 ? primaryColor.withValues(alpha: 0.25)
                 : Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-            blurRadius: isSelected ? 10 : 4,
+            blurRadius: isSelected ? 8 : 4,
             offset: const Offset(0, 2),
           ),
         ],
@@ -4160,7 +3974,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       ? (isDark
                                           ? const Color(0xFFF59E0B)
                                               .withValues(alpha: 0.4)
-                                          : const Color(0xFFFFB74D))
+                                          : const Color(0xFFFFD54F))
                                       : primaryColor.withValues(alpha: 0.3),
                                   width: 0.8,
                                 ),
@@ -4288,123 +4102,46 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  // 系統固定功能展示卡片組件（灰掉不可點選，防溢位設計）
-  Widget _buildFixedFeatureCard({
+  // 抽屜備用小預覽膠囊組件
+  Widget _buildDrawerPreviewPill({
     required IconData icon,
     required String name,
-    required String slotLabel,
-    required String desc,
+    required String badge,
     required bool isDark,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF181820) : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(14),
+        color: isDark ? const Color(0xFF2C2C34) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200,
+          color: isDark
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
+              : const Color(0xFFFFD54F),
           width: 0.8,
         ),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 灰階圖標圓圈
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.grey.shade200,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: isDark ? Colors.white38 : Colors.grey.shade500,
-              size: 19,
-            ),
+          Icon(
+            icon,
+            size: 13,
+            color: isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100),
           ),
-          const SizedBox(width: 10),
-
-          // 文字資訊
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      name,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white60 : Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          slotLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: isDark ? Colors.white38 : Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  desc,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDark ? Colors.white30 : Colors.grey.shade500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outline_rounded,
-                    size: 11,
-                    color: isDark ? Colors.white38 : Colors.grey.shade500),
-                const SizedBox(width: 3),
-                Text(
-                  '固定',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.white38 : Colors.grey.shade600,
-                  ),
-                ),
-              ],
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -4444,12 +4181,10 @@ extension MainScreenProfileTab on _MainScreenState {
         children: [
           Icon(
             icon,
-            size: 16,
+            size: 15,
             color: isCustom
                 ? primaryColor
-                : (isDark
-                    ? Colors.white38
-                    : Colors.grey.shade500),
+                : (isDark ? Colors.white38 : Colors.grey.shade500),
           ),
           const SizedBox(height: 2),
           Text(
@@ -4459,16 +4194,15 @@ extension MainScreenProfileTab on _MainScreenState {
               fontWeight: FontWeight.bold,
               color: isCustom
                   ? (isDark ? Colors.white : Colors.black87)
-                  : (isDark
-                      ? Colors.white60
-                      : Colors.grey.shade700),
+                  : (isDark ? Colors.white60 : Colors.grey.shade700),
             ),
             maxLines: 1,
+            softWrap: false,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 1),
+          const SizedBox(height: 2),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
             decoration: BoxDecoration(
               color: isCustom
                   ? primaryColor.withValues(alpha: isDark ? 0.2 : 0.12)
@@ -4480,14 +4214,15 @@ extension MainScreenProfileTab on _MainScreenState {
             child: Text(
               badge,
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 8.5,
                 fontWeight: FontWeight.bold,
                 color: isCustom
                     ? primaryColor
-                    : (isDark
-                        ? Colors.white38
-                        : Colors.grey.shade600),
+                    : (isDark ? Colors.white38 : Colors.grey.shade600),
               ),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
