@@ -245,18 +245,46 @@ extension MainScreenSocialTab on _MainScreenState {
     }
 
     if (_selectedSocialTopicFilter != '全部') {
-      filtered = filtered.where((p) {
-        final attached = p['attached_data'];
-        final cat = attached != null ? (attached['category'] ?? '') : '';
-        final content = p['content'] ?? '';
-        final topic = getCommunityTopicById(_selectedSocialTopicFilter);
-        final title = topic?.title ?? _selectedSocialTopicFilter;
-        final name = topic?.name ?? _selectedSocialTopicFilter;
-        return cat.toString().contains(title) ||
-            cat.toString().contains(name) ||
-            content.toString().contains(title) ||
-            content.toString().contains(name);
-      }).toList();
+      if (_selectedSocialTopicFilter == 'my_followed') {
+        if (_userJoinedTopicIds.isEmpty) {
+          filtered = [];
+        } else {
+          filtered = filtered.where((p) {
+            final attached = p['attached_data'];
+            final cat = (attached != null ? (attached['category'] ?? '') : '').toString();
+            final content = (p['content'] ?? '').toString();
+            final pTags = (p['tags'] ?? '').toString();
+            for (final topicId in _userJoinedTopicIds) {
+              final topic = getCommunityTopicById(topicId);
+              final title = topic?.title ?? topicId;
+              final name = topic?.name ?? topicId;
+              if (cat.contains(title) ||
+                  cat.contains(name) ||
+                  content.contains(title) ||
+                  content.contains(name) ||
+                  pTags.contains(topicId)) {
+                return true;
+              }
+            }
+            return false;
+          }).toList();
+        }
+      } else {
+        filtered = filtered.where((p) {
+          final attached = p['attached_data'];
+          final cat = (attached != null ? (attached['category'] ?? '') : '').toString();
+          final content = (p['content'] ?? '').toString();
+          final pTags = (p['tags'] ?? '').toString();
+          final topic = getCommunityTopicById(_selectedSocialTopicFilter);
+          final title = topic?.title ?? _selectedSocialTopicFilter;
+          final name = topic?.name ?? _selectedSocialTopicFilter;
+          return cat.contains(title) ||
+              cat.contains(name) ||
+              content.contains(title) ||
+              content.contains(name) ||
+              pTags.contains(_selectedSocialTopicFilter);
+        }).toList();
+      }
     }
 
     return Stack(children: [
@@ -273,15 +301,108 @@ extension MainScreenSocialTab on _MainScreenState {
               ],
               if (filtered.isEmpty)
                 Center(
-                    child: Padding(
-                        padding: const EdgeInsets.only(top: 40),
-                        child: Text(
-                          _socialFilter == '全部'
-                              ? '還沒有任何貼文，快來發表第一篇！'
-                              : '此分類目前沒有貼文',
-                          style:
-                              const TextStyle(color: Colors.grey, fontSize: 14),
-                        )))
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _currentPrimaryColor.withValues(
+                                alpha: isDark ? 0.15 : 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _selectedSocialTopicFilter == 'my_followed' &&
+                                    _userJoinedTopicIds.isEmpty
+                                ? Icons.explore_outlined
+                                : Icons.forum_outlined,
+                            size: 36,
+                            color: _currentPrimaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          _selectedSocialTopicFilter == 'my_followed' &&
+                                  _userJoinedTopicIds.isEmpty
+                              ? '尚未關注任何社群主題'
+                              : _selectedSocialTopicFilter == 'my_followed'
+                                  ? '關注的主題目前尚無貼文'
+                                  : _selectedSocialTopicFilter != '全部'
+                                      ? '此主題目前尚無貼文'
+                                      : _socialFilter != '全部'
+                                          ? '此分類目前沒有貼文'
+                                          : '還沒有任何貼文，快來發表第一篇！',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : Colors.black87,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _selectedSocialTopicFilter == 'my_followed' &&
+                                  _userJoinedTopicIds.isEmpty
+                              ? '點擊下方探索並關注感興趣的社群，即時掌握夥伴動態 🚀'
+                              : _selectedSocialTopicFilter != '全部' ||
+                                      _socialFilter != '全部'
+                                  ? '可嘗試切換其他分類或重設篩選條件'
+                                  : '分享你的學習筆記、問題或心得，與大家一起進步！',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color:
+                                isDark ? Colors.white38 : Colors.grey.shade500,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_selectedSocialTopicFilter == 'my_followed' &&
+                            _userJoinedTopicIds.isEmpty)
+                          ElevatedButton.icon(
+                            onPressed: () =>
+                                _showTopicExploreBottomSheet(context),
+                            icon: const Icon(Icons.explore_rounded, size: 16),
+                            label: const Text('立即探索社群主題'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _currentPrimaryColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 10),
+                            ),
+                          )
+                        else if (_selectedSocialTopicFilter != '全部' ||
+                            _socialFilter != '全部' ||
+                            _socialAuthorFilter.isNotEmpty)
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              _update(() {
+                                _socialFilter = '全部';
+                                _selectedSocialTopicFilter = '全部';
+                                _socialAuthorFilter = '';
+                              });
+                            },
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text('重設所有篩選'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _currentPrimaryColor,
+                              side: BorderSide(
+                                  color: _currentPrimaryColor
+                                      .withValues(alpha: 0.5)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                )
               else
                 ...filtered
                     .asMap()
@@ -1225,8 +1346,8 @@ extension MainScreenSocialTab on _MainScreenState {
             }
 
             final story = stories[index - 1];
-            final String uid = story['userId'];
-            final String authorName = story['author'];
+            final String uid = (story['userId'] ?? '').toString();
+            final String authorName = (story['author'] ?? '用戶').toString();
             final bool isSelected = (_socialAuthorFilter == uid);
 
             return GestureDetector(
@@ -1263,12 +1384,13 @@ extension MainScreenSocialTab on _MainScreenState {
                       ),
                       child: buildAvatar(
                         blob: story['avatarBlob'] as Uint8List?,
-                        colorIdx: story['avatarColor'] as int,
+                        colorIdx: (story['avatarColor'] as int?) ??
+                            getAvatarColorIdx(authorName),
                         initial: authorName.isNotEmpty
                             ? authorName.substring(0, 1)
                             : '?',
                         radius: 18,
-                        usePreset: story['avatarSelected'] == 1 &&
+                        usePreset: (story['avatarSelected'] as int? ?? 0) == 1 &&
                             story['avatarBlob'] == null,
                       ),
                     ),
@@ -1305,11 +1427,11 @@ extension MainScreenSocialTab on _MainScreenState {
     String authorName = '';
     if (_socialAuthorFilter.isNotEmpty) {
       final postWithAuthor = socialPosts.firstWhere(
-        (p) => p['userId'] == _socialAuthorFilter,
+        (p) => (p['userId'] ?? '').toString() == _socialAuthorFilter,
         orElse: () => <String, dynamic>{},
       );
       if (postWithAuthor.isNotEmpty) {
-        authorName = postWithAuthor['author'];
+        authorName = (postWithAuthor['author'] ?? '用戶').toString();
       } else {
         authorName = '未知用戶';
       }
@@ -1388,193 +1510,100 @@ extension MainScreenSocialTab on _MainScreenState {
           ),
         ),
 
-        // ── 2. 橫向社群主題微光標籤列 ──
-        SizedBox(
-          height: 32,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              // 「全部主題」標籤
-              GestureDetector(
-                onTap: () => _update(() => _selectedSocialTopicFilter = '全部'),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _selectedSocialTopicFilter == '全部'
-                        ? _currentPrimaryColor.withValues(
-                            alpha: _isDarkMode ? 0.25 : 0.12)
-                        : (_isDarkMode
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.black.withValues(alpha: 0.03)),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _selectedSocialTopicFilter == '全部'
-                          ? _currentPrimaryColor
-                          : (_isDarkMode
-                              ? Colors.white10
-                              : Colors.black.withValues(alpha: 0.05)),
-                      width: _selectedSocialTopicFilter == '全部' ? 1.1 : 0.8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.grid_view_rounded,
-                        size: 12,
-                        color: _selectedSocialTopicFilter == '全部'
-                            ? _currentPrimaryColor
-                            : (_isDarkMode
-                                ? Colors.white60
-                                : Colors.grey.shade600),
+        // ── 2. 作用中篩選狀態標籤（由側邊欄選取主題 / 關注 / 作者時顯示）──
+        if (_socialAuthorFilter.isNotEmpty ||
+            _selectedSocialTopicFilter != '全部')
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                if (_selectedSocialTopicFilter == 'my_followed')
+                  InputChip(
+                    avatar: Icon(Icons.star_rounded,
+                        size: 14, color: Colors.amber.shade700),
+                    label: Text(
+                      '已關注社群 (${_userJoinedTopicIds.length})',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _isDarkMode ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '全部主題',
+                    ),
+                    backgroundColor: Colors.amber.shade700
+                        .withValues(alpha: _isDarkMode ? 0.25 : 0.12),
+                    deleteIconColor:
+                        _isDarkMode ? Colors.white60 : Colors.black54,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 0),
+                    onDeleted: () {
+                      _update(() {
+                        _selectedSocialTopicFilter = '全部';
+                      });
+                    },
+                  )
+                else if (_selectedSocialTopicFilter != '全部')
+                  (() {
+                    final topic =
+                        getCommunityTopicById(_selectedSocialTopicFilter);
+                    final title = topic?.title ?? _selectedSocialTopicFilter;
+                    final color = topic?.color ?? _currentPrimaryColor;
+                    return InputChip(
+                      avatar: Text(topic?.emoji ?? '🏷️',
+                          style: const TextStyle(fontSize: 11)),
+                      label: Text(
+                        title,
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: _selectedSocialTopicFilter == '全部'
-                              ? FontWeight.bold
-                              : FontWeight.w500,
-                          color: _selectedSocialTopicFilter == '全部'
-                              ? _currentPrimaryColor
-                              : (_isDarkMode ? Colors.white70 : Colors.black87),
+                          color: _isDarkMode ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              // 各大社群主題標籤
-              ...kCommunityTopics.map((topic) {
-                final isSelected = _selectedSocialTopicFilter == topic.id;
-                final isJoined = _userJoinedTopicIds.contains(topic.id);
-                return GestureDetector(
-                  onTap: () => _update(() => _selectedSocialTopicFilter =
-                      isSelected ? '全部' : topic.id),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 6),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? topic.color
-                              .withValues(alpha: _isDarkMode ? 0.25 : 0.14)
-                          : (_isDarkMode
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : topic.color.withValues(alpha: 0.05)),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isSelected
-                            ? topic.color
-                            : (_isDarkMode
-                                ? Colors.white10
-                                : topic.color.withValues(alpha: 0.2)),
-                        width: isSelected ? 1.1 : 0.8,
+                      backgroundColor:
+                          color.withValues(alpha: _isDarkMode ? 0.25 : 0.12),
+                      deleteIconColor:
+                          _isDarkMode ? Colors.white60 : Colors.black54,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 0),
+                      onDeleted: () {
+                        _update(() {
+                          _selectedSocialTopicFilter = '全部';
+                        });
+                      },
+                    );
+                  })(),
+                if (_socialAuthorFilter.isNotEmpty)
+                  InputChip(
+                    avatar: const Icon(Icons.person_rounded,
+                        size: 13, color: Colors.white),
+                    label: Text(
+                      '$authorName 的貼文',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(topic.emoji, style: const TextStyle(fontSize: 11)),
-                        const SizedBox(width: 3.5),
-                        Text(
-                          topic.title,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected
-                                ? topic.color
-                                : (_isDarkMode
-                                    ? Colors.white70
-                                    : Colors.black87),
-                          ),
-                        ),
-                        if (isJoined) ...[
-                          const SizedBox(width: 3),
-                          Container(
-                            width: 4,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: topic.color,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                    backgroundColor: _currentPrimaryColor,
+                    deleteIconColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 0),
+                    onDeleted: () {
+                      _update(() {
+                        _socialAuthorFilter = '';
+                      });
+                    },
                   ),
-                );
-              }),
-              // 「探索主題」按鈕
-              GestureDetector(
-                onTap: () => _showTopicExploreBottomSheet(context),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _currentPrimaryColor.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _currentPrimaryColor.withValues(alpha: 0.25),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add_rounded,
-                          size: 12, color: _currentPrimaryColor),
-                      const SizedBox(width: 2),
-                      Text(
-                        '探索',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: _currentPrimaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // ── 3. 作者篩選狀態標籤 ──
-        if (_socialAuthorFilter.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-            child: Row(
-              children: [
-                InputChip(
-                  label: Text(
-                    '🔍 $authorName 的貼文',
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  backgroundColor: _currentPrimaryColor,
-                  deleteIconColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 1,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  onDeleted: () {
-                    _update(() {
-                      _socialAuthorFilter = '';
-                    });
-                  },
-                ),
               ],
             ),
           ),
@@ -1808,8 +1837,10 @@ extension MainScreenSocialTab on _MainScreenState {
                   child: buildAvatar(
                     blob: p['authorAvatarBlob'] as Uint8List?,
                     colorIdx: (p['authorAvatarColor'] as int?) ??
-                        getAvatarColorIdx(p['author'] ?? ''),
-                    initial: (p['author'] ?? '?').substring(0, 1),
+                        getAvatarColorIdx((p['author'] ?? '').toString()),
+                    initial: ((p['author'] ?? '?').toString().isEmpty
+                        ? '?'
+                        : (p['author'] ?? '?').toString().substring(0, 1)),
                     radius: 20,
                     usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
                         p['authorAvatarBlob'] == null,
@@ -1823,7 +1854,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       Row(
                         children: [
                           Text(
-                            p['author'],
+                            (p['author'] ?? '').toString(),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14.5,
@@ -1841,7 +1872,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                kPostTypeLabel[p['postType']]!,
+                                kPostTypeLabel[p['postType']] ?? '',
                                 style: TextStyle(
                                   fontSize: 9.5,
                                   color: _currentPrimaryColor,
@@ -1856,7 +1887,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       Row(
                         children: [
                           Text(
-                            p['time'],
+                            (p['time'] ?? '').toString(),
                             style: TextStyle(
                               color: isDark
                                   ? Colors.white38
@@ -1881,8 +1912,8 @@ extension MainScreenSocialTab on _MainScreenState {
                     ],
                   ),
                 ),
-                if (p['userId'].toString() ==
-                    widget.currentUser['id'].toString())
+                if (p['userId']?.toString() ==
+                    widget.currentUser['id']?.toString())
                   PopupMenuButton<String>(
                     padding: EdgeInsets.zero,
                     iconSize: 18,
@@ -2049,8 +2080,10 @@ extension MainScreenSocialTab on _MainScreenState {
                 child: buildAvatar(
                   blob: p['authorAvatarBlob'] as Uint8List?,
                   colorIdx: (p['authorAvatarColor'] as int?) ??
-                      getAvatarColorIdx(p['author'] ?? ''),
-                  initial: (p['author'] ?? '?').substring(0, 1),
+                      getAvatarColorIdx((p['author'] ?? '').toString()),
+                  initial: ((p['author'] ?? '?').toString().isEmpty
+                      ? '?'
+                      : (p['author'] ?? '?').toString().substring(0, 1)),
                   radius: 12,
                   usePreset: (p['authorAvatarSelected'] as int? ?? 0) == 1 &&
                       p['authorAvatarBlob'] == null,
@@ -2058,7 +2091,7 @@ extension MainScreenSocialTab on _MainScreenState {
               ),
               const SizedBox(width: 8),
               Text(
-                p['author'],
+                (p['author'] ?? '').toString(),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -2067,7 +2100,7 @@ extension MainScreenSocialTab on _MainScreenState {
               ),
               const SizedBox(width: 8),
               Text(
-                p['time'],
+                (p['time'] ?? '').toString(),
                 style: TextStyle(
                   color: isDark ? Colors.white30 : Colors.grey.shade500,
                   fontSize: 10.5,
@@ -2085,7 +2118,7 @@ extension MainScreenSocialTab on _MainScreenState {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    kPostTypeLabel[p['postType']]!,
+                    kPostTypeLabel[p['postType']] ?? '',
                     style: TextStyle(
                       fontSize: 8.5,
                       color: isDark
@@ -2097,8 +2130,8 @@ extension MainScreenSocialTab on _MainScreenState {
                 ),
               ],
               const Spacer(),
-              if (p['userId'].toString() ==
-                  widget.currentUser['id'].toString()) ...[
+              if (p['userId']?.toString() ==
+                  widget.currentUser['id']?.toString()) ...[
                 PopupMenuButton<String>(
                   padding: EdgeInsets.zero,
                   iconSize: 18,
@@ -3214,15 +3247,20 @@ startxref
 
   Widget _buildPostActions(Map<String, dynamic> p) {
     final bool isGuest = widget.currentUser['id'] == 'u4';
+    final bool isLiked = (p['isLiked'] as bool? ?? false);
+    final bool isBookmarked = (p['isBookmarked'] as bool? ?? false);
+    final int likes = (p['likes'] as int?) ?? 0;
+    final int replies = (p['replies'] as int?) ?? 0;
+
     return Row(children: [
       IconButton(
-          icon: Icon(p['isLiked'] ? Icons.favorite : Icons.favorite_border,
+          icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border,
               size: 20,
               color: isGuest
                   ? Colors.grey.shade300
-                  : (p['isLiked'] ? Colors.redAccent : Colors.grey)),
+                  : (isLiked ? Colors.redAccent : Colors.grey)),
           onPressed: () => isGuest ? _showGuestLoginPrompt() : _toggleLike(p)),
-      Text('${p['likes']}', style: const TextStyle(fontSize: 12)),
+      Text('$likes', style: const TextStyle(fontSize: 12)),
       const SizedBox(width: 20),
       IconButton(
           icon: Icon(Icons.mode_comment_outlined,
@@ -3239,17 +3277,17 @@ startxref
                             originalPost: p, currentUser: widget.currentUser)))
                 .then((_) => _loadData());
           }),
-      Text('${p['replies']}', style: const TextStyle(fontSize: 12)),
+      Text('$replies', style: const TextStyle(fontSize: 12)),
       const Spacer(),
       IconButton(
           icon: Icon(
-              (p['isBookmarked'] as bool? ?? false)
+              isBookmarked
                   ? Icons.bookmark
                   : Icons.bookmark_border,
               size: 20,
               color: isGuest
                   ? Colors.grey.shade300
-                  : ((p['isBookmarked'] as bool? ?? false)
+                  : (isBookmarked
                       ? _currentPrimaryColor
                       : Colors.grey)),
           onPressed: () =>
@@ -3263,25 +3301,39 @@ startxref
       _showGuestLoginPrompt();
       return;
     }
-    final db = await DatabaseHelper.instance.database;
-    final currentUserId = widget.currentUser['id'];
-    int currentLikes = p['likes'] ?? 0;
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final currentUserId = widget.currentUser['id']?.toString() ?? '';
+      if (currentUserId.isEmpty) return;
+      // 安全轉換 post id
+      final postId = p['id'] is int
+          ? p['id'] as int
+          : int.tryParse(p['id'].toString());
+      if (postId == null) return;
 
-    if (p['isLiked']) {
-      await db.delete('post_likes',
-          where: 'post_id = ? AND user_id = ?',
-          whereArgs: [p['id'], currentUserId]);
-      currentLikes = (currentLikes > 0) ? currentLikes - 1 : 0;
-      await db.execute(
-          'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
-    } else {
-      await db
-          .insert('post_likes', {'post_id': p['id'], 'user_id': currentUserId});
-      currentLikes = currentLikes + 1;
-      await db.execute(
-          'UPDATE posts SET likes = ? WHERE id = ?', [currentLikes, p['id']]);
+      int currentLikes = (p['likes'] as int?) ?? 0;
+      final bool isLiked = (p['isLiked'] as bool? ?? false);
+
+      if (isLiked) {
+        await db.delete('post_likes',
+            where: 'post_id = ? AND user_id = ?',
+            whereArgs: [postId, currentUserId]);
+        currentLikes = (currentLikes > 0) ? currentLikes - 1 : 0;
+        await db.execute(
+            'UPDATE posts SET likes = ? WHERE id = ?',
+            [currentLikes, postId]);
+      } else {
+        await db.insert(
+            'post_likes', {'post_id': postId, 'user_id': currentUserId});
+        currentLikes = currentLikes + 1;
+        await db.execute(
+            'UPDATE posts SET likes = ? WHERE id = ?',
+            [currentLikes, postId]);
+      }
+      _loadData();
+    } catch (e) {
+      debugPrint('按讚操作失敗: $e');
     }
-    _loadData();
   }
 
   // ── 訪客登入提示 ─────────────────────────────────────────
@@ -3431,13 +3483,13 @@ startxref
           final fetchedBio = (u['bio'] as String? ?? '').trim();
           if (fetchedBio.isNotEmpty) bio = fetchedBio;
           if (u['display_name'] != null) {
-            author = (u['display_name'] as String).trim();
+            author = u['display_name'].toString().trim();
           }
           if (u['avatar_blob'] != null) {
             avatarBlob = u['avatar_blob'] as Uint8List?;
           }
           if (u['avatar_color'] != null) {
-            avatarColor = u['avatar_color'] as int;
+            avatarColor = (u['avatar_color'] as int?) ?? avatarColor;
           }
         }
       } catch (_) {}
@@ -3700,162 +3752,6 @@ startxref
                           ),
                         ],
                       ),
-                    ),
-
-                    // ── 關注的社群主題區塊 ──
-                    const SizedBox(height: 14),
-                    Builder(
-                      builder: (context) {
-                        List<String> cardTopics = [];
-                        if (isOwnPost) {
-                          cardTopics = List<String>.from(_userJoinedTopicIds);
-                        } else {
-                          if (p['tags'] != null) {
-                            try {
-                              final decoded = p['tags'] is String
-                                  ? jsonDecode(p['tags'])
-                                  : p['tags'];
-                              if (decoded is List) {
-                                cardTopics =
-                                    decoded.map((e) => e.toString()).toList();
-                              }
-                            } catch (_) {}
-                          }
-                          if (cardTopics.isEmpty) {
-                            if (author.contains('Aden') ||
-                                p['userId'] == 'u5') {
-                              cardTopics = [
-                                'topic_creative',
-                                'topic_daily',
-                                'topic_ai'
-                              ];
-                            } else if (author.contains('Ethan') ||
-                                p['userId'] == 'u1') {
-                              cardTopics = [
-                                'topic_math',
-                                'topic_ai',
-                                'topic_exam'
-                              ];
-                            } else if (author.contains('Emma') ||
-                                p['userId'] == 'u2') {
-                              cardTopics = [
-                                'topic_english',
-                                'topic_literature',
-                                'topic_daily'
-                              ];
-                            } else {
-                              cardTopics = ['topic_daily', 'topic_math'];
-                            }
-                          }
-                        }
-
-                        return Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF26262B)
-                                : const Color(0xFFF7F8FA),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white12
-                                  : Colors.grey.shade200,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.local_fire_department_rounded,
-                                          size: 16, color: primary),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        '關注的社群主題',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: primary,
-                                          letterSpacing: 0.3,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (isOwnPost)
-                                    GestureDetector(
-                                      onTap: () {
-                                        Navigator.pop(ctx);
-                                        _showTopicExploreBottomSheet(context);
-                                      },
-                                      child: Text(
-                                        '管理主題 ➔',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: primary,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              if (cardTopics.isEmpty)
-                                Text(
-                                  isOwnPost
-                                      ? '尚未關注社群主題，點擊上方管理加入 🚀'
-                                      : '尚未關注任何社群主題 🌱',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontStyle: FontStyle.italic,
-                                    color: isDark
-                                        ? Colors.white38
-                                        : Colors.grey.shade500,
-                                  ),
-                                )
-                              else
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: cardTopics.map((topicId) {
-                                    final topic =
-                                        getCommunityTopicById(topicId);
-                                    final name = topic?.name ?? topicId;
-                                    final color = topic?.color ?? primary;
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 9, vertical: 4.5),
-                                      decoration: BoxDecoration(
-                                        color: color.withValues(
-                                            alpha: isDark ? 0.2 : 0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: color.withValues(
-                                              alpha: isDark ? 0.4 : 0.25),
-                                          width: 0.8,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        name,
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: isDark
-                                              ? color.withValues(alpha: 0.9)
-                                              : color,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                            ],
-                          ),
-                        );
-                      },
                     ),
 
                     // ── 發文動態小標籤（如果有） ──
@@ -4851,20 +4747,26 @@ startxref
 
     final String title = rawTitle.isNotEmpty ? rawTitle : '學習筆記';
     final String content = rawContent.isNotEmpty ? rawContent : pContent;
-    final String category = (attached['category'] as String? ?? '').isNotEmpty
-        ? (attached['category'] as String)
+    final String category = (attached['category'] ?? '筆記').toString().trim().isNotEmpty
+        ? attached['category'].toString().trim()
         : '筆記';
-    final String authorName = p['author'] as String? ?? '未知用戶';
-    final String timeStr = p['time'] as String? ?? '';
+    final String authorName = (p['author'] ?? '未知用戶').toString();
+    final String timeStr = (p['time'] ?? '').toString();
 
     // 解析 strokes
     final List<Stroke> strokes = [];
-    final String? strokesJson = attached['strokes'];
-    if (strokesJson != null && strokesJson.isNotEmpty) {
+    final dynamic rawStrokes = attached['strokes'];
+    if (rawStrokes != null) {
       try {
-        final decoded = jsonDecode(strokesJson) as List;
-        for (var s in decoded) {
-          strokes.add(Stroke.fromJson(s as Map<String, dynamic>));
+        if (rawStrokes is String && rawStrokes.isNotEmpty) {
+          final decoded = jsonDecode(rawStrokes) as List;
+          for (var s in decoded) {
+            if (s is Map) strokes.add(Stroke.fromJson(Map<String, dynamic>.from(s)));
+          }
+        } else if (rawStrokes is List) {
+          for (var s in rawStrokes) {
+            if (s is Map) strokes.add(Stroke.fromJson(Map<String, dynamic>.from(s)));
+          }
         }
       } catch (e) {
         debugPrint('解析筆記繪圖失敗: $e');

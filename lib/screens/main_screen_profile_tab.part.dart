@@ -45,9 +45,7 @@ extension MainScreenProfileTab on _MainScreenState {
                       _buildVipMembershipBanner(context),
                       const SizedBox(height: 16),
                       _buildPersonalizedDashboard(context),
-                      const SizedBox(height: 20),
-                      _buildJoinedTopicsModule(context),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       _buildBasicInfoModule(context),
                       const SizedBox(height: 16),
                       _buildLearningProgressModule(context),
@@ -80,199 +78,28 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-// ── 我的社群主題模組 (Profile Tab Module) ─────────────────────────
-  Widget _buildJoinedTopicsModule(BuildContext context) {
+  // ── 社群主題中心 Bottom Sheet (Topic Explorer & Manager) ──────────────
+  void _showTopicExploreBottomSheet([BuildContext? targetContext]) {
     final isDark = _isDarkMode;
     final primary = _currentPrimaryColor;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E22) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.local_fire_department_rounded,
-                      color: primary,
-                      size: 17,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '我的社群主題',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '已加入 ${_userJoinedTopicIds.length}',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.bold,
-                        color: primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              InkWell(
-                onTap: () => _showTopicExploreBottomSheet(context),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Row(
-                    children: [
-                      Text(
-                        '探索更多',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: primary,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(Icons.arrow_forward_ios_rounded,
-                          size: 11, color: primary),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (_userJoinedTopicIds.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color:
-                    isDark ? const Color(0xFF26262B) : const Color(0xFFF7F8FA),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.explore_outlined,
-                      size: 18, color: Colors.grey.shade500),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '尚未關注任何社群主題，點擊探索加入 🚀',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: isDark ? Colors.white54 : Colors.grey.shade600,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => _showTopicExploreBottomSheet(context),
-                    child: const Text('立即探索',
-                        style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _userJoinedTopicIds.map((topicId) {
-                final topic = getCommunityTopicById(topicId);
-                final name = topic?.name ?? topicId;
-                final color = topic?.color ?? primary;
-
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: isDark ? 0.2 : 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: color.withValues(alpha: isDark ? 0.4 : 0.25),
-                      width: 0.9,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? color.withValues(alpha: 0.9) : color,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      GestureDetector(
-                        onTap: () => _toggleJoinTopic(topicId),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 14,
-                          color: isDark
-                              ? color.withValues(alpha: 0.7)
-                              : color.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ── 探索社群主題 Bottom Sheet (Topic Explorer) ─────────────────────
-  void _showTopicExploreBottomSheet(BuildContext context) {
-    final isDark = _isDarkMode;
-    final primary = _currentPrimaryColor;
+    final BuildContext activeContext =
+        (targetContext != null && targetContext.mounted)
+            ? targetContext
+            : context;
 
     showModalBottomSheet(
-      context: context,
+      context: activeContext,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (bCtx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
+            final double screenHeight = MediaQuery.maybeOf(bCtx)?.size.height ??
+                MediaQuery.maybeOf(ctx)?.size.height ??
+                MediaQuery.maybeOf(activeContext)?.size.height ??
+                700;
             return Container(
-              height: MediaQuery.of(context).size.height * 0.78,
+              height: screenHeight * 0.82,
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E1E22) : Colors.white,
                 borderRadius:
@@ -312,24 +139,45 @@ extension MainScreenProfileTab on _MainScreenState {
                             shape: BoxShape.circle,
                           ),
                           child: Icon(Icons.explore_rounded,
-                              color: primary, size: 20),
+                              color: primary, size: 22),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                '探索社群主題',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
+                              Row(
+                                children: [
+                                  Text(
+                                    '社群主題中心',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: primary.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '已關注 ${_userJoinedTopicIds.length}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '關注感興趣的學科主題，即時掌握同儕筆記與討論',
+                                '關注感興趣的學科與社群主題，掌握同儕精選筆記與最新討論',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: isDark
@@ -356,137 +204,348 @@ extension MainScreenProfileTab on _MainScreenState {
                       color: isDark ? Colors.white12 : Colors.grey.shade200),
                   // 主題列表
                   Expanded(
-                    child: ListView.separated(
+                    child: ListView(
                       padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
-                      itemCount: kCommunityTopics.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final topic = kCommunityTopics[index];
-                        final bool isJoined =
-                            _userJoinedTopicIds.contains(topic.id);
-
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF26262B)
-                                : const Color(0xFFF9F9FB),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: isJoined
-                                  ? topic.color.withValues(alpha: 0.4)
-                                  : (isDark
-                                      ? Colors.white10
-                                      : Colors.grey.shade200),
-                              width: isJoined ? 1.2 : 1.0,
-                            ),
-                          ),
-                          child: Row(
+                      children: [
+                        // ── 我的關注社群快速預覽 ──
+                        if (_userJoinedTopicIds.isNotEmpty) ...[
+                          Row(
                             children: [
-                              // Emoji Icon Container
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: topic.color
-                                      .withValues(alpha: isDark ? 0.2 : 0.12),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(topic.emoji,
-                                    style: const TextStyle(fontSize: 22)),
-                              ),
-                              const SizedBox(width: 12),
-                              // Title & Description
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          topic.title,
-                                          style: TextStyle(
-                                            fontSize: 14.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDark
-                                                ? Colors.white
-                                                : Colors.black87,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      topic.description,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? Colors.white60
-                                            : Colors.grey.shade600,
-                                        height: 1.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              // Join / Unjoin Button
-                              InkWell(
-                                onTap: () {
-                                  _toggleJoinTopic(topic.id);
-                                  setModalState(() {});
-                                },
-                                borderRadius: BorderRadius.circular(14),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 7),
-                                  decoration: BoxDecoration(
-                                    color: isJoined
-                                        ? topic.color
-                                        : topic.color.withValues(
-                                            alpha: isDark ? 0.15 : 0.08),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: topic.color.withValues(
-                                          alpha: isJoined ? 1.0 : 0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        isJoined
-                                            ? Icons.check_rounded
-                                            : Icons.add_rounded,
-                                        size: 14,
-                                        color: isJoined
-                                            ? Colors.white
-                                            : topic.color,
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        isJoined ? '已關注' : '關注',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: isJoined
-                                              ? Colors.white
-                                              : topic.color,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              Icon(Icons.star_rounded,
+                                  size: 16, color: Colors.amber.shade600),
+                              const SizedBox(width: 5),
+                              Text(
+                                '我關注的社群 (${_userJoinedTopicIds.length})',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white70 : Colors.black87,
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      },
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _userJoinedTopicIds.map((topicId) {
+                              final topic = getCommunityTopicById(topicId);
+                              final name = topic?.name ?? topicId;
+                              final color = topic?.color ?? primary;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(
+                                      alpha: isDark ? 0.2 : 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: color.withValues(
+                                        alpha: isDark ? 0.4 : 0.25),
+                                    width: 0.9,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark
+                                            ? color.withValues(alpha: 0.9)
+                                            : color,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    GestureDetector(
+                                      onTap: () {
+                                        _toggleJoinTopic(topicId);
+                                        try {
+                                          setModalState(() {});
+                                        } catch (_) {}
+                                      },
+                                      child: Icon(
+                                        Icons.close_rounded,
+                                        size: 14,
+                                        color: isDark
+                                            ? color.withValues(alpha: 0.7)
+                                            : color.withValues(alpha: 0.8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 16),
+                          Divider(
+                              height: 1,
+                              color: isDark
+                                  ? Colors.white10
+                                  : Colors.grey.shade200),
+                          const SizedBox(height: 14),
+                        ],
+
+                        // ── 全部社群主題列表 ──
+                        Row(
+                          children: [
+                            Icon(Icons.grid_view_rounded,
+                                size: 15,
+                                color: isDark
+                                    ? Colors.white54
+                                    : Colors.grey.shade600),
+                            const SizedBox(width: 6),
+                            Text(
+                              '探索所有主題 (${kCommunityTopics.length})',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        ...kCommunityTopics.map((topic) {
+                          final bool isJoined =
+                              _userJoinedTopicIds.contains(topic.id);
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF26262B)
+                                  : const Color(0xFFF9F9FB),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: isJoined
+                                    ? topic.color.withValues(alpha: 0.45)
+                                    : (isDark
+                                        ? Colors.white10
+                                        : Colors.grey.shade200),
+                                width: isJoined ? 1.2 : 1.0,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    // Emoji Icon Container
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: topic.color.withValues(
+                                            alpha: isDark ? 0.2 : 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(14),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(topic.emoji,
+                                          style:
+                                              const TextStyle(fontSize: 22)),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // Title & Description
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                topic.title,
+                                                style: TextStyle(
+                                                  fontSize: 14.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : Colors.black87,
+                                                ),
+                                              ),
+                                              if (isJoined) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                          horizontal: 5,
+                                                          vertical: 1.5),
+                                                  decoration: BoxDecoration(
+                                                    color: topic.color
+                                                        .withValues(
+                                                            alpha: 0.15),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6),
+                                                  ),
+                                                  child: Text(
+                                                    '已關注',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: topic.color,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            topic.description,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark
+                                                  ? Colors.white60
+                                                  : Colors.grey.shade600,
+                                              height: 1.3,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    // Join / Unjoin Button
+                                    InkWell(
+                                      onTap: () {
+                                        _toggleJoinTopic(topic.id);
+                                        try {
+                                          setModalState(() {});
+                                        } catch (_) {}
+                                      },
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 7),
+                                        decoration: BoxDecoration(
+                                          color: isJoined
+                                              ? topic.color
+                                              : topic.color.withValues(
+                                                  alpha:
+                                                      isDark ? 0.15 : 0.08),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: topic.color.withValues(
+                                                alpha: isJoined ? 1.0 : 0.3),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              isJoined
+                                                  ? Icons.check_rounded
+                                                  : Icons.add_rounded,
+                                              size: 14,
+                                              color: isJoined
+                                                  ? Colors.white
+                                                  : topic.color,
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              isJoined ? '已關注' : '關注',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: isJoined
+                                                    ? Colors.white
+                                                    : topic.color,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                // 底部資訊條（成員數、貼文數、直接瀏覽捷徑）
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.people_outline_rounded,
+                                            size: 13,
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey.shade500),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '${_getTopicMemberCount(topic.id)} 夥伴',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Icon(Icons.article_outlined,
+                                            size: 13,
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey.shade500),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '${_getTopicPostCount(topic.id)} 貼文',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        Navigator.pop(bCtx);
+                                        _selectedSocialTopicFilter = topic.id;
+                                        _socialMainTab = 0;
+                                        _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
+                                      },
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4, vertical: 2),
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              '瀏覽此主題貼文',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: topic.color,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Icon(Icons.arrow_forward_ios_rounded,
+                                                size: 9, color: topic.color),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
                     ),
                   ),
                 ],

@@ -25,6 +25,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/push_notification_service.dart';
 import '../services/app_locale_service.dart';
+import '../services/app_theme_service.dart';
 import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
 import '../widgets/tutorial_video_player.dart';
@@ -104,7 +105,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     'social_feed'
   ];
   bool _pushNotificationsEnabled = true;
+  bool _isDrawerCommunityExpanded = true; // 側邊欄社群主題下拉展開狀態
   List<String> _userJoinedTopicIds = ['topic_math', 'topic_ai', 'topic_daily'];
+  Map<String, int> _topicMemberCounts = {};
+  Map<String, int> _topicPostCounts = {};
+
+  int _getTopicMemberCount(String topicId) {
+    if (_topicMemberCounts.containsKey(topicId)) {
+      return _topicMemberCounts[topicId] ?? (_userJoinedTopicIds.contains(topicId) ? 1 : 0);
+    }
+    return _userJoinedTopicIds.contains(topicId) ? 1 : 0;
+  }
+
+  int _getTopicPostCount(String topicId) {
+    return _topicPostCounts[topicId] ?? 0;
+  }
+
   String _selectedSocialTopicFilter = '全部'; // 社群主題篩選
   String _socialFilter = '全部'; // 社群貼文分類篩選狀態
   String _socialAuthorFilter = ''; // 社群貼文作者篩選（空字串 = 全部）
@@ -275,54 +291,70 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     setState(() {
       if (isJoined) {
         _userJoinedTopicIds.remove(topicId);
+        final currentCount = _topicMemberCounts[topicId] ?? 1;
+        _topicMemberCounts[topicId] = (currentCount > 0) ? currentCount - 1 : 0;
       } else {
-        _userJoinedTopicIds.add(topicId);
+        if (!_userJoinedTopicIds.contains(topicId)) {
+          _userJoinedTopicIds.add(topicId);
+        }
+        final currentCount = _topicMemberCounts[topicId] ?? 0;
+        _topicMemberCounts[topicId] = currentCount + 1;
       }
     });
 
     try {
       final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'users',
-        {'tags': jsonEncode(_userJoinedTopicIds)},
-        where: 'id = ?',
-        whereArgs: [widget.currentUser['id']],
-      );
+      final userId = widget.currentUser['id']?.toString() ?? '';
+      if (userId.isNotEmpty) {
+        await db.update(
+          'users',
+          {'tags': jsonEncode(_userJoinedTopicIds)},
+          where: 'id = ?',
+          whereArgs: [userId],
+        );
+      }
     } catch (e) {
       debugPrint('儲存關注主題失敗: $e');
     }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isJoined
-                    ? Icons.remove_circle_outline_rounded
-                    : Icons.check_circle_rounded,
-                color: Colors.white,
-                size: 18,
+      try {
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.clearSnackBars();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(
+                    isJoined
+                        ? Icons.remove_circle_outline_rounded
+                        : Icons.check_circle_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isJoined ? '已取消關注「$topicName」主題' : '🎉 已成功關注「$topicName」主題！',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isJoined ? '已取消關注「$topicName」主題' : '🎉 已成功關注「$topicName」主題！',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor:
-              isJoined ? Colors.grey.shade800 : _currentPrimaryColor,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+              backgroundColor:
+                  isJoined ? Colors.grey.shade800 : _currentPrimaryColor,
+              behavior: SnackBarBehavior.floating,
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('顯示關注提示失敗: $e');
+      }
     }
   }
 
@@ -1085,6 +1117,52 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         debugPrint('群組資料載入失敗: $e');
       }
 
+      // ── 統計各社群主題實際夥伴人數與動態數 ────────────────────────
+      final Map<String, int> topicMemberCounts = {};
+      final Map<String, int> topicPostCounts = {};
+      try {
+        final allUserTagsRows =
+            await db.query('users', columns: ['id', 'tags']);
+        for (var u in allUserTagsRows) {
+          final rawTags = u['tags'];
+          if (rawTags != null && rawTags is String && rawTags.isNotEmpty) {
+            try {
+              final decoded = jsonDecode(rawTags);
+              if (decoded is List) {
+                for (var tid in decoded) {
+                  final tKey = tid.toString();
+                  topicMemberCounts[tKey] =
+                      (topicMemberCounts[tKey] ?? 0) + 1;
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (e) {
+        debugPrint('統計主題夥伴人數失敗: $e');
+      }
+
+      for (var p in pList) {
+        final attached = p['attached_data'];
+        final cat =
+            (attached != null ? (attached['category'] ?? '') : '').toString();
+        final content = (p['content'] ?? '').toString();
+        final pTags = (p['tags'] ?? '').toString();
+
+        for (final topic in kCommunityTopics) {
+          final title = topic.title;
+          final name = topic.name;
+          final tid = topic.id;
+          if (cat.contains(title) ||
+              cat.contains(name) ||
+              content.contains(title) ||
+              content.contains(name) ||
+              pTags.contains(tid)) {
+            topicPostCounts[tid] = (topicPostCounts[tid] ?? 0) + 1;
+          }
+        }
+      }
+
       if (mounted) {
         setState(() {
           allSchedules = schedulesMap;
@@ -1095,6 +1173,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           questionBank = qList;
           myGroups = myGroupsList;
           allGroups = allGroupsList;
+          _topicMemberCounts = topicMemberCounts;
+          _topicPostCounts = topicPostCounts;
           _userAvatarBlob = userAvatar;
           _userAvatarColor = userAvatarColor;
           _userAvatarSelected = userAvatarSelected == 1;
@@ -1128,6 +1208,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 ((userRows.first['font_size_factor'] ?? 1.2) as num).toDouble();
             _themeColorIdx = (userRows.first['theme_color_idx'] ?? 0) as int;
             _isDarkMode = (userRows.first['is_dark_mode'] ?? 0) == 1;
+            AppThemeService.syncFromUser(
+              themeColorIdx: _themeColorIdx,
+              isDark: _isDarkMode,
+              fontFactor: _fontSizeFactor,
+            );
             _calendarViewMode =
                 (userRows.first['calendar_view_mode'] as String?) ?? 'dot';
             _socialFeedLayout =
@@ -1788,39 +1873,54 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _toggleBookmark(Map<String, dynamic> post) async {
-    final db = await DatabaseHelper.instance.database;
-    final postId = post['id'] as int;
-    final userId = widget.currentUser['id'] as String;
+    try {
+      final db = await DatabaseHelper.instance.database;
+      // 安全轉換：post['id'] 可能是 int 或 String
+      final postId = post['id'] is int
+          ? post['id'] as int
+          : int.tryParse(post['id'].toString()) ?? 0;
+      // 安全轉換：currentUser['id'] 可能是 int 或 String
+      final userId = widget.currentUser['id']?.toString() ?? '';
 
-    final existing = await db.query(
-      'post_bookmarks',
-      where: 'post_id = ? AND user_id = ?',
-      whereArgs: [postId, userId],
-    );
+      if (postId == 0 || userId.isEmpty) return;
 
-    if (existing.isNotEmpty) {
-      await db.delete(
+      final existing = await db.query(
         'post_bookmarks',
         where: 'post_id = ? AND user_id = ?',
         whereArgs: [postId, userId],
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已取消收藏')),
+
+      if (existing.isNotEmpty) {
+        await db.delete(
+          'post_bookmarks',
+          where: 'post_id = ? AND user_id = ?',
+          whereArgs: [postId, userId],
         );
+        if (mounted) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(content: Text('已取消收藏')),
+          );
+        }
+      } else {
+        await db.insert('post_bookmarks', <String, Object?>{
+          'post_id': postId,
+          'user_id': userId,
+        });
+        if (mounted) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(content: Text('已收藏貼文')),
+          );
+        }
       }
-    } else {
-      await db.insert('post_bookmarks', <String, Object?>{
-        'post_id': postId,
-        'user_id': userId,
-      });
+      await _loadData();
+    } catch (e) {
+      debugPrint('收藏操作失敗: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已收藏貼文')),
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('操作失敗，請稍後再試')),
         );
       }
     }
-    await _loadData();
   }
 
   // 補回：手動新增行程
@@ -2717,32 +2817,385 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         Navigator.pop(context);
                       }),
 
-                  ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      selected: _currentIndex == 2,
-                      selectedTileColor: Theme.of(context)
-                          .primaryColor
-                          .withValues(alpha: 0.12),
-                      leading: Icon(Icons.forum_rounded,
-                          color: Theme.of(context).primaryColor, size: 25),
-                      title: Text(
-                          AppLocaleService.tr('nav_community', _appLanguage),
-                          style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: _isDarkMode
-                                  ? Colors.white
-                                  : Colors.black87)),
-                      onTap: () {
-                        _changePage(
-                            2, AppLocaleService.tr('nav_community', _appLanguage));
-                        Navigator.pop(context);
-                      }),
+                  // ── 側邊欄：社群與主題下拉式選單 (整合為同一功能模組) ──
+                  StatefulBuilder(
+                    builder: (context, setDrawerState) {
+                      final bool isCommunityActive = _currentIndex == 2;
+                      final primaryColor = Theme.of(context).primaryColor;
 
-                  const Divider(height: 28, indent: 8, endIndent: 8),
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isCommunityActive
+                              ? primaryColor.withValues(alpha: _isDarkMode ? 0.08 : 0.05)
+                              : (_isDrawerCommunityExpanded
+                                  ? (_isDarkMode
+                                      ? Colors.white.withValues(alpha: 0.03)
+                                      : const Color(0xFFF7F9FB))
+                                  : Colors.transparent),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isCommunityActive
+                                ? primaryColor.withValues(alpha: 0.22)
+                                : (_isDrawerCommunityExpanded
+                                    ? (_isDarkMode
+                                        ? Colors.white.withValues(alpha: 0.06)
+                                        : Colors.black.withValues(alpha: 0.05))
+                                    : Colors.transparent),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ── 主選單：社群 ──
+                            Material(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(16),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () {
+                                  _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
+                                  Navigator.pop(context);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.forum_rounded,
+                                        color: primaryColor,
+                                        size: 25,
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              AppLocaleService.tr('nav_community', _appLanguage),
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: _isDarkMode ? Colors.white : Colors.black87,
+                                              ),
+                                            ),
+                                            if (_userJoinedTopicIds.isNotEmpty) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                decoration: BoxDecoration(
+                                                  color: primaryColor.withValues(alpha: 0.12),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  '${_userJoinedTopicIds.length}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: primaryColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      // 下拉/收合箭頭按鈕
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(20),
+                                          onTap: () {
+                                            setDrawerState(() {
+                                              _isDrawerCommunityExpanded = !_isDrawerCommunityExpanded;
+                                            });
+                                            setState(() {});
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4),
+                                            child: AnimatedRotation(
+                                              turns: _isDrawerCommunityExpanded ? 0.5 : 0.0,
+                                              duration: const Duration(milliseconds: 200),
+                                              child: Icon(
+                                                Icons.keyboard_arrow_down_rounded,
+                                                size: 22,
+                                                color: _isDarkMode ? Colors.white60 : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // ── 下拉展開子選單區域 ──
+                            AnimatedCrossFade(
+                              firstChild: const SizedBox.shrink(),
+                              secondChild: Padding(
+                                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: _isDarkMode
+                                        ? Colors.white.withValues(alpha: 0.04)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: _isDarkMode
+                                          ? Colors.white.withValues(alpha: 0.06)
+                                          : Colors.black.withValues(alpha: 0.04),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // 子項目 1：全部社群動態
+                                      Material(
+                                        color: (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
+                                            ? primaryColor.withValues(alpha: 0.12)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(8),
+                                          onTap: () {
+                                            _selectedSocialTopicFilter = '全部';
+                                            _socialMainTab = 0;
+                                            _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
+                                            Navigator.pop(context);
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.dynamic_feed_rounded,
+                                                  size: 18,
+                                                  color: (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
+                                                      ? primaryColor
+                                                      : (_isDarkMode ? Colors.white60 : Colors.grey.shade600),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    '全部社群動態',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
+                                                          ? FontWeight.bold
+                                                          : FontWeight.w500,
+                                                      color: (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
+                                                          ? primaryColor
+                                                          : (_isDarkMode ? Colors.white : Colors.black87),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
+                                                  Icon(
+                                                    Icons.check_rounded,
+                                                    size: 15,
+                                                    color: primaryColor,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 6),
+                                        child: Divider(height: 1, thickness: 0.8),
+                                      ),
+
+                                      // 關注社群標題列
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(Icons.star_rounded, size: 16, color: Colors.amber.shade700),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                '我的關注社群',
+                                                style: TextStyle(
+                                                  color: _isDarkMode
+                                                      ? Colors.white.withValues(alpha: 0.85)
+                                                      : Colors.grey.shade800,
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          InkWell(
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _showTopicExploreBottomSheet(context);
+                                            },
+                                            borderRadius: BorderRadius.circular(6),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                              child: Row(
+                                                children: [
+                                                  Text(
+                                                    '探索',
+                                                    style: TextStyle(
+                                                      fontSize: 11.5,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: primaryColor,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 2),
+                                                  Icon(
+                                                    Icons.arrow_forward_ios_rounded,
+                                                    size: 9,
+                                                    color: primaryColor,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 6),
+
+                                      // 主題列表
+                                      if (_userJoinedTopicIds.isEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: _isDarkMode
+                                                ? Colors.white.withValues(alpha: 0.02)
+                                                : const Color(0xFFF9FAFB),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.explore_outlined, size: 14, color: Colors.grey.shade500),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  '尚未關注任何社群主題',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: _isDarkMode ? Colors.white54 : Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                              InkWell(
+                                                onTap: () {
+                                                  Navigator.pop(context);
+                                                  _showTopicExploreBottomSheet(context);
+                                                },
+                                                child: Text(
+                                                  '去探索',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: primaryColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      else
+                                        ListView.separated(
+                                          shrinkWrap: true,
+                                          physics: const NeverScrollableScrollPhysics(),
+                                          padding: EdgeInsets.zero,
+                                          itemCount: _userJoinedTopicIds.length,
+                                          separatorBuilder: (_, __) => const SizedBox(height: 4),
+                                          itemBuilder: (context, index) {
+                                            final topicId = _userJoinedTopicIds[index];
+                                            final topic = getCommunityTopicById(topicId);
+                                            final title = topic?.title ?? topicId;
+                                            final emoji = topic?.emoji ?? '🏷️';
+                                            final color = topic?.color ?? primaryColor;
+                                            final isSelected = (isCommunityActive && _selectedSocialTopicFilter == topicId);
+                                            final int memberCount = _getTopicMemberCount(topicId);
+
+                                            return Material(
+                                              color: isSelected
+                                                  ? color.withValues(alpha: 0.14)
+                                                  : Colors.transparent,
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: InkWell(
+                                                borderRadius: BorderRadius.circular(8),
+                                                onTap: () {
+                                                  _selectedSocialTopicFilter = topicId;
+                                                  _socialMainTab = 0;
+                                                  _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
+                                                  Navigator.pop(context);
+                                                },
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 26,
+                                                        height: 26,
+                                                        decoration: BoxDecoration(
+                                                          color: color.withValues(alpha: 0.15),
+                                                          borderRadius: BorderRadius.circular(7),
+                                                        ),
+                                                        alignment: Alignment.center,
+                                                        child: Text(
+                                                          emoji,
+                                                          style: const TextStyle(fontSize: 13),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Expanded(
+                                                        child: Text(
+                                                          title,
+                                                          style: TextStyle(
+                                                            fontSize: 12.5,
+                                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                                            color: isSelected
+                                                                ? color
+                                                                : (_isDarkMode ? Colors.white : Colors.black87),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '$memberCount 夥伴',
+                                                        style: TextStyle(
+                                                          fontSize: 10.5,
+                                                          color: _isDarkMode ? Colors.white38 : Colors.grey.shade500,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 3),
+                                                      Icon(
+                                                        Icons.chevron_right_rounded,
+                                                        size: 15,
+                                                        color: _isDarkMode ? Colors.white24 : Colors.grey.shade400,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              crossFadeState: _isDrawerCommunityExpanded
+                                  ? CrossFadeState.showSecond
+                                  : CrossFadeState.showFirst,
+                              duration: const Duration(milliseconds: 200),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
+                  const Divider(height: 24, indent: 8, endIndent: 8),
 
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
@@ -9004,6 +9457,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           width -= 6;
                         }
 
+                        final int evColorInt = (ev['color'] as int?) ?? 0xFFD87A7A;
+                        final String evTitle = (ev['title'] ?? '').toString();
+
                         return Positioned(
                           left: left,
                           width: width,
@@ -9014,7 +9470,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             onTap: () => _showEditScheduleDialog(ev),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Color(ev['color']),
+                                color: Color(evColorInt),
                                 borderRadius: BorderRadius.only(
                                   topLeft: isStartOfWeek || isSingleDay
                                       ? const Radius.circular(4)
@@ -9041,7 +9497,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 4),
                               child: Text(
-                                ev['title'],
+                                evTitle,
                                 style: const TextStyle(
                                   fontSize: 8.5, // Slightly larger font size
                                   fontWeight: FontWeight.bold,
@@ -9263,13 +9719,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // Itinerary Logic: Sort by time
     List<Map<String, dynamic>> schedules =
         List.from(allSchedules[dateKey] ?? []);
-    schedules.sort((a, b) => (a['time'] as String).compareTo(b['time']));
+    schedules.sort((a, b) {
+      String timeA = (a['time'] as String? ?? '');
+      String timeB = (b['time'] as String? ?? '');
+      return timeA.compareTo(timeB);
+    });
 
     // Calculate free time intervals and mix with schedules
     List<Map<String, dynamic>> items = [];
     int currentMin = 0;
     for (var event in schedules) {
-      String timeRange = event['time'] ?? '';
+      String timeRange = (event['time'] as String? ?? '');
       List<String> parts = timeRange.split('~');
       if (parts.length == 2) {
         int startMin = parseTimeToMinutes(parts[0]);
@@ -9320,9 +9780,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         children: items.map((item) {
           if (item['isFree'] == true) {
             return staggered(
-                _buildFreeTimeItem(item['time'], item['duration']));
+                _buildFreeTimeItem(item['time']?.toString() ?? '', (item['duration'] as int?) ?? 0));
           } else {
-            return staggered(_buildScheduleItem(item['event']));
+            return staggered(_buildScheduleItem(item['event'] as Map<String, dynamic>? ?? {}));
           }
         }).toList());
   }
@@ -9913,6 +10373,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final Color baseColor =
         _getMorandiScheduleColor(event['color'] as int? ?? 0xFFD87A7A);
 
+    final String timeText = (event['time'] ?? '').toString();
+    final String titleText = (event['title'] ?? '未命名行程').toString();
+
     return GestureDetector(
         onTap: () => _showEditScheduleDialog(event),
         onLongPress: () {
@@ -9920,7 +10383,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               context: context,
               builder: (ctx) => AlertDialog(
                       title: const Text('刪除行程'),
-                      content: Text('確定要刪除「${event['title']}」嗎？'),
+                      content: Text('確定要刪除「$titleText」嗎？'),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx),
@@ -9964,10 +10427,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      event['time'],
+                      timeText,
                       maxLines: 1,
                       softWrap: false,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                         color: Colors.black87,
@@ -9978,8 +10441,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    event['title'],
-                    style: TextStyle(
+                    titleText,
+                    style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
                       color: Colors.black87,
@@ -9995,17 +10458,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   // 新增：編輯行程對話框 (修改自 _showManualAddDialog)
   void _showEditScheduleDialog(Map<String, dynamic> event) {
     TextEditingController titleController =
-        TextEditingController(text: event['title']);
+        TextEditingController(text: (event['title'] ?? '').toString());
     // 解析原本的時間
-    String timeRange = event['time'];
-    String startPart = timeRange.split('~')[0];
-    String endPart = timeRange.split('~')[1];
-    TimeOfDay pickedStartTime = TimeOfDay(
-        hour: int.parse(startPart.split(':')[0]),
-        minute: int.parse(startPart.split(':')[1]));
-    TimeOfDay pickedEndTime = TimeOfDay(
-        hour: int.parse(endPart.split(':')[0]),
-        minute: int.parse(endPart.split(':')[1]));
+    String timeRange = (event['time'] ?? '09:00~10:00').toString();
+    List<String> timeParts = timeRange.split('~');
+    String startPart = timeParts.isNotEmpty ? timeParts[0] : '09:00';
+    String endPart = timeParts.length > 1 ? timeParts[1] : '10:00';
+    int startH = int.tryParse(startPart.split(':')[0]) ?? 9;
+    int startM = int.tryParse(startPart.split(':').length > 1 ? startPart.split(':')[1] : '0') ?? 0;
+    int endH = int.tryParse(endPart.split(':')[0]) ?? 10;
+    int endM = int.tryParse(endPart.split(':').length > 1 ? endPart.split(':')[1] : '0') ?? 0;
+    TimeOfDay pickedStartTime = TimeOfDay(hour: startH, minute: startM);
+    TimeOfDay pickedEndTime = TimeOfDay(hour: endH, minute: endM);
 
     final List<int> vibrantColors = [
       0xFFFFCC80,
@@ -10015,8 +10479,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       0xFFCE93D8,
       0xFF80CBC4,
     ];
-    int selectedColor = event['color'];
-    // 確保選中的顏色在清單中，若不在（如初始資料）則預設第一個
+    int selectedColor = (event['color'] as int?) ?? vibrantColors[0];
     if (!vibrantColors.contains(selectedColor)) {
       selectedColor = vibrantColors[0];
     }
@@ -11323,27 +11786,50 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _deletePost(Map<String, dynamic> p) async {
-    final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              title: const Text('刪除貼文', style: TextStyle(fontSize: 16)),
-              content: const Text('確定要刪除這篇貼文嗎？刪除後無法復原。'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child:
-                        const Text('取消', style: TextStyle(color: Colors.grey))),
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child:
-                        const Text('刪除', style: TextStyle(color: Colors.red))),
-              ],
-            ));
+    bool? confirm;
+    try {
+      confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                title: const Text('刪除貼文', style: TextStyle(fontSize: 16)),
+                content: const Text('確定要刪除這篇貼文嗎？刪除後無法復原。'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('取消',
+                          style: TextStyle(color: Colors.grey))),
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child:
+                          const Text('刪除', style: TextStyle(color: Colors.red))),
+                ],
+              ));
+    } catch (e) {
+      debugPrint('顯示刪除確認對話框失敗: $e');
+      return;
+    }
     if (confirm == true && mounted) {
-      final db = await DatabaseHelper.instance.database;
-      final postId = int.tryParse(p['id'].toString()) ?? p['id'];
-      await db.delete('posts', where: 'id = ?', whereArgs: [postId]);
-      await _loadData();
+      try {
+        final db = await DatabaseHelper.instance.database;
+        final postId = p['id'] is int
+            ? p['id'] as int
+            : int.tryParse(p['id'].toString());
+        if (postId == null) return;
+        await db.delete('posts', where: 'id = ?', whereArgs: [postId]);
+        await _loadData();
+        if (mounted) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(content: Text('貼文已刪除')),
+          );
+        }
+      } catch (e) {
+        debugPrint('刪除貼文失敗: $e');
+        if (mounted) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(content: Text('刪除失敗，請稍後再試')),
+          );
+        }
+      }
     }
   }
   // ───────────────────────────────────────────────────────────────
@@ -12160,6 +12646,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       },
       where: 'id = ?',
       whereArgs: [widget.currentUser['id']],
+    );
+    AppThemeService.syncFromUser(
+      themeColorIdx: _themeColorIdx,
+      isDark: _isDarkMode,
+      fontFactor: _fontSizeFactor,
     );
     await _loadData();
     if (mounted) {
