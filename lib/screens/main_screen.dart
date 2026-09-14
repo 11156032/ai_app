@@ -154,6 +154,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final TextEditingController _diaryInputController = TextEditingController();
   final FocusNode _diaryFocusNode = FocusNode();
   String _originalDiaryContent = '';
+  final Map<String, String> _diaryAiAdviceMap = {};
+  final Map<String, bool> _isGeneratingDiaryAdviceMap = {};
+  final Map<String, bool> _showAiAdviceMap = {};
   List<Map<String, dynamic>> socialPosts = [];
   List<Map<String, dynamic>> scheduledPosts = [];
   List<Map<String, dynamic>> questionBank = [];
@@ -2021,6 +2024,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _originalDiaryContent = content;
       await _loadData();
       _updateDiaryController(_selectedDate, force: true);
+
+      // 儲存當下若 AI 區塊已開啟或已有舊建議，立即重新整理/生成最新 AI 回饋
+      if (_showAiAdviceMap[dateKey] == true ||
+          (_diaryAiAdviceMap[dateKey] ?? '').isNotEmpty) {
+        _generateDiaryAiAdvice(dateKey, content);
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2067,6 +2077,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('刪除日記失敗: $e');
+    }
+  }
+
+  void _generateDiaryAiAdvice(String dateKey, String textContent) async {
+    if (_isGeneratingDiaryAdviceMap[dateKey] == true) return;
+
+    setState(() {
+      _isGeneratingDiaryAdviceMap[dateKey] = true;
+      _showAiAdviceMap[dateKey] = true;
+    });
+
+    try {
+      final advice = await AiDiagnosisService.generateGoalAdviceFromDiary(
+        diaryContent: textContent,
+      );
+      if (!mounted) return;
+      setState(() {
+        _diaryAiAdviceMap[dateKey] = advice;
+      });
+    } catch (e) {
+      debugPrint('生成 AI 回饋失敗: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingDiaryAdviceMap[dateKey] = false;
+        });
+      }
     }
   }
 
@@ -9429,10 +9466,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         builder: (context, constraints) {
           return SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: (constraints.maxHeight - 92).clamp(240.0, 2000.0),
+                minHeight: (constraints.maxHeight - 92).clamp(280.0, 2000.0),
               ),
               child: IntrinsicHeight(
                 child: FadeInUp(
@@ -9442,7 +9479,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       color: isDark
                           ? Colors.white.withValues(alpha: 0.05)
                           : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
                       border: Border.all(
                         color: isDark ? Colors.white10 : Colors.grey.shade200,
                         width: 1.5,
@@ -9455,19 +9492,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         )
                       ],
                     ),
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
                             Icon(Icons.edit_note_rounded,
-                                color: primaryColor, size: 26),
+                                color: primaryColor, size: 28),
                             const SizedBox(width: 10),
                             Text(
                               '今日日記',
                               style: TextStyle(
-                                fontSize: 17,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: primaryColor,
                               ),
@@ -9492,18 +9529,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               ),
                           ],
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 22),
                         Expanded(
                           child: isActive
                               ? TextField(
                                   controller: _diaryInputController,
                                   focusNode: _diaryFocusNode,
                                   maxLines: null,
-                                  minLines: 4,
+                                  minLines: 5,
                                   keyboardType: TextInputType.multiline,
                                   style: TextStyle(
                                     fontSize: 15,
-                                    height: 1.6,
+                                    height: 1.7,
                                     color: isDark
                                         ? Colors.white.withValues(alpha: 0.9)
                                         : Colors.black87,
@@ -9522,10 +9559,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                         ? Colors.black12
                                         : Colors.grey.shade50,
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(18),
                                       borderSide: BorderSide.none,
                                     ),
-                                    contentPadding: const EdgeInsets.all(18),
+                                    contentPadding: const EdgeInsets.all(20),
                                   ),
                                 )
                               : TextField(
@@ -9533,11 +9570,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       TextEditingController(text: content),
                                   readOnly: true,
                                   maxLines: null,
-                                  minLines: 4,
+                                  minLines: 5,
                                   keyboardType: TextInputType.multiline,
                                   style: TextStyle(
                                     fontSize: 15,
-                                    height: 1.6,
+                                    height: 1.7,
                                     color: isDark
                                         ? Colors.white.withValues(alpha: 0.6)
                                         : Colors.black54,
@@ -9555,22 +9592,165 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                         ? Colors.black12
                                         : Colors.grey.shade50,
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(18),
                                       borderSide: BorderSide.none,
                                     ),
-                                    contentPadding: const EdgeInsets.all(18),
+                                    contentPadding: const EdgeInsets.all(20),
                                   ),
                                 ),
                         ),
-                        const SizedBox(height: 18),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                        const SizedBox(height: 22),
+                        // --- AI 回饋框框（點擊「AI回饋」按鈕才顯示，無標題） ---
+                        Builder(builder: (context) {
+                          final bool showAiAdvice =
+                              _showAiAdviceMap[dateKey] ?? false;
+                          final String aiAdvice =
+                              _diaryAiAdviceMap[dateKey] ?? '';
+                          final bool isGeneratingAiAdvice =
+                              _isGeneratingDiaryAdviceMap[dateKey] ?? false;
+
+                          if (!showAiAdvice) return const SizedBox.shrink();
+
+                          return Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 18),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? primaryColor.withValues(alpha: 0.12)
+                                  : primaryColor.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: primaryColor.withValues(alpha: 0.25),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (isGeneratingAiAdvice)
+                                  Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'AI 導師思考分析中...',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isDark
+                                                ? Colors.white70
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                else ...[
+                                  if (aiAdvice.isNotEmpty) ...[
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        InkWell(
+                                          onTap: () {
+                                            final currentText = isActive
+                                                ? _diaryInputController.text
+                                                : content;
+                                            _generateDiaryAiAdvice(
+                                                dateKey, currentText);
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(2.0),
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.refresh_rounded,
+                                                    size: 14,
+                                                    color: primaryColor),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '重新生成',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: primaryColor,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
+                                  SelectableText(
+                                    aiAdvice.isNotEmpty
+                                        ? aiAdvice
+                                        : '尚未生成 AI 回饋，請點擊下方的「AI回饋」按鈕。',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      height: 1.6,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.9)
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }),
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 10,
+                          runSpacing: 8,
                           children: [
+                            OutlinedButton.icon(
+                              icon: Icon(Icons.auto_awesome_rounded,
+                                  size: 16, color: primaryColor),
+                              label: Text('AI回饋',
+                                  style: TextStyle(
+                                      color: primaryColor,
+                                      fontWeight: FontWeight.bold)),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(
+                                    color: primaryColor.withValues(alpha: 0.5)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                              ),
+                              onPressed: () {
+                                final bool currentShow =
+                                    _showAiAdviceMap[dateKey] ?? false;
+                                setState(() {
+                                  _showAiAdviceMap[dateKey] = !currentShow;
+                                });
+                                final currentText = isActive
+                                    ? _diaryInputController.text
+                                    : content;
+                                if (!currentShow &&
+                                    (_diaryAiAdviceMap[dateKey] ?? '')
+                                        .isEmpty) {
+                                  _generateDiaryAiAdvice(dateKey, currentText);
+                                }
+                              },
+                            ),
                             if (hasDiary) ...[
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.delete_outline_rounded,
                                     size: 16),
-                                label: const Text('刪除日記'),
+                                label: const Text('刪除'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.redAccent,
                                   side: BorderSide(
@@ -9580,13 +9760,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 12),
+                                      horizontal: 14, vertical: 10),
                                 ),
                                 onPressed: () {
                                   showDialog(
                                     context: context,
                                     builder: (confirmCtx) => AlertDialog(
-                                      title: const Text('刪除日記'),
+                                      title: const Text('刪除'),
                                       content: const Text('確定要刪除今天的日記紀錄嗎？'),
                                       actions: [
                                         TextButton(
@@ -9610,11 +9790,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   );
                                 },
                               ),
-                              const SizedBox(width: 12),
                             ],
                             ElevatedButton.icon(
                               icon: const Icon(Icons.check_rounded, size: 16),
-                              label: const Text('儲存日記'),
+                              label: const Text('儲存'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
@@ -9623,7 +9802,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 12),
+                                    horizontal: 18, vertical: 10),
                               ),
                               onPressed: _diaryInputController.text
                                       .trim()

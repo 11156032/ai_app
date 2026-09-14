@@ -1928,6 +1928,115 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
     yield localExplanation;
   }
 
+  /// 根據使用者日記，生成約 100 字的人生目標推薦與學習建議
+  static Stream<String> generateDiaryAdviceStream({
+    required String diaryContent,
+    String language = 'zh-TW',
+  }) async* {
+    if (diaryContent.trim().isEmpty) {
+      yield '請先寫下一些今日心得或日記，AI 才能為您提供人生目標與學習建議喔！';
+      return;
+    }
+
+    final prompt = '''
+你是一位極具智慧與溫暖的人生導師。請根據使用者寫下的這篇日記內容：
+「$diaryContent」
+
+請為他/她提供約 100 字左右的人生目標推薦與學習成長建議。
+請使用繁體中文，內容務必勵志、具體且切合日記內容，可參考以下結構：
+🎯 人生目標：[精簡具體的人生或生活小目標]
+💡 學習建議：[溫暖實用的學習或自我提升建議]
+
+注意：總字數請控制在 80~120 字之間，文字親切溫暖。
+''';
+
+    // 1. 嘗試 Cloudflare Groq / Compound
+    try {
+      final text = await _tryCloudflareProxy(
+        provider: 'groq',
+        prompt: prompt,
+        timeoutSeconds: 8,
+      );
+      if (text != null && text.isNotEmpty) {
+        yield toTraditionalChinese(cleanThinkingTags(text.trim()));
+        return;
+      }
+    } catch (e) {
+      debugPrint('AI 日記建議 Groq 失敗: $e');
+    }
+
+    // 2. 嘗試 Gemini API
+    final apiKey = _kSystemGeminiApiKey;
+    if (apiKey.isNotEmpty) {
+      try {
+        final model = GenerativeModel(
+          model: 'gemini-1.5-flash',
+          apiKey: apiKey,
+        );
+        final response = await model.generateContent([Content.text(prompt)]);
+        final respText = response.text;
+        if (respText != null && respText.trim().isNotEmpty) {
+          yield toTraditionalChinese(cleanThinkingTags(respText.trim()));
+          return;
+        }
+      } catch (e) {
+        debugPrint('AI 日記建議 Gemini 失敗: $e');
+      }
+    }
+
+    // 3. 嘗試 OpenRouter / Cloudflare Gemini
+    try {
+      final text = await _tryCloudflareProxy(
+        provider: 'gemini',
+        prompt: prompt,
+        timeoutSeconds: 8,
+      );
+      if (text != null && text.isNotEmpty) {
+        yield toTraditionalChinese(cleanThinkingTags(text.trim()));
+        return;
+      }
+    } catch (e) {
+      debugPrint('AI 日記建議 Cloudflare Gemini 失敗: $e');
+    }
+
+    // 4. 本地高質量備援建議 (Fallback)
+    yield _generateLocalDiaryAdviceFallback(diaryContent);
+  }
+
+  /// 非 Stream 版本的非同步日記 AI 回饋方法
+  static Future<String> generateGoalAdviceFromDiary({
+    required String diaryContent,
+    String language = 'zh-TW',
+  }) async {
+    final stream = generateDiaryAdviceStream(
+      diaryContent: diaryContent,
+      language: language,
+    );
+    String result = '';
+    await for (final chunk in stream) {
+      result = chunk;
+    }
+    return result;
+  }
+
+  static String _generateLocalDiaryAdviceFallback(String diaryContent) {
+    if (diaryContent.contains('累') ||
+        diaryContent.contains('忙') ||
+        diaryContent.contains('壓力')) {
+      return '''🎯 人生目標：學會調節生活節奏，在忙碌的步調中為自己留出一片沉澱與呼吸的優雅空間。
+💡 學習建議：嘗試每天撥出 15-20 分鐘閱讀心靈或自我成長書籍，保持身心靈的最佳狀態，讓學習成為生活中的充沛力量。''';
+    } else if (diaryContent.contains('學') ||
+        diaryContent.contains('讀書') ||
+        diaryContent.contains('考試') ||
+        diaryContent.contains('課')) {
+      return '''🎯 人生目標：保持對新事物的好奇與熱情，將吸收到的新知識轉化為解決生活問題的實踐力。
+💡 學習建議：運用費曼學習法，嘗試用自己的語言向朋友分享今日收穫，深化思考邏輯並建立專屬知識體系。''';
+    } else {
+      return '''🎯 人生目標：用心感知與珍惜每一個小小的當下，每天跨出一小步邁向理想中的品質生活。
+💡 學習建議：建立每日定時紀錄與反思的微習慣，持續累積自我成長的複利效應，成就更好的自己。''';
+    }
+  }
+
   static void _updateNextAvailableTime(String responseBody) {
     try {
       final json = jsonDecode(responseBody);
