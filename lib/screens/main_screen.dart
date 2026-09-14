@@ -170,6 +170,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final TextEditingController _diaryInputController = TextEditingController();
   final FocusNode _diaryFocusNode = FocusNode();
   String _originalDiaryContent = '';
+  final Map<String, String> _diaryAiAdviceMap = {};
+  final Map<String, bool> _isGeneratingDiaryAdviceMap = {};
+  final Map<String, bool> _showAiAdviceMap = {};
   List<Map<String, dynamic>> socialPosts = [];
   List<Map<String, dynamic>> scheduledPosts = [];
   List<Map<String, dynamic>> questionBank = [];
@@ -2121,6 +2124,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _originalDiaryContent = content;
       await _loadData();
       _updateDiaryController(_selectedDate, force: true);
+
+      // 儲存當下若 AI 區塊已開啟或已有舊建議，立即重新整理/生成最新 AI 回饋
+      if (_showAiAdviceMap[dateKey] == true ||
+          (_diaryAiAdviceMap[dateKey] ?? '').isNotEmpty) {
+        _generateDiaryAiAdvice(dateKey, content);
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2167,6 +2177,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('刪除日記失敗: $e');
+    }
+  }
+
+  void _generateDiaryAiAdvice(String dateKey, String textContent) async {
+    if (_isGeneratingDiaryAdviceMap[dateKey] == true) return;
+
+    setState(() {
+      _isGeneratingDiaryAdviceMap[dateKey] = true;
+      _showAiAdviceMap[dateKey] = true;
+    });
+
+    try {
+      final advice = await AiDiagnosisService.generateGoalAdviceFromDiary(
+        diaryContent: textContent,
+      );
+      if (!mounted) return;
+      setState(() {
+        _diaryAiAdviceMap[dateKey] = advice;
+      });
+    } catch (e) {
+      debugPrint('生成 AI 回饋失敗: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingDiaryAdviceMap[dateKey] = false;
+        });
+      }
     }
   }
 
@@ -9885,215 +9922,364 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           }
         }
       },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(15, 6, 15, 75),
-        child: Column(
-          children: [
-            Expanded(
-              child: FadeInUp(
-                duration: const Duration(milliseconds: 400),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isDark ? Colors.white10 : Colors.grey.shade200,
-                      width: 1.5,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: (constraints.maxHeight - 92).clamp(280.0, 2000.0),
+              ),
+              child: IntrinsicHeight(
+                child: FadeInUp(
+                  duration: const Duration(milliseconds: 400),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isDark ? Colors.white10 : Colors.grey.shade200,
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      )
-                    ],
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.edit_note_rounded,
-                              color: primaryColor, size: 22),
-                          const SizedBox(width: 8),
-                          Text(
-                            '今日日記',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (hasDiary)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: primaryColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '已儲存',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: primaryColor,
-                                ),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.edit_note_rounded,
+                                color: primaryColor, size: 28),
+                            const SizedBox(width: 10),
+                            Text(
+                              '今日日記',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
                               ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: isActive
-                            ? TextField(
-                                controller: _diaryInputController,
-                                focusNode: _diaryFocusNode,
-                                maxLines: null,
-                                keyboardType: TextInputType.multiline,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  height: 1.5,
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.9)
-                                      : Colors.black87,
+                            const Spacer(),
+                            if (hasDiary)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                decoration: InputDecoration(
-                                  hintText: '今天過得怎麼樣？記錄下你的心情、學習心得或生活點滴吧...',
-                                  hintStyle: TextStyle(
-                                    fontSize: 13,
-                                    color: isDark
-                                        ? Colors.white30
-                                        : Colors.grey.shade400,
+                                child: Text(
+                                  '已儲存',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryColor,
                                   ),
-                                  filled: true,
-                                  fillColor: isDark
-                                      ? Colors.black12
-                                      : Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
-                                ),
-                              )
-                            : TextField(
-                                controller:
-                                    TextEditingController(text: content),
-                                readOnly: true,
-                                maxLines: null,
-                                keyboardType: TextInputType.multiline,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  height: 1.5,
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.6)
-                                      : Colors.black54,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: '今天尚未寫日記...',
-                                  hintStyle: TextStyle(
-                                    fontSize: 13,
-                                    color: isDark
-                                        ? Colors.white30
-                                        : Colors.grey.shade400,
-                                  ),
-                                  filled: true,
-                                  fillColor: isDark
-                                      ? Colors.black12
-                                      : Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
                                 ),
                               ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (hasDiary) ...[
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        Expanded(
+                          child: isActive
+                              ? TextField(
+                                  controller: _diaryInputController,
+                                  focusNode: _diaryFocusNode,
+                                  maxLines: null,
+                                  minLines: 5,
+                                  keyboardType: TextInputType.multiline,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    height: 1.7,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.9)
+                                        : Colors.black87,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText:
+                                        '今天過得怎麼樣？記錄下你的心情、學習心得或生活點滴吧...',
+                                    hintStyle: TextStyle(
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? Colors.white30
+                                          : Colors.grey.shade400,
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? Colors.black12
+                                        : Colors.grey.shade50,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    contentPadding: const EdgeInsets.all(20),
+                                  ),
+                                )
+                              : TextField(
+                                  controller:
+                                      TextEditingController(text: content),
+                                  readOnly: true,
+                                  maxLines: null,
+                                  minLines: 5,
+                                  keyboardType: TextInputType.multiline,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    height: 1.7,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.6)
+                                        : Colors.black54,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: '今天尚未寫日記...',
+                                    hintStyle: TextStyle(
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? Colors.white30
+                                          : Colors.grey.shade400,
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? Colors.black12
+                                        : Colors.grey.shade50,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    contentPadding: const EdgeInsets.all(20),
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 22),
+                        // --- AI 回饋框框（點擊「AI回饋」按鈕才顯示，無標題） ---
+                        Builder(builder: (context) {
+                          final bool showAiAdvice =
+                              _showAiAdviceMap[dateKey] ?? false;
+                          final String aiAdvice =
+                              _diaryAiAdviceMap[dateKey] ?? '';
+                          final bool isGeneratingAiAdvice =
+                              _isGeneratingDiaryAdviceMap[dateKey] ?? false;
+
+                          if (!showAiAdvice) return const SizedBox.shrink();
+
+                          return Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 18),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? primaryColor.withValues(alpha: 0.12)
+                                  : primaryColor.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: primaryColor.withValues(alpha: 0.25),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (isGeneratingAiAdvice)
+                                  Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'AI 導師思考分析中...',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isDark
+                                                ? Colors.white70
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                else ...[
+                                  if (aiAdvice.isNotEmpty) ...[
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        InkWell(
+                                          onTap: () {
+                                            final currentText = isActive
+                                                ? _diaryInputController.text
+                                                : content;
+                                            _generateDiaryAiAdvice(
+                                                dateKey, currentText);
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(2.0),
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.refresh_rounded,
+                                                    size: 14,
+                                                    color: primaryColor),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '重新生成',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: primaryColor,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
+                                  SelectableText(
+                                    aiAdvice.isNotEmpty
+                                        ? aiAdvice
+                                        : '尚未生成 AI 回饋，請點擊下方的「AI回饋」按鈕。',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      height: 1.6,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.9)
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }),
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 10,
+                          runSpacing: 8,
+                          children: [
                             OutlinedButton.icon(
-                              icon: const Icon(Icons.delete_outline_rounded,
-                                  size: 15),
-                              label: const Text('刪除日記'),
+                              icon: Icon(Icons.auto_awesome_rounded,
+                                  size: 16, color: primaryColor),
+                              label: Text('AI回饋',
+                                  style: TextStyle(
+                                      color: primaryColor,
+                                      fontWeight: FontWeight.bold)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.redAccent,
                                 side: BorderSide(
-                                    color: Colors.redAccent
-                                        .withValues(alpha: 0.5)),
+                                    color: primaryColor.withValues(alpha: 0.5)),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
+                                    horizontal: 14, vertical: 10),
                               ),
                               onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (confirmCtx) => AlertDialog(
-                                    title: const Text('刪除日記'),
-                                    content: const Text('確定要刪除今天的日記紀錄嗎？'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(confirmCtx),
-                                        child: const Text('取消'),
-                                      ),
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.redAccent,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        onPressed: () {
-                                          Navigator.pop(confirmCtx);
-                                          _deleteDiaryForToday();
-                                        },
-                                        child: const Text('確定刪除'),
-                                      ),
-                                    ],
-                                  ),
-                                );
+                                final bool currentShow =
+                                    _showAiAdviceMap[dateKey] ?? false;
+                                setState(() {
+                                  _showAiAdviceMap[dateKey] = !currentShow;
+                                });
+                                final currentText = isActive
+                                    ? _diaryInputController.text
+                                    : content;
+                                if (!currentShow &&
+                                    (_diaryAiAdviceMap[dateKey] ?? '')
+                                        .isEmpty) {
+                                  _generateDiaryAiAdvice(dateKey, currentText);
+                                }
                               },
                             ),
-                            const SizedBox(width: 8),
-                          ],
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.check_rounded, size: 15),
-                            label: const Text('儲存日記'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            if (hasDiary) ...[
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.delete_outline_rounded,
+                                    size: 16),
+                                label: const Text('刪除'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.redAccent,
+                                  side: BorderSide(
+                                      color: Colors.redAccent
+                                          .withValues(alpha: 0.5)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                ),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (confirmCtx) => AlertDialog(
+                                      title: const Text('刪除'),
+                                      content: const Text('確定要刪除今天的日記紀錄嗎？'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(confirmCtx),
+                                          child: const Text('取消'),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.redAccent,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          onPressed: () {
+                                            Navigator.pop(confirmCtx);
+                                            _deleteDiaryForToday();
+                                          },
+                                          child: const Text('確定刪除'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 6),
+                            ],
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.check_rounded, size: 16),
+                              label: const Text('儲存'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 18, vertical: 10),
+                              ),
+                              onPressed: _diaryInputController.text
+                                      .trim()
+                                      .isNotEmpty
+                                  ? () => _saveDiary(_diaryInputController.text)
+                                  : null,
                             ),
-                            onPressed: _diaryInputController.text
-                                    .trim()
-                                    .isNotEmpty
-                                ? () => _saveDiary(_diaryInputController.text)
-                                : null,
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
