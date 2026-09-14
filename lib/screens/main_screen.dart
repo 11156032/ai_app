@@ -9425,215 +9425,222 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           }
         }
       },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(15, 6, 15, 75),
-        child: Column(
-          children: [
-            Expanded(
-              child: FadeInUp(
-                duration: const Duration(milliseconds: 400),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isDark ? Colors.white10 : Colors.grey.shade200,
-                      width: 1.5,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: (constraints.maxHeight - 92).clamp(240.0, 2000.0),
+              ),
+              child: IntrinsicHeight(
+                child: FadeInUp(
+                  duration: const Duration(milliseconds: 400),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDark ? Colors.white10 : Colors.grey.shade200,
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      )
-                    ],
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.edit_note_rounded,
-                              color: primaryColor, size: 22),
-                          const SizedBox(width: 8),
-                          Text(
-                            '今日日記',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (hasDiary)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: primaryColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '已儲存',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: primaryColor,
-                                ),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.edit_note_rounded,
+                                color: primaryColor, size: 26),
+                            const SizedBox(width: 10),
+                            Text(
+                              '今日日記',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
                               ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: isActive
-                            ? TextField(
-                                controller: _diaryInputController,
-                                focusNode: _diaryFocusNode,
-                                maxLines: null,
-                                keyboardType: TextInputType.multiline,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  height: 1.5,
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.9)
-                                      : Colors.black87,
+                            const Spacer(),
+                            if (hasDiary)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                decoration: InputDecoration(
-                                  hintText: '今天過得怎麼樣？記錄下你的心情、學習心得或生活點滴吧...',
-                                  hintStyle: TextStyle(
-                                    fontSize: 13,
-                                    color: isDark
-                                        ? Colors.white30
-                                        : Colors.grey.shade400,
+                                child: Text(
+                                  '已儲存',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryColor,
                                   ),
-                                  filled: true,
-                                  fillColor: isDark
-                                      ? Colors.black12
-                                      : Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
-                                ),
-                              )
-                            : TextField(
-                                controller:
-                                    TextEditingController(text: content),
-                                readOnly: true,
-                                maxLines: null,
-                                keyboardType: TextInputType.multiline,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  height: 1.5,
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.6)
-                                      : Colors.black54,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: '今天尚未寫日記...',
-                                  hintStyle: TextStyle(
-                                    fontSize: 13,
-                                    color: isDark
-                                        ? Colors.white30
-                                        : Colors.grey.shade400,
-                                  ),
-                                  filled: true,
-                                  fillColor: isDark
-                                      ? Colors.black12
-                                      : Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
                                 ),
                               ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (hasDiary) ...[
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.delete_outline_rounded,
-                                  size: 15),
-                              label: const Text('刪除日記'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.redAccent,
-                                side: BorderSide(
-                                    color: Colors.redAccent
-                                        .withValues(alpha: 0.5)),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Expanded(
+                          child: isActive
+                              ? TextField(
+                                  controller: _diaryInputController,
+                                  focusNode: _diaryFocusNode,
+                                  maxLines: null,
+                                  minLines: 4,
+                                  keyboardType: TextInputType.multiline,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    height: 1.6,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.9)
+                                        : Colors.black87,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText:
+                                        '今天過得怎麼樣？記錄下你的心情、學習心得或生活點滴吧...',
+                                    hintStyle: TextStyle(
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? Colors.white30
+                                          : Colors.grey.shade400,
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? Colors.black12
+                                        : Colors.grey.shade50,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    contentPadding: const EdgeInsets.all(18),
+                                  ),
+                                )
+                              : TextField(
+                                  controller:
+                                      TextEditingController(text: content),
+                                  readOnly: true,
+                                  maxLines: null,
+                                  minLines: 4,
+                                  keyboardType: TextInputType.multiline,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    height: 1.6,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.6)
+                                        : Colors.black54,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: '今天尚未寫日記...',
+                                    hintStyle: TextStyle(
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? Colors.white30
+                                          : Colors.grey.shade400,
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? Colors.black12
+                                        : Colors.grey.shade50,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    contentPadding: const EdgeInsets.all(18),
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (hasDiary) ...[
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.delete_outline_rounded,
+                                    size: 16),
+                                label: const Text('刪除日記'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.redAccent,
+                                  side: BorderSide(
+                                      color: Colors.redAccent
+                                          .withValues(alpha: 0.5)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                ),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (confirmCtx) => AlertDialog(
+                                      title: const Text('刪除日記'),
+                                      content: const Text('確定要刪除今天的日記紀錄嗎？'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(confirmCtx),
+                                          child: const Text('取消'),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.redAccent,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          onPressed: () {
+                                            Navigator.pop(confirmCtx);
+                                            _deleteDiaryForToday();
+                                          },
+                                          child: const Text('確定刪除'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.check_rounded, size: 16),
+                              label: const Text('儲存日記'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                elevation: 2,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
+                                    horizontal: 20, vertical: 12),
                               ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (confirmCtx) => AlertDialog(
-                                    title: const Text('刪除日記'),
-                                    content: const Text('確定要刪除今天的日記紀錄嗎？'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(confirmCtx),
-                                        child: const Text('取消'),
-                                      ),
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.redAccent,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        onPressed: () {
-                                          Navigator.pop(confirmCtx);
-                                          _deleteDiaryForToday();
-                                        },
-                                        child: const Text('確定刪除'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
+                              onPressed: _diaryInputController.text
+                                      .trim()
+                                      .isNotEmpty
+                                  ? () => _saveDiary(_diaryInputController.text)
+                                  : null,
                             ),
-                            const SizedBox(width: 8),
                           ],
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.check_rounded, size: 15),
-                            label: const Text('儲存日記'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 6),
-                            ),
-                            onPressed: _diaryInputController.text
-                                    .trim()
-                                    .isNotEmpty
-                                ? () => _saveDiary(_diaryInputController.text)
-                                : null,
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
