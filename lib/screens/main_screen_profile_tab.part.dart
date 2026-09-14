@@ -556,9 +556,9 @@ extension MainScreenProfileTab on _MainScreenState {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '當前點數：$points Pts | 享 ${tierInfo.name == '普通會員' ? '原價' : (tierInfo.discountRate * 10).toStringAsFixed(0) + '折'} 優惠',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
+  '當前點數：$points Pts | 享 ${tierInfo.name == '普通會員' ? '原價' : '${(tierInfo.discountRate * 10).toStringAsFixed(0)}折'} 優惠',
+  style: const TextStyle(color: Colors.white70, fontSize: 12),
+),
                   ],
                 ),
               ),
