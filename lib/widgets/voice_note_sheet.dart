@@ -53,10 +53,11 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     with TickerProviderStateMixin {
   _SheetStep _step = _SheetStep.recording;
 
-  // Groq Whisper 錄音與轉錄狀態
+  // Gladia / 錄音與轉錄狀態
   bool _isRecording = false;
   bool _isPaused = false;
   bool _isTranscribing = false;
+  String? _transcribingStatusMsg;
   double _soundLevel = 0.0;
   Timer? _durationTimer;
   Duration _recordDuration = Duration.zero;
@@ -230,7 +231,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     }
   }
 
-  /// 停止錄音並呼叫 Groq Whisper 進行轉錄
+  /// 停止錄音並呼叫 Gladia V2 進行轉錄 (含說話者分離與時間戳)
   Future<void> _stopAndTranscribe() async {
     if (!_isRecording && !_isPaused) return;
 
@@ -239,16 +240,24 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       _isRecording = false;
       _isPaused = false;
       _isTranscribing = true;
+      _transcribingStatusMsg = 'Gladia 上傳與多語言辨識中... 🎙️';
       _soundLevel = 0.0;
       _aiErrorMsg = null;
     });
 
     try {
-      final transcript = await GroqWhisperService.instance.stopAndTranscribe();
+      final result = await GroqWhisperService.instance.stopAndTranscribeResult(
+        onProgressStatus: (msg) {
+          if (mounted) setState(() => _transcribingStatusMsg = msg);
+        },
+      );
       if (!mounted) return;
+
+      final transcript = result.toFormattedDiarizedText();
 
       setState(() {
         _isTranscribing = false;
+        _transcribingStatusMsg = null;
         final currentText = _transcriptController.text.trim();
         if (currentText.isEmpty) {
           _transcriptController.text = transcript;
@@ -265,11 +274,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
-            const SnackBar(
-              content: Text('✨ 語音轉文字完成！已填入文字稿'),
-              duration: Duration(milliseconds: 1400),
+            SnackBar(
+              content: Text(result.isDiarized
+                  ? '✨ Gladia 轉錄完成！已分離說話者與時間戳'
+                  : '✨ 語音轉文字完成！已填入文字稿'),
+              duration: const Duration(milliseconds: 1800),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Color(0xFF2E7D32),
+              backgroundColor: const Color(0xFF2E7D32),
             ),
           );
       }
@@ -279,6 +290,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       final cleanMsg = e.toString().replaceAll('Exception:', '').trim();
       setState(() {
         _isTranscribing = false;
+        _transcribingStatusMsg = null;
         _aiErrorMsg = cleanMsg;
       });
       ScaffoldMessenger.of(context)
@@ -288,7 +300,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             content: Text('語音轉錄提示：$cleanMsg'),
             backgroundColor: const Color(0xFFD32F2F),
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 4),
           ),
         );
     }
@@ -834,7 +846,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     const SizedBox(width: 6),
                     Text(
                       _isTranscribing
-                          ? '⚡ AI 高速語音辨識中...'
+                          ? (_transcribingStatusMsg ?? 'Gladia 說話者分離與辨識中... 🎙️')
                           : _isRecording
                               ? '高音質收錄中 (無遺漏) · ${_formatDuration(_recordDuration)}'
                               : _isPaused

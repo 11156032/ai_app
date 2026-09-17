@@ -28,6 +28,7 @@ import '../services/app_locale_service.dart';
 import '../services/app_theme_service.dart';
 import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
+import '../widgets/mascot_companion.dart';
 import '../widgets/tutorial_video_player.dart';
 import 'tabs/group_detail_page.dart';
 import 'tabs/create_group_dialog.dart';
@@ -105,7 +106,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     'social_feed'
   ];
   bool _pushNotificationsEnabled = true;
-  bool _isDrawerCommunityExpanded = true; // 側邊欄社群主題下拉展開狀態
+  bool _isDrawerCommunityExpanded = false; // 側邊欄社群主題下拉展開狀態 (預設收合)
   List<String> _userJoinedTopicIds = ['topic_math', 'topic_ai', 'topic_daily'];
   Map<String, int> _topicMemberCounts = {};
   Map<String, int> _topicPostCounts = {};
@@ -160,6 +161,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final GlobalKey _tourNavSocialKey = GlobalKey();
   final GlobalKey _tourAiChatBarKey = GlobalKey();
   final GlobalKey _tourFirstPostAvatarKey = GlobalKey();
+
+  // ── 新手專屬客製化啟航建議 ──
+  String? _onboardingGoal;
+  List<String>? _onboardingPainPoints;
+  String? _onboardingLearningMode;
+  bool _showKickoffRecommendation = false;
 
   Map<String, List<Map<String, dynamic>>> allSchedules = {};
   List<Map<String, dynamic>> allTodos = [];
@@ -466,10 +473,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       builder: (_) => WelcomeSplash(
         userName: _displayName,
         initialTopicIds: _userJoinedTopicIds,
-        onDone: (selectedTopicIds) async {
+        onDone: (selectedTopicIds, [preferences]) async {
           // 關閉歡迎頁
           _welcomeSplashEntry?.remove();
           _welcomeSplashEntry = null;
+
+          // 接收客製化偏好，供首頁推薦專屬建議
+          if (preferences != null) {
+            setState(() {
+              _onboardingGoal = preferences.goal;
+              _onboardingPainPoints = preferences.painPoints;
+              _onboardingLearningMode = preferences.learningMode;
+              _showKickoffRecommendation = true;
+            });
+          }
 
           // 更新社群主題偏好並寫入資料庫
           if (selectedTopicIds.isNotEmpty) {
@@ -489,9 +506,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             }
           }
 
-          // 接著啟動互動引導 Tour
+          // 接著啟動互動引導 Tour（傳入 preferences 實現客製化步驟排序）
           Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) _startTour();
+            if (mounted) _startTour(preferences);
           });
         },
         onSkip: () async {
@@ -1322,9 +1339,70 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   // ── 互動式引導方法 ──
 
-  List<TourStep> _buildTourSteps() {
-    return [
-      // ────── 功能 1：🌐 社群動態 ──────
+  /// 根據 onboarding 偏好，為特定痛點/目標對應的 step 產生推薦理由文字
+  String? _resolveRecommendReason({
+    required String featureKey,
+    required UserOnboardingPreferences? prefs,
+  }) {
+    if (prefs == null) return null;
+    final pain = prefs.painPoints;
+    final goal = prefs.goal;
+    final mode = prefs.learningMode;
+
+    switch (featureKey) {
+      case 'social':
+        if (pain.contains('no_peers') || mode == 'peer') {
+          return '你希望找到學伴一起進步 — 社群動態讓你看到同學學習足跡，互相打氣！';
+        }
+        if (goal == 'skill') {
+          return '技能提升路上，社群裡有許多同好分享實戰心得，讓你事半功倍！';
+        }
+        return null;
+
+      case 'ai_schedule':
+        if (pain.contains('no_plan') || pain.contains('time_manage')) {
+          return '你說時間不夠用 — AI 排程可以幫你自動拆解讀書計畫，一句話搞定行程！';
+        }
+        if (goal == 'exam') {
+          return '備考期間，讓 AI 幫你排好每日讀書行程，不再手忙腳亂！';
+        }
+        if (mode == 'structured') {
+          return '你偏好有系統的學習 — AI 行事曆正好能幫你規劃有條理的讀書進度！';
+        }
+        return null;
+
+      case 'question_bank':
+        if (pain.contains('stuck_questions') || pain.contains('weak_points')) {
+          return '你遇到不會的題目卡關 — 錯題系統會自動收錄，讓你精準複習弱點！';
+        }
+        if (goal == 'exam') {
+          return '衝刺考試的最佳武器！系統整理所有錯題，幫你在考前清零弱點！';
+        }
+        return null;
+
+      case 'notes':
+        if (pain.contains('scattered_notes') || pain.contains('forget')) {
+          return '你說筆記散亂很難複習 — 語音轉心智圖功能讓你一句話生成結構化筆記！';
+        }
+        if (mode == 'audio') {
+          return '你喜歡聲音學習 — 錄音即可自動轉為有說話者時間軸的完整逐字稿！';
+        }
+        return null;
+
+      default:
+        return null;
+    }
+  }
+
+  /// 根據 onboarding 偏好決定 Tour 步驟排序與個人化推薦理由
+  List<TourStep> _buildTourSteps({UserOnboardingPreferences? prefs}) {
+    final pain = prefs?.painPoints ?? [];
+    final goal = prefs?.goal ?? '';
+
+    // ─── 定義所有可用功能 Block（包含個人化推薦理由）───
+
+    // Block A：🌐 社群動態（固定 1 步）
+    final socialBlock = [
       TourStep(
         featureTitle: '🌐 社群動態',
         featureIndex: 0,
@@ -1333,51 +1411,79 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetPageIndex: 2,
         targetKey: null,
         title: '探索社群頁面',
-        description: '歡迎來到社群頁面！在這裡你可以與同學交流學習進度，不同成員的動態將會一一呈現。',
+        description: '在這裡你可以與同學交流學習進度，互相鼓勵、分享讀書心得！',
+        recommendReason: _resolveRecommendReason(
+            featureKey: 'social', prefs: prefs),
         onEnter: () {
           _socialFilter = '全部';
           _socialAuthorFilter = '';
         },
       ),
-      // ────── 功能 2：📅 AI 排程 ──────
+    ];
+
+    // Block B：📅 AI 排程與導覽教學（3 步）
+    final aiScheduleBlock = [
       TourStep(
-        featureTitle: '📅 AI 排程',
+        featureTitle: '📅 AI 排程與導覽',
         featureIndex: 1,
         stepInFeature: 1,
-        totalInFeature: 2,
+        totalInFeature: 3,
         targetPageIndex: 0,
-        targetKey: null,
-        title: '日曆行程管理',
-        description: '這是你的行事曆頁面，接下來將示範如何使用 AI 排程助手幫你自動安排行程。',
-        skipForGuest: true,
-        guestNote: '🔒 此功能需要正式帳號才能使用。註冊帳號後即可開啟 AI 日曆排程功能！',
+        targetKey: TourKeys.drawerButtonKey,
+        title: '漢堡選單：快速切換功能頁',
+        description: '點擊左上角漢堡選單，隨時開啟側邊欄切換日曆、題庫、社群、筆記本與個人檔案等全站功能！',
+        recommendReason: _resolveRecommendReason(
+            featureKey: 'ai_schedule', prefs: prefs),
         onEnter: () {
-          final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+          final isMainScreenCurrent =
+              ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
-            Navigator.pop(context); // 關閉可能遺留的對話框
+            Navigator.pop(context);
           }
         },
       ),
       TourStep(
-        featureTitle: '📅 AI 排程',
+        featureTitle: '📅 AI 排程與導覽',
         featureIndex: 1,
         stepInFeature: 2,
-        totalInFeature: 2,
+        totalInFeature: 3,
         targetPageIndex: 0,
         targetKey: _tourAiChatBarKey,
         title: 'AI 行事曆小幫手',
         description:
-            '點擊下方的「去社群 / 加行程...」對話列開啟小幫手，並直接輸入「明天下午三點和小明開會」，AI 就會自動為你安排行程喔！',
+            '點擊下方對話列，輸入「明天下午三點複習數學」，AI 就會自動為你建立行程！',
         skipForGuest: true,
         guestNote: '🔒 此功能需要正式帳號才能使用。',
         onLeaveBackward: () {
-          final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+          final isMainScreenCurrent =
+              ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
-            Navigator.pop(context); // 從題庫返回時，確保關閉可能已打開的小幫手 Modal
+            Navigator.pop(context);
           }
         },
       ),
-      // ────── 功能 3：📝 錯題考卷 ──────
+      TourStep(
+        featureTitle: '📅 AI 排程與導覽',
+        featureIndex: 1,
+        stepInFeature: 3,
+        totalInFeature: 3,
+        targetPageIndex: 0,
+        targetKey: _tourAiChatBarKey,
+        title: '推薦開啟底部導覽列 🚀',
+        description:
+            '想更快速單手切換頁面？推薦前往「個人檔案 ➜ 偏好設定」開啟「底部浮動導覽列」，還能自訂常用按鈕順序與 AI 快捷鍵！',
+        onLeaveBackward: () {
+          final isMainScreenCurrent =
+              ModalRoute.of(context)?.isCurrent ?? true;
+          if (!isMainScreenCurrent && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+        },
+      ),
+    ];
+
+    // Block C：📝 錯題考卷（3 步）
+    final questionBankBlock = [
       TourStep(
         featureTitle: '📝 錯題考卷',
         featureIndex: 2,
@@ -1386,11 +1492,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetPageIndex: 1,
         targetKey: null,
         title: '進入題庫系統',
-        description: '這裡是題庫系統，包含了豐富的題庫、自定題卷、錯題本和收藏功能。',
+        description: '這裡有豐富題庫、自定題卷、錯題本與收藏功能，是你的核心練習場！',
+        recommendReason: _resolveRecommendReason(
+            featureKey: 'question_bank', prefs: prefs),
         onEnter: () {
-          final isMainScreenCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+          final isMainScreenCurrent =
+              ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
-            Navigator.pop(context); // 進入題庫前，關閉前一步可能打開的 AI 小幫手 Modal
+            Navigator.pop(context);
           }
         },
       ),
@@ -1402,7 +1511,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetPageIndex: 1,
         targetKey: TourKeys.wrongQuestionsTabKey,
         title: '切換「錯題」分頁',
-        description: '進入題庫後，切換至第三個「錯題」分頁，查看所有曾經答錯的題目紀錄。',
+        description: '切換至第三個「錯題」分頁，查看所有曾經答錯的題目紀錄，一次看清弱點。',
       ),
       TourStep(
         featureTitle: '📝 錯題考卷',
@@ -1412,23 +1521,120 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetPageIndex: 1,
         targetKey: TourKeys.startPracticeFabKey,
         title: '開始全錯題複習',
-        description: '點擊右下角的「開始練習全部」，系統會為你將所有錯題彙整成考卷，馬上開始進行測驗！',
+        description: '點擊右下角「開始練習全部」，系統彙整所有錯題成考卷，立即進行測驗！',
       ),
     ];
+
+    // Block D：📒 智慧筆記（僅文字說明，指向筆記本頁）
+    final notesBlock = [
+      TourStep(
+        featureTitle: '📒 智慧筆記',
+        featureIndex: 3,
+        stepInFeature: 1,
+        totalInFeature: 1,
+        targetPageIndex: 5,
+        targetKey: null,
+        title: '語音轉心智圖筆記',
+        description:
+            '在筆記頁面，你可以錄音後自動生成含說話者與時間戳的逐字稿，再一鍵轉換為結構化心智圖！',
+        skipForGuest: true,
+        guestNote: '🔒 此功能需要正式帳號才能使用。',
+        recommendReason: _resolveRecommendReason(
+            featureKey: 'notes', prefs: prefs),
+        onEnter: () {
+          final isMainScreenCurrent =
+              ModalRoute.of(context)?.isCurrent ?? true;
+          if (!isMainScreenCurrent && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+        },
+      ),
+    ];
+
+    // ─── 根據 onboarding 決定功能排序（最多 4 Block）───
+    // 規則：有明確痛點/目標的 Block 優先排前面，其餘按預設順序補齊
+
+    final List<List<TourStep>> ordered = [];
+
+    // 優先：筆記類痛點 → 筆記 Block 排第一
+    if (pain.contains('scattered_notes') || pain.contains('forget')) {
+      ordered.add(notesBlock);
+    }
+    // 優先：時間管理痛點 / 備考目標 → AI 排程 Block 排前面
+    if (pain.contains('no_plan') ||
+        pain.contains('time_manage') ||
+        goal == 'exam') {
+      if (!ordered.contains(aiScheduleBlock)) {
+        ordered.add(aiScheduleBlock);
+      }
+    }
+    // 優先：解題困難 / 弱點強化 → 錯題 Block
+    if (pain.contains('stuck_questions') || pain.contains('weak_points')) {
+      if (!ordered.contains(questionBankBlock)) {
+        ordered.add(questionBankBlock);
+      }
+    }
+    // 優先：想找學伴 → 社群 Block 排前面
+    if (pain.contains('no_peers')) {
+      if (!ordered.contains(socialBlock)) {
+        ordered.add(socialBlock);
+      }
+    }
+
+    // 補齊剩餘 Block（按預設順序：社群 → AI排程 → 錯題 → 筆記）
+    for (final block in [
+      socialBlock,
+      aiScheduleBlock,
+      questionBankBlock,
+      notesBlock,
+    ]) {
+      if (!ordered.contains(block)) {
+        ordered.add(block);
+      }
+    }
+
+    // 重新計算 featureIndex（確保連號）
+    final result = <TourStep>[];
+    for (int bi = 0; bi < ordered.length; bi++) {
+      final block = ordered[bi];
+      for (final step in block) {
+        result.add(TourStep(
+          featureTitle: step.featureTitle,
+          featureIndex: bi,
+          stepInFeature: step.stepInFeature,
+          totalInFeature: step.totalInFeature,
+          targetPageIndex: step.targetPageIndex,
+          targetKey: step.targetKey,
+          title: step.title,
+          description: step.description,
+          skipForGuest: step.skipForGuest,
+          guestNote: step.guestNote,
+          tutorialVideoAsset: step.tutorialVideoAsset,
+          tutorialVideoTitle: step.tutorialVideoTitle,
+          onEnter: step.onEnter,
+          onLeaveBackward: step.onLeaveBackward,
+          // 只在 Block 第一步顯示推薦理由
+          recommendReason:
+              step.stepInFeature == 1 ? step.recommendReason : null,
+        ));
+      }
+    }
+
+    return result;
   }
 
-  void _startTour() {
+  void _startTour([UserOnboardingPreferences? prefs]) {
     if (_isTourActive) return;
     setState(() => _isTourActive = true);
 
     final overlay = Overlay.of(context);
     _tourOverlayEntry = OverlayEntry(
       builder: (_) => TourOverlay(
-        steps: _buildTourSteps(),
+        steps: _buildTourSteps(prefs: prefs),
         isGuest: widget.currentUser['id'] == 'u4',
-        onSkip: () => _stopTour(navigateToProfile: true),
+        onSkip: () => _stopTour(navigateToCalendar: true),
         onComplete: () async {
-          _stopTour(navigateToProfile: true);
+          _stopTour(navigateToCalendar: true);
           if (widget.currentUser['id'] != 'u4') {
             await DatabaseHelper.instance
                 .setHasSeenTour(widget.currentUser['id'].toString());
@@ -1448,14 +1654,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     overlay.insert(_tourOverlayEntry!);
   }
 
-  void _stopTour({bool navigateToProfile = false}) {
+  void _stopTour({bool navigateToCalendar = true}) {
     if (!_isTourActive) return;
     _tourOverlayEntry?.remove();
     _tourOverlayEntry = null;
     if (mounted) {
       setState(() => _isTourActive = false);
-      if (navigateToProfile) {
-        _changePage(4, '個人檔案');
+      if (navigateToCalendar) {
+        if (widget.currentUser['id'] == 'u4') {
+          setState(() {
+            _currentIndex = 0;
+            _appBarTitle = '日曆行程';
+          });
+        } else {
+          _changePage(0, '日曆行程');
+        }
       }
     }
   }
@@ -2689,6 +2902,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             appBar: _quizStep == 2
                 ? null
                 : AppBar(
+                    leading: Builder(
+                      builder: (ctx) => IconButton(
+                        key: TourKeys.drawerButtonKey,
+                        icon: const Icon(Icons.menu),
+                        onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        tooltip: '開啟選單',
+                      ),
+                    ),
                     title: _currentIndex == 0
                         ? TextButton(
                             onPressed: _showMonthYearPicker,
@@ -2860,374 +3081,441 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       final bool isCommunityActive = _currentIndex == 2;
                       final primaryColor = Theme.of(context).primaryColor;
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isCommunityActive
-                              ? primaryColor.withValues(alpha: _isDarkMode ? 0.08 : 0.05)
-                              : (_isDrawerCommunityExpanded
-                                  ? (_isDarkMode
-                                      ? Colors.white.withValues(alpha: 0.03)
-                                      : const Color(0xFFF7F9FB))
-                                  : Colors.transparent),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isCommunityActive
-                                ? primaryColor.withValues(alpha: 0.22)
-                                : (_isDrawerCommunityExpanded
-                                    ? (_isDarkMode
-                                        ? Colors.white.withValues(alpha: 0.06)
-                                        : Colors.black.withValues(alpha: 0.05))
-                                    : Colors.transparent),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ── 主選單：社群 ──
-                            Material(
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── 主選單：社群（採用與上方其他項目完全一致的 ListTile 規格與對齊） ──
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 2),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                            selected: isCommunityActive,
+                            selectedTileColor:
+                                primaryColor.withValues(alpha: 0.12),
+                            leading: Icon(
+                              Icons.forum_rounded,
+                              color: primaryColor,
+                              size: 25,
+                            ),
+                            title: Row(
+                              children: [
+                                Text(
+                                  AppLocaleService.tr(
+                                      'nav_community', _appLanguage),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isDarkMode
+                                        ? Colors.white
+                                        : Colors.black87,
+                                  ),
+                                ),
+                                if (_userJoinedTopicIds.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          primaryColor.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '${_userJoinedTopicIds.length}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: Material(
                               color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(16),
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(20),
                                 onTap: () {
-                                  _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
-                                  Navigator.pop(context);
+                                  setDrawerState(() {
+                                    _isDrawerCommunityExpanded =
+                                        !_isDrawerCommunityExpanded;
+                                  });
+                                  setState(() {});
                                 },
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.forum_rounded,
-                                        color: primaryColor,
-                                        size: 25,
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Row(
-                                          children: [
-                                            Text(
-                                              AppLocaleService.tr('nav_community', _appLanguage),
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: _isDarkMode ? Colors.white : Colors.black87,
-                                              ),
-                                            ),
-                                            if (_userJoinedTopicIds.isNotEmpty) ...[
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                                decoration: BoxDecoration(
-                                                  color: primaryColor.withValues(alpha: 0.12),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Text(
-                                                  '${_userJoinedTopicIds.length}',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: primaryColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                      // 下拉/收合箭頭按鈕
-                                      Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(20),
-                                          onTap: () {
-                                            setDrawerState(() {
-                                              _isDrawerCommunityExpanded = !_isDrawerCommunityExpanded;
-                                            });
-                                            setState(() {});
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(4),
-                                            child: AnimatedRotation(
-                                              turns: _isDrawerCommunityExpanded ? 0.5 : 0.0,
-                                              duration: const Duration(milliseconds: 200),
-                                              child: Icon(
-                                                Icons.keyboard_arrow_down_rounded,
-                                                size: 22,
-                                                color: _isDarkMode ? Colors.white60 : Colors.grey.shade600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                  padding: const EdgeInsets.all(6),
+                                  child: AnimatedRotation(
+                                    turns: _isDrawerCommunityExpanded
+                                        ? 0.5
+                                        : 0.0,
+                                    duration: const Duration(milliseconds: 200),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 22,
+                                      color: _isDarkMode
+                                          ? Colors.white60
+                                          : Colors.grey.shade600,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
+                            onTap: () {
+                              _changePage(
+                                  2,
+                                  AppLocaleService.tr(
+                                      'nav_community', _appLanguage));
+                              Navigator.pop(context);
+                            },
+                          ),
 
-                            // ── 下拉展開子選單區域 ──
-                            AnimatedCrossFade(
-                              firstChild: const SizedBox.shrink(),
-                              secondChild: Padding(
-                                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
+                          // ── 下拉展開子選單區域 ──
+                          AnimatedCrossFade(
+                            firstChild: const SizedBox.shrink(),
+                            secondChild: Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 2, 12, 6),
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: _isDarkMode
+                                      ? Colors.white.withValues(alpha: 0.04)
+                                      : const Color(0xFFF7F9FB),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
                                     color: _isDarkMode
-                                        ? Colors.white.withValues(alpha: 0.04)
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: _isDarkMode
-                                          ? Colors.white.withValues(alpha: 0.06)
-                                          : Colors.black.withValues(alpha: 0.04),
-                                    ),
+                                        ? Colors.white.withValues(alpha: 0.06)
+                                        : Colors.black.withValues(alpha: 0.05),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // 子項目 1：全部社群動態
-                                      Material(
-                                        color: (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
-                                            ? primaryColor.withValues(alpha: 0.12)
-                                            : Colors.transparent,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // 子項目 1：全部社群動態
+                                    Material(
+                                      color: (isCommunityActive &&
+                                              (_selectedSocialTopicFilter ==
+                                                      '全部' ||
+                                                  _selectedSocialTopicFilter
+                                                      .isEmpty))
+                                          ? primaryColor.withValues(alpha: 0.12)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: InkWell(
                                         borderRadius: BorderRadius.circular(8),
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(8),
+                                        onTap: () {
+                                          _selectedSocialTopicFilter = '全部';
+                                          _socialMainTab = 0;
+                                          _changePage(
+                                              2,
+                                              AppLocaleService.tr(
+                                                  'nav_community',
+                                                  _appLanguage));
+                                          Navigator.pop(context);
+                                        },
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 7),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.dynamic_feed_rounded,
+                                                size: 18,
+                                                color: (isCommunityActive &&
+                                                        (_selectedSocialTopicFilter ==
+                                                                '全部' ||
+                                                            _selectedSocialTopicFilter
+                                                                .isEmpty))
+                                                    ? primaryColor
+                                                    : (_isDarkMode
+                                                        ? Colors.white60
+                                                        : Colors.grey.shade600),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  '全部社群動態',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: (isCommunityActive &&
+                                                            (_selectedSocialTopicFilter ==
+                                                                    '全部' ||
+                                                                _selectedSocialTopicFilter
+                                                                    .isEmpty))
+                                                        ? FontWeight.bold
+                                                        : FontWeight.w500,
+                                                    color: (isCommunityActive &&
+                                                            (_selectedSocialTopicFilter ==
+                                                                    '全部' ||
+                                                                _selectedSocialTopicFilter
+                                                                    .isEmpty))
+                                                        ? primaryColor
+                                                        : (_isDarkMode
+                                                            ? Colors.white
+                                                            : Colors.black87),
+                                                  ),
+                                                ),
+                                              ),
+                                              if (isCommunityActive &&
+                                                  (_selectedSocialTopicFilter ==
+                                                          '全部' ||
+                                                      _selectedSocialTopicFilter
+                                                          .isEmpty))
+                                                Icon(
+                                                  Icons.check_rounded,
+                                                  size: 15,
+                                                  color: primaryColor,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                    const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 6),
+                                      child:
+                                          Divider(height: 1, thickness: 0.8),
+                                    ),
+
+                                    // 關注社群標題列
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.star_rounded,
+                                                size: 16,
+                                                color: Colors.amber.shade700),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              '我的關注社群',
+                                              style: TextStyle(
+                                                color: _isDarkMode
+                                                    ? Colors.white
+                                                        .withValues(alpha: 0.85)
+                                                    : Colors.grey.shade800,
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        InkWell(
                                           onTap: () {
-                                            _selectedSocialTopicFilter = '全部';
-                                            _socialMainTab = 0;
-                                            _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
                                             Navigator.pop(context);
+                                            _showTopicExploreBottomSheet(
+                                                context);
                                           },
+                                          borderRadius:
+                                              BorderRadius.circular(6),
                                           child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 5, vertical: 2),
                                             child: Row(
                                               children: [
-                                                Icon(
-                                                  Icons.dynamic_feed_rounded,
-                                                  size: 18,
-                                                  color: (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
-                                                      ? primaryColor
-                                                      : (_isDarkMode ? Colors.white60 : Colors.grey.shade600),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text(
-                                                    '全部社群動態',
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight: (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
-                                                          ? FontWeight.bold
-                                                          : FontWeight.w500,
-                                                      color: (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
-                                                          ? primaryColor
-                                                          : (_isDarkMode ? Colors.white : Colors.black87),
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (isCommunityActive && (_selectedSocialTopicFilter == '全部' || _selectedSocialTopicFilter.isEmpty))
-                                                  Icon(
-                                                    Icons.check_rounded,
-                                                    size: 15,
+                                                Text(
+                                                  '探索',
+                                                  style: TextStyle(
+                                                    fontSize: 11.5,
+                                                    fontWeight: FontWeight.bold,
                                                     color: primaryColor,
                                                   ),
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Icon(
+                                                  Icons
+                                                      .arrow_forward_ios_rounded,
+                                                  size: 9,
+                                                  color: primaryColor,
+                                                ),
                                               ],
                                             ),
                                           ),
                                         ),
-                                      ),
+                                      ],
+                                    ),
 
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(vertical: 6),
-                                        child: Divider(height: 1, thickness: 0.8),
-                                      ),
+                                    const SizedBox(height: 6),
 
-                                      // 關注社群標題列
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(Icons.star_rounded, size: 16, color: Colors.amber.shade700),
-                                              const SizedBox(width: 5),
-                                              Text(
-                                                '我的關注社群',
+                                    // 主題列表
+                                    if (_userJoinedTopicIds.isEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: _isDarkMode
+                                              ? Colors.white
+                                                  .withValues(alpha: 0.02)
+                                              : Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.explore_outlined,
+                                                size: 14,
+                                                color: Colors.grey.shade500),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                '尚未關注任何社群主題',
                                                 style: TextStyle(
+                                                  fontSize: 11,
                                                   color: _isDarkMode
-                                                      ? Colors.white.withValues(alpha: 0.85)
-                                                      : Colors.grey.shade800,
-                                                  fontSize: 12.5,
-                                                  fontWeight: FontWeight.bold,
+                                                      ? Colors.white54
+                                                      : Colors.grey.shade600,
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          InkWell(
-                                            onTap: () {
-                                              Navigator.pop(context);
-                                              _showTopicExploreBottomSheet(context);
-                                            },
-                                            borderRadius: BorderRadius.circular(6),
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                              child: Row(
-                                                children: [
-                                                  Text(
-                                                    '探索',
-                                                    style: TextStyle(
-                                                      fontSize: 11.5,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: primaryColor,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 2),
-                                                  Icon(
-                                                    Icons.arrow_forward_ios_rounded,
-                                                    size: 9,
-                                                    color: primaryColor,
-                                                  ),
-                                                ],
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 6),
-
-                                      // 主題列表
-                                      if (_userJoinedTopicIds.isEmpty)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: _isDarkMode
-                                                ? Colors.white.withValues(alpha: 0.02)
-                                                : const Color(0xFFF9FAFB),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.explore_outlined, size: 14, color: Colors.grey.shade500),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  '尚未關注任何社群主題',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: _isDarkMode ? Colors.white54 : Colors.grey.shade600,
-                                                  ),
+                                            InkWell(
+                                              onTap: () {
+                                                Navigator.pop(context);
+                                                _showTopicExploreBottomSheet(
+                                                    context);
+                                              },
+                                              child: Text(
+                                                '去探索',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: primaryColor,
                                                 ),
                                               ),
-                                              InkWell(
-                                                onTap: () {
-                                                  Navigator.pop(context);
-                                                  _showTopicExploreBottomSheet(context);
-                                                },
-                                                child: Text(
-                                                  '去探索',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: primaryColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        )
-                                      else
-                                        ListView.separated(
-                                          shrinkWrap: true,
-                                          physics: const NeverScrollableScrollPhysics(),
-                                          padding: EdgeInsets.zero,
-                                          itemCount: _userJoinedTopicIds.length,
-                                          separatorBuilder: (_, __) => const SizedBox(height: 4),
-                                          itemBuilder: (context, index) {
-                                            final topicId = _userJoinedTopicIds[index];
-                                            final topic = getCommunityTopicById(topicId);
-                                            final title = topic?.title ?? topicId;
-                                            final emoji = topic?.emoji ?? '🏷️';
-                                            final color = topic?.color ?? primaryColor;
-                                            final isSelected = (isCommunityActive && _selectedSocialTopicFilter == topicId);
-                                            final int memberCount = _getTopicMemberCount(topicId);
-
-                                            return Material(
-                                              color: isSelected
-                                                  ? color.withValues(alpha: 0.14)
-                                                  : Colors.transparent,
-                                              borderRadius: BorderRadius.circular(8),
-                                              child: InkWell(
-                                                borderRadius: BorderRadius.circular(8),
-                                                onTap: () {
-                                                  _selectedSocialTopicFilter = topicId;
-                                                  _socialMainTab = 0;
-                                                  _changePage(2, AppLocaleService.tr('nav_community', _appLanguage));
-                                                  Navigator.pop(context);
-                                                },
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                                  child: Row(
-                                                    children: [
-                                                      Container(
-                                                        width: 26,
-                                                        height: 26,
-                                                        decoration: BoxDecoration(
-                                                          color: color.withValues(alpha: 0.15),
-                                                          borderRadius: BorderRadius.circular(7),
-                                                        ),
-                                                        alignment: Alignment.center,
-                                                        child: Text(
-                                                          emoji,
-                                                          style: const TextStyle(fontSize: 13),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        child: Text(
-                                                          title,
-                                                          style: TextStyle(
-                                                            fontSize: 12.5,
-                                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                                            color: isSelected
-                                                                ? color
-                                                                : (_isDarkMode ? Colors.white : Colors.black87),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        '$memberCount 夥伴',
-                                                        style: TextStyle(
-                                                          fontSize: 10.5,
-                                                          color: _isDarkMode ? Colors.white38 : Colors.grey.shade500,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 3),
-                                                      Icon(
-                                                        Icons.chevron_right_rounded,
-                                                        size: 15,
-                                                        color: _isDarkMode ? Colors.white24 : Colors.grey.shade400,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
+                                            ),
+                                          ],
                                         ),
-                                    ],
-                                  ),
+                                      )
+                                    else
+                                      ListView.separated(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        padding: EdgeInsets.zero,
+                                        itemCount: _userJoinedTopicIds.length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(height: 4),
+                                        itemBuilder: (context, index) {
+                                          final topicId =
+                                              _userJoinedTopicIds[index];
+                                          final topic =
+                                              getCommunityTopicById(topicId);
+                                          final title =
+                                              topic?.title ?? topicId;
+                                          final emoji = topic?.emoji ?? '🏷️';
+                                          final color =
+                                              topic?.color ?? primaryColor;
+                                          final isSelected =
+                                              (isCommunityActive &&
+                                                  _selectedSocialTopicFilter ==
+                                                      topicId);
+                                          final int memberCount =
+                                              _getTopicMemberCount(topicId);
+
+                                          return Material(
+                                            color: isSelected
+                                                ? color.withValues(alpha: 0.14)
+                                                : Colors.transparent,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              onTap: () {
+                                                _selectedSocialTopicFilter =
+                                                    topicId;
+                                                _socialMainTab = 0;
+                                                _changePage(
+                                                    2,
+                                                    AppLocaleService.tr(
+                                                        'nav_community',
+                                                        _appLanguage));
+                                                Navigator.pop(context);
+                                              },
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 6),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 26,
+                                                      height: 26,
+                                                      decoration: BoxDecoration(
+                                                        color: color.withValues(
+                                                            alpha: 0.15),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(7),
+                                                      ),
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: Text(
+                                                        emoji,
+                                                        style: const TextStyle(
+                                                            fontSize: 13),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        title,
+                                                        style: TextStyle(
+                                                          fontSize: 12.5,
+                                                          fontWeight: isSelected
+                                                              ? FontWeight.bold
+                                                              : FontWeight.w500,
+                                                          color: isSelected
+                                                              ? color
+                                                              : (_isDarkMode
+                                                                  ? Colors.white
+                                                                  : Colors
+                                                                      .black87),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '$memberCount 夥伴',
+                                                      style: TextStyle(
+                                                        fontSize: 10.5,
+                                                        color: _isDarkMode
+                                                            ? Colors.white38
+                                                            : Colors
+                                                                .grey.shade500,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 3),
+                                                    Icon(
+                                                      Icons
+                                                          .chevron_right_rounded,
+                                                      size: 15,
+                                                      color: _isDarkMode
+                                                          ? Colors.white24
+                                                          : Colors
+                                                              .grey.shade400,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                  ],
                                 ),
                               ),
-                              crossFadeState: _isDrawerCommunityExpanded
-                                  ? CrossFadeState.showSecond
-                                  : CrossFadeState.showFirst,
-                              duration: const Duration(milliseconds: 200),
                             ),
-                          ],
-                        ),
+                            crossFadeState: _isDrawerCommunityExpanded
+                                ? CrossFadeState.showSecond
+                                : CrossFadeState.showFirst,
+                            duration: const Duration(milliseconds: 200),
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -3334,6 +3622,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         _buildPersonalProfileTab(context),
                         NotesScreen(currentUser: widget.currentUser),
                       ])),
+                      // ── 伴學精靈：僅在日曆首頁顯示，作答 / 筆記等專注模式隱藏
+                      if (_currentIndex == 0)
+                        MascotCompanion(
+                          lang: _appLanguage,
+                          isDarkMode: _isDarkMode,
+                          primaryColor: Theme.of(context).primaryColor,
+                        ),
                       if (!_showFloatingNavBar &&
                           (_currentIndex != 1 || _quizStep == 0))
                         _buildAIChatBar(),
@@ -3550,6 +3845,123 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildAssistantRichContent(
+    String text, {
+    required bool isAI,
+    required bool isDark,
+    required Color primaryColor,
+  }) {
+    final defaultColor = isAI
+        ? (isDark ? Colors.grey.shade200 : const Color(0xFF2E2E2E))
+        : Colors.white;
+    final boldColor = isAI
+        ? (isDark ? Colors.amber.shade200 : const Color(0xFF4E342E))
+        : Colors.white;
+
+    final lines = text.split('\n');
+    final List<Widget> lineWidgets = [];
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) {
+        if (i < lines.length - 1 && lines[i + 1].trim().isNotEmpty) {
+          lineWidgets.add(const SizedBox(height: 6));
+        }
+        continue;
+      }
+
+      final isBullet = line.startsWith('•') ||
+          line.startsWith('-') ||
+          RegExp(r'^[0-9]+[\.、]\s*').hasMatch(line);
+
+      final spans = <InlineSpan>[];
+      final regex = RegExp(r'【(.*?)】|\*\*(.*?)\*\*|([➜➔>])');
+      int lastEnd = 0;
+
+      for (final match in regex.allMatches(line)) {
+        if (match.start > lastEnd) {
+          spans.add(TextSpan(
+            text: line.substring(lastEnd, match.start),
+            style: TextStyle(
+              fontSize: 14,
+              color: defaultColor,
+              height: 1.45,
+            ),
+          ));
+        }
+
+        if (match.group(1) != null || match.group(2) != null) {
+          final keyword = match.group(1) ?? match.group(2) ?? '';
+          spans.add(WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: isAI
+                    ? primaryColor.withValues(alpha: isDark ? 0.25 : 0.12)
+                    : Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isAI
+                      ? primaryColor.withValues(alpha: isDark ? 0.4 : 0.25)
+                      : Colors.white38,
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                keyword,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isAI ? boldColor : Colors.white,
+                ),
+              ),
+            ),
+          ));
+        } else if (match.group(3) != null) {
+          spans.add(TextSpan(
+            text: ' ➜ ',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: isAI ? primaryColor : Colors.white70,
+            ),
+          ));
+        }
+        lastEnd = match.end;
+      }
+
+      if (lastEnd < line.length) {
+        spans.add(TextSpan(
+          text: line.substring(lastEnd),
+          style: TextStyle(
+            fontSize: 14,
+            color: defaultColor,
+            height: 1.45,
+          ),
+        ));
+      }
+
+      lineWidgets.add(Padding(
+        padding: EdgeInsets.only(
+          top: isBullet ? 2.5 : 1,
+          bottom: isBullet ? 2.5 : 1,
+          left: isBullet ? 2 : 0,
+        ),
+        child: RichText(
+          text: TextSpan(children: spans),
+        ),
+      ));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: lineWidgets,
+    );
+  }
+
   // --- AI 助理全螢幕面板 ---
   void _openChatModal() {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -3560,10 +3972,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     Future<void> stopVoiceListening(StateSetter setModalState) async {
       if (!isVoiceListening) return;
+      isVoiceListening = false;
       await VoiceRecognitionService.instance.stopListening();
       setModalState(() {
-        isVoiceListening = false;
         voiceSoundLevel = 0.0;
+        voiceBaseText = '';
         modalController.text =
             VoiceRecognitionService.cleanFillerWords(modalController.text);
         modalController.selection = TextSelection.collapsed(
@@ -3585,6 +3998,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final started = await VoiceRecognitionService.instance.startListening(
           languageCode: _appLanguage,
           onResult: (words, isFinal) {
+            if (!isVoiceListening) return;
             final currentWords = words.trim();
             if (currentWords.isEmpty && !isFinal) return;
             setModalState(() {
@@ -3601,6 +4015,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             });
           },
           onSoundLevelChange: (level) {
+            if (!isVoiceListening) return;
             setModalState(() {
               voiceSoundLevel = level;
             });
@@ -3611,21 +4026,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 setModalState(() {
                   isVoiceListening = false;
                   voiceSoundLevel = 0.0;
+                  voiceBaseText = '';
                   modalController.text =
                       VoiceRecognitionService.cleanFillerWords(
                           modalController.text);
                 });
               }
             } else if (status == 'listening') {
-              setModalState(() {
-                isVoiceListening = true;
-              });
+              if (!isVoiceListening) {
+                setModalState(() {
+                  isVoiceListening = true;
+                });
+              }
             }
           },
           onError: (errMsg) {
             setModalState(() {
               isVoiceListening = false;
               voiceSoundLevel = 0.0;
+              voiceBaseText = '';
             });
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -3648,6 +4067,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         if (!started) {
           setModalState(() {
             isVoiceListening = false;
+            voiceBaseText = '';
           });
         }
       }
@@ -6136,29 +6556,41 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                           Widget messageWidget = Container(
                             margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(14),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 15, vertical: 13),
                             constraints: BoxConstraints(
                                 maxWidth:
-                                    MediaQuery.of(context).size.width * 0.65),
+                                    MediaQuery.of(context).size.width * 0.72),
                             decoration: BoxDecoration(
                                 color: msg['isAI']
-                                    ? Colors.white
+                                    ? (isDark
+                                        ? const Color(0xFF2C2523)
+                                        : Colors.white)
                                     : Theme.of(context).primaryColor,
                                 borderRadius: BorderRadius.circular(18),
+                                border: msg['isAI']
+                                    ? Border.all(
+                                        color: isDark
+                                            ? Colors.brown.shade700
+                                            : Colors.brown.shade100
+                                                .withValues(alpha: 0.5),
+                                        width: 0.8)
+                                    : null,
                                 boxShadow: msg['isAI']
                                     ? [
                                         BoxShadow(
                                             color: Colors.black
-                                                .withValues(alpha: 0.03),
-                                            blurRadius: 5)
+                                                .withValues(alpha: 0.04),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2))
                                       ]
                                     : []),
-                            child: Text(msg['text'],
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    color: msg['isAI']
-                                        ? Colors.black87
-                                        : Colors.white)),
+                            child: _buildAssistantRichContent(
+                              msg['text'] as String? ?? '',
+                              isAI: msg['isAI'] == true,
+                              isDark: isDark,
+                              primaryColor: Theme.of(context).primaryColor,
+                            ),
                           );
 
                           if (msg['isAI'] == true &&
@@ -6184,7 +6616,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             );
                           }
 
-                          if (!msg['isAI']) {
+                          if (msg['isAI'] == true) {
+                            messageWidget = GestureDetector(
+                              onLongPress: () {
+                                HapticFeedback.mediumImpact();
+                                Clipboard.setData(
+                                    ClipboardData(text: msg['text'] ?? ''));
+                                ScaffoldMessenger.of(context)
+                                    .hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Row(
+                                      children: [
+                                        Icon(Icons.check_circle_outline_rounded,
+                                            color: Colors.white, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('已複製代理人回覆內容'),
+                                      ],
+                                    ),
+                                    duration: const Duration(seconds: 2),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
+                                  ),
+                                );
+                              },
+                              child: messageWidget,
+                            );
+                          } else {
                             messageWidget = GestureDetector(
                               onLongPress: () {
                                 showModalBottomSheet(
@@ -6210,9 +6670,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                             text: msg['text']));
                                                     ScaffoldMessenger.of(
                                                             context)
-                                                        .showSnackBar(SnackBar(
-                                                            content: Text(
-                                                                '已複製到剪貼簿')));
+                                                        .showSnackBar(
+                                                            const SnackBar(
+                                                                content: Text(
+                                                                    '已複製到剪貼簿')));
                                                   }),
                                               ListTile(
                                                   leading: Icon(Icons.edit,
@@ -6435,14 +6896,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     } else {
                                       FocusScope.of(context).unfocus();
                                       if (isVoiceListening) {
+                                        isVoiceListening = false;
                                         VoiceRecognitionService.instance
                                             .stopListening();
-                                        setModalState(() {
-                                          isVoiceListening = false;
-                                        });
                                       }
-                                      _handleAISubmit(modalController.text,
-                                          modalController, setModalState);
+                                      voiceBaseText = '';
+                                      final textToSend =
+                                          modalController.text.trim();
+                                      modalController.clear();
+                                      setModalState(() {
+                                        isVoiceListening = false;
+                                        voiceSoundLevel = 0.0;
+                                      });
+                                      if (textToSend.isNotEmpty) {
+                                        _handleAISubmit(textToSend,
+                                            modalController, setModalState);
+                                      }
                                       return KeyEventResult.handled;
                                     }
                                   }
@@ -6523,14 +6992,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     onPressed: () {
                                       FocusScope.of(context).unfocus();
                                       if (isVoiceListening) {
+                                        isVoiceListening = false;
                                         VoiceRecognitionService.instance
                                             .stopListening();
-                                        setModalState(() {
-                                          isVoiceListening = false;
-                                        });
                                       }
-                                      _handleAISubmit(modalController.text,
-                                          modalController, setModalState);
+                                      voiceBaseText = '';
+                                      final textToSend =
+                                          modalController.text.trim();
+                                      modalController.clear();
+                                      setModalState(() {
+                                        isVoiceListening = false;
+                                        voiceSoundLevel = 0.0;
+                                      });
+                                      if (textToSend.isNotEmpty) {
+                                        _handleAISubmit(textToSend,
+                                            modalController, setModalState);
+                                      }
                                     })),
                           ],
                         ),
@@ -8859,10 +9336,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           ],
         ),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: _isDarkMode ? Color(0xFF2C2C2C) : Color(0xFFF5F5F5),
+            color: _isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFFF7F8F9),
             borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+              color: _isDarkMode
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.05),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _isDarkMode ? 0.28 : 0.06),
+                blurRadius: 10,
+                spreadRadius: 0,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             children: [
@@ -9149,6 +9640,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
+      if (_showKickoffRecommendation) _buildKickoffRecommendationCard(),
       Expanded(
         child: NotificationListener<ScrollNotification>(
           onNotification: (ScrollNotification notification) {
@@ -11204,6 +11696,195 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       },
                       child: const Text('儲存修改'))
                 ]));
+  }
+
+  // ── 新手專屬客製化啟航操作建議卡片 (極簡清爽、圖案適當、絕不雜亂) ──
+  Widget _buildKickoffRecommendationCard() {
+    if (!_showKickoffRecommendation) return const SizedBox.shrink();
+
+    IconData icon;
+    String tagText;
+    String actionTitle;
+    String actionDesc;
+    String buttonText;
+    VoidCallback onAction;
+
+    final goal = _onboardingGoal ?? 'exam';
+    final hasStuckPain =
+        _onboardingPainPoints?.contains('stuck_questions') ?? false;
+    final isSolo = _onboardingLearningMode == 'solo';
+
+    switch (goal) {
+      case 'school':
+        icon = Icons.edit_note_rounded;
+        tagText = isSolo ? '專屬建議 · 個人沉浸筆記' : '專屬建議 · 段考與觀念鞏固';
+        actionTitle = '單元概念梳理';
+        actionDesc = hasStuckPain
+            ? '先整理章節筆記或心智圖，配合 AI 解題攻克盲點'
+            : '建議先整理章節筆記或心智圖，攻克核心觀念';
+        buttonText = '前往筆記';
+        onAction = () {
+          setState(() {
+            _currentIndex = 5;
+            _appBarTitle = '重點筆記';
+          });
+        };
+        break;
+      case 'tech':
+        icon = Icons.explore_outlined;
+        tagText = '專屬建議 · 科技與跨域探索';
+        actionTitle = '科技社群精選';
+        actionDesc = '前往 AI 與科技專屬主題，查看同儕筆記與討論';
+        buttonText = '前往社群';
+        onAction = () {
+          setState(() {
+            _currentIndex = 2;
+            _appBarTitle = '學習社群';
+          });
+        };
+        break;
+      case 'daily':
+        icon = Icons.calendar_today_outlined;
+        tagText = isSolo ? '專屬建議 · 個人專注日程' : '專屬建議 · 日常自律打卡';
+        actionTitle = '規劃讀書節奏';
+        actionDesc = '點擊對話列輸入「幫我排今天行程」，AI 自動排程';
+        buttonText = '一鍵排程';
+        onAction = () {
+          _openChatModal();
+        };
+        break;
+      case 'exam':
+      default:
+        icon = Icons.quiz_outlined;
+        tagText = '專屬建議 · 升學大考衝刺';
+        actionTitle = '大考弱點快篩';
+        actionDesc = hasStuckPain
+            ? '先做 1 次 10 題快篩測驗，AI 伴學即時引導破題盲點'
+            : '建議先做 1 次 10 題快篩測驗，快速定位盲點';
+        buttonText = '開始測驗';
+        onAction = () {
+          setState(() {
+            _currentIndex = 1;
+            _quizStep = 0;
+            _appBarTitle = '題庫系統';
+          });
+        };
+        break;
+    }
+
+    final isDark = _isDarkMode;
+    final cardBg = isDark ? const Color(0xFF231610) : const Color(0xFFFBF8F5);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFE8DDD5);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 2, 14, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 0.9),
+      ),
+      child: Row(
+        children: [
+          // 左側單一精緻圖示容器（適當、不雜亂）
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFB74D).withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: const Color(0xFFE65100), size: 20),
+          ),
+          const SizedBox(width: 11),
+
+          // 中央精簡文案（適當留白）
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tagText,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFE65100),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$actionTitle：$actionDesc',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF2E1C18),
+                    height: 1.25,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // 右側小巧行動膠囊按鈕
+          InkWell(
+            onTap: () {
+              setState(() => _showKickoffRecommendation = false);
+              onAction();
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFB74D),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    buttonText,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E1C18),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 12,
+                    color: Color(0xFF2E1C18),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 右側極淡灰色關閉按鈕
+          InkWell(
+            onTap: () {
+              setState(() => _showKickoffRecommendation = false);
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                Icons.close_rounded,
+                size: 16,
+                color: isDark ? Colors.white38 : Colors.black38,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // --- 2. 題庫系統 (測驗/題庫/個人) ---

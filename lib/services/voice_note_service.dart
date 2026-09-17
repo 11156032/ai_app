@@ -210,6 +210,7 @@ class VoiceNoteResult {
   final List<String>? keyPoints; // 條列重點
   final List<ActionItem>? actionItems; // 待辦清單（含負責人/期限）
   final Map<String, dynamic>? mindmapJson; // 心智圖樹狀 JSON
+  final String? correctedTranscript; // 語意與中英混雜校正後的逐字稿（含說話者與時間戳）
 
   const VoiceNoteResult({
     required this.title,
@@ -222,6 +223,7 @@ class VoiceNoteResult {
     this.keyPoints,
     this.actionItems,
     this.mindmapJson,
+    this.correctedTranscript,
   });
 
   VoiceNoteResult copyWith({
@@ -235,6 +237,7 @@ class VoiceNoteResult {
     List<String>? keyPoints,
     List<ActionItem>? actionItems,
     Map<String, dynamic>? mindmapJson,
+    String? correctedTranscript,
   }) {
     return VoiceNoteResult(
       title: title ?? this.title,
@@ -247,6 +250,7 @@ class VoiceNoteResult {
       keyPoints: keyPoints ?? this.keyPoints,
       actionItems: actionItems ?? this.actionItems,
       mindmapJson: mindmapJson ?? this.mindmapJson,
+      correctedTranscript: correctedTranscript ?? this.correctedTranscript,
     );
   }
 }
@@ -431,6 +435,12 @@ class VoiceNoteService {
         // ── 新增欄位：mindmap ──
         final mindmapJson = decoded['mindmap'] as Map<String, dynamic>?;
 
+        // ── 新增欄位：corrected_transcript (語意校正後之逐字稿) ──
+        final rawCorrected = decoded['corrected_transcript'] as String?;
+        final correctedTranscript = rawCorrected != null && rawCorrected.trim().isNotEmpty
+            ? AiDiagnosisService.toTraditionalChinese(rawCorrected.trim())
+            : null;
+
         final title = AiDiagnosisService.toTraditionalChinese(rawTitle);
         final cleanedContent = cleanRawMarkdown(rawContent);
         final markdownContent =
@@ -450,6 +460,7 @@ class VoiceNoteService {
           keyPoints: keyPoints,
           actionItems: actionItems,
           mindmapJson: mindmapJson,
+          correctedTranscript: correctedTranscript,
         );
       } catch (e) {
         debugPrint('VoiceNoteService JSON parse error: $e\nRaw: $responseText');
@@ -468,18 +479,17 @@ class VoiceNoteService {
     final styleInstruction = _getStyleInstruction(style);
 
     return '''
-你是一位頂級的語音筆記整理助手，擅長把口語化的逐字稿轉換為自然、清晰、有條理的筆記。
+你是一位頂級的語音筆記整理與逐字稿語意校正專家，擅長把口語化、中英夾雜的逐字稿進行專業校正，並轉換為自然、清晰、有條理的結構化筆記。
 
 【核心原則】
-- 智慧去贅字：自動剔除「痾」「呃」「嗯」「那個」「就是說」「然後呢」等口語停頓詞
-- 情境感知：根據內容的實際性質決定最合適的整理框架，不強套學術模板
-- 自然表達：用精煉的書面語重新表達，而非逐字翻譯原文
-- 語言：繁體中文（台灣習慣用語，避免大陸詞彙）
+- 逐字稿語意與專有名詞校正：若輸入逐字稿含有說話者與時間戳（例如 [00:15] 說話者 1: ...），請在 "corrected_transcript" 中保留時間戳與說話者格式，並精確校正中英文專有名詞、專業術語、同音錯字（例如將「摸豆」校正為「Model」、「API」、「Flutter」等），去除「呃、啊、那個」等冗贅停頓詞。
+- 智慧結構化提煉：根據內容的實際性質提煉出最合適的結構化筆記，不強套生硬模板。
+- 自然表達：用精煉的繁體中文（台灣習慣用語）重新表達筆記內容。
 
 $styleInstruction
 
 【JSON 輸出格式】
-你必須只回傳一個 JSON 物件，不得包含任何 Markdown 代碼塊或前後文字：
+你必須只回傳一個標準 JSON 物件，不得包含任何 Markdown 代碼塊或前後文字：
 
 {
   "title": "簡短精確的筆記標題（15字以內）",
@@ -498,11 +508,12 @@ $styleInstruction
         "children": [{ "id": "n1_1", "label": "細節", "color": "#2196F3", "children": [] }] }
     ]
   },
-  "content": "完整的 Markdown 格式筆記（使用 # 標題、## 子標題、- 列點、**粗體**、> 引用、- [ ] 待辦）",
+  "content": "完整的 Markdown 格式結構化筆記（使用 # 標題、## 子標題、- 列點、**粗體**、> 引用、- [ ] 待辦）",
+  "corrected_transcript": "校正後的逐字稿（若原文有說話者與時間戳請完整保留格式，如：[00:00] 說話者 1: ...）",
   "tags": ["關鍵字1", "關鍵字2", "關鍵字3"]
 }
 
-【語音轉文字稿】：
+【原始語音轉文字稿】：
 $transcript
 
 $langInstruction

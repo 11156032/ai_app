@@ -44,11 +44,12 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
 
   Future<void> _stopVoiceListening() async {
     if (!_isVoiceListening) return;
+    _isVoiceListening = false;
     await VoiceRecognitionService.instance.stopListening();
     if (mounted) {
       setState(() {
-        _isVoiceListening = false;
         _voiceSoundLevel = 0.0;
+        _voiceBaseText = '';
         _modalController.text =
             VoiceRecognitionService.cleanFillerWords(_modalController.text);
         _modalController.selection = TextSelection.collapsed(
@@ -72,7 +73,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       }
       final started = await VoiceRecognitionService.instance.startListening(
         onResult: (words, isFinal) {
-          if (!mounted) return;
+          if (!mounted || !_isVoiceListening) return;
           final currentWords = words.trim();
           if (currentWords.isEmpty && !isFinal) return;
 
@@ -90,11 +91,10 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           });
         },
         onSoundLevelChange: (level) {
-          if (mounted) {
-            setState(() {
-              _voiceSoundLevel = level;
-            });
-          }
+          if (!mounted || !_isVoiceListening) return;
+          setState(() {
+            _voiceSoundLevel = level;
+          });
         },
         onStatusChange: (status) {
           if (status == 'done' || status == 'notListening') {
@@ -102,13 +102,14 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               setState(() {
                 _isVoiceListening = false;
                 _voiceSoundLevel = 0.0;
+                _voiceBaseText = '';
                 _modalController.text =
                     VoiceRecognitionService.cleanFillerWords(
                         _modalController.text);
               });
             }
           } else if (status == 'listening') {
-            if (mounted) {
+            if (mounted && !_isVoiceListening) {
               setState(() {
                 _isVoiceListening = true;
               });
@@ -120,6 +121,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             setState(() {
               _isVoiceListening = false;
               _voiceSoundLevel = 0.0;
+              _voiceBaseText = '';
             });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -141,6 +143,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       if (!started && mounted) {
         setState(() {
           _isVoiceListening = false;
+          _voiceBaseText = '';
         });
       }
     }
@@ -1354,20 +1357,190 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       return const SizedBox();
     }
 
-    // 這裡放入原本 main_screen.dart 裡面的 messageWidget 邏輯
-    return Align(
-      alignment: msg['isAI'] ? Alignment.centerLeft : Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: msg['isAI'] ? Colors.white : Theme.of(context).primaryColor,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Text(msg['text'],
-            style:
-                TextStyle(color: msg['isAI'] ? Colors.black87 : Colors.white)),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAI = msg['isAI'] == true;
+
+    Widget messageWidget = Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+      constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.72),
+      decoration: BoxDecoration(
+        color: isAI
+            ? (isDark ? const Color(0xFF2C2523) : Colors.white)
+            : Theme.of(context).primaryColor,
+        borderRadius: BorderRadius.circular(18),
+        border: isAI
+            ? Border.all(
+                color: isDark
+                    ? Colors.brown.shade700
+                    : Colors.brown.shade100.withValues(alpha: 0.5),
+                width: 0.8)
+            : null,
+        boxShadow: isAI
+            ? [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2))
+              ]
+            : [],
       ),
+      child: _buildRichTextContent(
+        msg['text'] as String? ?? '',
+        isAI: isAI,
+        isDark: isDark,
+        primaryColor: Theme.of(context).primaryColor,
+      ),
+    );
+
+    if (isAI) {
+      messageWidget = GestureDetector(
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          Clipboard.setData(ClipboardData(text: msg['text'] ?? ''));
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle_outline_rounded,
+                      color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text('已複製代理人回覆內容'),
+                ],
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        },
+        child: messageWidget,
+      );
+    }
+
+    return Align(
+      alignment: isAI ? Alignment.centerLeft : Alignment.centerRight,
+      child: messageWidget,
+    );
+  }
+
+  Widget _buildRichTextContent(
+    String text, {
+    required bool isAI,
+    required bool isDark,
+    required Color primaryColor,
+  }) {
+    final defaultColor = isAI
+        ? (isDark ? Colors.grey.shade200 : const Color(0xFF2E2E2E))
+        : Colors.white;
+    final boldColor = isAI
+        ? (isDark ? Colors.amber.shade200 : const Color(0xFF4E342E))
+        : Colors.white;
+
+    final lines = text.split('\n');
+    final List<Widget> lineWidgets = [];
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) {
+        if (i < lines.length - 1 && lines[i + 1].trim().isNotEmpty) {
+          lineWidgets.add(const SizedBox(height: 6));
+        }
+        continue;
+      }
+
+      final isBullet = line.startsWith('•') ||
+          line.startsWith('-') ||
+          RegExp(r'^[0-9]+[\.、]\s*').hasMatch(line);
+
+      final spans = <InlineSpan>[];
+      final regex = RegExp(r'【(.*?)】|\*\*(.*?)\*\*|([➜➔>])');
+      int lastEnd = 0;
+
+      for (final match in regex.allMatches(line)) {
+        if (match.start > lastEnd) {
+          spans.add(TextSpan(
+            text: line.substring(lastEnd, match.start),
+            style: TextStyle(
+              fontSize: 14,
+              color: defaultColor,
+              height: 1.45,
+            ),
+          ));
+        }
+
+        if (match.group(1) != null || match.group(2) != null) {
+          final keyword = match.group(1) ?? match.group(2) ?? '';
+          spans.add(WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: isAI
+                    ? primaryColor.withValues(alpha: isDark ? 0.25 : 0.12)
+                    : Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isAI
+                      ? primaryColor.withValues(alpha: isDark ? 0.4 : 0.25)
+                      : Colors.white38,
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                keyword,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isAI ? boldColor : Colors.white,
+                ),
+              ),
+            ),
+          ));
+        } else if (match.group(3) != null) {
+          spans.add(TextSpan(
+            text: ' ➜ ',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: isAI ? primaryColor : Colors.white70,
+            ),
+          ));
+        }
+        lastEnd = match.end;
+      }
+
+      if (lastEnd < line.length) {
+        spans.add(TextSpan(
+          text: line.substring(lastEnd),
+          style: TextStyle(
+            fontSize: 14,
+            color: defaultColor,
+            height: 1.45,
+          ),
+        ));
+      }
+
+      lineWidgets.add(Padding(
+        padding: EdgeInsets.only(
+          top: isBullet ? 2.5 : 1,
+          bottom: isBullet ? 2.5 : 1,
+          left: isBullet ? 2 : 0,
+        ),
+        child: RichText(
+          text: TextSpan(children: spans),
+        ),
+      ));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: lineWidgets,
     );
   }
 
@@ -1488,19 +1661,26 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       } else {
                         FocusScope.of(context).unfocus();
                         if (_isVoiceListening) {
+                          _isVoiceListening = false;
                           VoiceRecognitionService.instance.stopListening();
-                          setState(() {
-                            _isVoiceListening = false;
-                          });
                         }
-                        widget.onHandleSubmit(
-                          _modalController.text,
-                          _modalController,
-                          (fn) {
-                            if (mounted) setState(fn);
-                          },
-                        );
-                        widget.onScrollToBottom();
+                        _voiceBaseText = '';
+                        final textToSend = _modalController.text.trim();
+                        _modalController.clear();
+                        setState(() {
+                          _isVoiceListening = false;
+                          _voiceSoundLevel = 0.0;
+                        });
+                        if (textToSend.isNotEmpty) {
+                          widget.onHandleSubmit(
+                            textToSend,
+                            _modalController,
+                            (fn) {
+                              if (mounted) setState(fn);
+                            },
+                          );
+                          widget.onScrollToBottom();
+                        }
                         return KeyEventResult.handled;
                       }
                     }
@@ -1577,16 +1757,23 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   onPressed: () {
                     FocusScope.of(context).unfocus();
                     if (_isVoiceListening) {
+                      _isVoiceListening = false;
                       VoiceRecognitionService.instance.stopListening();
-                      setState(() {
-                        _isVoiceListening = false;
-                      });
                     }
-                    widget.onHandleSubmit(
-                        _modalController.text, _modalController, (fn) {
-                      if (mounted) setState(fn);
+                    _voiceBaseText = '';
+                    final textToSend = _modalController.text.trim();
+                    _modalController.clear();
+                    setState(() {
+                      _isVoiceListening = false;
+                      _voiceSoundLevel = 0.0;
                     });
-                    widget.onScrollToBottom();
+                    if (textToSend.isNotEmpty) {
+                      widget.onHandleSubmit(
+                          textToSend, _modalController, (fn) {
+                        if (mounted) setState(fn);
+                      });
+                      widget.onScrollToBottom();
+                    }
                   },
                 ),
               ),
