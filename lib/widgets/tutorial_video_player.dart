@@ -134,22 +134,41 @@ class TutorialVideoPlayer extends StatefulWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                '請選擇想觀看的介面操作教學影片：',
-                style: TextStyle(color: Color(0xFF757575), fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-
-              // 學習 Pack 教學
-              _buildChooserTile(
-                context: context,
-                icon: Icons.inventory_2_rounded,
-                title: '📦 學習 Pack 製作與分享教學',
-                desc: '示範如何彙整重點筆記與考卷，建立與發布學習 Pack',
-                assetPath: 'assets/learning_pack_tutorial.mp4',
-                videoTitle: '學習 Pack 製作與分享操作教學',
-                badgeLabel: '學習 Pack 教學',
-                onClose: () => Navigator.of(ctx).pop(),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9F7F5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE8DDD5)),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.video_library_outlined,
+                      size: 44,
+                      color: Color(0xFFBCAAA4),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      '教學示範影片更新中',
+                      style: TextStyle(
+                        color: Color(0xFF3E2723),
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      '最新介面操作示範影片正在後製更新中，敬請期待！',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF757575),
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -171,55 +190,6 @@ class TutorialVideoPlayer extends StatefulWidget {
     );
   }
 
-  static Widget _buildChooserTile({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required String desc,
-    required String assetPath,
-    required String videoTitle,
-    required String badgeLabel,
-    required VoidCallback onClose,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      tileColor: const Color(0xFFF9F7F5), // 柔和純淨暖米白
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE8DDD5)),
-      ),
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF8D6E63).withValues(alpha: 0.12),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: const Color(0xFF8D6E63), size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-            color: Color(0xFF3E2723),
-            fontSize: 13.5,
-            fontWeight: FontWeight.bold),
-      ),
-      subtitle: Text(
-        desc,
-        style: const TextStyle(color: Color(0xFF8D6E63), fontSize: 11),
-      ),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded,
-          color: Color(0xFF8D6E63), size: 14),
-      onTap: () {
-        onClose();
-        TutorialVideoPlayer.showVideoDialog(
-          context,
-          assetPath: assetPath,
-          title: videoTitle,
-          badgeLabel: badgeLabel,
-        );
-      },
-    );
-  }
 
   @override
   State<TutorialVideoPlayer> createState() => _TutorialVideoPlayerState();

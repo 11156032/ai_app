@@ -264,12 +264,18 @@ class VoiceRecognitionService {
   Future<void> stopListening() async {
     _shouldKeepListening = false;
     _restartTimer?.cancel();
+    _restartTimer = null;
+
+    final callback = _onResultCallback;
+    final lastWords = _lastRecognizedWords.trim();
+    final wasFinal = _lastWasFinal;
+
+    _lastRecognizedWords = '';
+    _lastWasFinal = true;
 
     // 如果還有未交付的字詞，立即交付定稿
-    if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
-      _onResultCallback?.call(_lastRecognizedWords.trim(), true);
-      _lastRecognizedWords = '';
-      _lastWasFinal = true;
+    if (lastWords.isNotEmpty && !wasFinal) {
+      callback?.call(lastWords, true);
     }
 
     try {
@@ -305,6 +311,26 @@ class VoiceRecognitionService {
         .replaceAll(RegExp(r'[ \t]+'), ' ')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
+
+    // 5. 去除相鄰重複的完整片語或重複句子 (如 "你好 你好" -> "你好", "如何修改密碼 如何修改密碼" -> "如何修改密碼")
+    final words = cleaned.split(RegExp(r'\s+'));
+    if (words.length > 1) {
+      final deduped = <String>[];
+      for (final w in words) {
+        if (deduped.isEmpty || deduped.last != w) {
+          deduped.add(w);
+        }
+      }
+      cleaned = deduped.join(' ');
+    }
+
+    // 6. 去除中文無空白相連重複句 (如 "如何修改密碼如何修改密碼" -> "如何修改密碼")
+    if (cleaned.length >= 6) {
+      final half = cleaned.length ~/ 2;
+      if (cleaned.substring(0, half) == cleaned.substring(half)) {
+        cleaned = cleaned.substring(0, half);
+      }
+    }
 
     return cleaned;
   }

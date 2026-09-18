@@ -7,8 +7,13 @@ import '../widgets/point_recharge_dialog.dart';
 
 class MembershipCenterScreen extends StatefulWidget {
   final Map<String, dynamic> currentUser;
+  final Color? primaryColor;
 
-  const MembershipCenterScreen({super.key, required this.currentUser});
+  const MembershipCenterScreen({
+    super.key,
+    required this.currentUser,
+    this.primaryColor,
+  });
 
   @override
   State<MembershipCenterScreen> createState() => _MembershipCenterScreenState();
@@ -90,10 +95,12 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
   }
 
   void _openRechargeDialog([String defaultTab = 'points']) {
+    final themeColor = widget.primaryColor ?? Theme.of(context).primaryColor;
     PointRechargeDialog.show(
       context,
       userId: widget.currentUser['id'].toString(),
       defaultTab: defaultTab,
+      primaryColor: themeColor,
       onSuccess: () => _loadMembershipData(),
     );
   }
@@ -101,18 +108,23 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
   @override
   Widget build(BuildContext context) {
     final tierInfo = MembershipService.tiers[_currentTier] ?? MembershipService.tiers['free']!;
+    final themeColor = widget.primaryColor ?? Theme.of(context).primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F7F5),
+      backgroundColor: isDark ? const Color(0xFF141416) : const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'VIP 會員與點數中心',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4E342E)),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : const Color(0xFF1F2937),
+          ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E1E22) : Colors.white,
         elevation: 0.5,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF4E342E)),
+          icon: Icon(Icons.arrow_back_ios_new, color: isDark ? Colors.white : const Color(0xFF1F2937)),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -127,32 +139,36 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 1. VIP 尊榮會員卡 (VIP Member Card)
-                    _buildVipMemberCard(tierInfo),
+                    _buildVipMemberCard(tierInfo, themeColor, isDark),
 
                     const SizedBox(height: 20),
 
                     // 2. 每日簽到領點數 Banner
-                    _buildDailyCheckInBanner(tierInfo),
+                    _buildDailyCheckInBanner(tierInfo, themeColor, isDark),
 
                     const SizedBox(height: 24),
 
                     // 3. 功能頁籤 (特權對比 vs 點數交易明細)
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF1E1E22) : Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
                         ],
                       ),
                       child: Column(
                         children: [
                           TabBar(
                             controller: _tabController,
-                            indicatorColor: const Color(0xFF8D6E63),
+                            indicatorColor: themeColor,
                             indicatorWeight: 3,
-                            labelColor: const Color(0xFF4E342E),
-                            unselectedLabelColor: Colors.grey,
+                            labelColor: themeColor,
+                            unselectedLabelColor: isDark ? Colors.white54 : Colors.grey,
                             labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                             tabs: const [
                               Tab(text: '👑 会員特權比較'),
@@ -164,8 +180,8 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
                             child: TabBarView(
                               controller: _tabController,
                               children: [
-                                _buildPerksComparisonTab(),
-                                _buildTransactionsTab(),
+                                _buildPerksComparisonTab(themeColor, isDark),
+                                _buildTransactionsTab(isDark),
                               ],
                             ),
                           ),
@@ -182,21 +198,25 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
   }
 
   /// 建立尊榮 VIP 會員卡片
-  Widget _buildVipMemberCard(MembershipTierInfo tierInfo) {
+  Widget _buildVipMemberCard(MembershipTierInfo tierInfo, Color themeColor, bool isDark) {
     List<Color> cardGradient;
     switch (tierInfo.code) {
       case 'diamond':
         cardGradient = const [Color(0xFF311B92), Color(0xFF512DA8), Color(0xFF00838F)];
         break;
       case 'gold':
-        cardGradient = const [Color(0xFF3E2723), Color(0xFF5D4037), Color(0xFFFF8F00)];
+        cardGradient = const [Color(0xFF4A3600), Color(0xFF8D6E00), Color(0xFFFF8F00)];
         break;
       case 'silver':
         cardGradient = const [Color(0xFF263238), Color(0xFF37474F), Color(0xFF78909C)];
         break;
       case 'free':
       default:
-        cardGradient = const [Color(0xFF4E342E), Color(0xFF6D4C41), Color(0xFF8D6E63)];
+        final hsl = HSLColor.fromColor(themeColor);
+        final c1 = hsl.withLightness((hsl.lightness * (isDark ? 0.35 : 0.45)).clamp(0.08, 0.8)).toColor();
+        final c2 = hsl.withLightness((hsl.lightness * (isDark ? 0.65 : 0.75)).clamp(0.15, 0.85)).toColor();
+        final c3 = themeColor;
+        cardGradient = [c1, c2, c3];
         break;
     }
 
@@ -214,7 +234,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: cardGradient.first.withValues(alpha: 0.4),
+            color: cardGradient.first.withValues(alpha: isDark ? 0.5 : 0.35),
             blurRadius: 16,
             offset: const Offset(0, 6),
           )
@@ -302,10 +322,10 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
               ),
               ElevatedButton.icon(
                 onPressed: () => _openRechargeDialog('points'),
-                icon: const Icon(Icons.add_shopping_cart, size: 16, color: Color(0xFF4E342E)),
+                icon: const Icon(Icons.add_shopping_cart, size: 16, color: Color(0xFF3E2723)),
                 label: const Text(
                   '購買點數',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4E342E)),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3E2723)),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFFD54F),
@@ -321,15 +341,19 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
   }
 
   /// 每日簽到領點數 Banner
-  Widget _buildDailyCheckInBanner(MembershipTierInfo tierInfo) {
+  Widget _buildDailyCheckInBanner(MembershipTierInfo tierInfo, Color themeColor, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E22) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE0D7D3)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          )
         ],
       ),
       child: Row(
@@ -337,24 +361,28 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF3E0),
+              color: themeColor.withValues(alpha: isDark ? 0.2 : 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.calendar_today, color: Color(0xFFFF9800), size: 28),
+            child: Icon(Icons.calendar_today_rounded, color: themeColor, size: 26),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '每日登入獎勵',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF4E342E)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? Colors.white : const Color(0xFF1F2937),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '當前階級每日可領 +${tierInfo.dailyBonus} 點數',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.grey.shade600),
                 ),
               ],
             ),
@@ -362,11 +390,18 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
           ElevatedButton(
             onPressed: _hasClaimedToday ? null : _claimDailyBonus,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _hasClaimedToday ? Colors.grey[300] : const Color(0xFF8D6E63),
+              backgroundColor: _hasClaimedToday ? (isDark ? Colors.white12 : Colors.grey[300]) : themeColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
-            child: Text(_hasClaimedToday ? '今日已領' : '立即簽到'),
+            child: Text(
+              _hasClaimedToday ? '今日已領' : '立即簽到',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: _hasClaimedToday ? (isDark ? Colors.white38 : Colors.grey.shade600) : Colors.white,
+              ),
+            ),
           ),
         ],
       ),
@@ -374,17 +409,25 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
   }
 
   /// 會員特權比較表 Tab
-  Widget _buildPerksComparisonTab() {
+  Widget _buildPerksComparisonTab(Color themeColor, bool isDark) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
+        Text(
           'VIP 會員權益對比矩陣',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4E342E)),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : const Color(0xFF1F2937),
+          ),
         ),
         const SizedBox(height: 12),
         Table(
-          border: TableBorder.all(color: Colors.grey[300]!, width: 1, borderRadius: BorderRadius.circular(12)),
+          border: TableBorder.all(
+            color: isDark ? Colors.white12 : Colors.grey[300]!,
+            width: 1,
+            borderRadius: BorderRadius.circular(12),
+          ),
           columnWidths: const {
             0: FlexColumnWidth(1.4),
             1: FlexColumnWidth(1.0),
@@ -393,18 +436,18 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
           },
           children: [
             TableRow(
-              decoration: BoxDecoration(color: Colors.grey[100]),
-              children: const [
-                Padding(padding: EdgeInsets.all(8), child: Text('權益項目', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                Padding(padding: EdgeInsets.all(8), child: Text('普通', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                Padding(padding: EdgeInsets.all(8), child: Text('黃金', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFFFF8F00)))),
-                Padding(padding: EdgeInsets.all(8), child: Text('鑽石', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF7E57C2)))),
+              decoration: BoxDecoration(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey[100]),
+              children: [
+                Padding(padding: const EdgeInsets.all(8), child: Text('權益項目', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : Colors.black87))),
+                Padding(padding: const EdgeInsets.all(8), child: Text('普通', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white70 : Colors.black87))),
+                const Padding(padding: EdgeInsets.all(8), child: Text('黃金', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFFFF8F00)))),
+                const Padding(padding: EdgeInsets.all(8), child: Text('鑽石', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF7E57C2)))),
               ],
             ),
-            _buildTableRow('AI 詢問點數折扣', '原價 (1.0x)', '8 折 (0.8x)', '5 折半價'),
-            _buildTableRow('每日簽到點數', '+10 Pts', '+50 Pts', '+100 Pts'),
-            _buildTableRow('AI 診斷詳細報告', '基本款', '完整深度', 'VIP 無限速'),
-            _buildTableRow('專屬身份徽章', '普通灰色', '金色光澤', '鑽石流光'),
+            _buildTableRow('AI 詢問點數折扣', '原價 (1.0x)', '8 折 (0.8x)', '5 折半價', isDark),
+            _buildTableRow('每日簽到點數', '+10 Pts', '+50 Pts', '+100 Pts', isDark),
+            _buildTableRow('AI 診斷詳細報告', '基本款', '完整深度', 'VIP 無限速', isDark),
+            _buildTableRow('專屬身份徽章', '普通灰色', '金色光澤', '鑽石流光', isDark),
           ],
         ),
         const SizedBox(height: 24),
@@ -413,14 +456,15 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
           height: 48,
           child: ElevatedButton.icon(
             onPressed: () => _openRechargeDialog('tiers'),
-            icon: const Icon(Icons.star, color: Colors.white),
+            icon: const Icon(Icons.star_rounded, color: Colors.white),
             label: const Text(
-              '立即升級 VIP 方案',
+              '★ 立即升級 VIP 方案',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8D6E63),
+              backgroundColor: themeColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 2,
             ),
           ),
         ),
@@ -428,11 +472,11 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
     );
   }
 
-  TableRow _buildTableRow(String perk, String v1, String v2, String v3) {
+  TableRow _buildTableRow(String perk, String v1, String v2, String v3, bool isDark) {
     return TableRow(
       children: [
-        Padding(padding: const EdgeInsets.all(8), child: Text(perk, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-        Padding(padding: const EdgeInsets.all(8), child: Text(v1, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Colors.black54))),
+        Padding(padding: const EdgeInsets.all(8), child: Text(perk, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87))),
+        Padding(padding: const EdgeInsets.all(8), child: Text(v1, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54))),
         Padding(padding: const EdgeInsets.all(8), child: Text(v2, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFF8F00)))),
         Padding(padding: const EdgeInsets.all(8), child: Text(v3, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF7E57C2)))),
       ],
@@ -440,15 +484,15 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
   }
 
   /// 點數交易歷史明細 Tab
-  Widget _buildTransactionsTab() {
+  Widget _buildTransactionsTab(bool isDark) {
     if (_transactions.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 48, color: Colors.grey),
-            SizedBox(height: 12),
-            Text('尚無點數變動紀錄', style: TextStyle(color: Colors.grey)),
+            Icon(Icons.history, size: 48, color: isDark ? Colors.white38 : Colors.grey),
+            const SizedBox(height: 12),
+            Text('尚無點數變動紀錄', style: TextStyle(color: isDark ? Colors.white38 : Colors.grey)),
           ],
         ),
       );

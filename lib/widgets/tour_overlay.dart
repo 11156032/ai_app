@@ -4,6 +4,7 @@ import 'tutorial_video_player.dart';
 class TourKeys {
   static final GlobalKey wrongQuestionsTabKey = GlobalKey();
   static final GlobalKey startPracticeFabKey = GlobalKey();
+  static final GlobalKey drawerButtonKey = GlobalKey();
 }
 
 // ─────────────────────────────────────────────
@@ -26,6 +27,8 @@ class TourStep {
   final String? tutorialVideoTitle; // 教學示範影片標題
   final VoidCallback? onEnter; // 進入此步驟時執行
   final VoidCallback? onLeaveBackward; // 點選上一步離開此步驟時執行
+  /// 個人化推薦理由（有值時顯示「✨ 為你推薦」橫幅）
+  final String? recommendReason;
 
   const TourStep({
     required this.featureTitle,
@@ -42,6 +45,7 @@ class TourStep {
     this.tutorialVideoTitle,
     this.onEnter,
     this.onLeaveBackward,
+    this.recommendReason,
   });
 }
 
@@ -362,6 +366,47 @@ class _TourOverlayState extends State<TourOverlay>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ── 個人化推薦橫幅（有 recommendReason 時才顯示）
+                      if (step.recommendReason != null) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                primaryColor.withValues(alpha: 0.12),
+                                primaryColor.withValues(alpha: 0.05),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: primaryColor.withValues(alpha: 0.25),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('✨',
+                                  style: const TextStyle(fontSize: 13)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  step.recommendReason!,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       // 功能標籤 + 總進度
                       Row(
                         children: [
@@ -448,8 +493,7 @@ class _TourOverlayState extends State<TourOverlay>
                           child: InkWell(
                             onTap: () {
                               setState(() {
-                                _activeVideoAsset = step.tutorialVideoAsset ??
-                                    'assets/learning_pack_tutorial.mp4';
+                                _activeVideoAsset = step.tutorialVideoAsset;
                                 _activeVideoTitle =
                                     step.tutorialVideoTitle ?? '操作示範';
                                 _activeVideoBadge =

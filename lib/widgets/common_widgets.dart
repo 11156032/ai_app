@@ -679,8 +679,8 @@ class CommunityTopic {
     required this.emoji,
     required this.color,
     required this.description,
-    this.memberCount = 156,
-    this.postCount = 42,
+    this.memberCount = 0,
+    this.postCount = 0,
   });
 }
 
@@ -692,8 +692,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '📐',
     color: Color(0xFF1E88E5),
     description: '探討數學解題、理化實驗與邏輯思維技巧',
-    memberCount: 238,
-    postCount: 64,
   ),
   CommunityTopic(
     id: 'topic_science',
@@ -702,8 +700,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '🔬',
     color: Color(0xFF00897B),
     description: '探索生物演化、地球科學與宇宙科普新知',
-    memberCount: 185,
-    postCount: 48,
   ),
   CommunityTopic(
     id: 'topic_literature',
@@ -712,8 +708,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '📚',
     color: Color(0xFF6D4C41),
     description: '古文賞析、現代文學閱讀心得與寫作技巧',
-    memberCount: 192,
-    postCount: 51,
   ),
   CommunityTopic(
     id: 'topic_social',
@@ -722,8 +716,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '🌍',
     color: Color(0xFFE65100),
     description: '歷史脈絡梳理、地理人文與公民社會思辨',
-    memberCount: 147,
-    postCount: 39,
   ),
   CommunityTopic(
     id: 'topic_ai',
@@ -732,8 +724,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '💡',
     color: Color(0xFF7B1FA2),
     description: '人工智慧輔助學習、程式設計與未來科技',
-    memberCount: 312,
-    postCount: 88,
   ),
   CommunityTopic(
     id: 'topic_english',
@@ -742,8 +732,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '🇬🇧',
     color: Color(0xFF0288D1),
     description: '單字文法、聽力口說練習與多益檢定衝刺',
-    memberCount: 265,
-    postCount: 73,
   ),
   CommunityTopic(
     id: 'topic_exam',
@@ -752,8 +740,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '🎯',
     color: Color(0xFFC2185B),
     description: '學測分科會考倒數、歷屆試題與錯題複習筆記',
-    memberCount: 290,
-    postCount: 95,
   ),
   CommunityTopic(
     id: 'topic_daily',
@@ -762,8 +748,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '☕',
     color: Color(0xFFF57C00),
     description: '讀書打卡、番茄鐘專注心得與學習心情交流',
-    memberCount: 340,
-    postCount: 110,
   ),
   CommunityTopic(
     id: 'topic_creative',
@@ -772,8 +756,6 @@ const List<CommunityTopic> kCommunityTopics = [
     emoji: '📝',
     color: Color(0xFF512DA8),
     description: '筆記排版、重點整理與視覺化心智圖分享',
-    memberCount: 215,
-    postCount: 59,
   ),
 ];
 
@@ -785,4 +767,50 @@ CommunityTopic? getCommunityTopicById(String id) {
   } catch (_) {
     return null;
   }
+}
+
+/// 將歡迎頁面向 ID 映射為標準 9 大社群 ID (防止 topic_coding 等不存在的 ID 出現於社群選單中)
+String normalizeCommunityTopicId(String id) {
+  switch (id) {
+    case 'topic_physics':
+    case 'topic_chemistry':
+    case 'topic_biology':
+    case 'topic_science':
+      return 'topic_science';
+    case 'topic_history':
+    case 'topic_social':
+      return 'topic_social';
+    case 'topic_coding':
+    case 'topic_tech':
+    case 'topic_ai':
+      return 'topic_ai';
+    case 'topic_toeic':
+    case 'topic_english':
+      return 'topic_english';
+    case 'topic_math':
+      return 'topic_math';
+    case 'topic_literature':
+      return 'topic_literature';
+    case 'topic_exam':
+      return 'topic_exam';
+    case 'topic_daily':
+      return 'topic_daily';
+    case 'topic_creative':
+      return 'topic_creative';
+    default:
+      if (kCommunityTopics.any((t) => t.id == id)) return id;
+      return 'topic_ai';
+  }
+}
+
+/// 批次標準化社群 ID 列表並去重
+List<String> normalizeCommunityTopicIds(Iterable<String> ids) {
+  final normalized = <String>{};
+  for (final id in ids) {
+    normalized.add(normalizeCommunityTopicId(id));
+  }
+  if (normalized.isEmpty) {
+    normalized.addAll(['topic_math', 'topic_ai']);
+  }
+  return normalized.toList();
 }

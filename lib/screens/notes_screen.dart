@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../database/database_helper.dart';
 import '../widgets/voice_note_sheet.dart';
 import '../services/voice_note_service.dart';
+import '../services/voice_note_background_manager.dart';
 import '../widgets/mindmap_node.dart';
 import '../widgets/mindmap_canvas.dart';
 
@@ -455,6 +456,62 @@ class _NotesScreenState extends State<NotesScreen> {
   void initState() {
     super.initState();
     NotesDatabase.initializeForUser(widget.currentUser['id']);
+    VoiceNoteBackgroundManager.instance
+        .addListener(_handleBackgroundManagerUpdate);
+  }
+
+  @override
+  void dispose() {
+    VoiceNoteBackgroundManager.instance
+        .removeListener(_handleBackgroundManagerUpdate);
+    super.dispose();
+  }
+
+  void _handleBackgroundManagerUpdate() {
+    if (!mounted) return;
+    final manager = VoiceNoteBackgroundManager.instance;
+    if (manager.lastCompletedResult != null && manager.lastCreatedNote != null) {
+      final newNote = manager.lastCreatedNote!;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded,
+                  color: Colors.amber, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '🎉 AI 筆記「${newNote.title}」已整理完成！',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          action: SnackBarAction(
+            label: '立即查看',
+            textColor: Colors.amber,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NoteEditorScreen(note: newNote),
+                ),
+              );
+            },
+          ),
+          backgroundColor: const Color(0xFF4A148C),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      manager.dismissCompletedNotification();
+    } else {
+      setState(() {});
+    }
   }
 
   void _refresh() {
@@ -502,7 +559,8 @@ class _NotesScreenState extends State<NotesScreen> {
       useSafeArea: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      enableDrag: true,
+      isDismissible: false,
+      enableDrag: false,
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.85,
         minChildSize: 0.45,
@@ -510,6 +568,7 @@ class _NotesScreenState extends State<NotesScreen> {
         expand: false,
         builder: (_, scrollController) => VoiceNoteSheet(
           scrollController: scrollController,
+          userId: userId,
           onNoteReady:
               (title, category, markdownContent, mindmapJson, actionItems) {
             // 確保分類存在
@@ -1160,6 +1219,44 @@ class _NotesScreenState extends State<NotesScreen> {
               ],
             ),
           ),
+
+          // 🤖 AI 背景處理動態指示橫幅
+          if (VoiceNoteBackgroundManager.instance.isGenerating)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4A148C).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: const Color(0xFF4A148C).withValues(alpha: 0.25),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Color(0xFF4A148C)),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '🤖 AI 正在背景為您提煉整理語音筆記，完成後將自動發送推播通知...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF4A148C),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // 筆記清單一欄 N 列 (ListView)
           Expanded(
@@ -2031,7 +2128,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      enableDrag: true,
+      isDismissible: false,
+      enableDrag: false,
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.85,
         minChildSize: 0.45,
@@ -2039,6 +2137,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         expand: false,
         builder: (_, scrollController) => VoiceNoteSheet(
           scrollController: scrollController,
+          userId: widget.note.userId,
           existingContent: _contentController.text,
           onNoteReady:
               (title, category, markdownContent, mindmapJson, actionItems) {

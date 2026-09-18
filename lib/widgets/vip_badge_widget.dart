@@ -38,7 +38,11 @@ class VipBadgeWidget extends StatelessWidget {
         break;
       case 'free':
       default:
-        gradientColors = const [Color(0xFFA1887F), Color(0xFF8D6E63)];
+        final themeColor = Theme.of(context).primaryColor;
+        gradientColors = [
+          themeColor.withValues(alpha: 0.75),
+          themeColor,
+        ];
         tierIcon = Icons.shield_outlined;
         break;
     }

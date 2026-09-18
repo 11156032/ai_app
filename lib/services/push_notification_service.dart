@@ -155,4 +155,46 @@ class PushNotificationService {
       debugPrint('設定推播狀態失敗: $e');
     }
   }
+
+  /// 發送本地即時系統推播通知（如 AI 背景處理完成）
+  Future<void> showLocalNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    try {
+      if (!_initialized && !kIsWeb) {
+        await initialize();
+      }
+      if (kIsWeb) return;
+
+      await _localNotifications.show(
+        DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id,
+            _channel.name,
+            channelDescription: _channel.description,
+            icon: '@mipmap/ic_launcher',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        payload: payload,
+      );
+      debugPrint('成功發送本地推播通知: $title');
+    } catch (e) {
+      debugPrint('本地推播發送失敗: $e');
+    }
+  }
 }
+

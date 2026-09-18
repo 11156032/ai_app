@@ -6,13 +6,34 @@ import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/notes_screen.dart';
 import 'widgets/common_widgets.dart';
+import 'services/app_theme_service.dart';
+import 'services/app_locale_service.dart';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 鎖定手機直向顯示，避免旋轉造成畫面溢位與排版錯亂（商業 App 標準做法）
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // 捕獲並日誌記錄 Flutter 渲染與非同步錯誤，杜絕任何紅屏 (Red Screen) 發生
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('🚨 [Flutter Error Handled] ${details.exception}');
+    debugPrint('🚨 [Stack Trace]\n${details.stack}');
+  };
+
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('🚨 [ErrorWidget Blocked] ${details.exception}');
+    return const SizedBox.shrink();
+  };
+
   try {
     await dotenv.load(fileName: "assets/keys.env");
   } catch (e) {
@@ -51,26 +72,47 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      scrollBehavior: AppScrollBehavior(),
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFD7CCC8),
-            surface: const Color(0xFFFAFAFA)),
-        useMaterial3: true,
-      ),
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('zh', 'TW'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('zh', 'TW'),
-      home: const AuthWrapper(),
+    return ValueListenableBuilder<int>(
+      valueListenable: AppThemeService.themeColorIdxNotifier,
+      builder: (context, themeIdx, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: AppThemeService.isDarkModeNotifier,
+          builder: (context, isDark, _) {
+            return ValueListenableBuilder<String>(
+              valueListenable: AppLocaleService.currentLanguageNotifier,
+              builder: (context, currentLang, _) {
+                final localeParts = currentLang.split('_');
+                final locale = Locale(
+                  localeParts[0],
+                  localeParts.length > 1 ? localeParts[1] : '',
+                );
+
+                return MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  scrollBehavior: AppScrollBehavior(),
+                  theme: AppThemeService.createThemeData(
+                    themeIdx: themeIdx,
+                    isDark: isDark,
+                  ),
+                  localizationsDelegates: const [
+                    GlobalMaterialLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                    GlobalCupertinoLocalizations.delegate,
+                  ],
+                  supportedLocales: const [
+                    Locale('zh', 'TW'),
+                    Locale('en', 'US'),
+                    Locale('ja', 'JP'),
+                    Locale('ko', 'KR'),
+                  ],
+                  locale: locale,
+                  home: const AuthWrapper(),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -97,6 +139,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
       final user = await DatabaseHelper.instance
           .getLoggedInUser()
           .timeout(const Duration(seconds: 3), onTimeout: () => null);
+      if (user != null) {
+        final themeIdx = (user['theme_color_idx'] as int?) ?? 0;
+        final isDark = (user['is_dark_mode'] as int? ?? 0) == 1;
+        final fontFactor =
+            (user['font_size_factor'] as num?)?.toDouble() ?? 1.0;
+        AppThemeService.syncFromUser(
+          themeColorIdx: themeIdx,
+          isDark: isDark,
+          fontFactor: fontFactor,
+        );
+        if (user['language'] != null) {
+          AppLocaleService.setLanguage(user['language'].toString());
+        }
+      }
       if (mounted) {
         setState(() {
           _currentUser = user;
@@ -113,6 +169,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   /// 登入成功時，寫入資料庫並更新 UI
   void _login(Map<String, dynamic> user) {
+    final themeIdx = (user['theme_color_idx'] as int?) ?? 0;
+    final isDark = (user['is_dark_mode'] as int? ?? 0) == 1;
+    final fontFactor = (user['font_size_factor'] as num?)?.toDouble() ?? 1.0;
+    AppThemeService.syncFromUser(
+      themeColorIdx: themeIdx,
+      isDark: isDark,
+      fontFactor: fontFactor,
+    );
+    if (user['language'] != null) {
+      AppLocaleService.setLanguage(user['language'].toString());
+    }
+
     // 訪客帳號不持久化，正式帳號寫入 DB
     if (user['id'] != 'u4') {
       DatabaseHelper.instance.setLoggedInUser(user['id'].toString());
