@@ -195,7 +195,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.7.4';
+  String _appVersion = 'v1.7.6';
   String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
@@ -3890,9 +3890,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           spans.add(TextSpan(
             text: line.substring(lastEnd, match.start),
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 15.5,
               color: defaultColor,
-              height: 1.45,
+              height: 1.55,
             ),
           ));
         }
@@ -3903,7 +3903,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             alignment: PlaceholderAlignment.middle,
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
               decoration: BoxDecoration(
                 color: isAI
                     ? primaryColor.withValues(alpha: isDark ? 0.25 : 0.12)
@@ -3911,15 +3911,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: isAI
-                      ? primaryColor.withValues(alpha: isDark ? 0.4 : 0.25)
-                      : Colors.white38,
+                    ? primaryColor.withValues(alpha: isDark ? 0.4 : 0.25)
+                    : Colors.white38,
                   width: 0.8,
                 ),
               ),
               child: Text(
                 keyword,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 15.0,
                   fontWeight: FontWeight.bold,
                   color: isAI ? boldColor : Colors.white,
                 ),
@@ -3930,7 +3930,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           spans.add(TextSpan(
             text: ' ➜ ',
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 14.0,
               fontWeight: FontWeight.bold,
               color: isAI ? primaryColor : Colors.white70,
             ),
@@ -3943,9 +3943,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         spans.add(TextSpan(
           text: line.substring(lastEnd),
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 15.5,
             color: defaultColor,
-            height: 1.45,
+            height: 1.55,
           ),
         ));
       }
@@ -5306,153 +5306,131 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
                             return Container(
                               margin: const EdgeInsets.only(
-                                  bottom: 12, left: 40, right: 10),
+                                  bottom: 8, left: 16, right: 16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: categories.map((cat) {
                                   final catColor = cat['color'] as Color;
-                                  final catBg = cat['bgColor'] as Color;
                                   final catTitle = cat['title'] as String;
                                   final catItems = cat['items']
                                       as List<Map<String, dynamic>>;
 
                                   return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.only(bottom: 8),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        // ── 分組標題列 ──────────────────
+                                        // ── 分組標題列 ──
                                         Padding(
                                           padding: const EdgeInsets.only(
-                                              bottom: 6, left: 2),
-                                          child: Row(children: [
-                                            Container(
-                                              width: 3,
-                                              height: 14,
-                                              decoration: BoxDecoration(
-                                                color: catColor,
-                                                borderRadius:
-                                                    BorderRadius.circular(2),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 7),
-                                            Text(catTitle,
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: catColor,
-                                                    letterSpacing: 0.4)),
-                                          ]),
-                                        ),
-                                        // ── 卡片群組容器 ─────────────────
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            color:
-                                                catBg.withValues(alpha: 0.45),
-                                            borderRadius:
-                                                BorderRadius.circular(14),
-                                            border: Border.all(
-                                                color: catColor.withValues(
-                                                    alpha: 0.12),
-                                                width: 1),
-                                          ),
-                                          child: Column(
-                                            children: catItems
-                                                .asMap()
-                                                .entries
-                                                .map((entry) {
-                                              final idx = entry.key;
-                                              final opt = entry.value;
-                                              final isLast =
-                                                  idx == catItems.length - 1;
-                                              final itemColor =
-                                                  opt['c'] as Color;
-                                              return Column(children: [
-                                                InkWell(
-                                                  onTap: () => _handleAISubmit(
-                                                      opt['v'] as String,
-                                                      modalController,
-                                                      setModalState),
+                                              bottom: 4, left: 2),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                width: 3,
+                                                height: 11,
+                                                decoration: BoxDecoration(
+                                                  color: catColor,
                                                   borderRadius:
-                                                      BorderRadius.circular(14),
-                                                  child: Padding(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 10),
-                                                    child: Row(children: [
-                                                      Container(
-                                                        width: 36,
-                                                        height: 36,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: itemColor
-                                                              .withValues(
-                                                                  alpha: 0.12),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(10),
-                                                        ),
-                                                        child: Icon(
-                                                            opt['icon']
-                                                                as IconData,
-                                                            size: 19,
-                                                            color: itemColor),
+                                                      BorderRadius.circular(2),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                catTitle,
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: isDark
+                                                      ? Colors.grey.shade300
+                                                      : catColor,
+                                                  letterSpacing: 0.3,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // ── 精簡藥丸按鈕群 ──
+                                        Wrap(
+                                          spacing: 7,
+                                          runSpacing: 6,
+                                          children: catItems.map((opt) {
+                                            final itemColor =
+                                                opt['c'] as Color;
+                                            return Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                onTap: () => _handleAISubmit(
+                                                    opt['v'] as String,
+                                                    modalController,
+                                                    setModalState),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 5.5),
+                                                  decoration: BoxDecoration(
+                                                    color: isDark
+                                                        ? const Color(
+                                                            0xFF2C2523)
+                                                        : Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            16),
+                                                    border: Border.all(
+                                                      color: itemColor
+                                                          .withValues(
+                                                              alpha: isDark
+                                                                  ? 0.4
+                                                                  : 0.25),
+                                                      width: 1,
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withValues(
+                                                                alpha: isDark
+                                                                    ? 0.2
+                                                                    : 0.03),
+                                                        blurRadius: 2,
+                                                        offset: const Offset(
+                                                            0, 1),
                                                       ),
-                                                      const SizedBox(width: 12),
-                                                      Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Text(
-                                                                opt['l']
-                                                                    as String,
-                                                                style: const TextStyle(
-                                                                    fontSize:
-                                                                        13.5,
-                                                                    color: Colors
-                                                                        .black87,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600)),
-                                                            const SizedBox(
-                                                                height: 1),
-                                                            Text(
-                                                                opt['sub']
-                                                                    as String,
-                                                                style: TextStyle(
-                                                                    fontSize:
-                                                                        11,
-                                                                    color: Colors
-                                                                        .grey
-                                                                        .shade500)),
-                                                          ],
-                                                        ),
-                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
                                                       Icon(
-                                                          Icons
-                                                              .chevron_right_rounded,
-                                                          size: 18,
-                                                          color: Colors
-                                                              .grey.shade400),
-                                                    ]),
+                                                          opt['icon']
+                                                              as IconData,
+                                                          size: 14,
+                                                          color: itemColor),
+                                                      const SizedBox(width: 5),
+                                                      Text(
+                                                        opt['l'] as String,
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: isDark
+                                                              ? Colors
+                                                                  .grey.shade200
+                                                                  : const Color(
+                                                                      0xFF3E2723),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
-                                                if (!isLast)
-                                                  Divider(
-                                                      height: 1,
-                                                      thickness: 0.5,
-                                                      indent: 60,
-                                                      endIndent: 12,
-                                                      color:
-                                                          catColor.withValues(
-                                                              alpha: 0.15)),
-                                              ]);
-                                            }).toList(),
-                                          ),
+                                              ),
+                                            );
+                                          }).toList(),
                                         ),
                                       ],
                                     ),
@@ -6567,10 +6545,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           Widget messageWidget = Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 15, vertical: 13),
+                                horizontal: 16, vertical: 12),
                             constraints: BoxConstraints(
                                 maxWidth:
-                                    MediaQuery.of(context).size.width * 0.72),
+                                    MediaQuery.of(context).size.width * 0.78),
                             decoration: BoxDecoration(
                                 color: msg['isAI']
                                     ? (isDark
@@ -6938,10 +6916,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   maxLines: 5,
                                   keyboardType: TextInputType.multiline,
                                   textInputAction: TextInputAction.newline,
+                                  style: const TextStyle(
+                                    fontSize: 15.5,
+                                    color: Color(0xFF2E2E2E),
+                                    height: 1.35,
+                                  ),
                                   decoration: InputDecoration(
                                       hintText: isVoiceListening
                                           ? '正在聆聽語音中，請說話...'
                                           : '請輸入您的問題或指令...',
+                                      hintStyle: TextStyle(
+                                        fontSize: 15.0,
+                                        color: Colors.grey.shade400,
+                                      ),
                                       filled: true,
                                       fillColor: Colors.white,
                                       border: OutlineInputBorder(
@@ -6950,7 +6937,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                           borderSide: BorderSide.none),
                                       contentPadding:
                                           const EdgeInsets.symmetric(
-                                              horizontal: 20, vertical: 10)),
+                                              horizontal: 18, vertical: 11)),
                                 ),
                               ),
                             ),
@@ -7608,13 +7595,51 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       }
       // 簡單對話已全權交由後端的 Groq / OpenRouter 極速免費模型處理 (思考模型後置)，此處僅保留功能卡片與系統狀態控制指令
 
-      // 幫助指令處理
-      if (inputLower == 'help' ||
+      // 判斷是否為問句或操作詢問（例如：「如何開啟底部導覽列功能」、「怎麼修改密碼」、「功能在哪裡」等）
+      final isQuestionOrAction = inputLower.contains('如何') ||
+          inputLower.contains('怎麼') ||
+          inputLower.contains('怎樣') ||
+          inputLower.contains('哪裡') ||
+          inputLower.contains('在哪') ||
+          inputLower.contains('什麼') ||
+          inputLower.contains('甚麼') ||
+          inputLower.contains('為什麼') ||
+          inputLower.contains('可否') ||
+          inputLower.contains('可以嗎') ||
+          inputLower.contains('能嗎') ||
+          inputLower.contains('開啟') ||
+          inputLower.contains('關閉') ||
+          inputLower.contains('修改') ||
+          inputLower.contains('設定') ||
+          inputLower.contains('調整') ||
+          inputLower.contains('導覽列') ||
+          inputLower.contains('底欄') ||
+          inputLower.contains('密碼');
+
+      // 純粹請求幫助或詢問助理能做什麼之指令
+      final isHelpCommand = inputLower == 'help' ||
           inputLower == '幫助' ||
-          inputLower.contains('你能做什麼') ||
-          inputLower.contains('可以幫什麼') ||
-          inputLower.contains('指令') ||
-          inputLower.contains('功能')) {
+          inputLower == '協助' ||
+          inputLower == '協助事項' ||
+          inputLower == '協作事項' ||
+          inputLower == '功能清單' ||
+          inputLower == '功能列表' ||
+          inputLower == '功能' ||
+          inputLower == '指令' ||
+          inputLower == '指令清單' ||
+          inputLower == '選單' ||
+          inputLower == '主選單' ||
+          inputLower == '你能做什麼' ||
+          inputLower == '你可以做什麼' ||
+          inputLower == '可以幫什麼' ||
+          inputLower == '有什麼功能' ||
+          inputLower == '有甚麼功能' ||
+          inputLower == '代理人功能' ||
+          inputLower == '怎麼使用代理人' ||
+          inputLower == '如何使用代理人';
+
+      // 幫助指令處理（嚴格排除問句與具體操作詢問，防止「如何開啟底部導覽列功能」等提問被誤觸發）
+      if (!isQuestionOrAction && isHelpCommand) {
         setModalState(() {
           chatLogs.add({'isAI': false, 'text': text});
           chatLogs.add({

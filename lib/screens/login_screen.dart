@@ -1316,7 +1316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'v1.7.4',
+                          'v1.7.6',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
@@ -1349,7 +1349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? [
                       _buildInlineSection(
                         '1. 接受條款與服務範疇',
-                        '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、AI 步驟詳解、AI 語音速記（6 大整理風格）、互動心智圖、學科能力診斷、弱項補強教材、智慧筆記（Markdown與 AI 摘要）、智慧行事曆排程與 24H 線上客服等多元功能。',
+                        '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、AI 步驟詳解、AI 語音速記（5 大整理風格）、互動心智圖、學科能力診斷、弱項補強教材、智慧筆記（Markdown與 AI 摘要）、智慧行事曆排程與 24H 線上客服等多元功能。',
                         themeColor,
                       ),
                       _buildInlineSection(
@@ -1369,7 +1369,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       _buildInlineSection(
                         '5. 免責聲明與管轄法院',
-                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.7.4（修訂發布：2026 年 9 月 18 日）。',
+                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.7.6（修訂發布：2026 年 9 月 18 日）。',
                         themeColor,
                       ),
                     ]
@@ -1396,7 +1396,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       _buildInlineSection(
                         '5. 第三方服務安全規範',
-                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.7.4（修訂發布：2026 年 9 月 18 日）。',
+                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.7.6（修訂發布：2026 年 9 月 18 日）。',
                         themeColor,
                       ),
                     ],

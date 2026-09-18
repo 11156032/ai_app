@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/groq_whisper_service.dart';
 import '../services/voice_note_service.dart';
+import '../services/voice_note_background_manager.dart';
 import 'mindmap_node.dart';
 import 'mindmap_canvas.dart';
 
@@ -29,11 +33,15 @@ class VoiceNoteSheet extends StatefulWidget {
   /// 外部傳入的 ScrollController (DraggableScrollableSheet 支援)
   final ScrollController? scrollController;
 
+  /// 當前使用者 ID（用於背景儲存）
+  final String? userId;
+
   const VoiceNoteSheet({
     super.key,
     this.onNoteReady,
     this.existingContent,
     this.scrollController,
+    this.userId,
   });
 
   @override
@@ -62,12 +70,15 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   Timer? _durationTimer;
   Duration _recordDuration = Duration.zero;
 
-  // 逐字稿編輯控制器
+  // 逐字稿編輯控制器與草稿狀態
   late TextEditingController _transcriptController;
   final ScrollController _transcriptScrollController = ScrollController();
+  String? _pendingDraftText;
+  String? _pendingDraftTime;
 
-  // 風格選擇
-  VoiceNoteStyle _selectedStyle = VoiceNoteStyle.classKeyPoints;
+  // 風格選擇與微調細緻度
+  VoiceNoteStyle _selectedStyle = VoiceNoteStyle.academicLecture;
+  VoiceNoteDetailLevel _selectedDetailLevel = VoiceNoteDetailLevel.detailed;
 
   // AI 整理結果
   VoiceNoteResult? _result;
@@ -113,10 +124,78 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     '正在套用最佳莫蘭迪視覺化 Markdown 排版...',
   ];
 
+  // ──────────────────────────────────────────
+  // 草稿本機安全儲存 (防止滑掉/跳出遺失)
+  // ──────────────────────────────────────────
+  static File? _draftFile;
+  static Future<File> _getDraftFile() async {
+    if (_draftFile != null) return _draftFile!;
+    final dir = await getApplicationDocumentsDirectory();
+    _draftFile = File('${dir.path}/voice_note_draft_v1.json');
+    return _draftFile!;
+  }
+
+  Future<void> _saveDraftToStorage() async {
+    try {
+      final text = _transcriptController.text.trim();
+      final file = await _getDraftFile();
+      if (text.isEmpty) {
+        if (await file.exists()) await file.delete();
+      } else {
+        final data = {
+          'transcript': text,
+          'style': _selectedStyle.name,
+          'savedAt': DateTime.now().toIso8601String(),
+        };
+        await file.writeAsString(jsonEncode(data));
+      }
+    } catch (e) {
+      debugPrint('Error saving draft: $e');
+    }
+  }
+
+  Future<void> _checkAndPromptDraft() async {
+    try {
+      final file = await _getDraftFile();
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final map = jsonDecode(content) as Map<String, dynamic>;
+        final draftText = map['transcript'] as String? ?? '';
+        final savedAtStr = map['savedAt'] as String?;
+        if (draftText.isNotEmpty && _transcriptController.text.trim().isEmpty) {
+          if (mounted) {
+            setState(() {
+              _pendingDraftText = draftText;
+              _pendingDraftTime = savedAtStr;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking draft: $e');
+    }
+  }
+
+  Future<void> _clearDraftStorage() async {
+    try {
+      final file = await _getDraftFile();
+      if (await file.exists()) await file.delete();
+      if (mounted) {
+        setState(() {
+          _pendingDraftText = null;
+          _pendingDraftTime = null;
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
     _transcriptController = TextEditingController();
+    _transcriptController.addListener(_saveDraftToStorage);
+    _checkAndPromptDraft();
+
     _titleEditController = TextEditingController();
     _contentEditController = TextEditingController();
 
@@ -331,6 +410,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       _transcriptController.clear();
       _aiErrorMsg = null;
     });
+    _clearDraftStorage();
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(
@@ -352,6 +432,399 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         );
       }
     });
+  }
+
+  // ============================================================
+  // 全螢幕大視窗舒適校對模式
+  // ============================================================
+  Future<void> _openFullscreenTranscriptEditor() async {
+    final tempController =
+        TextEditingController(text: _transcriptController.text);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final updatedText = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (modalCtx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final count = tempController.text.trim().length;
+          final bottomPadding = MediaQuery.of(ctx).viewInsets.bottom;
+
+          return Container(
+            height: MediaQuery.of(ctx).size.height * 0.92,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // 頂部拖曳指示條
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  width: 42,
+                  height: 4.5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // 頂部功能列
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 14, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4A148C).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.edit_note_rounded,
+                            size: 20, color: Color(0xFF4A148C)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '✍️ 全螢幕逐字稿舒適校對',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '共 $count 字 · 可直接滾動修改錯字、同音字或專有名詞',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: isDark
+                                    ? Colors.white60
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(modalCtx, tempController.text);
+                        },
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: const Text('完成校對',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF4A148C),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+
+                // 工具列快捷鍵 (複製、清空)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: isDark ? Colors.white10 : const Color(0xFFF9F7FA),
+                  child: Row(
+                    children: [
+                      Text(
+                        '💡 提示：點擊任何段落即可即時鍵盤打字修正',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(
+                              ClipboardData(text: tempController.text));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('📋 已複製逐字稿至剪貼簿'),
+                              duration: Duration(milliseconds: 1000),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded, size: 14),
+                        label: const Text('複製', style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF4A148C),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton.icon(
+                        onPressed: () {
+                          setModalState(() {
+                            tempController.clear();
+                          });
+                        },
+                        icon:
+                            const Icon(Icons.delete_outline_rounded, size: 14),
+                        label: const Text('清空', style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 核心大文字編輯區
+                Expanded(
+                  child: Padding(
+                    padding:
+                        EdgeInsets.fromLTRB(16, 12, 16, bottomPadding + 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF14141E)
+                            : const Color(0xFFFCFBF9),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white12
+                              : const Color(0xFFE5DCD3),
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: TextField(
+                        controller: tempController,
+                        maxLines: null,
+                        expands: true,
+                        textAlignVertical: TextAlignVertical.top,
+                        autofocus: false,
+                        style: TextStyle(
+                          fontSize: 15.5,
+                          height: 1.7,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF2C2523),
+                          fontWeight: FontWeight.w400,
+                        ),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: '請在此輸入或校對語音逐字稿內容...',
+                        ),
+                        onChanged: (val) {
+                          setModalState(() {});
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    if (updatedText != null && mounted) {
+      setState(() {
+        _transcriptController.text = updatedText;
+        _transcriptController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _transcriptController.text.length),
+        );
+      });
+      _saveDraftToStorage();
+    }
+  }
+
+  /// 轉至背景執行 AI 整理（使用者可退出做其他事）
+  void _runInBackgroundTask() {
+    final rawText = _transcriptController.text.trim();
+    _generatingTimer?.cancel();
+    _tipTimer?.cancel();
+    _starController.stop();
+
+    if (rawText.isNotEmpty) {
+      VoiceNoteBackgroundManager.instance.startBackgroundTask(
+        transcript: rawText,
+        style: _selectedStyle,
+        detailLevel: _selectedDetailLevel,
+        userId: widget.userId ?? 'u1',
+        onNoteReady: widget.onNoteReady,
+      );
+      _clearDraftStorage();
+    }
+
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.cloud_sync_rounded, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('🤖 AI 正在背景為您提煉整理筆記，完成後會主動發送通知提醒您！'),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4A148C),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // ============================================================
+  // 防誤觸離開確認機制
+  // ============================================================
+  Future<bool> _handleCloseAttempt() async {
+    final hasContent = _transcriptController.text.trim().isNotEmpty;
+    final isBusyRecording = _isRecording || _isPaused;
+    final isGenerating = _step == _SheetStep.generating;
+    final isPreview = _step == _SheetStep.preview;
+
+    if (!hasContent && !isBusyRecording && !isGenerating && !isPreview) {
+      return true; // 空白狀態直接安全離開
+    }
+
+    if (isBusyRecording) {
+      final shouldExit = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.mic_off_rounded, color: Colors.red, size: 22),
+              SizedBox(width: 8),
+              Text('正在錄音中',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text('目前正在錄製語音，若現在離開將會放棄本次錄音內容，確定要離開嗎？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('繼續錄音'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('放棄並離開'),
+            ),
+          ],
+        ),
+      );
+      if (shouldExit == true) {
+        await _cancelCurrentRecording();
+        return true;
+      }
+      return false;
+    }
+
+    if (isGenerating) {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded,
+                  color: Color(0xFF7B1FA2), size: 22),
+              SizedBox(width: 8),
+              Text('AI 正在整理中',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'AI 正在為您提煉精華摘要與心智圖。\n您可以選擇【轉至背景整理】先做其他事，整理完成後將發送通知提醒您！',
+            style: TextStyle(fontSize: 13.5, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child:
+                  Text('放棄整理', style: TextStyle(color: Colors.red.shade700)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'wait'),
+              child: const Text('前景等待'),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A148C)),
+              onPressed: () => Navigator.pop(ctx, 'background'),
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: const Text('轉至背景整理 (推薦)'),
+            ),
+          ],
+        ),
+      );
+
+      if (action == 'background') {
+        _runInBackgroundTask();
+        return false;
+      } else if (action == 'cancel') {
+        _generatingTimer?.cancel();
+        _tipTimer?.cancel();
+        _starController.stop();
+        return true;
+      }
+      return false;
+    }
+
+    // 逐字稿校對或預覽步驟：自動暫存草稿並詢問確認
+    await _saveDraftToStorage();
+    if (!mounted) return false;
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.save_as_outlined,
+                color: Color(0xFF4A148C), size: 22),
+            SizedBox(width: 8),
+            Text('離開語音速記？',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content:
+            const Text('目前的語音逐字稿已自動為您暫存為草稿，下次開啟時可一鍵還原，確定要先離開嗎？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('繼續編輯'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4A148C)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('暫存並離開'),
+          ),
+        ],
+      ),
+    );
+    return shouldExit ?? false;
   }
 
   // ============================================================
@@ -395,32 +868,37 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     });
     _starController.repeat();
 
-    // 啟動進度條平滑模擬器
+    // 啟動多階段平滑動態進度條（徹底解決卡在 91% 的問題）
     _generatingTimer?.cancel();
     _generatingTimer =
-        Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        Timer.periodic(const Duration(milliseconds: 80), (timer) {
       if (!mounted || _step != _SheetStep.generating) {
         timer.cancel();
         return;
       }
       setState(() {
-        _generatingElapsedMs += 100;
-        // 平滑漸進至 92%
-        if (_generatingProgress < 0.92) {
-          _generatingProgress += (0.92 - _generatingProgress) * 0.045;
-        }
-        // 更新當前階段
-        if (_generatingProgress < 0.22) {
+        _generatingElapsedMs += 80;
+        final seconds = _generatingElapsedMs / 1000.0;
+
+        double target;
+        if (seconds <= 1.5) {
+          target = 0.05 + (seconds / 1.5) * 0.25;
           _generatingStage = 0;
-        } else if (_generatingProgress < 0.48) {
+        } else if (seconds <= 3.5) {
+          target = 0.30 + ((seconds - 1.5) / 2.0) * 0.28;
           _generatingStage = 1;
-        } else if (_generatingProgress < 0.72) {
+        } else if (seconds <= 6.0) {
+          target = 0.58 + ((seconds - 3.5) / 2.5) * 0.20;
           _generatingStage = 2;
-        } else if (_generatingProgress < 0.88) {
+        } else if (seconds <= 9.0) {
+          target = 0.78 + ((seconds - 6.0) / 3.0) * 0.14;
           _generatingStage = 3;
         } else {
+          final extraSec = seconds - 9.0;
+          target = 0.92 + 0.065 * (1.0 - math.exp(-extraSec / 6.0));
           _generatingStage = 4;
         }
+        _generatingProgress = target.clamp(0.05, 0.985);
       });
     });
 
@@ -440,6 +918,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       final result = await VoiceNoteService.instance.organizeTranscript(
         transcript: rawText,
         style: _selectedStyle,
+        detailLevel: _selectedDetailLevel,
       );
 
       if (!mounted) return;
@@ -584,6 +1063,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     final formattedContent =
         '## 🎙️ 語音轉文字稿記錄\n\n$rawText\n\n---\n*記錄時間：${DateTime.now().toString().substring(0, 16)}*';
 
+    await _clearDraftStorage();
     widget.onNoteReady?.call(
       defaultTitle,
       _selectedStyle.suggestedCategory,
@@ -599,7 +1079,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   // ============================================================
   // 完成預覽 - 提交筆記
   // ============================================================
-  void _applyNote() {
+  void _applyNote() async {
     _syncActionItemsToMarkdown();
     final title = _titleEditController.text.trim().isEmpty
         ? _result?.title ?? '語音速記筆記'
@@ -609,6 +1089,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         : _contentEditController.text;
     final category = _editableCategory;
 
+    await _clearDraftStorage();
     widget.onNoteReady?.call(
       title,
       category,
@@ -616,11 +1097,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       _result?.mindmapJson,
       _editableActionItems,
     );
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
 
   // ============================================================
-  // UI 主構建
+  // UI 主構建 (含 PopScope 防誤觸離開)
   // ============================================================
   @override
   Widget build(BuildContext context) {
@@ -628,48 +1111,59 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeBottom = math.max(bottomInset, bottomPadding) + 20.0;
 
-    return SafeArea(
-      top: false,
-      bottom: true,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 頂部拖曳把手
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              width: 44,
-              height: 4.5,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-
-            // 頂部標題列
-            _buildHeader(),
-
-            const Divider(height: 1),
-
-            // 主滾動區域
-            Flexible(
-              child: SingleChildScrollView(
-                controller: widget.scrollController,
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.only(
-                  left: 20,
-                  right: 20,
-                  top: 8,
-                  bottom: safeBottom,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final nav = Navigator.of(context);
+        final shouldPop = await _handleCloseAttempt();
+        if (shouldPop && mounted) {
+          nav.pop();
+        }
+      },
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 頂部拖曳把手
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 44,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(3),
                 ),
-                child: _buildStepContent(),
               ),
-            ),
-          ],
+
+              // 頂部標題列
+              _buildHeader(),
+
+              const Divider(height: 1),
+
+              // 主滾動區域
+              Flexible(
+                child: SingleChildScrollView(
+                  controller: widget.scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 8,
+                    bottom: safeBottom,
+                  ),
+                  child: _buildStepContent(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -685,7 +1179,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     if (_step == _SheetStep.recording) {
       if (hasContent && !isBusyRecording) {
         title = '✍️ 步驟 2：校對逐字稿與選擇風格';
-        subtitle = '可直接點擊下方文字框修改錯字/專有名詞';
+        subtitle = '可點擊下方文字框或「放大校對」修改錯字';
       } else {
         title = '🎙️ 步驟 1：高品質語音收錄';
         subtitle = '說完後點擊轉為文字進行校對';
@@ -743,7 +1237,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           ),
           IconButton(
             icon: const Icon(Icons.close_rounded, color: Colors.grey),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              final nav = Navigator.of(context);
+              final shouldPop = await _handleCloseAttempt();
+              if (shouldPop && mounted) {
+                nav.pop();
+              }
+            },
             tooltip: '關閉',
           ),
         ],
@@ -760,6 +1260,133 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       case _SheetStep.preview:
         return _buildPreviewStep();
     }
+  }
+
+  /// 逐字稿草稿恢復橫幅 (防誤關閉/意外跳出)
+  Widget _buildDraftRecoveryBanner() {
+    if (_pendingDraftText == null ||
+        _pendingDraftText!.trim().isEmpty ||
+        _transcriptController.text.trim().isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final draftExcerpt = _pendingDraftText!.trim();
+    final displayExcerpt = draftExcerpt.length > 38
+        ? '${draftExcerpt.substring(0, 38)}...'
+        : draftExcerpt;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E5F5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF4A148C).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history_edu_rounded,
+                  size: 20, color: Color(0xFF4A148C)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '發現上次未完成的語音逐字稿草稿',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4A148C),
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: _clearDraftStorage,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.close_rounded,
+                      size: 16, color: Colors.grey.shade600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '「$displayExcerpt」',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.purple.shade900,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          if (_pendingDraftTime != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              '暫存時間：${DateTime.tryParse(_pendingDraftTime!)?.toLocal().toString().substring(0, 16) ?? _pendingDraftTime}',
+              style: TextStyle(
+                fontSize: 10.5,
+                color: Colors.purple.shade700.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: _clearDraftStorage,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade700,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('捨棄', style: TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _transcriptController.text = _pendingDraftText!;
+                    _pendingDraftText = null;
+                    _pendingDraftTime = null;
+                    _transcriptController.selection =
+                        TextSelection.fromPosition(
+                      TextPosition(offset: _transcriptController.text.length),
+                    );
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✨ 已成功還原上次語音逐字稿草稿！'),
+                      duration: Duration(milliseconds: 1500),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.restore_rounded, size: 14),
+                label: const Text('一鍵還原草稿',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A148C),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   // ============================================================
@@ -1018,6 +1645,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
 
         const SizedBox(height: 18),
 
+        // 逐字稿草稿恢復橫幅 (防誤關閉)
+        _buildDraftRecoveryBanner(),
+
         // 逐字稿校對指引橫幅
         if (hasContent && !isBusyRecording) ...[
           Container(
@@ -1037,7 +1667,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '語音已轉錄！請先瀏覽或直接點擊下方文字框修正同音錯字，確認無誤後點擊開始 AI 整理。',
+                    '語音已轉錄！請先瀏覽或點擊右側「放大校對」修正同音錯字，確認無誤後點擊開始 AI 整理。',
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.4,
@@ -1052,7 +1682,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         ],
 
         // ============================================================
-        // 逐字稿文字區域 (支援編輯、展示、刪除與狀態提示)
+        // 逐字稿文字區域 (支援編輯、放大校對、展示、刪除與狀態提示)
         // ============================================================
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1066,7 +1696,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  hasContent ? '語音逐字稿（可點擊直接修改錯字）' : '語音轉文字稿內容',
+                  hasContent ? '語音逐字稿' : '語音轉文字稿內容',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -1083,7 +1713,42 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     '$charCount 字',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
+                  // 全螢幕 / 放大舒適校對按鈕
+                  InkWell(
+                    onTap: _openFullscreenTranscriptEditor,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color:
+                            const Color(0xFF4A148C).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: const Color(0xFF4A148C)
+                                .withValues(alpha: 0.25),
+                            width: 0.9),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.open_in_full_rounded,
+                              size: 12, color: Color(0xFF4A148C)),
+                          SizedBox(width: 3),
+                          Text(
+                            '放大校對',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF4A148C),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   InkWell(
                     onTap: () {
                       Clipboard.setData(ClipboardData(text: currentText));
@@ -1100,7 +1765,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
+                          horizontal: 7, vertical: 3.5),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
@@ -1131,7 +1796,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
+                          horizontal: 7, vertical: 3.5),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -1166,7 +1831,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         // 逐字稿容器
         Container(
           width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 110, maxHeight: 180),
+          constraints: const BoxConstraints(minHeight: 110, maxHeight: 220),
           decoration: BoxDecoration(
             color: const Color(0xFFFDFBF9),
             borderRadius: BorderRadius.circular(16),
@@ -1341,7 +2006,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Text(
-                '6 種整理風格',
+                '5 大整理風格',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -1351,7 +2016,114 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
+
+        // ── 整理細緻度切換膠囊 (⚡ 精簡 vs. 📚 詳盡) ──
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade300, width: 0.8),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() =>
+                      _selectedDetailLevel = VoiceNoteDetailLevel.concise),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _selectedDetailLevel == VoiceNoteDetailLevel.concise
+                          ? const Color(0xFF4A148C)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(13),
+                      boxShadow: _selectedDetailLevel ==
+                              VoiceNoteDetailLevel.concise
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF4A148C)
+                                    .withValues(alpha: 0.25),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(VoiceNoteDetailLevel.concise.emoji,
+                            style: const TextStyle(fontSize: 13)),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${VoiceNoteDetailLevel.concise.label}速讀',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: _selectedDetailLevel ==
+                                    VoiceNoteDetailLevel.concise
+                                ? Colors.white
+                                : Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() =>
+                      _selectedDetailLevel = VoiceNoteDetailLevel.detailed),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _selectedDetailLevel == VoiceNoteDetailLevel.detailed
+                          ? const Color(0xFF4A148C)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(13),
+                      boxShadow: _selectedDetailLevel ==
+                              VoiceNoteDetailLevel.detailed
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF4A148C)
+                                    .withValues(alpha: 0.25),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(VoiceNoteDetailLevel.detailed.emoji,
+                            style: const TextStyle(fontSize: 13)),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${VoiceNoteDetailLevel.detailed.label}深度',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: _selectedDetailLevel ==
+                                    VoiceNoteDetailLevel.detailed
+                                ? Colors.white
+                                : Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
 
         // 2 欄 6 款風格卡片 Grid
         GridView.builder(
@@ -2027,6 +2799,41 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               ),
             ),
           ),
+
+          const SizedBox(height: 18),
+
+          // ── 轉至背景整理按鈕（使用者可退出做其他事） ──
+          OutlinedButton.icon(
+            onPressed: _runInBackgroundTask,
+            icon: const Icon(Icons.open_in_new_rounded, size: 17),
+            label: const Text(
+              '🚀 轉至背景整理（先做其他事）',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF4A148C),
+              side: BorderSide(
+                color: const Color(0xFF4A148C).withValues(alpha: 0.35),
+                width: 1.2,
+              ),
+              backgroundColor:
+                  const Color(0xFF4A148C).withValues(alpha: 0.04),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '💡 AI 將在背景繼續提煉整理，完成後會主動發送推播通知提醒您',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+            ),
+          ),
         ],
       ),
     );
@@ -2456,6 +3263,47 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   fontSize: 13.5,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF3E2723),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () {
+                  final text = _editableActionItems.map((a) {
+                    final check = a.isCompleted ? '[x]' : '[ ]';
+                    final owner = a.owner != '未指定' ? ' (${a.owner})' : '';
+                    final due = a.dueDate != '無' && a.dueDate != '待定'
+                        ? ' [期限: ${a.dueDate}]'
+                        : '';
+                    return '- $check ${a.task}$owner$due';
+                  }).join('\n');
+                  Clipboard.setData(ClipboardData(text: text));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('📋 已複製待辦清單至剪貼簿'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.copy_rounded,
+                          size: 13, color: Color(0xFF2E7D32)),
+                      SizedBox(width: 4),
+                      Text(
+                        '一鍵複製',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2E7D32),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

@@ -76,14 +76,48 @@ class GladiaTranscriptionResult {
     this.provider = 'gladia',
   });
 
-  /// 輸出標準說話者+時間戳格式文字 (提供給 LLM 進行結構化提煉)
+  /// 輸出標準說話者+時間戳格式文字 (提供給 LLM 進行結構化提煉，並自動優化單一說話者與連續說話體驗)
   String toFormattedDiarizedText() {
     if (utterances.isEmpty) {
-      return fullTranscript;
+      return fullTranscript.trim();
     }
-    return utterances.map((u) {
-      return '[${u.formattedStartTime}] ${u.speakerDisplayName}: ${u.text}';
-    }).join('\n');
+
+    // 統計不同的說話者數量
+    final validUtterances =
+        utterances.where((u) => u.text.trim().isNotEmpty).toList();
+    if (validUtterances.isEmpty) {
+      return fullTranscript.trim();
+    }
+
+    final uniqueSpeakers = validUtterances.map((u) => u.speaker).toSet();
+
+    // 1. 若只有一位說話者 (單人錄音)：直接輸出乾淨流暢的逐字稿，不重複添加「說話者 1」
+    if (uniqueSpeakers.length <= 1) {
+      if (fullTranscript.trim().isNotEmpty) {
+        return fullTranscript.trim();
+      }
+      return validUtterances.map((u) => u.text.trim()).join(' ');
+    }
+
+    // 2. 若有多位說話者 (雙人/多人對話)：合併同一說話者的連續發言，僅在說話者輪替時標註
+    final buffer = StringBuffer();
+    int? currentSpeaker;
+
+    for (final u in validUtterances) {
+      final text = u.text.trim();
+      if (text.isEmpty) continue;
+
+      if (currentSpeaker != u.speaker) {
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.write('[${u.formattedStartTime}] ${u.speakerDisplayName}：$text');
+        currentSpeaker = u.speaker;
+      } else {
+        // 同一說話者連續發言，自然串接
+        buffer.write(' $text');
+      }
+    }
+
+    return buffer.toString().trim();
   }
 }
 

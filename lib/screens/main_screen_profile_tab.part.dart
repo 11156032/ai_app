@@ -7130,10 +7130,36 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
 
   final List<Map<String, dynamic>> _announcements = [
     {
-      'tag': '重要更新',
-      'version': 'v1.7.4',
+      'tag': '最新發布',
+      'version': 'v1.7.6',
       'date': '2026-09-18',
       'isPinned': true,
+      'icon': Icons.auto_awesome_rounded,
+      'title': 'AI 5 大專用筆記風格・代理人助理體驗全面升級',
+      'summary': '升級 5 大專用筆記整理風格與精簡/深度雙向微調膠囊，優化代理人助理對話排版與精巧藥丸選單。',
+      'highlights': [
+        {
+          'icon': Icons.psychology_alt_rounded,
+          'title': 'AI 5 大專用筆記風格',
+          'desc': '支援課堂研討、商務會議、速讀摘要、架構心智圖、靈感隨筆，搭載康乃爾分層、TL;DR、Mermaid 與一鍵複製待辦。',
+        },
+        {
+          'icon': Icons.tune_rounded,
+          'title': '雙向細緻度微調膠囊',
+          'desc': '提供「⚡ 精簡速讀」與「📚 詳盡深度」二段式切換，智慧適配短音訊與長演講筆記。',
+        },
+        {
+          'icon': Icons.smart_toy_rounded,
+          'title': '代理人助理體驗升級',
+          'desc': '修正導覽列問答意圖誤判、對話文字調大提升閱讀體驗，協助事項重構為精巧藥丸按鈕群。',
+        },
+      ],
+    },
+    {
+      'tag': '功能更新',
+      'version': 'v1.7.4',
+      'date': '2026-09-18',
+      'isPinned': false,
       'icon': Icons.rocket_launch_rounded,
       'title': 'Gladia V2 旗艦轉錄・特助精粹化・社群面向智慧歸戶',
       'summary': '全面升級 Gladia V2 語音說話者分離轉錄、代理人助理 50~100 字精準回覆，並將引導面向全面歸戶至標準 9 大社群。',
@@ -7929,7 +7955,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.7.4',
+                                  'v1.7.6',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -8053,7 +8079,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                       : Colors.grey.shade500),
                               const SizedBox(width: 6),
                               Text(
-                                '版本：v1.7.4  |  修訂發布日期：2026 年 9 月 18 日',
+                                '版本：v1.7.6  |  修訂發布日期：2026 年 9 月 18 日',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,
