@@ -50,11 +50,11 @@ class GroqWhisperService {
       _currentRecordingPath = filePath;
       _maxAmplitudeSeen = -160.0;
 
-      // 啟動 44.1kHz AAC-LC 標準高品質壓縮錄音 (最相容 iOS/Android 硬體麥克風，無破音或靜音)
+      // 啟動 44.1kHz AAC-LC 標準高品質壓縮錄音 (最相容 iOS/Android 硬體麥克風，音質清澈無破音)
       await _audioRecorder.start(
         const RecordConfig(
           encoder: AudioEncoder.aacLc,
-          bitRate: 64000,
+          bitRate: 128000,
           sampleRate: 44100,
           numChannels: 1,
         ),
@@ -187,11 +187,12 @@ class GroqWhisperService {
     }
 
     final audioFile = File(audioPath);
-    if (!await audioFile.exists() || audioFile.lengthSync() < 400) {
-      throw Exception('錄音時間過短或無音訊數據，請點擊麥克風說話 🎙️');
+    if (!await audioFile.exists() || audioFile.lengthSync() < 200) {
+      throw Exception('錄音時間過短（建議說話 1 秒以上），請點擊麥克風說話 🎙️');
     }
 
     try {
+      debugPrint('GroqWhisperService: 開始轉錄檔案 ${audioFile.path} (${audioFile.lengthSync()} bytes)...');
       final result = await GladiaTranscriptionService.instance.transcribeFile(
         audioFile,
         onProgressStatus: onProgressStatus,

@@ -253,7 +253,10 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       );
       if (!mounted) return;
 
-      final transcript = result.toFormattedDiarizedText();
+      final transcript = result.toFormattedDiarizedText().trim();
+      if (transcript.isEmpty) {
+        throw Exception('未能從音訊中識別出清晰人聲語音，請靠近麥克風並確保音量清晰後重試 🎙️');
+      }
 
       setState(() {
         _isTranscribing = false;
@@ -276,7 +279,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           ..showSnackBar(
             SnackBar(
               content: Text(result.isDiarized
-                  ? '✨ Gladia 轉錄完成！已分離說話者與時間戳'
+                  ? '✨ 語音轉錄完成！已分離說話者與時間戳'
                   : '✨ 語音轉文字完成！已填入文字稿'),
               duration: const Duration(milliseconds: 1800),
               behavior: SnackBarBehavior.floating,
@@ -1200,10 +1203,11 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         ),
                       ),
                       const SizedBox(height: 10),
-                      const Text(
-                        '⚡ AI 正在將語音轉為文字...\n（自動生成標點與段落）',
+                      Text(
+                        _transcribingStatusMsg ??
+                            '⚡ AI 正在將語音轉為文字...\n（自動生成標點與段落）',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
                           height: 1.5,
                           fontWeight: FontWeight.w600,
