@@ -1316,7 +1316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'v1.7.2',
+                          'v1.7.3',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
@@ -1369,7 +1369,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       _buildInlineSection(
                         '5. 免責聲明與管轄法院',
-                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.7.2（修訂發布：2026 年 9 月 18 日）。',
+                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.7.3（修訂發布：2026 年 9 月 18 日）。',
                         themeColor,
                       ),
                     ]
@@ -1396,7 +1396,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       _buildInlineSection(
                         '5. 第三方服務安全規範',
-                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.7.2（修訂發布：2026 年 9 月 18 日）。',
+                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.7.3（修訂發布：2026 年 9 月 18 日）。',
                         themeColor,
                       ),
                     ],

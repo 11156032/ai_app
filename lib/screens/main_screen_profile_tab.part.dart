@@ -7131,9 +7131,40 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '重要更新',
+      'version': 'v1.7.3',
+      'date': '2026-09-18',
+      'isPinned': true,
+      'icon': Icons.rocket_launch_rounded,
+      'title': 'Gladia V2 旗艦轉錄・特助精粹化・社群面向智慧歸戶',
+      'summary': '全面升級 Gladia V2 語音說話者分離轉錄、代理人助理 50~100 字精準回覆，並將引導面向全面歸戶至標準 9 大社群。',
+      'highlights': [
+        {
+          'icon': Icons.graphic_eq_rounded,
+          'title': 'Gladia V2 轉錄升級',
+          'desc': '完整串接 Gladia V2 多語言與說話者分離轉錄，支援 2 秒極速非同步處理與 Gemini 雙重備援。',
+        },
+        {
+          'icon': Icons.psychology_rounded,
+          'title': '代理人助理精粹化',
+          'desc': '回覆字數嚴格控制在 50~100 字以內，杜絕重複舊回答並強化學科破題與功能指引。',
+        },
+        {
+          'icon': Icons.record_voice_over_outlined,
+          'title': '語音輸入深度去重',
+          'desc': '優化即時語音辨識定稿同步與重複句型過濾，徹底解決錄音文字重複問題。',
+        },
+        {
+          'icon': Icons.groups_rounded,
+          'title': '社群面向智慧歸戶',
+          'desc': '歡迎頁細分面向自動映射至 9 大社群主題，淨化選單與關注列表。',
+        },
+      ],
+    },
+    {
+      'tag': '功能優化',
       'version': 'v1.7.2',
       'date': '2026-09-13',
-      'isPinned': true,
+      'isPinned': false,
       'icon': Icons.graphic_eq_rounded,
       'title': 'AI 語音速記與互動心智圖上線',
       'summary': '全新語音筆記核心，支援長錄音、智慧過濾口語贅字，並可自動轉為互動式心智圖與結構化待辦清單。',
@@ -7157,6 +7188,32 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
           'icon': Icons.fit_screen_outlined,
           'title': '介面與字體適配',
           'desc': '操作按鈕適配系統手勢安全區，全域字體支援個人化等比縮放。',
+        },
+      ],
+    },
+    {
+      'tag': '功能優化',
+      'version': 'v1.7.0',
+      'date': '2026-09-12',
+      'isPinned': false,
+      'icon': Icons.auto_awesome_rounded,
+      'title': '伴學精靈即時引導・會員專屬體系・日記 AI 點評',
+      'summary': '引進全方位伴學精靈浮動引導、VIP 會員進階特權體系與學習日記智慧 AI 回饋。',
+      'highlights': [
+        {
+          'icon': Icons.smart_toy_rounded,
+          'title': '伴學精靈互動',
+          'desc': '隨身懸浮伴學小助手，提供即時題意解析、步驟提示與學習激勵。',
+        },
+        {
+          'icon': Icons.workspace_premium_rounded,
+          'title': 'VIP 專屬體系',
+          'desc': '解鎖無限次高階 AI 模型推理、極速語音轉錄與個人化專屬主題。',
+        },
+        {
+          'icon': Icons.auto_stories_rounded,
+          'title': '學習日記 AI 點評',
+          'desc': '每日記錄學習心得，AI 自動梳理復盤建議並給予定向鼓勵。',
         },
       ],
     },
@@ -7199,6 +7256,32 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
           'icon': Icons.share_rounded,
           'title': '學習 Pack 分享',
           'desc': '支援錯題、考卷與手寫筆記一鍵打包發布與匯入。',
+        },
+      ],
+    },
+    {
+      'tag': '重要更新',
+      'version': 'v1.5.0',
+      'date': '2026-09-01',
+      'isPinned': false,
+      'icon': Icons.dashboard_customize_rounded,
+      'title': '個人化自訂導覽列・語音筆記初版與主題配色',
+      'summary': '支援自由排列底部導覽列項目、初版語音速記功能與沉浸式深淺色主題自訂。',
+      'highlights': [
+        {
+          'icon': Icons.view_sidebar_rounded,
+          'title': '自訂導覽列',
+          'desc': '可依個人學習習慣自由拖曳、隱藏或新增底部導覽列常用功能。',
+        },
+        {
+          'icon': Icons.mic_external_on_rounded,
+          'title': '語音速記筆記',
+          'desc': '隨時錄下課堂或會議重點，支援離線暫存與基本文字轉換。',
+        },
+        {
+          'icon': Icons.palette_rounded,
+          'title': '多款質感主題',
+          'desc': '提供深邃夜間模式與多種品牌主色調，打造舒適護眼的專屬體驗。',
         },
       ],
     },
@@ -7846,7 +7929,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.7.2',
+                                  'v1.7.3',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -7970,7 +8053,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                       : Colors.grey.shade500),
                               const SizedBox(width: 6),
                               Text(
-                                '版本：v1.7.2  |  修訂發布日期：2026 年 9 月 18 日',
+                                '版本：v1.7.3  |  修訂發布日期：2026 年 9 月 18 日',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,
