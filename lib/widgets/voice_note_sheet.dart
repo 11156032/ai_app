@@ -1249,34 +1249,70 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         ),
                       ),
                     )
-                  : Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            isBusyRecording
-                                ? Icons.graphic_eq_rounded
-                                : Icons.speaker_notes_outlined,
-                            size: 28,
-                            color: isBusyRecording
-                                ? Colors.purple.shade300
-                                : Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            isBusyRecording
-                                ? '正在高品質收錄音訊中...\n說完後點擊「轉為文字」即可瞬間轉錄！'
-                                : '尚未收錄語音\n點擊上方麥克風開始說話',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              height: 1.5,
-                              color: Colors.grey.shade500,
+                  : _aiErrorMsg != null && !isBusyRecording
+                      ? Center(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline_rounded,
+                                  size: 32,
+                                  color: Colors.red.shade400,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _aiErrorMsg!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.5,
+                                    color: Colors.red.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '點擊上方麥克風重新說話即可再次轉錄',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                isBusyRecording
+                                    ? Icons.graphic_eq_rounded
+                                    : Icons.speaker_notes_outlined,
+                                size: 28,
+                                color: isBusyRecording
+                                    ? Colors.purple.shade300
+                                    : Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                isBusyRecording
+                                    ? '正在高品質收錄音訊中...\n說完後點擊「轉為文字」即可瞬間轉錄！'
+                                    : '尚未收錄語音\n點擊上方麥克風開始說話',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.5,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
         ),
 
         const SizedBox(height: 16),
