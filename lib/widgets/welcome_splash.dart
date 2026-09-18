@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'common_widgets.dart';
 
 // ─────────────────────────────────────────────────────
 // WelcomeSplash — 頂級 Apple 白底風格（Light Theme）多元互動歡迎引導介面
@@ -177,13 +178,14 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     if (_selectedTopicIds.isEmpty) {
       _selectedTopicIds.addAll(['topic_math', 'topic_ai']);
     }
+    final normalizedCommunities = normalizeCommunityTopicIds(_selectedTopicIds);
     widget.onDone(
-      _selectedTopicIds.toList(),
+      normalizedCommunities,
       UserOnboardingPreferences(
         goal: _selectedGoal,
         painPoints: _selectedPainPoints.toList(),
         learningMode: _selectedIncentive,
-        topicIds: _selectedTopicIds.toList(),
+        topicIds: normalizedCommunities,
       ),
     );
   }

@@ -228,9 +228,11 @@ extension MainScreenProfileTab on _MainScreenState {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: _userJoinedTopicIds.map((topicId) {
+                            children: _userJoinedTopicIds.map((rawTopicId) {
+                              final topicId =
+                                  normalizeCommunityTopicId(rawTopicId);
                               final topic = getCommunityTopicById(topicId);
-                              final name = topic?.name ?? topicId;
+                              final name = topic?.name ?? '💡 社群主題';
                               final color = topic?.color ?? primary;
                               return Container(
                                 padding: const EdgeInsets.symmetric(

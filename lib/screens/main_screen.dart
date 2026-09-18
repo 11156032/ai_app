@@ -294,22 +294,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// 關注 / 取消關注社群主題
   Future<void> _toggleJoinTopic(String topicId) async {
-    final bool isJoined = _userJoinedTopicIds.contains(topicId);
-    final topic = getCommunityTopicById(topicId);
-    final topicName = topic?.name ?? topicId;
+    final normId = normalizeCommunityTopicId(topicId);
+    final bool isJoined = _userJoinedTopicIds.contains(normId);
+    final topic = getCommunityTopicById(normId);
+    final topicName = topic?.name ?? normId;
 
     setState(() {
       if (isJoined) {
-        _userJoinedTopicIds.remove(topicId);
-        final currentCount = _topicMemberCounts[topicId] ?? 1;
-        _topicMemberCounts[topicId] = (currentCount > 0) ? currentCount - 1 : 0;
-      } else {
-        if (!_userJoinedTopicIds.contains(topicId)) {
-          _userJoinedTopicIds.add(topicId);
+        if (_userJoinedTopicIds.length > 1) {
+          _userJoinedTopicIds.remove(normId);
         }
-        final currentCount = _topicMemberCounts[topicId] ?? 0;
-        _topicMemberCounts[topicId] = currentCount + 1;
+        final currentCount = _topicMemberCounts[normId] ?? 1;
+        _topicMemberCounts[normId] = (currentCount > 0) ? currentCount - 1 : 0;
+      } else {
+        if (!_userJoinedTopicIds.contains(normId)) {
+          _userJoinedTopicIds.add(normId);
+        }
+        final currentCount = _topicMemberCounts[normId] ?? 0;
+        _topicMemberCounts[normId] = currentCount + 1;
       }
+      _userJoinedTopicIds = normalizeCommunityTopicIds(_userJoinedTopicIds);
     });
 
     try {
@@ -490,14 +494,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
           // 更新社群主題偏好並寫入資料庫
           if (selectedTopicIds.isNotEmpty) {
+            final normalized = normalizeCommunityTopicIds(selectedTopicIds);
             setState(() {
-              _userJoinedTopicIds = selectedTopicIds;
+              _userJoinedTopicIds = normalized;
             });
             try {
               final db = await DatabaseHelper.instance.database;
               await db.update(
                 'users',
-                {'tags': jsonEncode(selectedTopicIds)},
+                {'tags': jsonEncode(normalized)},
                 where: 'id = ?',
                 whereArgs: [widget.currentUser['id']],
               );
@@ -1220,7 +1225,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 final decoded = jsonDecode(rawTags);
                 if (decoded is List && decoded.isNotEmpty) {
                   _userJoinedTopicIds =
-                      decoded.map((e) => e.toString()).toList();
+                      normalizeCommunityTopicIds(decoded.map((e) => e.toString()));
                 }
               } catch (_) {}
             }
@@ -3400,12 +3405,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                         separatorBuilder: (_, __) =>
                                             const SizedBox(height: 4),
                                         itemBuilder: (context, index) {
-                                          final topicId =
+                                          final rawTopicId =
                                               _userJoinedTopicIds[index];
+                                          final topicId =
+                                              normalizeCommunityTopicId(rawTopicId);
                                           final topic =
                                               getCommunityTopicById(topicId);
                                           final title =
-                                              topic?.title ?? topicId;
+                                              topic?.title ?? '社群主題';
                                           final emoji = topic?.emoji ?? '🏷️';
                                           final color =
                                               topic?.color ?? primaryColor;
@@ -4009,6 +4016,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   ? VoiceRecognitionService.cleanFillerWords(fullText)
                   : fullText;
               modalController.text = cleaned;
+              if (isFinal) {
+                voiceBaseText = cleaned.trim();
+              }
               modalController.selection = TextSelection.collapsed(
                 offset: modalController.text.length,
               );

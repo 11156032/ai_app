@@ -768,3 +768,49 @@ CommunityTopic? getCommunityTopicById(String id) {
     return null;
   }
 }
+
+/// 將歡迎頁面向 ID 映射為標準 9 大社群 ID (防止 topic_coding 等不存在的 ID 出現於社群選單中)
+String normalizeCommunityTopicId(String id) {
+  switch (id) {
+    case 'topic_physics':
+    case 'topic_chemistry':
+    case 'topic_biology':
+    case 'topic_science':
+      return 'topic_science';
+    case 'topic_history':
+    case 'topic_social':
+      return 'topic_social';
+    case 'topic_coding':
+    case 'topic_tech':
+    case 'topic_ai':
+      return 'topic_ai';
+    case 'topic_toeic':
+    case 'topic_english':
+      return 'topic_english';
+    case 'topic_math':
+      return 'topic_math';
+    case 'topic_literature':
+      return 'topic_literature';
+    case 'topic_exam':
+      return 'topic_exam';
+    case 'topic_daily':
+      return 'topic_daily';
+    case 'topic_creative':
+      return 'topic_creative';
+    default:
+      if (kCommunityTopics.any((t) => t.id == id)) return id;
+      return 'topic_ai';
+  }
+}
+
+/// 批次標準化社群 ID 列表並去重
+List<String> normalizeCommunityTopicIds(Iterable<String> ids) {
+  final normalized = <String>{};
+  for (final id in ids) {
+    normalized.add(normalizeCommunityTopicId(id));
+  }
+  if (normalized.isEmpty) {
+    normalized.addAll(['topic_math', 'topic_ai']);
+  }
+  return normalized.toList();
+}

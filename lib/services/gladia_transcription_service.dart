@@ -190,8 +190,9 @@ class GladiaTranscriptionService {
         'min_speakers': 1,
         'max_speakers': 6,
       },
-      'detect_language': true,
-      'code_switching': true, // 支援中英混雜語音
+      'language_config': {
+        'code_switching': true, // 支援中英混雜語音
+      },
     });
 
     final response = await http
@@ -290,7 +291,7 @@ class GladiaTranscriptionService {
     throw TimeoutException('Gladia 轉錄處理逾時');
   }
 
-  /// Gemini 2.5 Flash 備援語音轉錄 (當 Gladia 連線或額度耗盡時無縫切換)
+  /// Gemini 備援語音轉錄 (當 Gladia 連線或額度耗盡時無縫切換)
   Future<GladiaTranscriptionResult> _transcribeWithGeminiFallback(
     File audioFile,
     void Function(String statusMessage)? onProgressStatus,
@@ -300,11 +301,11 @@ class GladiaTranscriptionService {
       throw Exception('無法進行語音轉錄，請確認網路連線或 API 金鑰設定');
     }
 
-    onProgressStatus?.call('使用 Gemini 2.5 Flash 轉錄音訊中... ⚡');
+    onProgressStatus?.call('使用 Gemini 高階語音引擎轉錄音訊中... ⚡');
 
     final audioBytes = await audioFile.readAsBytes();
     final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       apiKey: apiKey,
     );
 

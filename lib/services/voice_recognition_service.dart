@@ -312,8 +312,8 @@ class VoiceRecognitionService {
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
 
-    // 5. 去除相鄰重複的完整片語 (如 "你好 你好" -> "你好")
-    final words = cleaned.split(' ');
+    // 5. 去除相鄰重複的完整片語或重複句子 (如 "你好 你好" -> "你好", "如何修改密碼 如何修改密碼" -> "如何修改密碼")
+    final words = cleaned.split(RegExp(r'\s+'));
     if (words.length > 1) {
       final deduped = <String>[];
       for (final w in words) {
@@ -322,6 +322,14 @@ class VoiceRecognitionService {
         }
       }
       cleaned = deduped.join(' ');
+    }
+
+    // 6. 去除中文無空白相連重複句 (如 "如何修改密碼如何修改密碼" -> "如何修改密碼")
+    if (cleaned.length >= 6) {
+      final half = cleaned.length ~/ 2;
+      if (cleaned.substring(0, half) == cleaned.substring(half)) {
+        cleaned = cleaned.substring(0, half);
+      }
     }
 
     return cleaned;

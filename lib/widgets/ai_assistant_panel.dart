@@ -85,6 +85,9 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 ? VoiceRecognitionService.cleanFillerWords(fullText)
                 : fullText;
             _modalController.text = cleaned;
+            if (isFinal) {
+              _voiceBaseText = cleaned.trim();
+            }
             _modalController.selection = TextSelection.collapsed(
               offset: _modalController.text.length,
             );
