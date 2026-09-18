@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:typed_data';
 
 // 預設插圖頭像（emoji 角色 + 背景色）
@@ -620,7 +621,7 @@ TextSpan buildNoteRichTextSpan(
   return TextSpan(children: spans);
 }
 
-/// 筆記富文本呈現 Widget
+/// 筆記富文本呈現 Widget（完整支援 Markdown 表格、區塊標註、對比表與結構排版）
 class RichNoteContentView extends StatelessWidget {
   final String content;
   final bool isDark;
@@ -647,17 +648,78 @@ class RichNoteContentView extends StatelessWidget {
       );
     }
 
-    final span = buildNoteRichTextSpan(
-      context,
-      content,
-      isDark: isDark,
-      baseStyle: baseStyle,
-    );
+    final theme = Theme.of(context);
+    final textColor = isDark ? Colors.white70 : const Color(0xFF2C2523);
 
-    if (selectable) {
-      return SelectableText.rich(span);
-    }
-    return Text.rich(span);
+    return MarkdownBody(
+      data: content,
+      selectable: selectable,
+      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+        h1: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: isDark ? Colors.white : const Color(0xFF3E2723),
+          height: 1.5,
+        ),
+        h2: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: isDark ? const Color(0xFFB388FF) : const Color(0xFF4A148C),
+          height: 1.5,
+        ),
+        h3: TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.bold,
+          color: isDark ? const Color(0xFFD7CCC8) : const Color(0xFF5D4037),
+        ),
+        p: TextStyle(
+          fontSize: (baseStyle?.fontSize ?? 14.0),
+          height: 1.65,
+          color: textColor,
+        ),
+        tableHead: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: isDark ? Colors.white : const Color(0xFF3E2723),
+          fontSize: 13,
+        ),
+        tableBody: TextStyle(
+          color: textColor,
+          fontSize: 12.5,
+        ),
+        tableBorder: TableBorder.all(
+          color: isDark ? Colors.white24 : const Color(0xFFD7CCC8),
+          width: 1,
+        ),
+        tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        tableColumnWidth: const IntrinsicColumnWidth(),
+        blockquoteDecoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF311B92).withValues(alpha: 0.3)
+              : const Color(0xFFF3E5F5).withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            left: BorderSide(
+              color: isDark ? const Color(0xFFB388FF) : const Color(0xFF673AB7),
+              width: 3.5,
+            ),
+          ),
+        ),
+        codeblockDecoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFF2E2A27),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        code: TextStyle(
+          backgroundColor: isDark
+              ? const Color(0xFF4527A0).withValues(alpha: 0.3)
+              : const Color(0xFFEDE7F6),
+          color: isDark ? const Color(0xFFD1C4E9) : const Color(0xFF4A148C),
+          fontSize: 12.5,
+        ),
+        listBullet: TextStyle(
+          color: isDark ? const Color(0xFFB388FF) : const Color(0xFF4A148C),
+        ),
+      ),
+    );
   }
 }
 
