@@ -3134,6 +3134,8 @@ extension MainScreenProfileTab on _MainScreenState {
   // ── 底部導覽列自訂順序設定與對話框 ──
   String _getNavBarItemName(String key) {
     switch (key) {
+      case 'home':
+        return AppLocaleService.tr('nav_home', _appLanguage);
       case 'calendar':
         return AppLocaleService.tr('nav_calendar', _appLanguage);
       case 'quiz':
@@ -3152,6 +3154,8 @@ extension MainScreenProfileTab on _MainScreenState {
 
   IconData _getNavBarItemIcon(String key) {
     switch (key) {
+      case 'home':
+        return Icons.home_rounded;
       case 'calendar':
         return Icons.calendar_month_rounded;
       case 'quiz':
@@ -3169,7 +3173,14 @@ extension MainScreenProfileTab on _MainScreenState {
   }
 
   void _showCustomNavBarOrderDialog() {
-    const validKeys = ['calendar', 'quiz', 'social', 'notes', 'social_feed'];
+    const validKeys = [
+      'home',
+      'quiz',
+      'calendar',
+      'social',
+      'notes',
+      'social_feed'
+    ];
     List<String> tempOrder = List<String>.from(
       _navBarItems
           .where((k) => validKeys.contains(k) || k == 'activity')
@@ -3182,6 +3193,8 @@ extension MainScreenProfileTab on _MainScreenState {
 
     String getItemDesc(String key) {
       switch (key) {
+        case 'home':
+          return '今日學習進度總覽與核心功能快速捷徑';
         case 'calendar':
           return '課堂日程、讀書計畫與重要待辦追蹤';
         case 'quiz':
@@ -3947,8 +3960,9 @@ extension MainScreenProfileTab on _MainScreenState {
                         onPressed: () {
                           setSheetState(() {
                             tempOrder = [
-                              'calendar',
+                              'home',
                               'quiz',
+                              'calendar',
                               'social',
                               'notes',
                               'social_feed'

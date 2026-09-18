@@ -5,6 +5,7 @@ import '../database/database_helper.dart';
 import '../services/notebook_helper.dart';
 import 'question_edit_page.dart';
 import 'question_practice_page.dart';
+import 'question_discussion_page.dart';
 
 class QuestionSetDetailPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -159,6 +160,18 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
+  }
+
+  void _openDiscussion(Map<String, dynamic> question) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => QuestionDiscussionPage(
+          questionData: question,
+          currentUser: widget.currentUser,
+        ),
+      ),
+    );
   }
 
   void _openPractice(int initialIndex,
@@ -735,6 +748,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant),
                 onSelected: (value) {
+                  if (value == 'discussion') _openDiscussion(question);
                   if (value == 'edit') _openEditPage(question);
                   if (value == 'delete') _deleteQuestion(question);
                   if (value == 'add_to_paper') _addQuestionToPaper(question);
@@ -752,6 +766,13 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       question['user_id']?.toString() == currentUserId;
 
                   final items = <PopupMenuEntry<String>>[];
+                  items.add(const PopupMenuItem(value: 'discussion', child: Row(
+                    children: [
+                      Icon(Icons.forum_outlined, size: 16, color: Color(0xFF4F46E5)),
+                      SizedBox(width: 8),
+                      Text('題目討論串'),
+                    ],
+                  )));
                   if (isOwner) {
                     items.add(const PopupMenuItem(
                         value: 'edit', child: Text('編輯題目')));
@@ -866,6 +887,34 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   ),
                 ]
               ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => _openDiscussion(question),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFC7D2FE)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.forum_outlined, size: 16, color: Color(0xFF4F46E5)),
+                  SizedBox(width: 6),
+                  Text(
+                    '進入討論串 / 查看同儕與 AI 助教詳解',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4F46E5),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

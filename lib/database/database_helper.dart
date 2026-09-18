@@ -114,6 +114,31 @@ class DatabaseHelper {
         )
       ''');
 
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS question_discussions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          question_id INTEGER NOT NULL,
+          user_id VARCHAR NOT NULL,
+          user_name VARCHAR NOT NULL,
+          avatar_url VARCHAR,
+          content TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          likes_count INTEGER DEFAULT 0,
+          is_ai_response INTEGER DEFAULT 0,
+          parent_id INTEGER DEFAULT 0
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS question_discussion_likes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          discussion_id INTEGER NOT NULL,
+          user_id VARCHAR NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (discussion_id, user_id) ON CONFLICT REPLACE
+        )
+      ''');
+
       var postCols = await db.rawQuery('PRAGMA table_info(posts)');
       if (!postCols.any((c) => c['name'] == 'is_edited')) {
         await db.execute(
@@ -1426,6 +1451,103 @@ class DatabaseHelper {
         },
         where: 'id = ?',
         whereArgs: [id]);
+  }
+
+  // --- Question Discussions ---
+  Future<List<Map<String, dynamic>>> getDiscussionsForQuestion(int questionId, {String? currentUserId}) async {
+    final db = await database;
+    final list = await db.query(
+      'question_discussions',
+      where: 'question_id = ?',
+      whereArgs: [questionId],
+      orderBy: 'created_at ASC',
+    );
+    if (list.isEmpty) return [];
+
+    final mutableList = List<Map<String, dynamic>>.from(list.map((item) => Map<String, dynamic>.from(item)));
+    if (currentUserId != null) {
+      final likedRows = await db.query(
+        'question_discussion_likes',
+        where: 'user_id = ?',
+        whereArgs: [currentUserId],
+      );
+      final likedIds = likedRows.map((r) => int.tryParse(r['discussion_id'].toString()) ?? 0).toSet();
+      for (final item in mutableList) {
+        final id = int.tryParse(item['id'].toString()) ?? 0;
+        item['is_liked'] = likedIds.contains(id);
+      }
+    }
+    return mutableList;
+  }
+
+  Future<int> addQuestionDiscussion({
+    required int questionId,
+    required String userId,
+    required String userName,
+    String? avatarUrl,
+    required String content,
+    int isAiResponse = 0,
+    int parentId = 0,
+  }) async {
+    final db = await database;
+    return await db.insert('question_discussions', <String, Object?>{
+      'question_id': questionId,
+      'user_id': userId,
+      'user_name': userName,
+      'avatar_url': avatarUrl,
+      'content': content,
+      'likes_count': 0,
+      'is_ai_response': isAiResponse,
+      'parent_id': parentId,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<bool> toggleLikeQuestionDiscussion(int discussionId, String userId) async {
+    final db = await database;
+    final existing = await db.query(
+      'question_discussion_likes',
+      where: 'discussion_id = ? AND user_id = ?',
+      whereArgs: [discussionId, userId],
+    );
+    if (existing.isNotEmpty) {
+      await db.delete(
+        'question_discussion_likes',
+        where: 'discussion_id = ? AND user_id = ?',
+        whereArgs: [discussionId, userId],
+      );
+      await db.rawUpdate(
+        'UPDATE question_discussions SET likes_count = MAX(0, likes_count - 1) WHERE id = ?',
+        [discussionId],
+      );
+      return false;
+    } else {
+      await db.insert('question_discussion_likes', <String, Object?>{
+        'discussion_id': discussionId,
+        'user_id': userId,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      await db.rawUpdate(
+        'UPDATE question_discussions SET likes_count = likes_count + 1 WHERE id = ?',
+        [discussionId],
+      );
+      return true;
+    }
+  }
+
+  Future<int> getQuestionDiscussionCount(int questionId) async {
+    final db = await database;
+    final res = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM question_discussions WHERE question_id = ?',
+      [questionId],
+    );
+    return int.tryParse(res.first['count']?.toString() ?? '0') ?? 0;
+  }
+
+  Future<int> deleteQuestionDiscussion(int discussionId) async {
+    final db = await database;
+    await db.delete('question_discussion_likes', where: 'discussion_id = ?', whereArgs: [discussionId]);
+    return await db.delete('question_discussions', where: 'id = ?', whereArgs: [discussionId]);
   }
 
   // --- Wrong question helpers ---

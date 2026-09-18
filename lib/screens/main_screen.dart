@@ -40,6 +40,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import '../utils/image_enhancer.dart';
 import 'ai_analysis_page.dart';
+import 'home_page.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
@@ -75,8 +76,8 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
-  int _currentIndex = 0; // 預設進日曆
-  String _appBarTitle = "日曆行程";
+  int _currentIndex = 6; // 預設進入首頁
+  String _appBarTitle = "首頁";
 
   // --- 資料庫區 ---
   // 使用真實今天（只取年月日，去掉時分秒）
@@ -97,8 +98,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _isDarkMode = false;
   bool _showFloatingNavBar = false;
   List<String> _navBarItems = [
-    'calendar',
+    'home',
     'quiz',
+    'calendar',
     'social',
     'notes',
     'social_feed'
@@ -354,10 +356,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _selectedDate = _simulatedToday;
     _calendarMonth = DateTime(now.year, now.month, 1);
 
-    // 根據使用者身份決定初始頁面：訪客 (u4) 不能進日曆，預設進入題庫 (1)
+    // 根據使用者身份決定初始頁面：預設進入首頁 (6)
     if (widget.currentUser['id'] == 'u4') {
-      _currentIndex = 1;
-      _appBarTitle = "題庫";
+      _currentIndex = 6;
+      _appBarTitle = "首頁";
     }
 
     // 以 2020年1月 為基準 (page 0)，計算今天所在月份的頁碼
@@ -1142,8 +1144,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 .where((s) => s.isNotEmpty)
                 .toList();
             const validKeys = [
-              'calendar',
+              'home',
               'quiz',
+              'calendar',
               'social',
               'notes',
               'social_feed'
@@ -2549,7 +2552,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             resizeToAvoidBottomInset: false,
             backgroundColor: Colors.transparent, // Let Container behind it show
             extendBody: true, // Allow body to scroll under bottom nav bar
-            appBar: _quizStep == 2
+            appBar: (_quizStep == 2 || _currentIndex == 6)
                 ? null
                 : AppBar(
                     title: _currentIndex == 0
@@ -2640,6 +2643,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
+
+                  ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      selected: _currentIndex == 6,
+                      selectedTileColor: Theme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.12),
+                      leading: Icon(Icons.home_rounded,
+                          color: Theme.of(context).primaryColor, size: 25),
+                      title: Text(
+                          AppLocaleService.tr('nav_home', _appLanguage),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _isDarkMode
+                                  ? Colors.white
+                                  : Colors.black87)),
+                      onTap: () {
+                        _changePage(
+                            6, AppLocaleService.tr('nav_home', _appLanguage));
+                        Navigator.pop(context);
+                      }),
 
                   ListTile(
                       contentPadding: const EdgeInsets.symmetric(
@@ -2843,6 +2871,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         _buildSocialActivityTab(),
                         _buildPersonalProfileTab(context),
                         NotesScreen(currentUser: widget.currentUser),
+                        HomePage(
+                          currentUser: widget.currentUser,
+                          allSubjects: allSubjects,
+                          subjectChapters: subjectChapters,
+                          onNavigateToTab: (tabIndex) {
+                            final titles = {
+                              0: AppLocaleService.tr('nav_calendar', _appLanguage),
+                              1: AppLocaleService.tr('nav_quiz', _appLanguage),
+                              2: AppLocaleService.tr('nav_community', _appLanguage),
+                              3: AppLocaleService.tr('nav_social_feed', _appLanguage),
+                              4: AppLocaleService.tr('nav_profile', _appLanguage),
+                              5: AppLocaleService.tr('nav_notes', _appLanguage),
+                              6: '首頁',
+                            };
+                            _changePage(tabIndex, titles[tabIndex] ?? '首頁');
+                          },
+                          onOpenAIChat: _openChatModal,
+                        ),
                       ])),
                       if (!_showFloatingNavBar &&
                           (_currentIndex != 1 || _quizStep == 0))
@@ -2917,7 +2963,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   List<Widget> _buildConfiguredNavItems() {
-    const validKeys = ['calendar', 'quiz', 'social', 'notes', 'social_feed'];
+    const validKeys = [
+      'home',
+      'quiz',
+      'calendar',
+      'social',
+      'notes',
+      'social_feed'
+    ];
     final safeItems = _navBarItems.where((k) => validKeys.contains(k)).toList();
     for (final k in validKeys) {
       if (!safeItems.contains(k)) safeItems.add(k);
@@ -2957,6 +3010,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Widget _buildConfiguredNavItem(String itemKey) {
     switch (itemKey) {
+      case 'home':
+        return _buildNavItem(
+          Icons.home_rounded,
+          AppLocaleService.tr('nav_home', _appLanguage),
+          6,
+        );
       case 'calendar':
         return _buildNavItem(
           Icons.calendar_month_rounded,
@@ -12004,6 +12063,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         return AppLocaleService.tr('nav_profile', _appLanguage);
       case 5:
         return AppLocaleService.tr('nav_notes', _appLanguage);
+      case 6:
+        return '首頁';
       default:
         return _appBarTitle;
     }

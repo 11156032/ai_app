@@ -5,6 +5,7 @@ import '../database/database_helper.dart';
 import 'question_edit_page.dart';
 import 'ai_upload_paper_page.dart';
 import 'question_set_detail_page.dart';
+import 'question_discussion_page.dart';
 
 class PaperBuilderPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -24,10 +25,14 @@ class PaperBuilderPage extends StatefulWidget {
 
 class _PaperBuilderPageState extends State<PaperBuilderPage> {
   final TextEditingController _nameCtrl = TextEditingController();
-  String _selectedSubject = '數學';
-  List<Map<String, dynamic>> _paperQuestions = [];
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  String _selectedSubject = '全部';
+  final Set<int> _selectedQuestionIds = {};
+  List<Map<String, dynamic>> _allBankQuestions = [];
   bool _loading = true;
   bool _saving = false;
+  String _searchKeyword = '';
 
   final List<String> _subjects = ['數學', '英文', '理化', '歷史', '國文', '地理', '其他'];
 
@@ -38,81 +43,86 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     _initializeData();
   }
 
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _initializeData() async {
     try {
+      final db = await DatabaseHelper.instance.database;
+      final allRows = await db.query('questions', orderBy: 'id DESC');
+
+      final List<Map<String, dynamic>> formatted = [];
+      for (final r in allRows) {
+        final id = int.tryParse(r['id'].toString()) ?? 0;
+        final rawOpts = r['options'];
+        final opts = rawOpts is String
+            ? (jsonDecode(rawOpts) as List<dynamic>? ?? [])
+            : (rawOpts as List<dynamic>? ?? []);
+
+        formatted.add({
+          'id': id,
+          'question': (r['text'] ?? '').toString(),
+          'options': opts.map((e) => e.toString()).toList(),
+          'answerIndex': int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
+          'explanation': (r['explanation'] ?? '').toString(),
+          'subject': r['subject'] ?? '一般',
+          'difficulty': r['difficulty'] ?? '中',
+          'type': r['type'] ?? '單選題',
+        });
+      }
+
+      _allBankQuestions = formatted;
+
       if (widget.paperId != null) {
-        // 1. Load Existing Paper
+        // 1. Edit existing paper
         final p = await DatabaseHelper.instance.getPaperById(widget.paperId!);
         if (p != null) {
           _nameCtrl.text = p['name']?.toString() ?? '';
-          final qIds = await DatabaseHelper.instance
-              .getQuestionIdsForPaper(widget.paperId!);
-          if (qIds.isNotEmpty) {
-            final db = await DatabaseHelper.instance.database;
-            final placeholders = List.filled(qIds.length, '?').join(',');
-            final rows = await db.rawQuery(
-              'SELECT * FROM questions WHERE id IN ($placeholders)',
-              qIds,
-            );
-
-            final Map<int, Map<String, dynamic>> map = {};
-            for (final r in rows) {
-              final id = int.tryParse(r['id'].toString()) ?? 0;
-              final rawOpts = r['options'];
-              final opts = rawOpts is String
-                  ? (jsonDecode(rawOpts) as List<dynamic>? ?? [])
-                  : (rawOpts as List<dynamic>? ?? []);
-
-              map[id] = {
-                'id': id,
-                'question': (r['text'] ?? '').toString(),
-                'options': opts.map((e) => e.toString()).toList(),
-                'answerIndex':
-                    int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
-                'explanation': (r['explanation'] ?? '').toString(),
-                'subject': r['subject'] ?? '一般',
-                'difficulty': r['difficulty'] ?? '中',
-                'type': r['type'] ?? '單選題',
-              };
-            }
-
-            // Keep original paper question order
-            final List<Map<String, dynamic>> ordered = [];
-            for (final id in qIds) {
-              if (map.containsKey(id)) {
-                ordered.add(map[id]!);
-              }
-            }
-
-            _paperQuestions = ordered;
-            if (_paperQuestions.isNotEmpty) {
-              final firstSub =
-                  _paperQuestions.first['subject']?.toString() ?? '';
-              if (_subjects.contains(firstSub)) {
-                _selectedSubject = firstSub;
-              }
-            }
-          }
+          final qIds = await DatabaseHelper.instance.getQuestionIdsForPaper(widget.paperId!);
+          _selectedQuestionIds.addAll(qIds);
         }
       } else {
-        // 2. Initial questions if passed
-        _paperQuestions = List.from(widget.initialQuestions);
+        // 2. New paper
+        if (widget.initialQuestions.isNotEmpty) {
+          for (final q in widget.initialQuestions) {
+            final qId = int.tryParse(q['id']?.toString() ?? '0') ?? 0;
+            if (qId > 0) _selectedQuestionIds.add(qId);
+          }
+        }
+        // Default auto-generated name
+        final now = DateTime.now();
+        _nameCtrl.text = '${now.month}月${now.day}日 自訂複習題本';
       }
 
       if (!mounted) return;
       setState(() => _loading = false);
     } catch (e) {
-      debugPrint('載入題本資料失敗: $e');
+      debugPrint('載入題庫失敗: $e');
       if (!mounted) return;
       setState(() => _loading = false);
     }
   }
 
-  // --- Actions ---
+  Color _getDifficultyColor(String diff) {
+    switch (diff) {
+      case '易':
+        return const Color(0xFF10B981);
+      case '中':
+        return const Color(0xFFF59E0B);
+      case '難':
+        return const Color(0xFFEF4444);
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
 
-  // 1. 手動新增一題 (開啟 QuestionEditPage 並直接加回本題本)
+  // 手動寫題
   Future<void> _addNewQuestion() async {
-    final result = await Navigator.push(
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => QuestionEditPage(
@@ -120,18 +130,15 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
           allSubjects: _subjects,
           subjectChapters: const {},
           initialData: {
-            'subject': _selectedSubject,
+            'subject': _selectedSubject == '全部' ? '數學' : _selectedSubject,
           },
         ),
       ),
     );
 
-    if (result != null) {
-      // Reload latest questions by looking up the most recently added question or by ID
+    if (result == true) {
       final db = await DatabaseHelper.instance.database;
-      final uid =
-          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
-              .toString();
+      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
       final latestRows = await db.query(
         'questions',
         where: 'user_id = ?',
@@ -154,220 +161,25 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
           'options': opts.map((e) => e.toString()).toList(),
           'answerIndex': int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
           'explanation': (r['explanation'] ?? '').toString(),
-          'subject': r['subject'] ?? _selectedSubject,
+          'subject': r['subject'] ?? '一般',
           'difficulty': r['difficulty'] ?? '中',
           'type': r['type'] ?? '單選題',
         };
 
-        if (!_paperQuestions.any((q) => q['id'] == id)) {
-          setState(() {
-            _paperQuestions.add(newQ);
-          });
-        }
+        setState(() {
+          _allBankQuestions.insert(0, newQ);
+          _selectedQuestionIds.add(id);
+        });
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已新增題目並自動勾選加入本題本！'), backgroundColor: Colors.green),
+        );
       }
     }
   }
 
-  // 2. 從題庫挑選加入 (收納式彈窗 BottomSheet)
-  Future<void> _showPickFromBankDialog() async {
-    final db = await DatabaseHelper.instance.database;
-    final allRows = await db.query('questions', orderBy: 'created_at DESC');
-
-    final existingIds = _paperQuestions.map((q) => q['id'] as int).toSet();
-    final Set<int> newlySelectedIds = {};
-
-    String searchKeyword = '';
-    String filterSub = '全部';
-
-    if (!mounted) return;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final filtered = allRows.where((r) {
-              final id = int.tryParse(r['id'].toString()) ?? 0;
-              if (existingIds.contains(id)) return false; // Already in paper
-
-              final sub = r['subject']?.toString() ?? '一般';
-              if (filterSub != '全部' && sub != filterSub) return false;
-
-              final text = (r['text'] ?? '').toString().toLowerCase();
-              if (searchKeyword.isNotEmpty &&
-                  !text.contains(searchKeyword.toLowerCase())) {
-                return false;
-              }
-              return true;
-            }).toList();
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.82,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-              child: Column(
-                children: [
-                  // Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        '從題庫挑選題目',
-                        style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Search Bar
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: '搜尋題目關鍵字...',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                    ),
-                    onChanged: (val) {
-                      setModalState(() {
-                        searchKeyword = val.trim();
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Subject Choice Chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: ['全部', ..._subjects].map((s) {
-                        final isSel = filterSub == s;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text(s),
-                            selected: isSel,
-                            onSelected: (val) {
-                              if (val) {
-                                setModalState(() => filterSub = s);
-                              }
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const Divider(height: 20),
-
-                  // Questions List
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? const Center(child: Text('沒有符合條件或尚未加入的題目'))
-                        : ListView.builder(
-                            itemCount: filtered.length,
-                            itemBuilder: (context, idx) {
-                              final r = filtered[idx];
-                              final id = int.tryParse(r['id'].toString()) ?? 0;
-                              final isChecked = newlySelectedIds.contains(id);
-                              final text = (r['text'] ?? '').toString();
-                              final sub = r['subject'] ?? '一般';
-
-                              return CheckboxListTile(
-                                value: isChecked,
-                                activeColor: Theme.of(context).primaryColor,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                                title: Text(
-                                  text,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600),
-                                ),
-                                subtitle: Text('學科：$sub',
-                                    style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: Colors.grey.shade600)),
-                                onChanged: (val) {
-                                  setModalState(() {
-                                    if (val == true) {
-                                      newlySelectedIds.add(id);
-                                    } else {
-                                      newlySelectedIds.remove(id);
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          ),
-                  ),
-
-                  // Bottom Confirm Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: newlySelectedIds.isEmpty
-                          ? null
-                          : () {
-                              for (final id in newlySelectedIds) {
-                                final row = allRows.firstWhere((r) =>
-                                    int.tryParse(r['id'].toString()) == id);
-                                final rawOpts = row['options'];
-                                final opts = rawOpts is String
-                                    ? (jsonDecode(rawOpts) as List<dynamic>? ??
-                                        [])
-                                    : (rawOpts as List<dynamic>? ?? []);
-
-                                _paperQuestions.add({
-                                  'id': id,
-                                  'question': (row['text'] ?? '').toString(),
-                                  'options':
-                                      opts.map((e) => e.toString()).toList(),
-                                  'answerIndex': int.tryParse(
-                                          (row['answer'] ?? '0').toString()) ??
-                                      0,
-                                  'explanation':
-                                      (row['explanation'] ?? '').toString(),
-                                  'subject': row['subject'] ?? '一般',
-                                  'difficulty': row['difficulty'] ?? '中',
-                                  'type': row['type'] ?? '單選題',
-                                });
-                              }
-                              setState(() {});
-                              Navigator.pop(ctx);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text('確認加入 (${newlySelectedIds.length} 題)',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // 3. AI 拍照追加 (呼叫 AiUploadPaperPage)
+  // AI 拍考卷
   Future<void> _aiScanAndAppend() async {
     final result = await Navigator.push<bool>(
       context,
@@ -381,20 +193,16 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     );
 
     if (result == true) {
-      // Reload newly created questions
       final db = await DatabaseHelper.instance.database;
-      final uid =
-          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
-              .toString();
+      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
       final papers = await DatabaseHelper.instance.getPapersForUser(uid);
       if (papers.isNotEmpty) {
         final latestPaper = papers.first;
         final pid = int.tryParse(latestPaper['id'].toString()) ?? 0;
         final qIds = await DatabaseHelper.instance.getQuestionIdsForPaper(pid);
         for (final qId in qIds) {
-          if (!_paperQuestions.any((q) => q['id'] == qId)) {
-            final rows =
-                await db.query('questions', where: 'id = ?', whereArgs: [qId]);
+          if (!_allBankQuestions.any((q) => q['id'] == qId)) {
+            final rows = await db.query('questions', where: 'id = ?', whereArgs: [qId]);
             if (rows.isNotEmpty) {
               final r = rows.first;
               final rawOpts = r['options'];
@@ -402,12 +210,11 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                   ? (jsonDecode(rawOpts) as List<dynamic>? ?? [])
                   : (rawOpts as List<dynamic>? ?? []);
 
-              _paperQuestions.add({
+              _allBankQuestions.insert(0, {
                 'id': qId,
                 'question': (r['text'] ?? '').toString(),
                 'options': opts.map((e) => e.toString()).toList(),
-                'answerIndex':
-                    int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
+                'answerIndex': int.tryParse((r['answer'] ?? '0').toString()) ?? 0,
                 'explanation': (r['explanation'] ?? '').toString(),
                 'subject': r['subject'] ?? '一般',
                 'difficulty': r['difficulty'] ?? '中',
@@ -415,13 +222,18 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
               });
             }
           }
+          _selectedQuestionIds.add(qId);
         }
         setState(() {});
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI 辨識題目已自動加入並勾選！'), backgroundColor: Colors.green),
+        );
       }
     }
   }
 
-  // 4. 儲存題本
+  // 儲存題本
   Future<void> _savePaper() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
@@ -431,9 +243,9 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
       return;
     }
 
-    if (_paperQuestions.isEmpty) {
+    if (_selectedQuestionIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('題本內至少需要包含一道題目')),
+        const SnackBar(content: Text('請至少勾選一道題目')),
       );
       return;
     }
@@ -441,20 +253,15 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     setState(() => _saving = true);
 
     try {
-      final uid =
-          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
-              .toString();
-      final List<int> questionIds =
-          _paperQuestions.map((q) => q['id'] as int).toList();
+      final uid = (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1').toString();
+      final List<int> questionIds = _selectedQuestionIds.toList();
 
       int finalPaperId;
       if (widget.paperId != null) {
-        await DatabaseHelper.instance
-            .updatePaper(widget.paperId!, name, questionIds);
+        await DatabaseHelper.instance.updatePaper(widget.paperId!, name, questionIds);
         finalPaperId = widget.paperId!;
       } else {
-        finalPaperId =
-            await DatabaseHelper.instance.createPaper(uid, name, questionIds);
+        finalPaperId = await DatabaseHelper.instance.createPaper(uid, name, questionIds);
       }
 
       if (!mounted) return;
@@ -488,514 +295,518 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        title: Text(
-          widget.paperId == null ? '建立專屬題本' : '編輯題本',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.pop(context),
+  void _openDiscussion(Map<String, dynamic> question) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => QuestionDiscussionPage(
+          questionData: question,
+          currentUser: widget.currentUser,
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8FAFC),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Filter questions by subject and search keyword
+    final filtered = _allBankQuestions.where((q) {
+      final sub = q['subject']?.toString() ?? '一般';
+      if (_selectedSubject != '全部' && sub != _selectedSubject) return false;
+
+      final text = (q['question'] ?? '').toString().toLowerCase();
+      if (_searchKeyword.isNotEmpty && !text.contains(_searchKeyword.toLowerCase())) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    // Subject counts
+    final Map<String, int> subjectCounts = {'全部': _allBankQuestions.length};
+    for (final s in _subjects) {
+      subjectCounts[s] = _allBankQuestions.where((q) => (q['subject']?.toString() ?? '一般') == s).length;
+    }
+
+    final isAllFilteredSelected = filtered.isNotEmpty &&
+        filtered.every((q) => _selectedQuestionIds.contains(q['id'] as int));
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text(
+          widget.paperId == null ? '挑題組卷 / 建立題本' : '編輯題本內容',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Color(0xFF1E293B),
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF334155)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF4F46E5)),
+            tooltip: '手動寫新題',
+            onPressed: _addNewQuestion,
+          ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED)),
+            tooltip: 'AI 拍考卷',
+            onPressed: _aiScanAndAppend,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
               children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
+                // ── 1. 題本名稱設定卡片 ──
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 1. Paper Meta Info Card
-                      _buildPaperInfoCard(cs),
-                      const SizedBox(height: 20),
-
-                      // 2. Action Buttons (手動新增 / 題庫挑選 / AI 拍照)
-                      _buildAddActionsRow(cs),
-                      const SizedBox(height: 24),
-
-                      // 3. Section Title
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      const Row(
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 4,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: cs.primary,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '題本收錄題目 (${_paperQuestions.length} 題)',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF111827),
-                                ),
-                              ),
-                            ],
+                          Icon(Icons.assignment_rounded, size: 18, color: Color(0xFF4F46E5)),
+                          SizedBox(width: 6),
+                          Text(
+                            '題本名稱',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)),
                           ),
-                          if (_paperQuestions.isNotEmpty)
-                            TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  _paperQuestions.clear();
-                                });
-                              },
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text('清空題目',
-                                  style: TextStyle(
-                                      color: Colors.redAccent, fontSize: 12)),
-                            ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-
-                      // 4. Questions List
-                      if (_paperQuestions.isEmpty)
-                        _buildEmptyQuestionsCard(cs)
-                      else
-                        ...List.generate(_paperQuestions.length, (index) {
-                          final q = _paperQuestions[index];
-                          return _buildQuestionCard(index, q, cs);
-                        }),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _nameCtrl,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                        decoration: InputDecoration(
+                          hintText: '請輸入題本名稱...',
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5)),
+                        ),
+                      ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
 
-                // 5. Fixed Bottom Save Bar
-                _buildBottomSaveBar(cs),
-              ],
-            ),
-    );
-  }
-
-  // --- Sub Widgets ---
-
-  Widget _buildPaperInfoCard(ColorScheme cs) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('題本名稱',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: Color(0xFF4B5563))),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _nameCtrl,
-            decoration: InputDecoration(
-              hintText: '例如：高二數學空間向量第一次複習...',
-              prefixIcon: Icon(Icons.assignment_rounded, color: cs.primary),
-              filled: true,
-              fillColor: const Color(0xFFF9FAFB),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300)),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade200)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text('學科領域',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: Color(0xFF4B5563))),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _subjects.map((sub) {
-                final isSelected = _selectedSubject == sub;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: ChoiceChip(
-                    label: Text(sub),
-                    selected: isSelected,
-                    selectedColor: cs.primary.withValues(alpha: 0.15),
-                    backgroundColor: Colors.grey.shade100,
-                    labelStyle: TextStyle(
-                      color: isSelected ? cs.primary : const Color(0xFF374151),
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 12.5,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(
-                          color: isSelected ? cs.primary : Colors.transparent),
-                    ),
-                    onSelected: (val) {
-                      if (val) {
-                        setState(() => _selectedSubject = sub);
-                      }
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddActionsRow(ColorScheme cs) {
-    return Row(
-      children: [
-        // 1. 手動新增一題
-        Expanded(
-          child: _buildActionButton(
-            label: '手動寫題',
-            icon: Icons.edit_note_rounded,
-            color: const Color(0xFF4F46E5),
-            bgColor: const Color(0xFFEEF2FF),
-            onTap: _addNewQuestion,
-          ),
-        ),
-        const SizedBox(width: 8),
-        // 2. 題庫挑選
-        Expanded(
-          child: _buildActionButton(
-            label: '題庫挑選',
-            icon: Icons.library_add_rounded,
-            color: const Color(0xFFD97706),
-            bgColor: const Color(0xFFFFFBEB),
-            onTap: _showPickFromBankDialog,
-          ),
-        ),
-        const SizedBox(width: 8),
-        // 3. AI 拍照
-        Expanded(
-          child: _buildActionButton(
-            label: 'AI 拍考卷',
-            icon: Icons.auto_awesome_rounded,
-            color: const Color(0xFF7C3AED),
-            bgColor: const Color(0xFFF5F3FF),
-            onTap: _aiScanAndAppend,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required Color bgColor,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Column(
-              children: [
-                Icon(icon, color: color, size: 22),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyQuestionsCard(ColorScheme cs) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.post_add_rounded, size: 44, color: Colors.grey.shade300),
-          const SizedBox(height: 12),
-          const Text(
-            '題本目前尚未包含題目',
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: Color(0xFF374151)),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '點擊上方「手動寫題」、「題庫挑選」或「AI 拍考卷」加入題目！',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuestionCard(int index, Map<String, dynamic> q, ColorScheme cs) {
-    final List<String> options = List<String>.from(q['options'] ?? []);
-    final int ansIndex = q['answerIndex'] as int? ?? 0;
-    final String explanation = q['explanation'] ?? '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '第 ${index + 1} 題',
-                      style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: cs.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    q['subject'] ?? _selectedSubject,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded,
-                    color: Colors.redAccent, size: 18),
-                onPressed: () {
-                  setState(() {
-                    _paperQuestions.removeAt(index);
-                  });
-                },
-                tooltip: '從題本移除',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Question Text
-          Text(
-            q['question'] ?? '',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Options List
-          ...List.generate(options.length, (oIdx) {
-            final isCorrect = oIdx == ansIndex;
-            final char = String.fromCharCode(65 + oIdx);
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: isCorrect
-                    ? const Color(0xFFECFDF5)
-                    : const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isCorrect
-                      ? const Color(0xFF10B981)
-                      : Colors.grey.shade200,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    '$char. ',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: isCorrect
-                          ? const Color(0xFF059669)
-                          : Colors.grey.shade700,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      options[oIdx],
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: isCorrect
-                            ? const Color(0xFF065F46)
-                            : const Color(0xFF374151),
-                        fontWeight:
-                            isCorrect ? FontWeight.w600 : FontWeight.normal,
+                // ── 2. 搜尋列與快速操作 ──
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: TextField(
+                          controller: _searchCtrl,
+                          decoration: InputDecoration(
+                            hintText: '搜尋題幹關鍵字...',
+                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                            prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF94A3B8)),
+                            suffixIcon: _searchKeyword.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF94A3B8)),
+                                    onPressed: () {
+                                      _searchCtrl.clear();
+                                      setState(() => _searchKeyword = '');
+                                    },
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onChanged: (val) => setState(() => _searchKeyword = val.trim()),
+                        ),
                       ),
                     ),
-                  ),
-                  if (isCorrect)
-                    const Icon(Icons.check_circle_rounded,
-                        color: Color(0xFF10B981), size: 16),
-                ],
-              ),
-            );
-          }),
+                    const SizedBox(width: 8),
 
-          // Explanation
-          if (explanation.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFDE68A)),
-              ),
-              child: Text(
-                '解析：$explanation',
-                style: const TextStyle(
-                    fontSize: 11.5, color: Color(0xFF92400E), height: 1.3),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomSaveBar(ColorScheme cs) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          18, 12, 18, MediaQuery.of(context).padding.bottom + 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('目前收錄',
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey)),
-              Text(
-                '${_paperQuestions.length} 道題目',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: cs.primary,
+                    // 一鍵全選 / 取消全選
+                    if (filtered.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            if (isAllFilteredSelected) {
+                              for (final q in filtered) {
+                                _selectedQuestionIds.remove(q['id'] as int);
+                              }
+                            } else {
+                              for (final q in filtered) {
+                                _selectedQuestionIds.add(q['id'] as int);
+                              }
+                            }
+                          });
+                        },
+                        icon: Icon(
+                          isAllFilteredSelected ? Icons.deselect_rounded : Icons.select_all_rounded,
+                          size: 16,
+                        ),
+                        label: Text(
+                          isAllFilteredSelected ? '取消全選' : '全選',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF4F46E5),
+                          backgroundColor: Colors.white,
+                          side: BorderSide(color: Colors.grey.shade200),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+
+                // ── 3. 學科 ChoiceChips 水平滑動列 ──
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['全部', ..._subjects].map((s) {
+                      final isSel = _selectedSubject == s;
+                      final count = subjectCounts[s] ?? 0;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text('$s ($count)'),
+                          selected: isSel,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                            color: isSel ? const Color(0xFF4F46E5) : const Color(0xFF475569),
+                          ),
+                          backgroundColor: Colors.white,
+                          selectedColor: const Color(0xFFEEF2FF),
+                          checkmarkColor: const Color(0xFF4F46E5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(
+                              color: isSel ? const Color(0xFF4F46E5) : Colors.grey.shade200,
+                            ),
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() => _selectedSubject = s);
+                            }
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // ── 4. 題目狀態列 ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '符合題目 ${filtered.length} 題 • 已勾選 ${_selectedQuestionIds.length} 題',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                    ),
+                    if (_selectedQuestionIds.isNotEmpty)
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedQuestionIds.clear()),
+                        child: const Text('全部取消', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // ── 5. 題庫清單主體 ──
+                if (filtered.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.search_off_rounded, size: 44, color: Colors.grey.shade300),
+                        const SizedBox(height: 10),
+                        Text(
+                          _allBankQuestions.isEmpty ? '目前題庫中尚未有題目' : '找不到符合條件的題目',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _addNewQuestion,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('立即手動寫題'),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...filtered.map((q) {
+                    final id = q['id'] as int;
+                    final isChecked = _selectedQuestionIds.contains(id);
+                    final sub = q['subject']?.toString() ?? '一般';
+                    final diff = q['difficulty']?.toString() ?? '中';
+                    final diffColor = _getDifficultyColor(diff);
+                    final opts = List<String>.from(q['options'] ?? []);
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: isChecked ? const Color(0xFFEEF2FF) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isChecked ? const Color(0xFF6366F1) : Colors.grey.shade200,
+                          width: isChecked ? 1.5 : 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            setState(() {
+                              if (isChecked) {
+                                _selectedQuestionIds.remove(id);
+                              } else {
+                                _selectedQuestionIds.add(id);
+                              }
+                            });
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 頂部標籤與勾選指標
+                                Row(
+                                  children: [
+                                    // Checkbox circle
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isChecked ? const Color(0xFF4F46E5) : Colors.transparent,
+                                        border: Border.all(
+                                          color: isChecked ? const Color(0xFF4F46E5) : Colors.grey.shade400,
+                                          width: 1.8,
+                                        ),
+                                      ),
+                                      child: isChecked
+                                          ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 10),
+
+                                    // Subject badge
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        sub,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF4F46E5),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+
+                                    // Difficulty badge
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: diffColor.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '難度：$diff',
+                                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: diffColor),
+                                      ),
+                                    ),
+                                    const Spacer(),
+
+                                    // 討論串按鈕
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () => _openDiscussion(q),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.forum_outlined, size: 14, color: Color(0xFF4F46E5)),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              '討論串',
+                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+
+                                // 題目主幹
+                                Text(
+                                  q['question'] ?? '',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1E293B),
+                                    height: 1.4,
+                                  ),
+                                ),
+
+                                // 選項膠囊標籤
+                                if (opts.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: List.generate(opts.length > 4 ? 4 : opts.length, (oIdx) {
+                                      final char = String.fromCharCode(65 + oIdx);
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '$char. ${opts[oIdx]}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+              ],
+            ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: _saving ? null : _savePaper,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.check_circle_rounded),
-              label: Text(
-                _saving
-                    ? '儲存中...'
-                    : (widget.paperId == null ? '建立並開始測驗' : '更新題本'),
-                style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
-              ),
+
+          // ── 底部固定操作列 ──
+          Container(
+            padding: EdgeInsets.fromLTRB(18, 12, 18, MediaQuery.of(context).padding.bottom + 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('目前已勾選', style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                    Text(
+                      '${_selectedQuestionIds.length} 道題目',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF4F46E5),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _saving || _selectedQuestionIds.isEmpty ? null : _savePaper,
+                    icon: _saving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.rocket_launch_rounded, size: 18),
+                    label: Text(
+                      _saving
+                          ? '儲存中...'
+                          : (_selectedQuestionIds.isEmpty
+                              ? '請勾選題目'
+                              : (widget.paperId == null ? '完成組卷並開始測驗' : '更新題本內容')),
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4F46E5),
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey.shade200,
+                      disabledForegroundColor: Colors.grey.shade400,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

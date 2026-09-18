@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import '../services/ai_diagnosis_service.dart';
+import 'question_discussion_page.dart';
 
 class ReviewPage extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
@@ -935,23 +936,62 @@ class _ReviewPageState extends State<ReviewPage>
                     ),
                   ),
                 ],
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => _showAiExplanationSheet(
-                      context, qIdx, q, correct, chosen),
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                  label: const Text('詢問 AI 解析'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).primaryColor,
-                    side: BorderSide(
-                        color: Theme.of(context)
-                            .primaryColor
-                            .withValues(alpha: 0.5)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showAiExplanationSheet(
+                            context, qIdx, q, correct, chosen),
+                        icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                        label: const Text('詢問 AI 解析',
+                            style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Theme.of(context).primaryColor,
+                          side: BorderSide(
+                              color: Theme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.5)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                        ),
+                      ),
+                    ),
+                    if (widget.currentUser != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => QuestionDiscussionPage(
+                                  questionData: q,
+                                  currentUser: widget.currentUser!,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.forum_outlined,
+                              size: 16, color: Color(0xFF4F46E5)),
+                          label: const Text('題目討論串',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF4F46E5),
+                                  fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFC7D2FE)),
+                            backgroundColor: const Color(0xFFEEF2FF),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 if (widget.saveResult) ...[
                   const SizedBox(height: 12),

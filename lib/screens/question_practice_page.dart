@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import 'review_page.dart';
+import 'question_discussion_page.dart';
 
 class QuestionPracticePage extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
@@ -271,6 +272,22 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         actions: [
+          if (widget.currentUser != null)
+            IconButton(
+              icon: const Icon(Icons.forum_outlined),
+              tooltip: '題目討論串',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuestionDiscussionPage(
+                      questionData: currentQuestion,
+                      currentUser: widget.currentUser!,
+                    ),
+                  ),
+                );
+              },
+            ),
           TextButton(
             onPressed: _selectedAnswers.isEmpty ? null : _submitPaper,
             child: Text(
@@ -561,6 +578,48 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                                 height: 1.6,
                               ),
                             ),
+                          if (widget.currentUser != null) ...[
+                            const SizedBox(height: 12),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => QuestionDiscussionPage(
+                                      questionData: currentQuestion,
+                                      currentUser: widget.currentUser!,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border:
+                                      Border.all(color: const Color(0xFFC7D2FE)),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.forum_rounded,
+                                        size: 16, color: Color(0xFF4F46E5)),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      '進入討論串 / 查看同儕心得與 AI 助教解析',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF4F46E5)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
