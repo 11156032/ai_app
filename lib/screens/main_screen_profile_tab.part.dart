@@ -7131,7 +7131,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '重要更新',
-      'version': 'v1.7.3',
+      'version': 'v1.7.4',
       'date': '2026-09-18',
       'isPinned': true,
       'icon': Icons.rocket_launch_rounded,
@@ -7929,7 +7929,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.7.3',
+                                  'v1.7.4',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -8053,7 +8053,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                       : Colors.grey.shade500),
                               const SizedBox(width: 6),
                               Text(
-                                '版本：v1.7.3  |  修訂發布日期：2026 年 9 月 18 日',
+                                '版本：v1.7.4  |  修訂發布日期：2026 年 9 月 18 日',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,

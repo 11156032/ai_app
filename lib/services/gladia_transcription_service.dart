@@ -94,9 +94,22 @@ class GladiaTranscriptionService {
   static final GladiaTranscriptionService instance =
       GladiaTranscriptionService._();
 
-  static const String _kGladiaBaseUrl = 'https://api.gladia.io/v2';
+  static const String _kGladiaRelayUrl =
+      'https://ai-app-proxy.adenlee36.workers.dev/gladia';
+  static const String _kGladiaDirectBaseUrl = 'https://api.gladia.io/v2';
 
-  // 讀取 Gladia API 金鑰
+  // 讀取 App 訪問 Cloudflare Worker 的金鑰通行證
+  static String get _kAppClientSecret {
+    try {
+      final secret = dotenv.env['APP_CLIENT_SECRET'];
+      if (secret != null && secret.isNotEmpty) return secret;
+    } catch (_) {}
+    const envSecret = String.fromEnvironment('APP_CLIENT_SECRET');
+    if (envSecret.isNotEmpty) return envSecret;
+    return 'K/Qk9-gt2P.E9qa';
+  }
+
+  // 讀取 Gladia API 金鑰 (作為備援直連使用)
   static String get _kGladiaApiKey {
     try {
       final key = dotenv.env['GLADIA_API_KEY'];
@@ -129,7 +142,7 @@ class GladiaTranscriptionService {
     return '';
   }
 
-  /// 轉錄音訊檔案（自動串接 Gladia V2 旗艦 ➔ Groq Whisper ➔ Gemini 2.5 Flash 備援）
+  /// 轉錄音訊檔案（自動串接 Cloudflare Gladia 中繼 ➔ Gladia 直連 ➔ Groq Whisper ➔ Gemini 2.5 Flash 四重備援）
   /// [onProgressStatus] 回傳即時進度狀態文字供 UI 顯示
   Future<GladiaTranscriptionResult> transcribeFile(
     File audioFile, {
@@ -139,19 +152,46 @@ class GladiaTranscriptionService {
       throw Exception('未取得有效音訊資料，請靠近麥克風說話 🎙️');
     }
 
+    final List<String> errorLogs = [];
+
     // ----------------------------------------------------
-    // 順位 1：Gladia V2 旗艦轉錄 (含說話者分離與多語言 Code-Switching)
+    // 順位 1：Cloudflare 中繼站 Gladia V2 旗艦轉錄 (不暴露 API Key，含說話者分離)
+    // ----------------------------------------------------
+    try {
+      onProgressStatus?.call('安全傳送音訊至 Cloudflare 旗艦中繼站... ☁️');
+      final audioUrl = await _uploadAudioViaRelay(audioFile);
+
+      onProgressStatus?.call('Gladia 說話者分離與多語言辨識中... 🎙️');
+      final jobId = await _createTranscriptionJobViaRelay(audioUrl);
+
+      final result = await _pollTranscriptionResultViaRelay(
+        jobId,
+        onProgressStatus: onProgressStatus,
+      );
+
+      final text = result.toFormattedDiarizedText().trim();
+      if (text.isNotEmpty) {
+        debugPrint('GladiaTranscriptionService: Cloudflare Gladia 中繼轉錄成功 (${text.length} 字)');
+        return result;
+      } else {
+        debugPrint('GladiaTranscriptionService: Cloudflare Gladia 回傳空白文字，啟用備援...');
+        errorLogs.add('Gladia 未偵測到人聲內容（請錄製 3 秒以上語音）');
+      }
+    } catch (e) {
+      debugPrint('GladiaTranscriptionService Cloudflare 中繼異常: $e，嘗試切換備援...');
+      errorLogs.add('Cloudflare 中繼: ${e.toString().replaceAll('Exception:', '').trim()}');
+    }
+
+    // ----------------------------------------------------
+    // 順位 2：Gladia V2 官方直連 (若本機配置有 GLADIA_API_KEY)
     // ----------------------------------------------------
     final gladiaKey = _kGladiaApiKey;
     if (gladiaKey.isNotEmpty) {
       try {
-        onProgressStatus?.call('正在安全傳送音訊至 Gladia 旗艦引擎... ☁️');
-        final audioUrl = await _uploadAudio(audioFile, gladiaKey);
-
-        onProgressStatus?.call('Gladia 說話者分離與多語言辨識中... 🎙️');
-        final resultUrl = await _createTranscriptionJob(audioUrl, gladiaKey);
-
-        final result = await _pollTranscriptionResult(
+        onProgressStatus?.call('切換直連 Gladia 旗艦引擎... ☁️');
+        final audioUrl = await _uploadAudioDirect(audioFile, gladiaKey);
+        final resultUrl = await _createTranscriptionJobDirect(audioUrl, gladiaKey);
+        final result = await _pollTranscriptionResultDirect(
           resultUrl,
           gladiaKey,
           onProgressStatus: onProgressStatus,
@@ -159,18 +199,19 @@ class GladiaTranscriptionService {
 
         final text = result.toFormattedDiarizedText().trim();
         if (text.isNotEmpty) {
-          debugPrint('GladiaTranscriptionService: Gladia V2 轉錄成功 (${text.length} 字)');
+          debugPrint('GladiaTranscriptionService: Gladia 直連轉錄成功 (${text.length} 字)');
           return result;
         } else {
-          debugPrint('GladiaTranscriptionService: Gladia 回傳空白文字，立即啟用備援轉錄引擎...');
+          errorLogs.add('Gladia 直連無字詞產出');
         }
       } catch (e) {
-        debugPrint('GladiaTranscriptionService Gladia 引擎異常: $e，立即切換備援引擎...');
+        debugPrint('GladiaTranscriptionService Gladia 直連異常: $e');
+        errorLogs.add('Gladia 直連: ${e.toString().replaceAll('Exception:', '').trim()}');
       }
     }
 
     // ----------------------------------------------------
-    // 順位 2：Groq Whisper 極速引擎 (whisper-large-v3-turbo，200ms 極速繁中識別)
+    // 順位 3：Groq Whisper 極速引擎 (whisper-large-v3-turbo，200ms 極速繁中識別)
     // ----------------------------------------------------
     final groqKey = _kGroqApiKey;
     if (groqKey.isNotEmpty) {
@@ -184,11 +225,12 @@ class GladiaTranscriptionService {
         }
       } catch (e) {
         debugPrint('GladiaTranscriptionService Groq Whisper 引擎異常: $e');
+        errorLogs.add('Groq Whisper: ${e.toString().replaceAll('Exception:', '').trim()}');
       }
     }
 
     // ----------------------------------------------------
-    // 順位 3：Gemini 2.5 Flash 原生音訊多模態辨識 (gemini-2.5-flash)
+    // 順位 4：Gemini 2.5 Flash 原生音訊多模態辨識 (gemini-2.5-flash)
     // ----------------------------------------------------
     final geminiKey = _kGeminiApiKey;
     if (geminiKey.isNotEmpty) {
@@ -202,16 +244,145 @@ class GladiaTranscriptionService {
         }
       } catch (e) {
         debugPrint('GladiaTranscriptionService Gemini 2.5 異常: $e');
+        errorLogs.add('Gemini: ${e.toString().replaceAll('Exception:', '').trim()}');
       }
     }
 
-    // 若所有引擎均無法識別出內容
-    throw Exception('未能從音訊中識別出清晰人聲語音，請靠近麥克風並確保音量清晰後重試 🎙️');
+    // 若所有引擎均無法識別出內容，附帶具體錯誤原因
+    final details = errorLogs.isNotEmpty ? '（${errorLogs.first}）' : '，請錄製 3 秒以上清晰說話內容';
+    throw Exception('未能從音訊中識別出清晰人聲語音$details 🎙️');
   }
 
-  /// 1. 上傳音訊檔案至 Gladia
-  Future<String> _uploadAudio(File audioFile, String apiKey) async {
-    final uploadUri = Uri.parse('$_kGladiaBaseUrl/upload');
+  /// 1. 透過 Cloudflare 中繼站上傳音訊檔案
+  Future<String> _uploadAudioViaRelay(File audioFile) async {
+    final uploadUri = Uri.parse('$_kGladiaRelayUrl/upload');
+    final request = http.MultipartRequest('POST', uploadUri)
+      ..headers['x-app-secret'] = _kAppClientSecret;
+
+    final filename = audioFile.path.split(RegExp(r'[\\/]')).last;
+    final ext = filename.split('.').last.toLowerCase();
+    final mediaType = (ext == 'm4a' || ext == 'mp4' || ext == 'aac')
+        ? MediaType('audio', 'mp4')
+        : (ext == 'wav'
+            ? MediaType('audio', 'wav')
+            : MediaType('application', 'octet-stream'));
+
+    request.files.add(await http.MultipartFile.fromPath(
+      'audio',
+      audioFile.path,
+      filename: filename,
+      contentType: mediaType,
+    ));
+
+    final streamedResponse = await request.send().timeout(
+      const Duration(seconds: 40),
+      onTimeout: () => throw TimeoutException('音訊上傳至 Cloudflare 中繼站超時'),
+    );
+
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('中繼站音訊上傳失敗 [${response.statusCode}]: ${response.body}');
+    }
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final audioUrl = data['audio_url'] as String?;
+    if (audioUrl == null || audioUrl.isEmpty) {
+      throw Exception('中繼站未取得 Gladia audio_url');
+    }
+    return audioUrl;
+  }
+
+  /// 2. 透過 Cloudflare 中繼站發起轉錄任務
+  Future<String> _createTranscriptionJobViaRelay(String audioUrl) async {
+    final preRecordedUri = Uri.parse('$_kGladiaRelayUrl/pre-recorded');
+    final requestBody = jsonEncode({
+      'audio_url': audioUrl,
+      'diarization': true,
+      'diarization_config': {
+        'min_speakers': 1,
+        'max_speakers': 6,
+      },
+      'language_config': {
+        'code_switching': true,
+        'languages': ['zh', 'en'],
+      },
+    });
+
+    final response = await http
+        .post(
+      preRecordedUri,
+      headers: {
+        'x-app-secret': _kAppClientSecret,
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: requestBody,
+    )
+        .timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw TimeoutException('中繼站轉錄任務建立超時'),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('中繼站轉錄任務建立失敗 [${response.statusCode}]: ${response.body}');
+    }
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final id = data['id'] as String?;
+    if (id != null && id.isNotEmpty) {
+      return id;
+    }
+    final resultUrl = data['result_url'] as String?;
+    if (resultUrl != null && resultUrl.isNotEmpty) {
+      final lastSeg = resultUrl.split('/').where((s) => s.isNotEmpty).last;
+      return lastSeg;
+    }
+    throw Exception('中繼站未取得任務識別碼');
+  }
+
+  /// 3. 透過 Cloudflare 中繼站輪詢轉錄結果
+  Future<GladiaTranscriptionResult> _pollTranscriptionResultViaRelay(
+    String jobId, {
+    void Function(String statusMessage)? onProgressStatus,
+  }) async {
+    const int maxAttempts = 60;
+    int attempt = 0;
+    final pollUri = Uri.parse('$_kGladiaRelayUrl/result/$jobId');
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      try {
+        final response = await http.get(
+          pollUri,
+          headers: {'x-app-secret': _kAppClientSecret},
+        ).timeout(const Duration(seconds: 15));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+          final status = data['status'] as String?;
+
+          if (status == 'done') {
+            return _parseGladiaDoneResult(data);
+          } else if (status == 'error') {
+            throw Exception('Gladia 轉錄處理失敗: ${data['error']}');
+          } else {
+            if (attempt % 3 == 0) {
+              onProgressStatus?.call('Gladia 正在辨識說話者與字詞中 (${attempt}s)...');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Gladia relay polling error on attempt $attempt: $e');
+        if (attempt >= maxAttempts) rethrow;
+      }
+    }
+    throw TimeoutException('Gladia 轉錄處理逾時');
+  }
+
+  /// 備援：直連 Gladia 上傳
+  Future<String> _uploadAudioDirect(File audioFile, String apiKey) async {
+    final uploadUri = Uri.parse('$_kGladiaDirectBaseUrl/upload');
     final request = http.MultipartRequest('POST', uploadUri)
       ..headers['x-gladia-key'] = apiKey;
 
@@ -232,12 +403,12 @@ class GladiaTranscriptionService {
 
     final streamedResponse = await request.send().timeout(
       const Duration(seconds: 40),
-      onTimeout: () => throw TimeoutException('音訊上傳至 Gladia 超時'),
+      onTimeout: () => throw TimeoutException('音訊直連上傳超時'),
     );
 
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Gladia 音訊上傳失敗 [${response.statusCode}]: ${response.body}');
+      throw Exception('Gladia 直連上傳失敗 [${response.statusCode}]: ${response.body}');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -248,9 +419,9 @@ class GladiaTranscriptionService {
     return audioUrl;
   }
 
-  /// 2. 發起轉錄任務 (開啟 Diarization 說話者分離與 Code-Switching)
-  Future<String> _createTranscriptionJob(String audioUrl, String apiKey) async {
-    final preRecordedUri = Uri.parse('$_kGladiaBaseUrl/pre-recorded');
+  /// 備援：直連 Gladia 發起任務
+  Future<String> _createTranscriptionJobDirect(String audioUrl, String apiKey) async {
+    final preRecordedUri = Uri.parse('$_kGladiaDirectBaseUrl/pre-recorded');
     final requestBody = jsonEncode({
       'audio_url': audioUrl,
       'diarization': true,
@@ -259,8 +430,8 @@ class GladiaTranscriptionService {
         'max_speakers': 6,
       },
       'language_config': {
-        'code_switching': true, // 支援中英混雜語音
-        'languages': ['zh', 'en'], // 明確設定以繁體中文與英語為主
+        'code_switching': true,
+        'languages': ['zh', 'en'],
       },
     });
 
@@ -275,11 +446,11 @@ class GladiaTranscriptionService {
     )
         .timeout(
       const Duration(seconds: 30),
-      onTimeout: () => throw TimeoutException('Gladia 任務建立請求超時'),
+      onTimeout: () => throw TimeoutException('Gladia 直連任務建立超時'),
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Gladia 轉錄任務發起失敗 [${response.statusCode}]: ${response.body}');
+      throw Exception('Gladia 直連任務建立失敗 [${response.statusCode}]: ${response.body}');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -287,20 +458,20 @@ class GladiaTranscriptionService {
     if (resultUrl == null || resultUrl.isEmpty) {
       final id = data['id'] as String?;
       if (id != null && id.isNotEmpty) {
-        return '$_kGladiaBaseUrl/pre-recorded/$id';
+        return '$_kGladiaDirectBaseUrl/pre-recorded/$id';
       }
       throw Exception('未取得 Gladia result_url');
     }
     return resultUrl;
   }
 
-  /// 3. 輪詢結果
-  Future<GladiaTranscriptionResult> _pollTranscriptionResult(
+  /// 備援：直連 Gladia 輪詢
+  Future<GladiaTranscriptionResult> _pollTranscriptionResultDirect(
     String resultUrl,
     String apiKey, {
     void Function(String statusMessage)? onProgressStatus,
   }) async {
-    const int maxAttempts = 60; // 最多等待 ~60 秒
+    const int maxAttempts = 60;
     int attempt = 0;
 
     while (attempt < maxAttempts) {
@@ -318,58 +489,61 @@ class GladiaTranscriptionService {
           final status = data['status'] as String?;
 
           if (status == 'done') {
-            final result = data['result'] as Map<String, dynamic>?;
-            final transcription =
-                result?['transcription'] as Map<String, dynamic>?;
-
-            final fullTranscript =
-                (transcription?['full_transcript'] as String?)?.trim() ?? '';
-            final rawUtterances =
-                transcription?['utterances'] as List<dynamic>? ?? [];
-
-            final utterances = <GladiaUtterance>[];
-            for (final u in rawUtterances) {
-              if (u is Map<String, dynamic>) {
-                final text = (u['text'] as String?)?.trim() ?? '';
-                if (text.isNotEmpty) {
-                  utterances.add(GladiaUtterance(
-                    speaker: u['speaker'] is int ? u['speaker'] as int : 0,
-                    start: (u['start'] as num?)?.toDouble() ?? 0.0,
-                    end: (u['end'] as num?)?.toDouble() ?? 0.0,
-                    text: AiDiagnosisService.toTraditionalChinese(text),
-                    language: u['language'] as String?,
-                  ));
-                }
-              }
-            }
-
-            final traditionalFull =
-                AiDiagnosisService.toTraditionalChinese(fullTranscript);
-
-            return GladiaTranscriptionResult(
-              fullTranscript: traditionalFull.isNotEmpty
-                  ? traditionalFull
-                  : utterances.map((u) => u.text).join(' '),
-              utterances: utterances,
-              isDiarized: utterances.isNotEmpty,
-              provider: 'gladia',
-            );
+            return _parseGladiaDoneResult(data);
           } else if (status == 'error') {
             throw Exception('Gladia 轉錄處理失敗: ${data['error']}');
           } else {
-            // queued or processing
             if (attempt % 3 == 0) {
               onProgressStatus?.call('Gladia 正在辨識說話者與字詞中 (${attempt}s)...');
             }
           }
         }
       } catch (e) {
-        debugPrint('Gladia polling error on attempt $attempt: $e');
+        debugPrint('Gladia direct polling error on attempt $attempt: $e');
         if (attempt >= maxAttempts) rethrow;
       }
     }
-
     throw TimeoutException('Gladia 轉錄處理逾時');
+  }
+
+  /// 解析 Gladia 成功成果
+  GladiaTranscriptionResult _parseGladiaDoneResult(Map<String, dynamic> data) {
+    final result = data['result'] as Map<String, dynamic>?;
+    final transcription =
+        result?['transcription'] as Map<String, dynamic>?;
+
+    final fullTranscript =
+        (transcription?['full_transcript'] as String?)?.trim() ?? '';
+    final rawUtterances =
+        transcription?['utterances'] as List<dynamic>? ?? [];
+
+    final utterances = <GladiaUtterance>[];
+    for (final u in rawUtterances) {
+      if (u is Map<String, dynamic>) {
+        final text = (u['text'] as String?)?.trim() ?? '';
+        if (text.isNotEmpty) {
+          utterances.add(GladiaUtterance(
+            speaker: u['speaker'] is int ? u['speaker'] as int : 0,
+            start: (u['start'] as num?)?.toDouble() ?? 0.0,
+            end: (u['end'] as num?)?.toDouble() ?? 0.0,
+            text: AiDiagnosisService.toTraditionalChinese(text),
+            language: u['language'] as String?,
+          ));
+        }
+      }
+    }
+
+    final traditionalFull =
+        AiDiagnosisService.toTraditionalChinese(fullTranscript);
+
+    return GladiaTranscriptionResult(
+      fullTranscript: traditionalFull.isNotEmpty
+          ? traditionalFull
+          : utterances.map((u) => u.text).join(' '),
+      utterances: utterances,
+      isDiarized: utterances.isNotEmpty,
+      provider: 'gladia',
+    );
   }
 
   /// Groq Whisper 極速轉錄 (whisper-large-v3-turbo, 200ms 反應速度)
