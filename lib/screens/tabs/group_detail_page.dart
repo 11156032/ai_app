@@ -7,7 +7,8 @@ import '../../database/database_helper.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/mindmap_node.dart';
 import '../../widgets/mindmap_canvas.dart';
-import '../main_screen.dart'; // for CreatePostPage, PostReplyPage (defined in main_screen.dart)
+import '../main_screen.dart';
+import '../create_post_page.dart';
 import '../notes_screen.dart';
 import 'group_invite_page.dart';
 
