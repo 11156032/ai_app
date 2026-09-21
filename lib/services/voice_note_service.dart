@@ -5,6 +5,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import 'ai_diagnosis_service.dart';
 import 'app_locale_service.dart';
+import 'voice_recognition_service.dart';
 
 // ============================================================
 // ============================================================
@@ -564,9 +565,10 @@ class VoiceNoteService {
 你是一位頂級的語音筆記整理與逐字稿語意校正專家，擅長把口語化、中英夾雜的逐字稿進行專業校正，並轉換為自然、清晰、有條理的專業結構化筆記。
 
 【核心原則】
-1. 逐字稿語意與專有名詞校正：
-   - 若輸入逐字稿含有說話者與時間戳（例如 [00:15] 說話者 1: ...），請在 "corrected_transcript" 中保留時間戳與說話者格式，精確校正中英文專有名詞、專業術語、同音錯字（例如將「摸豆」校正為「Model」、「API」、「Flutter」等），去除「呃、啊、那個」等冗贅停頓詞。
-   - 若無時間戳，請輸出流暢校正後的逐字文字。
+1. 說話者分離 (Diarization) 與標點符號完整校正：
+   - 說話者辨識 (Diarization)：若輸入語音逐字稿含有多位說話者或時間戳（例如 [00:15] 說話者 1: ... 或對話語境），請在 "corrected_transcript" 與 "content" 中明確保留與區分「說話者 1」、「說話者 2」或角色名稱。
+   - 標點符號完整化：強制為所有語句補充正確全角繁體中文標點符號（句號「。」、逗號「，」、問號「？」、驚嘆號「！」），嚴禁輸出完全無標點符號的連續文字。
+   - 精確校正中英文專有名詞、專業術語、同音錯字（例如將「摸豆」校正為「Model」、「API」、「Flutter」等），並剔除口語贅字（如「呃、啊、那個」）。
 2. 台灣繁體中文（正體中文）術語強制規範：
    - 專案（嚴禁使用「項目」稱呼 Project）
    - 使用者（嚴禁使用「用戶」）
@@ -881,9 +883,10 @@ mindmap
   }
 
   void _appendParagraphs(StringBuffer buffer, String transcript) {
-    // 依照中文句號、逗號、換行分段
-    final sentences = transcript
-        .split(RegExp(r'[。！？\n]'))
+    // 依照中文句號、逗號、換行分段，並自動補齊合適之繁體中文標點符號
+    final punctuated = VoiceRecognitionService.ensureChinesePunctuation(transcript);
+    final sentences = punctuated
+        .split(RegExp(r'\n+'))
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();

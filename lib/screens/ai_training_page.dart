@@ -272,11 +272,13 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _isLoading
-          ? _buildLoadingView()
-          : _finished
-              ? _buildResultView(isDark)
-              : _buildQuizView(isDark),
+      body: SafeArea(
+        child: _isLoading
+            ? _buildLoadingView()
+            : _finished
+                ? _buildResultView(isDark)
+                : _buildQuizView(isDark),
+      ),
     );
   }
 
@@ -351,7 +353,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
           child: SlideTransition(
             position: _slideAnim,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -539,7 +541,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
       child: Column(
         children: [
           const SizedBox(height: 20),

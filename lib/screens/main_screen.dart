@@ -36,6 +36,7 @@ import 'about_us_screen.dart';
 import 'membership_center_screen.dart';
 import '../widgets/vip_badge_widget.dart';
 import '../widgets/point_recharge_dialog.dart';
+import '../widgets/ad_banner_widget.dart';
 import '../services/membership_service.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
@@ -170,6 +171,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> allGroups = [];
   bool _isEmailVerified = false;
   String? _displayName;
+  int _userPoints = 100;
 
   // ── 互動式引導 Tour ──
   bool _isTourActive = false;
@@ -197,6 +199,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final TextEditingController _diaryInputController = TextEditingController();
   final FocusNode _diaryFocusNode = FocusNode();
   String _originalDiaryContent = '';
+  Timer? _diaryAutoSaveTimer;
+  bool _isDiarySaving = false;
   final Map<String, String> _diaryAiAdviceMap = {};
   final Map<String, bool> _isGeneratingDiaryAdviceMap = {};
   final Map<String, bool> _showAiAdviceMap = {};
@@ -438,11 +442,27 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         setState(() {
           _isCalendarExpanded = false;
         });
+      } else {
+        if (_diaryInputController.text != _originalDiaryContent) {
+          _diaryAutoSaveTimer?.cancel();
+          _saveDiarySilent(_diaryInputController.text);
+        }
       }
     });
     _diaryInputController.addListener(() {
       if (mounted) {
         setState(() {});
+        if (_diaryInputController.text != _originalDiaryContent) {
+          _diaryAutoSaveTimer?.cancel();
+          _diaryAutoSaveTimer =
+              Timer(const Duration(milliseconds: 800), () async {
+            if (_diaryInputController.text != _originalDiaryContent) {
+              if (mounted) setState(() => _isDiarySaving = true);
+              await _saveDiarySilent(_diaryInputController.text);
+              if (mounted) setState(() => _isDiarySaving = false);
+            }
+          });
+        }
       }
     });
     _initApp();
@@ -476,6 +496,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     await _loadData();
+
+    // 每次進入首頁自動彈出贊助廣告視窗 (高等級 VIP 自動免廣告)
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        final userId = widget.currentUser['id']?.toString() ?? '';
+        AdPopupDialog.show(context, userId: userId);
+      }
+    });
 
     // 首次登入自動觸發歡迎頁 + 互動引導（非訪客且還未看過）
     if (widget.currentUser['id'] != 'u4') {
@@ -560,6 +588,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     try {
       final db = await DatabaseHelper.instance.database;
       final currentUserId = widget.currentUser['id'];
+
+      // Fetch user points & membership info
+      final info = await DatabaseHelper.instance
+          .getUserMembershipInfo(currentUserId.toString());
+      if (mounted) {
+        setState(() {
+          _userPoints = info['points_balance'] as int? ?? 100;
+        });
+      }
 
       // Fetch schedules
       final schedulesList = await db.query('calendar_events',
@@ -1354,6 +1391,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _calendarPageController.dispose();
     _timelinePageController.dispose();
     _todoInputController.dispose();
+    _diaryAutoSaveTimer?.cancel();
     _diaryInputController.dispose();
     _diaryFocusNode.dispose();
     super.dispose();
@@ -1764,47 +1802,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (_calendarSubTab != 2) return true;
     final currentText = _diaryInputController.text;
     if (currentText != _originalDiaryContent) {
-      bool? proceed = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('有未儲存的日記變動'),
-          content: const Text('您的日記內容已被修改，是否要儲存變動？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, null), // Cancel/Stay
-              child: const Text('取消', style: TextStyle(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx, false); // Discard
-              },
-              child: Text('捨棄', style: TextStyle(color: Colors.redAccent)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(ctx, true); // Save
-              },
-              child: const Text('儲存'),
-            ),
-          ],
-        ),
-      );
-
-      if (proceed == null) {
-        return false; // Stay on page
-      } else if (proceed == true) {
-        await _saveDiarySilent(currentText);
-        return true;
-      } else {
-        // Discard: reset text
-        _diaryInputController.text = _originalDiaryContent;
-        return true;
-      }
+      _diaryAutoSaveTimer?.cancel();
+      await _saveDiarySilent(currentText);
     }
     return true;
   }
@@ -2329,64 +2328,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _saveDiary(String content) async {
-    if (content.trim().isEmpty) return;
-    final db = await DatabaseHelper.instance.database;
-    final currentUserId = widget.currentUser['id'];
-    String dateKey = _selectedDate.toString().split(' ')[0];
 
-    try {
-      final existing = allDiaries.firstWhere(
-        (d) => d['date'] == dateKey,
-        orElse: () => {},
-      );
-
-      if (existing.isNotEmpty) {
-        await db.update(
-          'diaries',
-          <String, Object?>{
-            'content': content,
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          where: 'id = ?',
-          whereArgs: [int.parse(existing['id'].toString())],
-        );
-      } else {
-        await db.insert('diaries', <String, Object?>{
-          'user_id': currentUserId,
-          'date': dateKey,
-          'content': content,
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-      }
-      _originalDiaryContent = content;
-      await _loadData();
-      _updateDiaryController(_selectedDate, force: true);
-
-      // 儲存當下若 AI 區塊已開啟或已有舊建議，立即重新整理/生成最新 AI 回饋
-      if (_showAiAdviceMap[dateKey] == true ||
-          (_diaryAiAdviceMap[dateKey] ?? '').isNotEmpty) {
-        _generateDiaryAiAdvice(dateKey, content);
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('日記已儲存'),
-          backgroundColor: Theme.of(context).primaryColor,
-        ),
-      );
-    } catch (e) {
-      debugPrint('儲存日記失敗: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('儲存日記失敗，請稍後再試')),
-      );
-    }
-  }
 
   void _deleteDiaryForToday() async {
+    _diaryAutoSaveTimer?.cancel();
     final db = await DatabaseHelper.instance.database;
     String dateKey = _selectedDate.toString().split(' ')[0];
 
@@ -2421,6 +2366,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _generateDiaryAiAdvice(String dateKey, String textContent) async {
     if (_isGeneratingDiaryAdviceMap[dateKey] == true) return;
+    final userId = widget.currentUser['id']?.toString() ?? '';
+
+    int deductedPoints = 0;
+    try {
+      if (userId.isNotEmpty) {
+        deductedPoints = await MembershipService.instance.deductPoints(
+          userId: userId,
+          actionType: 'diary_advice',
+          basePoints: 1,
+          description: '日記 AI 回饋分析',
+        );
+      }
+    } on InsufficientPointsException catch (_) {
+      if (!mounted) return;
+      PointRechargeDialog.show(context, userId: userId);
+      return;
+    } catch (e) {
+      debugPrint('預扣點數失敗: $e');
+    }
 
     setState(() {
       _isGeneratingDiaryAdviceMap[dateKey] = true;
@@ -2437,6 +2401,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       });
     } catch (e) {
       debugPrint('生成 AI 回饋失敗: $e');
+      if (deductedPoints > 0 && userId.isNotEmpty) {
+        await MembershipService.instance.refundPoints(
+          userId: userId,
+          actionType: 'diary_advice',
+          amount: deductedPoints,
+          reason: '生成 AI 回饋失敗退回',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('AI 生成失敗，已自動退回扣除點數')),
+          );
+        }
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -2928,6 +2905,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             appBar: (_quizStep == 2 || _currentIndex == 6)
                 ? null
                 : AppBar(
+                    toolbarHeight: 60.0,
+                    centerTitle: false,
+                    titleSpacing: 0,
                     leading: Builder(
                       builder: (ctx) => IconButton(
                         key: TourKeys.drawerButtonKey,
@@ -2937,23 +2917,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     title: _currentIndex == 0
-                        ? TextButton(
-                            onPressed: _showMonthYearPicker,
-                            child:
-                                Row(mainAxisSize: MainAxisSize.min, children: [
-                              Text(
-                                  "${_calendarMonth.year}年 ${_calendarMonth.month}月",
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      color: _isDarkMode
-                                          ? Colors.white
-                                          : Colors.black87,
-                                      fontWeight: FontWeight.w700)),
-                              Icon(Icons.keyboard_arrow_down,
-                                  color: _isDarkMode
-                                      ? Colors.white
-                                      : Colors.black87)
-                            ]))
+                        ? Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: _showMonthYearPicker,
+                              child:
+                                  Row(mainAxisSize: MainAxisSize.min, children: [
+                                Text(
+                                    "${_calendarMonth.year}年 ${_calendarMonth.month}月",
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        color: _isDarkMode
+                                            ? Colors.white
+                                            : Colors.black87,
+                                        fontWeight: FontWeight.w700)),
+                                Icon(Icons.keyboard_arrow_down,
+                                    color: _isDarkMode
+                                        ? Colors.white
+                                        : Colors.black87)
+                              ]),
+                            ),
+                          )
                         : Text(_getTranslatedAppBarTitle(),
                             style: TextStyle(
                                 fontSize: 18,
@@ -2973,6 +2962,53 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     ),
                     elevation: 0,
                     actions: [
+                        // 點數顯示與儲值入口 (放在跳轉按鈕左側，置中避免 2px 溢出)
+                        Center(
+                          child: GestureDetector(
+                            onTap: () async {
+                              final userId =
+                                  widget.currentUser['id']?.toString() ?? '';
+                              await PointRechargeDialog.show(context,
+                                  userId: userId);
+                              _loadData();
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Theme.of(context)
+                                      .primaryColor
+                                      .withValues(alpha: 0.3),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.stars_rounded,
+                                      color: Colors.amber, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$_userPoints 點',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isDarkMode
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                         if (_currentIndex == 0)
                           IconButton(
                               icon: Icon(Icons.today_rounded,
@@ -9534,7 +9570,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       child: Container(
                         height: 45.0,
                         color: Colors.transparent, // expand tap area
-                        padding: const EdgeInsets.symmetric(horizontal: 25),
+                        padding: const EdgeInsets.only(left: 12, right: 16),
                         alignment: Alignment.centerLeft,
                         child: Row(
                           children: [
@@ -10418,14 +10454,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-        children: items.map((item) {
-          if (item['isFree'] == true) {
-            return staggered(
-                _buildFreeTimeItem(item['time']?.toString() ?? '', (item['duration'] as int?) ?? 0));
-          } else {
-            return staggered(_buildScheduleItem(item['event'] as Map<String, dynamic>? ?? {}));
-          }
-        }).toList());
+        children: [
+          ...items.map((item) {
+            if (item['isFree'] == true) {
+              return staggered(
+                  _buildFreeTimeItem(item['time']?.toString() ?? '', (item['duration'] as int?) ?? 0));
+            } else {
+              return staggered(_buildScheduleItem(item['event'] as Map<String, dynamic>? ?? {}));
+            }
+          }),
+          const SizedBox(height: 100),
+        ]);
   }
 
   Widget _buildFreeTimeItem(String timeRange, int minutes) {
@@ -10533,7 +10572,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: (constraints.maxHeight - 92).clamp(280.0, 2000.0),
+                minHeight: (constraints.maxHeight - 140).clamp(140.0, 2000.0),
               ),
               child: IntrinsicHeight(
                 child: FadeInUp(
@@ -10574,7 +10613,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             const Spacer(),
-                            if (hasDiary)
+                            if (_isDiarySaving)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 4),
@@ -10583,7 +10622,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  '已儲存',
+                                  '儲存中...',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryColor,
+                                  ),
+                                ),
+                              )
+                            else if (hasDiary ||
+                                _diaryInputController.text.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '已自動儲存',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -10855,25 +10912,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 },
                               ),
                             ],
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.check_rounded, size: 16),
-                              label: const Text('儲存'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                foregroundColor: Colors.white,
-                                elevation: 2,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 18, vertical: 10),
-                              ),
-                              onPressed: _diaryInputController.text
-                                      .trim()
-                                      .isNotEmpty
-                                  ? () => _saveDiary(_diaryInputController.text)
-                                  : null,
-                            ),
                           ],
                         ),
                       ],

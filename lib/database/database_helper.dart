@@ -366,6 +366,32 @@ class DatabaseHelper {
         )
       ''');
 
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS advertisements (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          title       TEXT NOT NULL,
+          content     TEXT NOT NULL,
+          sponsor     TEXT NOT NULL,
+          link_url    TEXT,
+          bg_gradient TEXT,
+          is_active   INTEGER DEFAULT 1,
+          created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+
+      final adCheck = await db.query('advertisements');
+      if (adCheck.isEmpty) {
+        await db.insert('advertisements', {
+          'title': '🎓 2026 全國大專院校 AI 創客大賽熱烈報名中！',
+          'content': '總獎金高達 50 萬元！歡迎全台大專院校學生踴躍組隊參加，搶攻最高榮譽。',
+          'sponsor': '教育部資訊教育司',
+          'link_url': 'https://example.com/contest',
+          'bg_gradient': 'purple',
+          'is_active': 1,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      }
+
       // 自我修復：如果原廠測試帳號被清空，自動重新導入 (以 Sharon 帳號 id = u1 為指標)
       final u1Check = await db.query('users', where: "id = 'u1'");
       if (u1Check.isEmpty) {
@@ -3829,6 +3855,70 @@ class DatabaseHelper {
       whereArgs: [userId],
       orderBy: 'created_at DESC',
       limit: limit,
+    );
+  }
+
+  /// 取得所有啟用的廣告列表 (若資料庫無紀錄則回傳預設贊助廣告)
+  Future<List<Map<String, dynamic>>> getActiveAds() async {
+    final db = await database;
+    final list = await db.query(
+      'advertisements',
+      where: 'is_active = 1',
+      orderBy: 'id DESC',
+    );
+    if (list.isNotEmpty) return list;
+
+    // 預設贊助廣告，確保一般會員開啟 App 時皆能跳出廣告視窗
+    return [
+      {
+        'id': 999,
+        'title': '🎓 YeBang AI 智慧家教全能解題庫',
+        'content': '專為學生打造的 AI 家教助理，全科錯題自動分析、語音筆記即時轉寫與心智圖整理，助你高效突破學習盲點！',
+        'sponsor': 'YeBang 教育科技',
+        'link_url': 'https://example.com',
+        'bg_gradient': 'purple',
+        'is_active': 1,
+      },
+      {
+        'id': 998,
+        'title': '⚡ VIP 會員獨享無廣告體驗與無限 AI 點數',
+        'content': '立即升級黃金或鑽石 VIP 會員，享有免除廣告彈出、每日登入高額贈點與 AI 詢問折扣優惠！',
+        'sponsor': '會員專區',
+        'link_url': 'https://example.com',
+        'bg_gradient': 'gold',
+        'is_active': 1,
+      }
+    ];
+  }
+
+  /// 新增刊登廣告
+  Future<int> addAdvertisement({
+    required String title,
+    required String content,
+    required String sponsor,
+    String? linkUrl,
+    String? bgGradient,
+  }) async {
+    final db = await database;
+    return await db.insert('advertisements', {
+      'title': title,
+      'content': content,
+      'sponsor': sponsor,
+      'link_url': linkUrl ?? '',
+      'bg_gradient': bgGradient ?? 'purple',
+      'is_active': 1,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// 關閉/隱藏廣告 (點擊 X 時呼叫)
+  Future<void> dismissAdvertisement(int adId) async {
+    final db = await database;
+    await db.update(
+      'advertisements',
+      {'is_active': 0},
+      where: 'id = ?',
+      whereArgs: [adId],
     );
   }
 

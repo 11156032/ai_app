@@ -111,24 +111,24 @@ void main() {
     test('Cleans common filler words, stutters, and hesitation sounds', () {
       expect(
         VoiceRecognitionService.cleanFillerWords('痾今天天氣很好'),
-        '今天天氣很好',
+        '今天天氣很好。',
       );
       expect(
         VoiceRecognitionService.cleanFillerWords('我想說呃要去找老師'),
-        '我想說要去找老師',
+        '我想說要去找老師。',
       );
       expect(
         VoiceRecognitionService.cleanFillerWords('這個基本上就是牛頓定律'),
-        '這個牛頓定律',
+        '這個牛頓定律。',
       );
       expect(
         VoiceRecognitionService.cleanFillerWords('我我我想問這個問題，請幫忙解答'),
-        '我想問這個問題，請幫忙解答',
+        '我想問這個問題，請幫忙解答。',
       );
       // 保留正常複疊詞
       expect(
         VoiceRecognitionService.cleanFillerWords('我們來研究研究這個題目'),
-        '我們來研究研究這個題目',
+        '我們來研究研究這個題目。',
       );
     });
 
@@ -159,24 +159,24 @@ void main() {
 
       // 第 1 句定稿
       base = combine(base, VoiceRecognitionService.cleanFillerWords(interim));
-      expect(base, '今天天氣真好');
+      expect(base, '今天天氣真好。');
 
       // 模擬第 2 句串流中（包含語助詞）
       interim = '痾我們去圖書館讀書。';
       String cleanedInterim = VoiceRecognitionService.cleanFillerWords(interim);
-      expect(combine(base, cleanedInterim), '今天天氣真好 我們去圖書館讀書。');
+      expect(combine(base, cleanedInterim), '今天天氣真好。我們去圖書館讀書。');
 
       // 第 2 句定稿（以句號結尾）
       base = combine(base, cleanedInterim);
-      expect(base, '今天天氣真好 我們去圖書館讀書。');
+      expect(base, '今天天氣真好。我們去圖書館讀書。');
 
       // 模擬第 3 句串流中（句號後方直接緊接中文）
       interim = '順便借兩本物理講義';
-      expect(combine(base, interim), '今天天氣真好 我們去圖書館讀書。順便借兩本物理講義');
+      expect(combine(base, VoiceRecognitionService.cleanFillerWords(interim)), '今天天氣真好。我們去圖書館讀書。順便借兩本物理講義。');
 
       // 第 3 句定稿
       base = combine(base, VoiceRecognitionService.cleanFillerWords(interim));
-      expect(base, '今天天氣真好 我們去圖書館讀書。順便借兩本物理講義');
+      expect(base, '今天天氣真好。我們去圖書館讀書。順便借兩本物理講義。');
 
       // 驗證最終逐字稿完整不漏字
       expect(base.contains('今天天氣真好'), isTrue);

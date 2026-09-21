@@ -332,7 +332,58 @@ class VoiceRecognitionService {
       }
     }
 
-    return cleaned;
+    // 7. 自動補充與修飾繁體中文標點符號
+    return ensureChinesePunctuation(cleaned);
+  }
+
+  /// 智慧補充繁體中文適當標點符號（句號、逗號、問號、頓號）
+  static String ensureChinesePunctuation(String input) {
+    if (input.trim().isEmpty) return input;
+    String text = input.trim();
+
+    // 1. 全角/半角標點符號標準化
+    text = text
+        .replaceAll(RegExp(r'\.(?=\s|$)'), '。')
+        .replaceAll(RegExp(r'\?(?=\s|$)'), '？')
+        .replaceAll(RegExp(r'\!(?=\s|$)'), '！')
+        .replaceAll(RegExp(r',(?=\s|$)'), '，');
+
+    // 2. 針對未分句的長句（> 12 字且無標點），在常見連接詞/轉折詞前自動補逗號
+    final pauseKeywords = [
+      '但是', '不過', '然而', '所以', '因此', '另外', '此外',
+      '同時', '接著', '然後', '最後', '假設', '如果', '因為', '由於'
+    ];
+    for (final kw in pauseKeywords) {
+      text = text.replaceAllMapped(
+        RegExp('(?<=[^，。！？；：\n\\s])$kw'),
+        (match) => '，$kw',
+      );
+    }
+
+    // 3. 按行處理，確保每一行/句子都有合適的結尾標點
+    final lines = text.split('\n');
+    final processedLines = lines.map((line) {
+      String l = line.trim();
+      if (l.isEmpty) return l;
+
+      // 若為 Markdown 標題、代碼塊、清單前綴，保留格式
+      if (l.startsWith('#') || l.startsWith('- [') || l.startsWith('```') || l == '---') {
+        return l;
+      }
+
+      // 檢查句尾是否有標點符號
+      final endsWithPunct = RegExp(r'[。！？，；：…\?\!,\.\:\;]$').hasMatch(l);
+      if (!endsWithPunct) {
+        if (RegExp(r'(嗎|呢|吧|是否|對不對|是不是|對吧|哪裡|什麼|甚麼|怎麼|如何|為什麼)$').hasMatch(l)) {
+          l += '？';
+        } else {
+          l += '。';
+        }
+      }
+      return l;
+    }).toList();
+
+    return processedLines.join('\n');
   }
 
   /// 取消語音辨識
