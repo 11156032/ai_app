@@ -63,7 +63,11 @@ class AiDiagnosisService {
     } catch (_) {}
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
-    return '';
+    try {
+      return utf8.decode(base64Decode('QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
+    } catch (_) {
+      return '';
+    }
   }
 
   static String get _kOpenRouterApiKey {
@@ -627,7 +631,7 @@ class AiDiagnosisService {
       debugPrint('代理人助理：OpenRouter 免費模型均失敗，啟動官方 Gemini 2.5 Flash 進行救援');
       try {
         final model = GenerativeModel(
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.6-flash',
           apiKey: _kSystemGeminiApiKey,
           systemInstruction: Content.system(systemInstruction),
         );
@@ -1047,7 +1051,7 @@ $correctDetails
 
       // 3. Gemini 直連
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
@@ -1274,7 +1278,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
       debugPrint('學習建議：嘗試 Gemini 備援...');
       try {
         final model = GenerativeModel(
-            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
+            model: 'gemini-3.6-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
         await for (final chunk in model.generateContentStream(
             [Content.text(prompt)]).timeout(const Duration(seconds: 8))) {
@@ -1520,7 +1524,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
 
     try {
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         apiKey: _kSystemGeminiApiKey,
       );
       final contentStream = model.generateContentStream([Content.text(prompt)]);
@@ -1628,7 +1632,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
     required String subject,
   }) async {
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$apiKey',
     );
 
     final wrongDetails = wrongQuestions.map((q) {
@@ -1942,7 +1946,7 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       debugPrint('AI 解析：切換 Gemini 備援...');
       try {
         final model = GenerativeModel(
-            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
+            model: 'gemini-3.6-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
         await for (final chunk in model.generateContentStream(
             [Content.text(prompt)]).timeout(const Duration(seconds: 6))) {
@@ -2016,7 +2020,7 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
     if (apiKey.isNotEmpty) {
       try {
         final model = GenerativeModel(
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3.6-flash',
           apiKey: apiKey,
         );
         final responseStream = model
