@@ -37,6 +37,7 @@ import 'about_us_screen.dart';
 import 'membership_center_screen.dart';
 import '../widgets/vip_badge_widget.dart';
 import '../widgets/point_recharge_dialog.dart';
+import '../widgets/ad_banner_widget.dart';
 import '../services/membership_service.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
@@ -150,6 +151,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> allGroups = [];
   bool _isEmailVerified = false;
   String? _displayName;
+  int _userPoints = 100;
 
   // ── 互動式引導 Tour ──
   bool _isTourActive = false;
@@ -457,6 +459,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     await _loadData();
 
+    // 每次進入首頁自動彈出贊助廣告視窗 (高等級 VIP 自動免廣告)
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        final userId = widget.currentUser['id']?.toString() ?? '';
+        AdPopupDialog.show(context, userId: userId);
+      }
+    });
+
     // 首次登入自動觸發歡迎頁 + 互動引導（非訪客且還未看過）
     if (widget.currentUser['id'] != 'u4') {
       final seen = await DatabaseHelper.instance
@@ -540,6 +550,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     try {
       final db = await DatabaseHelper.instance.database;
       final currentUserId = widget.currentUser['id'];
+
+      // Fetch user points & membership info
+      final info = await DatabaseHelper.instance
+          .getUserMembershipInfo(currentUserId.toString());
+      if (mounted) {
+        setState(() {
+          _userPoints = info['points_balance'] as int? ?? 100;
+        });
+      }
 
       // Fetch schedules
       final schedulesList = await db.query('calendar_events',
@@ -2400,6 +2419,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _generateDiaryAiAdvice(String dateKey, String textContent) async {
     if (_isGeneratingDiaryAdviceMap[dateKey] == true) return;
+    final userId = widget.currentUser['id']?.toString() ?? '';
+
+    int deductedPoints = 0;
+    try {
+      if (userId.isNotEmpty) {
+        deductedPoints = await MembershipService.instance.deductPoints(
+          userId: userId,
+          actionType: 'diary_advice',
+          basePoints: 1,
+          description: '日記 AI 回饋分析',
+        );
+      }
+    } on InsufficientPointsException catch (_) {
+      if (!mounted) return;
+      PointRechargeDialog.show(context, userId: userId);
+      return;
+    } catch (e) {
+      debugPrint('預扣點數失敗: $e');
+    }
 
     setState(() {
       _isGeneratingDiaryAdviceMap[dateKey] = true;
@@ -2416,6 +2454,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       });
     } catch (e) {
       debugPrint('生成 AI 回饋失敗: $e');
+      if (deductedPoints > 0 && userId.isNotEmpty) {
+        await MembershipService.instance.refundPoints(
+          userId: userId,
+          actionType: 'diary_advice',
+          amount: deductedPoints,
+          reason: '生成 AI 回饋失敗退回',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('AI 生成失敗，已自動退回扣除點數')),
+          );
+        }
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -2907,6 +2958,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             appBar: _quizStep == 2
                 ? null
                 : AppBar(
+                    toolbarHeight: 60.0,
+                    centerTitle: false,
+                    titleSpacing: 0,
                     leading: Builder(
                       builder: (ctx) => IconButton(
                         key: TourKeys.drawerButtonKey,
@@ -2916,23 +2970,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     title: _currentIndex == 0
-                        ? TextButton(
-                            onPressed: _showMonthYearPicker,
-                            child:
-                                Row(mainAxisSize: MainAxisSize.min, children: [
-                              Text(
-                                  "${_calendarMonth.year}年 ${_calendarMonth.month}月",
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      color: _isDarkMode
-                                          ? Colors.white
-                                          : Colors.black87,
-                                      fontWeight: FontWeight.w700)),
-                              Icon(Icons.keyboard_arrow_down,
-                                  color: _isDarkMode
-                                      ? Colors.white
-                                      : Colors.black87)
-                            ]))
+                        ? Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: _showMonthYearPicker,
+                              child:
+                                  Row(mainAxisSize: MainAxisSize.min, children: [
+                                Text(
+                                    "${_calendarMonth.year}年 ${_calendarMonth.month}月",
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        color: _isDarkMode
+                                            ? Colors.white
+                                            : Colors.black87,
+                                        fontWeight: FontWeight.w700)),
+                                Icon(Icons.keyboard_arrow_down,
+                                    color: _isDarkMode
+                                        ? Colors.white
+                                        : Colors.black87)
+                              ]),
+                            ),
+                          )
                         : Text(_getTranslatedAppBarTitle(),
                             style: TextStyle(
                                 fontSize: 18,
@@ -2952,6 +3015,53 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     ),
                     elevation: 0,
                     actions: [
+                        // 點數顯示與儲值入口 (放在跳轉按鈕左側，置中避免 2px 溢出)
+                        Center(
+                          child: GestureDetector(
+                            onTap: () async {
+                              final userId =
+                                  widget.currentUser['id']?.toString() ?? '';
+                              await PointRechargeDialog.show(context,
+                                  userId: userId);
+                              _loadData();
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Theme.of(context)
+                                      .primaryColor
+                                      .withValues(alpha: 0.3),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.stars_rounded,
+                                      color: Colors.amber, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$_userPoints 點',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isDarkMode
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                         if (_currentIndex == 0)
                           IconButton(
                               icon: Icon(Icons.today_rounded,
@@ -9457,7 +9567,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       child: Container(
                         height: 45.0,
                         color: Colors.transparent, // expand tap area
-                        padding: const EdgeInsets.symmetric(horizontal: 25),
+                        padding: const EdgeInsets.only(left: 12, right: 16),
                         alignment: Alignment.centerLeft,
                         child: Row(
                           children: [
@@ -10341,14 +10451,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-        children: items.map((item) {
-          if (item['isFree'] == true) {
-            return staggered(
-                _buildFreeTimeItem(item['time']?.toString() ?? '', (item['duration'] as int?) ?? 0));
-          } else {
-            return staggered(_buildScheduleItem(item['event'] as Map<String, dynamic>? ?? {}));
-          }
-        }).toList());
+        children: [
+          ...items.map((item) {
+            if (item['isFree'] == true) {
+              return staggered(
+                  _buildFreeTimeItem(item['time']?.toString() ?? '', (item['duration'] as int?) ?? 0));
+            } else {
+              return staggered(_buildScheduleItem(item['event'] as Map<String, dynamic>? ?? {}));
+            }
+          }),
+          const SizedBox(height: 100),
+        ]);
   }
 
   Widget _buildFreeTimeItem(String timeRange, int minutes) {
@@ -10456,7 +10569,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: (constraints.maxHeight - 92).clamp(280.0, 2000.0),
+                minHeight: (constraints.maxHeight - 140).clamp(140.0, 2000.0),
               ),
               child: IntrinsicHeight(
                 child: FadeInUp(

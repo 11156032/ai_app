@@ -142,6 +142,28 @@ class MembershipService {
     return finalCost;
   }
 
+  /// 退回點數 ( Rollback 復原點數 )
+  Future<void> refundPoints({
+    required String userId,
+    required String actionType,
+    required int amount,
+    required String reason,
+  }) async {
+    final info = await DatabaseHelper.instance.getUserMembershipInfo(userId);
+    final currentPoints = info['points_balance'] as int? ?? 0;
+    final newPoints = currentPoints + amount;
+
+    await DatabaseHelper.instance.updateUserPoints(userId, newPoints);
+    await DatabaseHelper.instance.addPointTransaction(
+      userId: userId,
+      amount: amount,
+      type: '${actionType}_refund',
+      description: '$reason (退回 $amount 點)',
+    );
+
+    debugPrint('PointRefund: User $userId refunded $amount points for $actionType. Balance: $newPoints');
+  }
+
   /// 檢查今日是否已簽到
   Future<bool> hasClaimedDailyBonusToday(String userId) async {
     final info = await DatabaseHelper.instance.getUserMembershipInfo(userId);

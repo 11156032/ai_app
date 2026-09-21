@@ -1134,6 +1134,19 @@ $correctDetails
     bool hasRealMistakes = true,
     bool isComprehensive = false,
   }) async* {
+    if (userId != 'u4') {
+      try {
+        await MembershipService.instance.deductPoints(
+          userId: userId,
+          actionType: 'ai_remedial',
+          basePoints: 3,
+          description: 'AI 弱點診斷與補強教材',
+        );
+      } catch (e) {
+        debugPrint('扣除點數失敗: $e');
+      }
+    }
+
     final subjectLabel = '$subject${isComprehensive ? '（全科盲點彙整）' : ''}';
 
     String prompt;
@@ -1796,6 +1809,19 @@ $correctDetails
     required int correctIndex,
     required int? chosenIndex,
   }) async* {
+    if (userId != 'u4') {
+      try {
+        await MembershipService.instance.deductPoints(
+          userId: userId,
+          actionType: 'ai_question_explain',
+          basePoints: 2,
+          description: 'AI 試題解題與觀念剖析',
+        );
+      } catch (e) {
+        debugPrint('扣除點數失敗: $e');
+      }
+    }
+
     final qText = question['question'] ?? question['text'] ?? '';
     final rawOptions = question['options'];
     List<String> options = [];
