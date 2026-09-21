@@ -156,6 +156,12 @@ class _DataFlowScreenState extends State<DataFlowScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
+          color: Colors.black87,
+          onPressed: () => Navigator.pop(context),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text('App 資料流程與呼叫脈絡',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
         backgroundColor: Colors.white,
@@ -270,30 +276,37 @@ class _DataFlowScreenState extends State<DataFlowScreen> {
 
   Widget _buildMottoItem(String layer, String question, String desc) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(layer,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12)),
-          const SizedBox(width: 8),
-          Text(question,
-              style: const TextStyle(
-                  color: Color(0xFFFFD54F),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12)),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(desc,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Row(
+            children: [
+              Text(layer,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(question,
+                    style: const TextStyle(
+                        color: Color(0xFFFFD54F),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
           ),
+          const SizedBox(height: 2),
+          Text(desc,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -325,12 +338,15 @@ class _DataFlowScreenState extends State<DataFlowScreen> {
               Icon(example['icon'] as IconData,
                   color: Theme.of(context).primaryColor, size: 20),
               const SizedBox(width: 8),
-              Text(
-                example['title'] as String,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+              Expanded(
+                child: Text(
+                  example['title'] as String,
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -396,12 +412,16 @@ class _DataFlowScreenState extends State<DataFlowScreen> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                step['name'] as String,
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87),
+                              Expanded(
+                                child: Text(
+                                  step['name'] as String,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
                               ),
                             ],
                           ),

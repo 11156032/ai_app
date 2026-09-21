@@ -175,6 +175,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _userPoints = 100;
 
   // ── 互動式引導 Tour ──
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isTourActive = false;
   OverlayEntry? _tourOverlayEntry;
   OverlayEntry? _welcomeSplashEntry; // 歡迎頁 Overlay
@@ -183,7 +184,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final GlobalKey _tourNavQuestionKey = GlobalKey();
   final GlobalKey _tourNavSocialKey = GlobalKey();
   final GlobalKey _tourAiChatBarKey = GlobalKey();
-  final GlobalKey _tourFirstPostAvatarKey = GlobalKey();
 
   // ── 新手專屬客製化啟航建議 ──
   String? _onboardingGoal;
@@ -220,7 +220,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.7.6';
+  String _appVersion = 'v1.7.8';
   String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
@@ -1480,6 +1480,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         recommendReason: _resolveRecommendReason(
             featureKey: 'social', prefs: prefs),
         onEnter: () {
+          if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+            Navigator.of(context).maybePop();
+          }
           _socialFilter = '全部';
           _socialAuthorFilter = '';
         },
@@ -1494,9 +1497,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         stepInFeature: 1,
         totalInFeature: 3,
         targetPageIndex: 0,
-        targetKey: TourKeys.drawerButtonKey,
-        title: '漢堡選單：快速切換功能頁',
-        description: '點擊左上角漢堡選單，隨時開啟側邊欄切換日曆、題庫、社群、筆記本與個人檔案等全站功能！',
+        targetKey: null,
+        title: '漢堡選單：系統功能導覽',
+        description:
+            '側邊欄已為你展開！可快速切換核心功能：\n\n'
+            '📅 日曆首頁 ➜ AI 排程、待辦與進度\n'
+            '📚 題庫筆記 ➜ 刷題練習、錯題與筆記\n'
+            '💬 社群交流 ➜ 學科討論與動態分享\n'
+            '👤 個人中心 ➜ 偏好設定與 AI 助手',
         recommendReason: _resolveRecommendReason(
             featureKey: 'ai_schedule', prefs: prefs),
         onEnter: () {
@@ -1504,6 +1512,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
             Navigator.pop(context);
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scaffoldKey.currentState != null &&
+                !_scaffoldKey.currentState!.isDrawerOpen) {
+              _scaffoldKey.currentState!.openDrawer();
+            }
+          });
+        },
+        onLeaveBackward: () {
+          if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+            Navigator.of(context).maybePop();
           }
         },
       ),
@@ -1519,6 +1538,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             '點擊下方對話列，輸入「明天下午三點複習數學」，AI 就會自動為你建立行程！',
         skipForGuest: true,
         guestNote: '🔒 此功能需要正式帳號才能使用。',
+        onEnter: () {
+          if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+            Navigator.of(context).maybePop();
+          }
+        },
         onLeaveBackward: () {
           final isMainScreenCurrent =
               ModalRoute.of(context)?.isCurrent ?? true;
@@ -1536,7 +1560,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: _tourAiChatBarKey,
         title: '推薦開啟底部導覽列 🚀',
         description:
-            '想更快速單手切換頁面？推薦前往「個人檔案 ➜ 偏好設定」開啟「底部浮動導覽列」，還能自訂常用按鈕順序與 AI 快捷鍵！',
+            '想更快速單手切換頁面？推薦前往「個人檔案 ➜ 設定與安全 ➜ 個人化設定」開啟「顯示底部導覽列」，還能自訂常用按鈕順序與 AI 快捷鍵！',
+        onEnter: () {
+          if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+            Navigator.of(context).maybePop();
+          }
+        },
         onLeaveBackward: () {
           final isMainScreenCurrent =
               ModalRoute.of(context)?.isCurrent ?? true;
@@ -1561,6 +1590,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         recommendReason: _resolveRecommendReason(
             featureKey: 'question_bank', prefs: prefs),
         onEnter: () {
+          if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+            Navigator.of(context).maybePop();
+          }
           final isMainScreenCurrent =
               ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
@@ -1607,6 +1639,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         recommendReason: _resolveRecommendReason(
             featureKey: 'notes', prefs: prefs),
         onEnter: () {
+          if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+            Navigator.of(context).maybePop();
+          }
           final isMainScreenCurrent =
               ModalRoute.of(context)?.isCurrent ?? true;
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
@@ -1720,6 +1755,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _stopTour({bool navigateToCalendar = true}) {
+    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+      Navigator.of(context).maybePop();
+    }
     if (!_isTourActive) return;
     _tourOverlayEntry?.remove();
     _tourOverlayEntry = null;
@@ -2903,6 +2941,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         ),
         child: Builder(builder: (context) {
           return Scaffold(
+            key: _scaffoldKey,
             resizeToAvoidBottomInset: false,
             backgroundColor: Colors.transparent, // Let Container behind it show
             extendBody: true, // Allow body to scroll under bottom nav bar
@@ -2911,13 +2950,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 : AppBar(
                     toolbarHeight: 60.0,
                     centerTitle: false,
-                    titleSpacing: 0,
-                    leading: Builder(
-                      builder: (ctx) => IconButton(
-                        key: TourKeys.drawerButtonKey,
-                        icon: const Icon(Icons.menu),
-                        onPressed: () => Scaffold.of(ctx).openDrawer(),
-                        tooltip: '開啟選單',
+                    titleSpacing: 4,
+                    leading: Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Center(
+                        child: Container(
+                          key: TourKeys.drawerButtonKey,
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Builder(
+                            builder: (ctx) => IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.menu),
+                              onPressed: () => Scaffold.of(ctx).openDrawer(),
+                              tooltip: '開啟選單',
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     title: _currentIndex == 0

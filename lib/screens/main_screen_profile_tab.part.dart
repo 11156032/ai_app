@@ -7175,9 +7175,35 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '最新發布',
+      'version': 'v1.7.8',
+      'date': '2026-09-21',
+      'isPinned': true,
+      'icon': Icons.auto_awesome_rounded,
+      'title': 'Gemini 試卷識別・開發者中心・群組傳圖與操作體驗全方位升級',
+      'summary': '串接 Gemini API 強化試卷解析、新增開發者中心架構導覽、支援群組圖片發送與全站介面流暢度優化。',
+      'highlights': [
+        {
+          'icon': Icons.document_scanner_rounded,
+          'title': 'Gemini 試卷與題庫辨識',
+          'desc': '全面整合 Gemini 視覺與 OCR 模型，大幅提高 PDF 題目自動解析與組卷辨識精準度。',
+        },
+        {
+          'icon': Icons.developer_mode_rounded,
+          'title': '新增開發者中心架構導覽',
+          'desc': '提供專案三層目錄結構、資料流脈絡、儲存架構與智慧架構問答 FAQ。',
+        },
+        {
+          'icon': Icons.photo_library_rounded,
+          'title': '群組圖片傳送與介面精修',
+          'desc': '群組對話支援照片選取與縮圖預覽發送，全面優化導覽列按鍵對比度與版面排版。',
+        },
+      ],
+    },
+    {
+      'tag': '功能更新',
       'version': 'v1.7.6',
       'date': '2026-09-18',
-      'isPinned': true,
+      'isPinned': false,
       'icon': Icons.auto_awesome_rounded,
       'title': 'AI 5 大專用筆記風格・代理人助理體驗全面升級',
       'summary': '升級 5 大專用筆記整理風格與精簡/深度雙向微調膠囊，優化代理人助理對話排版與精巧藥丸選單。',
@@ -7999,7 +8025,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.7.6',
+                                  'v1.7.8',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -8123,7 +8149,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                       : Colors.grey.shade500),
                               const SizedBox(width: 6),
                               Text(
-                                '版本：v1.7.6  |  修訂發布日期：2026 年 9 月 18 日',
+                                '版本：v1.7.8  |  修訂發布日期：2026 年 9 月 21 日',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,

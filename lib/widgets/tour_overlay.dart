@@ -59,7 +59,7 @@ class SpotlightPainter extends CustomPainter {
   final double pulseValue;
 
   SpotlightPainter(
-      {this.highlightRect, this.borderRadius = 8.0, this.pulseValue = 0.0});
+      {this.highlightRect, this.borderRadius = 12.0, this.pulseValue = 0.0});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -71,12 +71,23 @@ class SpotlightPainter extends CustomPainter {
       return;
     }
 
-    final inflated = highlightRect!.inflate(8);
+    // 計算安全邊距，避免貼邊元素在螢幕邊界被切平或溢出鄰近文字
+    const double padding = 5.0;
+    final double left =
+        (highlightRect!.left - padding).clamp(4.0, size.width - 20.0);
+    final double top =
+        (highlightRect!.top - padding).clamp(4.0, size.height - 20.0);
+    final double right =
+        (highlightRect!.right + padding).clamp(20.0, size.width - 4.0);
+    final double bottom =
+        (highlightRect!.bottom + padding).clamp(20.0, size.height - 4.0);
+
+    final safeRect = Rect.fromLTRB(left, top, right, bottom);
 
     final path = Path()
       ..addRect(fullRect)
       ..addRRect(
-          RRect.fromRectAndRadius(inflated, Radius.circular(borderRadius)))
+          RRect.fromRectAndRadius(safeRect, Radius.circular(borderRadius)))
       ..fillType = PathFillType.evenOdd;
 
     canvas.drawPath(path, overlayPaint);
@@ -86,12 +97,17 @@ class SpotlightPainter extends CustomPainter {
       final borderPaint = Paint()
         ..color = Colors.amberAccent.withValues(alpha: 1.0 - pulseValue)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0 + (pulseValue * 4.0);
+        ..strokeWidth = 2.0 + (pulseValue * 3.0);
 
-      final pulseRect = highlightRect!.inflate(8 + pulseValue * 10);
+      final pulseRect = Rect.fromLTRB(
+        (left - pulseValue * 6).clamp(2.0, size.width - 2.0),
+        (top - pulseValue * 6).clamp(2.0, size.height - 2.0),
+        (right + pulseValue * 6).clamp(2.0, size.width - 2.0),
+        (bottom + pulseValue * 6).clamp(2.0, size.height - 2.0),
+      );
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-            pulseRect, Radius.circular(borderRadius + pulseValue * 5)),
+            pulseRect, Radius.circular(borderRadius + pulseValue * 3)),
         borderPaint,
       );
     }

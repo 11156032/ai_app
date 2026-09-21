@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' show File;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../database/database_helper.dart';
 import '../../widgets/common_widgets.dart';
@@ -43,6 +44,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   bool _isJoining = false;
   bool _requiresApproval = false;
   Map<String, dynamic>? _replyingPost;
+
+  XFile? _selectedImageFile;
+  Uint8List? _selectedImageBytes;
 
   final TextEditingController _chatController = TextEditingController();
   final FocusNode _chatFocusNode = FocusNode();
@@ -448,108 +452,180 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            iconTheme: IconThemeData(
+              color: isDark ? Colors.white : const Color(0xFF3E2723),
+            ),
+            actionsIconTheme: IconThemeData(
+              color: isDark ? Colors.white : const Color(0xFF3E2723),
+            ),
             elevation: 0,
             pinned: true,
             expandedHeight: 200,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-              onPressed: () => Navigator.pop(context),
+            leading: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.45)
+                      : Colors.white.withValues(alpha: 0.88),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new, size: 17),
+                  color: isDark ? Colors.white : const Color(0xFF3E2723),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
             ),
             actions: [
               if (_isMember)
-                IconButton(
-                  icon: const Icon(Icons.link_rounded),
-                  tooltip: '邀請連結管理',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => GroupInvitePage(
-                          group: _group,
-                          currentUserId: _currentUserId,
-                          isOwnerOrAdmin: _isOwnerOrAdmin,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 3.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.black.withValues(alpha: 0.45)
+                          : Colors.white.withValues(alpha: 0.88),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                    );
-                  },
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.link_rounded, size: 20),
+                      color: isDark ? Colors.white : const Color(0xFF3E2723),
+                      tooltip: '邀請連結管理',
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => GroupInvitePage(
+                              group: _group,
+                              currentUserId: _currentUserId,
+                              isOwnerOrAdmin: _isOwnerOrAdmin,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                onSelected: (val) {
-                  if (val == 'leave') {
-                    _leaveGroup();
-                  } else if (val == 'delete') {
-                    _deleteGroup();
-                  } else if (val == 'mute') {
-                    _toggleMute();
-                  } else if (val == 'unread') {
-                    _markUnread();
-                  }
-                },
-                itemBuilder: (ctx) {
-                  final bool isMuted = (_membership != null &&
-                      (_membership!['is_muted'] as int? ?? 0) == 1);
-                  return [
-                    if (_isMember) ...[
-                      PopupMenuItem(
-                        value: 'mute',
-                        child: Row(
-                          children: [
-                            Icon(
-                                isMuted
-                                    ? Icons.notifications_active_rounded
-                                    : Icons.notifications_off_rounded,
-                                color: Theme.of(context).primaryColor,
-                                size: 18),
-                            const SizedBox(width: 8),
-                            Text(isMuted ? '開啟群組通知 🔔' : '關閉群組通知 (靜音) 🔕'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'unread',
-                        child: Row(
-                          children: [
-                            Icon(Icons.mark_chat_unread_rounded,
-                                color: Colors.orange, size: 18),
-                            SizedBox(width: 8),
-                            Text('標示為未讀'),
-                          ],
-                        ),
+              Padding(
+                padding: const EdgeInsets.only(
+                    top: 8.0, bottom: 8.0, right: 12.0, left: 3.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.45)
+                        : Colors.white.withValues(alpha: 0.88),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ],
-                    if (_isMember && !_isOwner)
-                      const PopupMenuItem(
-                        value: 'leave',
-                        child: Row(
-                          children: [
-                            Icon(Icons.exit_to_app_rounded,
-                                color: Colors.redAccent, size: 18),
-                            SizedBox(width: 8),
-                            Text('離開群組',
-                                style: TextStyle(color: Colors.redAccent)),
-                          ],
-                        ),
-                      ),
-                    if (_isOwner)
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_forever_rounded,
-                                color: Colors.redAccent, size: 18),
-                            SizedBox(width: 8),
-                            Text('刪除群組',
-                                style: TextStyle(
-                                    color: Colors.redAccent,
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                  ];
-                },
+                  ),
+                  child: PopupMenuButton<String>(
+                    icon: Icon(
+                      Icons.more_vert_rounded,
+                      size: 20,
+                      color: isDark ? Colors.white : const Color(0xFF3E2723),
+                    ),
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    onSelected: (val) {
+                      if (val == 'leave') {
+                        _leaveGroup();
+                      } else if (val == 'delete') {
+                        _deleteGroup();
+                      } else if (val == 'mute') {
+                        _toggleMute();
+                      } else if (val == 'unread') {
+                        _markUnread();
+                      }
+                    },
+                    itemBuilder: (ctx) {
+                      final bool isMuted = (_membership != null &&
+                          (_membership!['is_muted'] as int? ?? 0) == 1);
+                      return [
+                        if (_isMember) ...[
+                          PopupMenuItem(
+                            value: 'mute',
+                            child: Row(
+                              children: [
+                                Icon(
+                                    isMuted
+                                        ? Icons.notifications_active_rounded
+                                        : Icons.notifications_off_rounded,
+                                    color: Theme.of(context).primaryColor,
+                                    size: 18),
+                                const SizedBox(width: 8),
+                                Text(isMuted ? '開啟群組通知 🔔' : '關閉群組通知 (靜音) 🔕'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'unread',
+                            child: Row(
+                              children: [
+                                Icon(Icons.mark_chat_unread_rounded,
+                                    color: Colors.orange, size: 18),
+                                SizedBox(width: 8),
+                                Text('標示為未讀'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (_isMember && !_isOwner)
+                          const PopupMenuItem(
+                            value: 'leave',
+                            child: Row(
+                              children: [
+                                Icon(Icons.exit_to_app_rounded,
+                                    color: Colors.redAccent, size: 18),
+                                SizedBox(width: 8),
+                                Text('離開群組',
+                                    style: TextStyle(color: Colors.redAccent)),
+                              ],
+                            ),
+                          ),
+                        if (_isOwner)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_forever_rounded,
+                                    color: Colors.redAccent, size: 18),
+                                SizedBox(width: 8),
+                                Text('刪除群組',
+                                    style: TextStyle(
+                                        color: Colors.redAccent,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                      ];
+                    },
+                  ),
+                ),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -1018,9 +1094,39 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     );
   }
 
+  Future<void> _pickChatImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _selectedImageFile = image;
+            _selectedImageBytes = bytes;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking image in GroupDetailPage: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('選取圖片失敗：$e')),
+        );
+      }
+    }
+  }
+
   Future<void> _sendMessage() async {
     final text = _chatController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _selectedImageBytes == null && _selectedImageFile == null) {
+      return;
+    }
 
     setState(() => _isSending = true);
     try {
@@ -1033,17 +1139,28 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           'content': _replyingPost!['content'],
         };
       }
+
+      Uint8List? mediaBlob = _selectedImageBytes;
+      if (mediaBlob == null && _selectedImageFile != null) {
+        mediaBlob = await _selectedImageFile!.readAsBytes();
+      }
+
       await db.insert('posts', <String, Object?>{
         'group_id': _group['id'],
         'user_id': _currentUserId,
-        'content': text,
-        'type': 'text',
+        'content': text.isNotEmpty
+            ? text
+            : (mediaBlob != null ? '📷 [圖片]' : ''),
+        'type': mediaBlob != null ? 'image' : 'text',
+        'media_blob': mediaBlob,
         'is_edited': 0,
         'attached_data': jsonEncode(attachedData),
         'created_at': DateTime.now().toIso8601String(),
       });
       _chatController.clear();
       _replyingPost = null;
+      _selectedImageFile = null;
+      _selectedImageBytes = null;
       await _loadData();
     } catch (e) {
       if (mounted) {
@@ -1103,9 +1220,70 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   GestureDetector(
                     onTap: () => setState(() => _replyingPost = null),
                     child: Padding(
-                      padding: EdgeInsets.all(2.0),
+                      padding: const EdgeInsets.all(2.0),
                       child: Icon(Icons.close_rounded,
                           size: 16, color: Theme.of(context).primaryColor),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (_selectedImageBytes != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color:
+                    isDark ? const Color(0xFF222222) : const Color(0xFFF8F9FA),
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? Colors.white10 : Colors.grey.shade200,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(
+                          _selectedImageBytes!,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        right: 2,
+                        top: 2,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedImageFile = null;
+                              _selectedImageBytes = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.black87,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close_rounded,
+                                size: 14, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '已選取 1 張圖片，可輸入訊息或直接點擊送出',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      ),
                     ),
                   ),
                 ],
@@ -1127,13 +1305,16 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  color: Colors.grey,
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('傳送圖片功能開發中')),
-                    );
-                  },
+                  icon: Icon(
+                    _selectedImageBytes != null
+                        ? Icons.photo_library_rounded
+                        : Icons.add_photo_alternate_outlined,
+                  ),
+                  color: _selectedImageBytes != null
+                      ? Theme.of(context).primaryColor
+                      : (isDark ? Colors.white70 : Colors.grey.shade600),
+                  tooltip: '傳送圖片',
+                  onPressed: _pickChatImage,
                 ),
                 Expanded(
                   child: Container(
@@ -1150,11 +1331,14 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                       maxLines: null,
                       keyboardType: TextInputType.multiline,
                       scrollPadding: const EdgeInsets.only(bottom: 120),
-                      decoration: const InputDecoration(
-                        hintText: '輸入訊息...',
+                      decoration: InputDecoration(
+                        hintText: _selectedImageBytes != null
+                            ? '輸入圖片說明（選填）...'
+                            : '輸入訊息...',
                         border: InputBorder.none,
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 10),
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 10),
                       ),
                     ),
                   ),
