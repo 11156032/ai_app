@@ -33,6 +33,7 @@ import '../widgets/tutorial_video_player.dart';
 import 'tabs/group_detail_page.dart';
 import 'tabs/create_group_dialog.dart';
 import 'about_us_screen.dart';
+import 'developer/developer_center_screen.dart';
 import 'membership_center_screen.dart';
 import '../widgets/vip_badge_widget.dart';
 import '../widgets/point_recharge_dialog.dart';

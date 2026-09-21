@@ -4444,6 +4444,15 @@ extension MainScreenProfileTab on _MainScreenState {
           if (showLegal) ...[
             _buildProfileTile(
               context: context,
+              icon: Icons.developer_mode_rounded,
+              label: '開發者中心 / App 架構助手',
+              value: '架構圖、資料流、問答與診斷',
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const DeveloperCenterScreen())),
+            ),
+            const Divider(height: 20),
+            _buildProfileTile(
+              context: context,
               icon: Icons.info_outline_rounded,
               label: AppLocaleService.tr('about_us', _appLanguage),
               value: AppLocaleService.tr('about_us_sub', _appLanguage),
