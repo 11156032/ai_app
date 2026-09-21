@@ -2388,18 +2388,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     setState(() {
+      _diaryAiAdviceMap[dateKey] = '';
       _isGeneratingDiaryAdviceMap[dateKey] = true;
       _showAiAdviceMap[dateKey] = true;
     });
 
     try {
-      final advice = await AiDiagnosisService.generateGoalAdviceFromDiary(
+      final stream = AiDiagnosisService.generateDiaryAdviceStream(
         diaryContent: textContent,
       );
-      if (!mounted) return;
-      setState(() {
-        _diaryAiAdviceMap[dateKey] = advice;
-      });
+      await for (final chunk in stream) {
+        if (!mounted) return;
+        setState(() {
+          _diaryAiAdviceMap[dateKey] = chunk;
+        });
+      }
     } catch (e) {
       debugPrint('生成 AI 回饋失敗: $e');
       if (deductedPoints > 0 && userId.isNotEmpty) {
@@ -10750,7 +10753,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (isGeneratingAiAdvice)
+                                if (isGeneratingAiAdvice && aiAdvice.isEmpty)
                                   Row(
                                     children: [
                                       SizedBox(
@@ -10781,13 +10784,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
                                         InkWell(
-                                          onTap: () {
-                                            final currentText = isActive
-                                                ? _diaryInputController.text
-                                                : content;
-                                            _generateDiaryAiAdvice(
-                                                dateKey, currentText);
-                                          },
+                                          onTap: isGeneratingAiAdvice
+                                              ? null
+                                              : () {
+                                                  final currentText = isActive
+                                                      ? _diaryInputController.text
+                                                      : content;
+                                                  _generateDiaryAiAdvice(
+                                                      dateKey, currentText);
+                                                },
                                           child: Padding(
                                             padding: const EdgeInsets.all(2.0),
                                             child: Row(
