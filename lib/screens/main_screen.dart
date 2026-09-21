@@ -13629,6 +13629,185 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _showGeminiApiKeyDialog() async {
+    final uid = (widget.currentUser['id'] ??
+            widget.currentUser['user_id'] ??
+            'u1')
+        .toString();
+    final db = await DatabaseHelper.instance.database;
+    final userRows =
+        await db.query('users', where: 'id = ?', whereArgs: [uid]);
+    String currentKey = '';
+    if (userRows.isNotEmpty) {
+      currentKey = (userRows.first['gemini_api_key'] as String?) ?? '';
+    }
+    if (currentKey.isEmpty) {
+      currentKey =
+          (widget.currentUser['gemini_api_key'] as String?) ?? '';
+    }
+
+    final ctrl = TextEditingController(text: currentKey);
+    bool obscure = true;
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _currentPrimaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.key_rounded,
+                    color: _currentPrimaryColor, size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Gemini API Key 設定',
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '設定自訂 Google Gemini API Key，可用於拍照考卷 OCR 辨識、PDF 試卷提取、AI 診斷與題目自動生成等功能。',
+                  style: TextStyle(fontSize: 13, height: 1.5),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ctrl,
+                  obscureText: obscure,
+                  decoration: InputDecoration(
+                    labelText: 'Gemini API Key',
+                    hintText: 'AIzaSy...',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure
+                          ? Icons.visibility_off
+                          : Icons.visibility),
+                      onPressed: () =>
+                          setDialogState(() => obscure = !obscure),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: Colors.blue.withValues(alpha: 0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              size: 16, color: Colors.blue),
+                          SizedBox(width: 6),
+                          Text('如何免費取得 API Key？',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: Colors.blue)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        '1. 前往 Google AI Studio 網站\n2. 登入 Google 帳號後點選「Get API key」\n3. 複製並貼上到此處（完全免費、無限制高速）',
+                        style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: Colors.black87),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final uri = Uri.parse(
+                              'https://aistudio.google.com/app/apikey');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '開啟 Google AI Studio 網頁 ↗',
+                              style: TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newKey = ctrl.text.trim();
+                await db.update(
+                  'users',
+                  {'gemini_api_key': newKey.isEmpty ? null : newKey},
+                  where: 'id = ?',
+                  whereArgs: [uid],
+                );
+                setState(() {
+                  widget.currentUser['gemini_api_key'] =
+                      newKey.isEmpty ? null : newKey;
+                });
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(newKey.isEmpty
+                          ? '已清除自訂 API Key'
+                          : '✅ Gemini API Key 已成功儲存！'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('儲存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildThemeOption(
       BuildContext ctx, String label, int idx, Color color) {
     return SimpleDialogOption(

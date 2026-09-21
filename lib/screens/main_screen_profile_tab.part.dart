@@ -1180,6 +1180,27 @@ extension MainScreenProfileTab on _MainScreenState {
               await _updatePersonalization();
             },
           ),
+          const Divider(height: 24),
+          _buildProfileTile(
+            context: context,
+            icon: Icons.auto_awesome_rounded,
+            label: 'AI 服務與 Gemini API Key',
+            value: (widget.currentUser['gemini_api_key'] != null &&
+                    widget.currentUser['gemini_api_key']
+                        .toString()
+                        .trim()
+                        .isNotEmpty)
+                ? '已設定 (自訂金鑰)'
+                : '未設定 (點擊免費取得)',
+            valueColor: (widget.currentUser['gemini_api_key'] != null &&
+                    widget.currentUser['gemini_api_key']
+                        .toString()
+                        .trim()
+                        .isNotEmpty)
+                ? Colors.green
+                : Colors.orange,
+            onTap: _showGeminiApiKeyDialog,
+          ),
         ],
       ),
     );

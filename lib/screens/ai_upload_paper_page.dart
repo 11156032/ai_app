@@ -79,7 +79,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   // Loading Steps Simulation
   int _currentStep = 0;
   final List<String> _loadingSteps = [
-    '正在連接高精準 AI 視覺辨識模型...',
+    '正在連接題庫 AI 解析引擎...',
     '正在深度解析試卷題目、題幹與圖文條件...',
     'AI 正在提取與結構化選項、標準答案與解題步驟...',
     '正在整理試卷預覽與題目驗證，請稍候...'
@@ -128,6 +128,79 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     // 4. 內建系統 Gemini API Key
     return _kDefaultGeminiApiKey;
   }
+
+  /// 從 PDF 檔案二進位中提取文字內容（原生支援數位考卷直接解析）
+  static String _extractTextFromPdfBytes(Uint8List bytes) {
+    final buffer = StringBuffer();
+    try {
+      final content = latin1.decode(bytes);
+      final streamRegex =
+          RegExp(r'stream\r?\n([\s\S]*?)\r?\nendstream', multiLine: true);
+      final matches = streamRegex.allMatches(content);
+
+      for (final m in matches) {
+        final streamRaw = m.group(1);
+        if (streamRaw == null || streamRaw.isEmpty) continue;
+
+        Uint8List? decompressedBytes;
+        try {
+          final streamBytes = latin1.encode(streamRaw);
+          decompressedBytes = Uint8List.fromList(zlib.decode(streamBytes));
+        } catch (_) {}
+
+        final streamText = decompressedBytes != null
+            ? utf8.decode(decompressedBytes, allowMalformed: true)
+            : streamRaw;
+
+        // 提取 () Tj 與 [] TJ 標籤文字
+        final tjRegex = RegExp(r'\(([\s\S]*?)\)\s*Tj');
+        for (final tjMatch in tjRegex.allMatches(streamText)) {
+          final t = tjMatch.group(1);
+          if (t != null && t.trim().isNotEmpty) {
+            buffer.writeln(t);
+          }
+        }
+
+        final arrayTjRegex = RegExp(r'\[([\s\S]*?)\]\s*TJ');
+        for (final atjMatch in arrayTjRegex.allMatches(streamText)) {
+          final arrayContent = atjMatch.group(1);
+          if (arrayContent != null) {
+            final itemRegex = RegExp(r'\((.*?)\)');
+            for (final itemMatch in itemRegex.allMatches(arrayContent)) {
+              final t = itemMatch.group(1);
+              if (t != null && t.trim().isNotEmpty) {
+                buffer.write(t);
+              }
+            }
+            buffer.writeln();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('PDF text extraction error: $e');
+    }
+
+    if (buffer.length < 20) {
+      try {
+        final utf8Text = utf8.decode(bytes, allowMalformed: true);
+        final chineseOrAlpha =
+            RegExp(r'[\u4e00-\u9fa5a-zA-Z0-9\s，。！？、（）()]{4,}');
+        for (final match in chineseOrAlpha.allMatches(utf8Text)) {
+          final str = match.group(0)?.trim();
+          if (str != null &&
+              str.length > 5 &&
+              !str.startsWith('%PDF') &&
+              !str.contains('endobj')) {
+            buffer.writeln(str);
+          }
+        }
+      } catch (_) {}
+    }
+
+    return buffer.toString().trim();
+  }
+
+
 
   // 呼叫 Cloudflare 雲端中繼站 (支援 Gemini, Groq, OpenRouter 多模態)
   static Future<String?> _tryCloudflareProxy({
@@ -188,10 +261,17 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
+        Uint8List? bytes = file.bytes;
+        if (bytes == null && file.path != null) {
+          try {
+            bytes = await File(file.path!).readAsBytes();
+          } catch (_) {}
+        }
+
         setState(() {
           _selectedFilePath = file.path;
           _selectedFileName = file.name;
-          _fileBytes = file.bytes;
+          _fileBytes = bytes;
           _mimeType = 'application/pdf';
         });
 
@@ -446,6 +526,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   // 核心功能 2：上傳考卷文件/PDF/圖片辨識（支援無答案試卷自動運算推導與多模型備援）
   // --------------------------------------------------------------------------
   Future<void> _startAiRecognition() async {
+    // 檢查檔案資料
     if (_fileBytes == null && _selectedFilePath != null) {
       try {
         _fileBytes = await File(_selectedFilePath!).readAsBytes();
@@ -474,33 +555,38 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       }
     });
 
-    final systemPrompt = '''
-你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷 OCR、題庫辨識與自動解題大師」。
-請仔細檢視並深度解析使用者上傳的試卷文件（PDF 檔案或考卷圖片），提取出所有題目並結構化為標準單選題題庫。
+    try {
+      String? responseText;
 
-【重要辨識、無答案自動推導與品質準則】
-1. 忠實辨識原題：請精確辨識 PDF 考卷或圖片中的真實題目文字、題幹條件、數值、選項與題意，絕不可憑空捏造無關題目！
-2. 【核心規則：無答案試卷自動演算解題】：
-   - 若上傳的試卷「沒有附帶答案/解答卷（如學校空白考卷、無劃記之模擬試題）」：請 AI 擔任學科解題專家，親自為每一道題目進行深度演算與觀念推理，推導出正確答案，並在 `answer` 欄位填入正確選項的 0-based 索引（"0", "1", "2" 或 "3"），同時在 `explanation` 中寫出完整詳實的計算步驟、推理過程與觀念詳解！
-   - 若試卷上已印有答案或附有解答卷：請核對並採納該標準答案，並補齊完整步驟詳解。
-3. 題型支援與轉換：
-   - 優先提取試卷上的單選題。
-   - 若試卷上有其他題型（如是非題、填空題、簡答題、計算題）：請依據該題目的原始題幹，由 AI 精準推算出正確答案後，合理設計為具備 4 個選項（1 個推導出的正確答案與 3 個具誘答力之干擾選項）、正確答案索引與詳細推導步驟的單選題。
-4. 繁體中文：所有題目內容、選項、單元名稱與詳解必須全部使用臺灣正體繁體中文。
-5. 選項純淨化：選項陣列中的文字請移除 A. B. C. D. 或 ① ② ③ ④ 等前綴標籤，保持乾淨純文字。
-6. 答案索引：answer 欄位必須為 options 陣列的 0-based 索引字串（"0", "1", "2" 或 "3"）。
-7. 深度詳解：請為每一題提供清晰步驟、觀念推理與計算詳解。
-8. 【防偽與無關圖片守則】：若文件完全模糊不清、損毀或根本不是任何考卷/作業（例如純風景照、雜物或黑畫面），請在 paper_name 填入 "無法辨識題目"，並將 questions 設為空陣列 []。
+      // ── 順位 1：若為 PDF 檔案，優先採用題庫內建 Groq 旗艦引擎解析文字 ──
+      if (_isPdf && _fileBytes != null) {
+        debugPrint('AiUploadPaper: 正在從 PDF 提取文字內容...');
+        final pdfExtractedText = _extractTextFromPdfBytes(_fileBytes!);
+        if (pdfExtractedText.length >= 15) {
+          debugPrint(
+              'AiUploadPaper: 成功從 PDF 提取文字 (長度: ${pdfExtractedText.length})，啟動題庫內建 Groq 旗艦引擎...');
+          final pdfTextPrompt = '''
+你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷題庫解析與結構化大師」。
+以下是從使用者上傳的考卷 PDF 中完整提取的題目文字內容。請仔細分析所有試卷題目，並結構化為標準單選題題庫。
+
+【核心規則：無答案試卷自動演算解題】：
+1. 若試卷中無提供答案，請由 AI 親自為每道題目深度推導演算出正確答案（填入 options 的 0-based 索引 "0", "1", "2" 或 "3"），並在 explanation 中提供詳盡清晰的步驟與觀念詳解！
+2. 若試卷已有答案，請核對並採納該答案，並補齊詳解步驟。
+3. 選項文字請去除 A. B. C. D. 等前綴標籤，保持純淨文字。
+4. 全部內容必須使用臺灣正體繁體中文。
+
+【考卷文字內容】
+$pdfExtractedText
 
 【嚴格輸出格式契約】
 請絕對只回傳符合以下 JSON 格式的字串，嚴禁包裹 markdown 或其他多餘說明：
 {
-  "paper_name": "（依據考卷內容辨識出或生成的題本名稱，若無法辨識請填 "無法辨識題目"）",
+  "paper_name": "（依據考卷文字辨識出的題本名稱）",
   "subject": "（學科名稱，例如：數學、英文、國文、物理、化學、生物、歷史、地理、公民 等）",
   "chapter": "（單元或章節名稱）",
   "questions": [
     {
-      "text": "完整題目敘述（包含題目情境與所有條件）",
+      "text": "完整題目敘述（包含情境與所有條件）",
       "options": ["選項一", "選項二", "選項三", "選項四"],
       "answer": "0",
       "explanation": "深度解題步驟與觀念詳解（無答案試卷將由 AI 自動推導演算）",
@@ -510,159 +596,173 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 }
 ''';
 
-    try {
-      String? responseText;
-      final apiKey = await _getApiKey();
-      final modelsToTry = [
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-      ];
+          // 順位 1-A：題庫內建 Groq 旗艦引擎 (groq/compound)
+          responseText = await _tryCloudflareProxy(
+            provider: 'groq',
+            model: 'groq/compound',
+            prompt: pdfTextPrompt,
+            timeoutSeconds: 30,
+          );
 
-      // 順位 1：透過 Gemini SDK 多模型依序嘗試多模態 PDF/視覺辨識
-      if (apiKey.isNotEmpty) {
-        for (final modelName in modelsToTry) {
-          try {
-            debugPrint('AiUploadPaper: 啟動 Gemini SDK 多模態辨識 ($modelName)...');
-            final model = GenerativeModel(
-              model: modelName,
-              apiKey: apiKey,
-              safetySettings: [
-                SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
-                SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
-                SafetySetting(
-                    HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
-                SafetySetting(
-                    HarmCategory.dangerousContent, HarmBlockThreshold.none),
-              ],
+          // 順位 1-B：題庫內建 Groq 深度引擎 (openai/gpt-oss-120b)
+          if (responseText == null || responseText.trim().isEmpty) {
+            responseText = await _tryCloudflareProxy(
+              provider: 'groq',
+              model: 'openai/gpt-oss-120b',
+              prompt: pdfTextPrompt,
+              timeoutSeconds: 30,
             );
-            final content = [
-              Content.multi([
-                TextPart(systemPrompt),
-                DataPart(_mimeType!, _fileBytes!),
-              ])
-            ];
-            final response = await model.generateContent(
-              content,
-              generationConfig: GenerationConfig(
-                responseMimeType: 'application/json',
-              ),
-            );
-            if (response.text != null && response.text!.trim().isNotEmpty) {
-              responseText = response.text;
-              debugPrint('AiUploadPaper: Gemini SDK ($modelName) 多模態辨識成功！');
-              break;
-            }
-          } catch (sdkErr) {
-            debugPrint('Gemini SDK ($modelName) 多模態解析例外: $sdkErr');
           }
         }
       }
 
-      // 順位 2：若 SDK 因網路代理或版本問題失敗，使用 Gemini 原生 REST API 直連多模態
-      if ((responseText == null || responseText.trim().isEmpty) &&
-          apiKey.isNotEmpty) {
-        final base64Data = base64Encode(_fileBytes!);
-        for (final modelName in modelsToTry) {
-          try {
-            debugPrint(
-                'AiUploadPaper: 嘗試 Gemini 原生 REST API 多模態直連 ($modelName)...');
-            final url = Uri.parse(
-              'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey',
-            );
-            final res = await http
-                .post(
-                  url,
-                  headers: {'Content-Type': 'application/json; charset=utf-8'},
-                  body: jsonEncode({
-                    'contents': [
-                      {
-                        'parts': [
-                          {'text': systemPrompt},
-                          {
-                            'inline_data': {
-                              'mime_type': _mimeType!,
-                              'data': base64Data,
-                            }
-                          }
-                        ]
-                      }
-                    ],
-                    'safetySettings': [
-                      {
-                        'category': 'HARM_CATEGORY_HARASSMENT',
-                        'threshold': 'BLOCK_NONE'
-                      },
-                      {
-                        'category': 'HARM_CATEGORY_HATE_SPEECH',
-                        'threshold': 'BLOCK_NONE'
-                      },
-                      {
-                        'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-                        'threshold': 'BLOCK_NONE'
-                      },
-                      {
-                        'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
-                        'threshold': 'BLOCK_NONE'
-                      },
-                    ],
-                    'generationConfig': {
-                      'responseMimeType': 'application/json',
-                    },
-                  }),
-                )
-                .timeout(const Duration(seconds: 35));
+      // ── 順位 2：多模態視覺模型（針對圖片/照片與掃描檔 PDF）──
+      if (responseText == null || responseText.trim().isEmpty) {
+        final systemPrompt = '''
+你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷 OCR、題庫辨識與自動解題大師」。
+請仔細檢視並深度解析使用者上傳的試卷文件（PDF 檔案或考卷圖片），提取出所有題目並結構化為標準單選題題庫。
 
-            if (res.statusCode == 200) {
-              final data = jsonDecode(utf8.decode(res.bodyBytes));
-              final text = data['candidates']?[0]?['content']?['parts']?[0]
-                  ?['text'] as String?;
-              if (text != null && text.trim().isNotEmpty) {
-                responseText = text;
-                debugPrint('AiUploadPaper: Gemini REST API ($modelName) 辨識成功！');
+【重要辨識、無答案自動推導與品質準則】
+1. 忠實辨識原題：請精確辨識考卷中的真實題目文字、題幹條件、數值、選項與題意。
+2. 【無答案試卷自動演算解題】：若試卷無附帶答案，請 AI 親自深度演算推導出正確答案（填入 options 的 0-based 索引 "0", "1", "2" 或 "3"），並在 explanation 中提供完整計算與推導步驟！
+3. 繁體中文：所有題目、選項與詳解全部使用臺灣正體繁體中文。
+4. 選項純淨化：選項陣列中的文字請移除 A. B. C. D. 或 ① ② ③ ④ 等標籤。
+5. 答案索引：answer 欄位必須為 options 陣列的 0-based 索引字串（"0", "1", "2" 或 "3"）。
+
+【嚴格輸出格式契約】
+請絕對只回傳符合以下 JSON 格式的字串，嚴禁包裹 markdown 或其他多餘說明：
+{
+  "paper_name": "（依據考卷內容辨識出或生成的題本名稱）",
+  "subject": "（學科名稱，例如：數學、英文、國文、物理、化學、生物、歷史、地理、公民 等）",
+  "chapter": "（單元或章節名稱）",
+  "questions": [
+    {
+      "text": "完整題目敘述",
+      "options": ["選項一", "選項二", "選項三", "選項四"],
+      "answer": "0",
+      "explanation": "深度解題步驟與觀念詳解",
+      "difficulty": "medium"
+    }
+  ]
+}
+''';
+
+        final apiKey = await _getApiKey();
+        final modelsToTry = [
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
+          'gemini-1.5-pro',
+        ];
+
+        // 嘗試 Gemini SDK
+        if (apiKey.isNotEmpty) {
+          for (final modelName in modelsToTry) {
+            try {
+              debugPrint('AiUploadPaper: 啟動 Gemini SDK 多模態辨識 ($modelName)...');
+              final model = GenerativeModel(
+                model: modelName,
+                apiKey: apiKey,
+                safetySettings: [
+                  SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
+                  SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
+                  SafetySetting(
+                      HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
+                  SafetySetting(
+                      HarmCategory.dangerousContent, HarmBlockThreshold.none),
+                ],
+              );
+              final content = [
+                Content.multi([
+                  TextPart(systemPrompt),
+                  DataPart(_mimeType!, _fileBytes!),
+                ])
+              ];
+              final response = await model.generateContent(
+                content,
+                generationConfig: GenerationConfig(
+                  responseMimeType: 'application/json',
+                ),
+              );
+              if (response.text != null && response.text!.trim().isNotEmpty) {
+                responseText = response.text;
+                debugPrint('AiUploadPaper: Gemini SDK ($modelName) 多模態辨識成功！');
                 break;
               }
-            } else {
-              debugPrint(
-                  'AiUploadPaper: Gemini REST API ($modelName) 回應失敗 [${res.statusCode}]: ${res.body}');
+            } catch (sdkErr) {
+              debugPrint('Gemini SDK ($modelName) 多模態解析例外: $sdkErr');
             }
-          } catch (restErr) {
-            debugPrint(
-                'AiUploadPaper: Gemini REST API ($modelName) 例外: $restErr');
           }
+        }
+
+        // 嘗試 Gemini 原生 REST API
+        if ((responseText == null || responseText.trim().isEmpty) &&
+            apiKey.isNotEmpty) {
+          final base64Data = base64Encode(_fileBytes!);
+          for (final modelName in modelsToTry) {
+            try {
+              debugPrint(
+                  'AiUploadPaper: 嘗試 Gemini 原生 REST API 多模態直連 ($modelName)...');
+              final url = Uri.parse(
+                'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey',
+              );
+              final res = await http
+                  .post(
+                    url,
+                    headers: {'Content-Type': 'application/json; charset=utf-8'},
+                    body: jsonEncode({
+                      'contents': [
+                        {
+                          'parts': [
+                            {'text': systemPrompt},
+                            {
+                              'inline_data': {
+                                'mime_type': _mimeType!,
+                                'data': base64Data,
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      'generationConfig': {
+                        'responseMimeType': 'application/json',
+                      },
+                    }),
+                  )
+                  .timeout(const Duration(seconds: 40));
+
+              if (res.statusCode == 200) {
+                final data = jsonDecode(utf8.decode(res.bodyBytes));
+                final text = data['candidates']?[0]?['content']?['parts']?[0]
+                    ?['text'] as String?;
+                if (text != null && text.trim().isNotEmpty) {
+                  responseText = text;
+                  debugPrint('AiUploadPaper: Gemini REST API ($modelName) 辨識成功！');
+                  break;
+                }
+              }
+            } catch (restErr) {
+              debugPrint(
+                  'AiUploadPaper: Gemini REST API ($modelName) 例外: $restErr');
+            }
+          }
+        }
+
+        // 嘗試 Cloudflare 雲端中繼站
+        if (responseText == null || responseText.trim().isEmpty) {
+          debugPrint('AiUploadPaper: 切換 Cloudflare 雲端中繼站 (Gemini 多模態引擎)...');
+          final base64Data = base64Encode(_fileBytes!);
+          responseText = await _tryCloudflareProxy(
+            provider: 'gemini',
+            prompt: systemPrompt,
+            base64Data: base64Data,
+            mimeType: _mimeType,
+            timeoutSeconds: 30,
+          );
         }
       }
 
-      // 順位 3：切換 Cloudflare 雲端中繼站 (Gemini 引擎多模態)
       if (responseText == null || responseText.trim().isEmpty) {
-        debugPrint('AiUploadPaper: 切換 Cloudflare 雲端中繼站 (Gemini 多模態引擎)...');
-        final base64Data = base64Encode(_fileBytes!);
-        responseText = await _tryCloudflareProxy(
-          provider: 'gemini',
-          prompt: systemPrompt,
-          base64Data: base64Data,
-          mimeType: _mimeType,
-          timeoutSeconds: 30,
-        );
-      }
-
-      // 順位 4：切換 Cloudflare 雲端中繼站 (OpenRouter 視覺與高階多模態模型)
-      if (responseText == null || responseText.trim().isEmpty) {
-        debugPrint('AiUploadPaper: 切換 Cloudflare OpenRouter 多模態備援引擎...');
-        final base64Data = base64Encode(_fileBytes!);
-        responseText = await _tryCloudflareProxy(
-          provider: 'openrouter',
-          model: 'google/gemini-2.0-flash-001',
-          prompt: systemPrompt,
-          base64Data: base64Data,
-          mimeType: _mimeType,
-          timeoutSeconds: 30,
-        );
-      }
-
-      if (responseText == null || responseText.trim().isEmpty) {
-        throw Exception('無法完成考卷文件/PDF辨識。請確保檔案未損毀、字跡清晰，並檢查網路連線後重試。');
+        throw Exception('無法完成考卷解析。請確認檔案字跡清晰或重新拍攝後再試。');
       }
 
       stepTimer.cancel();
@@ -1003,7 +1103,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         ),
         content: Text(content),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('確定'),
           )
