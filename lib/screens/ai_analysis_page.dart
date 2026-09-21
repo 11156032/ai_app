@@ -274,71 +274,73 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              _buildBanner(primaryBrown),
-              const SizedBox(height: 16),
-              _buildCard(
-                  cardColor: cardColor,
-                  child: _buildBarChartSection(textColor)),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: _buildStreakCard(cardColor, textColor)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildProficiencyCard(cardColor, textColor)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildCard(
-                  cardColor: cardColor, child: _buildRadarSection(textColor)),
-              const SizedBox(height: 16),
-              _buildCard(
-                  cardColor: cardColor, child: _buildInsightSection(textColor)),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AiTrainingPage(
-                          currentUser: widget.currentUser,
-                          weakestSubject: _weakestSubject,
-                          subjectStats: _subjectStats,
-                          questionBank: widget.questionBank,
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+            child: Column(
+              children: [
+                _buildBanner(primaryBrown),
+                const SizedBox(height: 16),
+                _buildCard(
+                    cardColor: cardColor,
+                    child: _buildBarChartSection(textColor)),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: _buildStreakCard(cardColor, textColor)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildProficiencyCard(cardColor, textColor)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildCard(
+                    cardColor: cardColor, child: _buildRadarSection(textColor)),
+                const SizedBox(height: 16),
+                _buildCard(
+                    cardColor: cardColor, child: _buildInsightSection(textColor)),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AiTrainingPage(
+                            currentUser: widget.currentUser,
+                            weakestSubject: _weakestSubject,
+                            subjectStats: _subjectStats,
+                            questionBank: widget.questionBank,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBrown,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    elevation: 4,
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.fitness_center, color: Colors.white, size: 20),
-                      SizedBox(width: 8),
-                      Text('開始今日專屬特訓',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold)),
-                    ],
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryBrown,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      elevation: 4,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.fitness_center, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text('開始今日專屬特訓',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 32),
-            ],
+                const SizedBox(height: 36),
+              ],
+            ),
           ),
         ),
       ),
