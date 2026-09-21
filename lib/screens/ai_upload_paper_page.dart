@@ -562,13 +562,13 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     try {
       String? responseText;
 
-      // ── 順位 1：若為 PDF 檔案，優先採用題庫內建 Groq 旗艦引擎解析文字 ──
+      // ── 順位 1：若為 PDF 檔案，優先採用 PDF 內建文字萃取 ➔ Gemini / Groq 高速文字解析 ──
       if (_isPdf && _fileBytes != null) {
         debugPrint('AiUploadPaper: 正在從 PDF 提取文字內容...');
         final pdfExtractedText = _extractTextFromPdfBytes(_fileBytes!);
         if (pdfExtractedText.length >= 15) {
           debugPrint(
-              'AiUploadPaper: 成功從 PDF 提取文字 (長度: ${pdfExtractedText.length})，啟動題庫內建 Groq 旗艦引擎...');
+              'AiUploadPaper: 成功從 PDF 提取文字 (長度: ${pdfExtractedText.length})，啟動高速 AI 解析引擎...');
           final pdfTextPrompt = '''
 你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷題庫解析與結構化大師」。
 以下是從使用者上傳的考卷 PDF 中完整提取的題目文字內容。請仔細分析所有試卷題目，並結構化為標準單選題題庫。
@@ -600,27 +600,50 @@ $pdfExtractedText
 }
 ''';
 
-          // 順位 1-A：題庫內建 Groq 旗艦引擎 (groq/compound)
-          responseText = await _tryCloudflareProxy(
-            provider: 'groq',
-            model: 'groq/compound',
-            prompt: pdfTextPrompt,
-            timeoutSeconds: 30,
-          );
+          final apiKey = await _getApiKey();
+          if (apiKey.isNotEmpty) {
+            final fastModels = [
+              'gemini-3.6-flash',
+              'gemini-3.1-flash-lite',
+              'gemini-3.5-flash',
+            ];
+            for (final modelName in fastModels) {
+              try {
+                debugPrint('AiUploadPaper: 嘗試使用 Gemini 文字引擎 ($modelName) 高速解析 PDF...');
+                final model = GenerativeModel(
+                  model: modelName,
+                  apiKey: apiKey,
+                  generationConfig: GenerationConfig(
+                    responseMimeType: 'application/json',
+                    temperature: 0.1,
+                  ),
+                );
+                final res = await model.generateContent([Content.text(pdfTextPrompt)])
+                    .timeout(const Duration(seconds: 20));
+                if (res.text != null && res.text!.trim().isNotEmpty) {
+                  responseText = res.text;
+                  debugPrint('AiUploadPaper: Gemini ($modelName) PDF 文字解析成功！');
+                  break;
+                }
+              } catch (e) {
+                debugPrint('AiUploadPaper: Gemini ($modelName) 文字解析失敗: $e');
+              }
+            }
+          }
 
-          // 順位 1-B：題庫內建 Groq 深度引擎 (openai/gpt-oss-120b)
+          // 若直連失敗，嘗試 Cloudflare Groq 中繼 (5 秒極速超時)
           if (responseText == null || responseText.trim().isEmpty) {
             responseText = await _tryCloudflareProxy(
               provider: 'groq',
-              model: 'openai/gpt-oss-120b',
+              model: 'groq/compound',
               prompt: pdfTextPrompt,
-              timeoutSeconds: 30,
+              timeoutSeconds: 5,
             );
           }
         }
       }
 
-      // ── 順位 2：多模態視覺模型（針對圖片/照片與掃描檔 PDF）──
+      // ── 順位 2：多模態視覺模型（針對圖片/照片與純掃描圖檔 PDF）──
       if (responseText == null || responseText.trim().isEmpty) {
         final systemPrompt = '''
 你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷 OCR、題庫辨識與自動解題大師」。
@@ -654,14 +677,12 @@ $pdfExtractedText
         final apiKey = await _getApiKey();
         final modelsToTry = [
           'gemini-3.6-flash',
-          'gemini-3.7-flash',
-          'gemini-3.8-flash',
+          'gemini-3.1-flash-lite',
           'gemini-3.5-flash',
-          'gemini-3-flash-preview',
-          'gemini-flash-latest',
+          'gemini-3.7-flash',
         ];
 
-        // 嘗試 Gemini SDK
+        // 嘗試 Gemini SDK (加入 25s 超時保護，避免掛起)
         if (apiKey.isNotEmpty) {
           for (final modelName in modelsToTry) {
             try {
@@ -689,7 +710,7 @@ $pdfExtractedText
                 generationConfig: GenerationConfig(
                   responseMimeType: 'application/json',
                 ),
-              );
+              ).timeout(const Duration(seconds: 25));
               if (response.text != null && response.text!.trim().isNotEmpty) {
                 responseText = response.text;
                 debugPrint('AiUploadPaper: Gemini SDK ($modelName) 多模態辨識成功！');
@@ -735,7 +756,7 @@ $pdfExtractedText
                       },
                     }),
                   )
-                  .timeout(const Duration(seconds: 40));
+                  .timeout(const Duration(seconds: 25));
 
               if (res.statusCode == 200) {
                 final data = jsonDecode(utf8.decode(res.bodyBytes));
