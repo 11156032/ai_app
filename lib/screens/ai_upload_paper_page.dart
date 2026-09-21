@@ -129,12 +129,14 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     return _kDefaultGeminiApiKey;
   }
 
-  // 呼叫 Cloudflare 雲端中繼站 (支援 Gemini, Groq, OpenRouter)
+  // 呼叫 Cloudflare 雲端中繼站 (支援 Gemini, Groq, OpenRouter 多模態)
   static Future<String?> _tryCloudflareProxy({
     required String provider,
     required String prompt,
     String? model,
-    int timeoutSeconds = 25,
+    String? base64Data,
+    String? mimeType,
+    int timeoutSeconds = 30,
   }) async {
     try {
       final response = await http
@@ -148,6 +150,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               'provider': provider,
               if (model != null) 'model': model,
               'prompt': prompt,
+              if (base64Data != null) 'data': base64Data,
+              if (mimeType != null) 'mime_type': mimeType,
             }),
           )
           .timeout(Duration(seconds: timeoutSeconds));
@@ -439,7 +443,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   }
 
   // --------------------------------------------------------------------------
-  // 核心功能 2：上傳考卷文件/圖片辨識（高精準多模態視覺模型串接）
+  // 核心功能 2：上傳考卷文件/PDF/圖片辨識（支援無答案試卷自動運算推導與多模型備援）
   // --------------------------------------------------------------------------
   Future<void> _startAiRecognition() async {
     if (_fileBytes == null && _selectedFilePath != null) {
@@ -471,17 +475,22 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     });
 
     final systemPrompt = '''
-你是一個精通臺灣各級升學考試與學校測驗的「專業試卷 OCR 與解析大師」。
-請仔細辨識檢視使用者上傳的試卷文件（圖片或 PDF），提取並解析出所有的選擇題（單選題）。
+你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷 OCR、題庫辨識與自動解題大師」。
+請仔細檢視並深度解析使用者上傳的試卷文件（PDF 檔案或考卷圖片），提取出所有題目並結構化為標準單選題題庫。
 
-【重要辨識與品質準則】
-1. 忠實辨識原題：請精確辨識圖片中的真實題目文字、題幹條件、選項與數值，絕不可憑空捏造或杜撰與圖片無關的題目！
-2. 題型支援：優先提取試卷上的單選題。若試卷上有其他題型（如是非題、填空題、簡答題、計算題），請依據該題目的原始題幹與內容，合理轉化為具備 4 個選項、正確答案與步驟詳解的單選題。
-3. 繁體中文：所有題目內容、選項、單元名稱與詳解必須全部使用臺灣正體繁體中文。
-4. 選項純淨化：選項陣列中的文字請移除 A. B. C. D. 或 ① ② ③ ④ 等前綴標籤，保持乾淨純文字。
-5. 答案索引：answer 欄位必須為 options 陣列的 0-based 索引字串（"0", "1", "2" 或 "3"）。
-6. 深度詳解：請為每一題提供清晰步驟、觀念推理與計算詳解。
-7. 【防偽與無關圖片守則】：若圖片完全模糊不清、過度反光導致無法閱讀，或該圖片根本不是任何考卷、試題、筆記或作業（例如純風景照、生活照、雜物或黑畫面），請在 paper_name 填入 "無法辨識題目"，並將 questions 設為空陣列 []，絕對切勿憑空捏造毫不相干的題目！
+【重要辨識、無答案自動推導與品質準則】
+1. 忠實辨識原題：請精確辨識 PDF 考卷或圖片中的真實題目文字、題幹條件、數值、選項與題意，絕不可憑空捏造無關題目！
+2. 【核心規則：無答案試卷自動演算解題】：
+   - 若上傳的試卷「沒有附帶答案/解答卷（如學校空白考卷、無劃記之模擬試題）」：請 AI 擔任學科解題專家，親自為每一道題目進行深度演算與觀念推理，推導出正確答案，並在 `answer` 欄位填入正確選項的 0-based 索引（"0", "1", "2" 或 "3"），同時在 `explanation` 中寫出完整詳實的計算步驟、推理過程與觀念詳解！
+   - 若試卷上已印有答案或附有解答卷：請核對並採納該標準答案，並補齊完整步驟詳解。
+3. 題型支援與轉換：
+   - 優先提取試卷上的單選題。
+   - 若試卷上有其他題型（如是非題、填空題、簡答題、計算題）：請依據該題目的原始題幹，由 AI 精準推算出正確答案後，合理設計為具備 4 個選項（1 個推導出的正確答案與 3 個具誘答力之干擾選項）、正確答案索引與詳細推導步驟的單選題。
+4. 繁體中文：所有題目內容、選項、單元名稱與詳解必須全部使用臺灣正體繁體中文。
+5. 選項純淨化：選項陣列中的文字請移除 A. B. C. D. 或 ① ② ③ ④ 等前綴標籤，保持乾淨純文字。
+6. 答案索引：answer 欄位必須為 options 陣列的 0-based 索引字串（"0", "1", "2" 或 "3"）。
+7. 深度詳解：請為每一題提供清晰步驟、觀念推理與計算詳解。
+8. 【防偽與無關圖片守則】：若文件完全模糊不清、損毀或根本不是任何考卷/作業（例如純風景照、雜物或黑畫面），請在 paper_name 填入 "無法辨識題目"，並將 questions 設為空陣列 []。
 
 【嚴格輸出格式契約】
 請絕對只回傳符合以下 JSON 格式的字串，嚴禁包裹 markdown 或其他多餘說明：
@@ -494,7 +503,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       "text": "完整題目敘述（包含題目情境與所有條件）",
       "options": ["選項一", "選項二", "選項三", "選項四"],
       "answer": "0",
-      "explanation": "深度解題步驟與觀念詳解",
+      "explanation": "深度解題步驟與觀念詳解（無答案試卷將由 AI 自動推導演算）",
       "difficulty": "medium"
     }
   ]
@@ -507,14 +516,15 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       final modelsToTry = [
         'gemini-2.5-flash',
         'gemini-2.0-flash',
-        'gemini-1.5-flash'
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
       ];
 
-      // 順位 1：透過 Gemini SDK 多模型依序嘗試多模態視覺辨識
+      // 順位 1：透過 Gemini SDK 多模型依序嘗試多模態 PDF/視覺辨識
       if (apiKey.isNotEmpty) {
         for (final modelName in modelsToTry) {
           try {
-            debugPrint('AiUploadPaper: 啟動 Gemini SDK 多模態視覺辨識 ($modelName)...');
+            debugPrint('AiUploadPaper: 啟動 Gemini SDK 多模態辨識 ($modelName)...');
             final model = GenerativeModel(
               model: modelName,
               apiKey: apiKey,
@@ -550,7 +560,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         }
       }
 
-      // 順位 2：若 SDK 因網路代理或平台問題失敗，使用直接 Google REST API 直連多模態
+      // 順位 2：若 SDK 因網路代理或版本問題失敗，使用 Gemini 原生 REST API 直連多模態
       if ((responseText == null || responseText.trim().isEmpty) &&
           apiKey.isNotEmpty) {
         final base64Data = base64Encode(_fileBytes!);
@@ -624,8 +634,35 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         }
       }
 
+      // 順位 3：切換 Cloudflare 雲端中繼站 (Gemini 引擎多模態)
       if (responseText == null || responseText.trim().isEmpty) {
-        throw Exception('無法完成考卷圖片辨識，請確保圖片文字清晰、光線充足，並檢查網路連線後重試。');
+        debugPrint('AiUploadPaper: 切換 Cloudflare 雲端中繼站 (Gemini 多模態引擎)...');
+        final base64Data = base64Encode(_fileBytes!);
+        responseText = await _tryCloudflareProxy(
+          provider: 'gemini',
+          prompt: systemPrompt,
+          base64Data: base64Data,
+          mimeType: _mimeType,
+          timeoutSeconds: 30,
+        );
+      }
+
+      // 順位 4：切換 Cloudflare 雲端中繼站 (OpenRouter 視覺與高階多模態模型)
+      if (responseText == null || responseText.trim().isEmpty) {
+        debugPrint('AiUploadPaper: 切換 Cloudflare OpenRouter 多模態備援引擎...');
+        final base64Data = base64Encode(_fileBytes!);
+        responseText = await _tryCloudflareProxy(
+          provider: 'openrouter',
+          model: 'google/gemini-2.0-flash-001',
+          prompt: systemPrompt,
+          base64Data: base64Data,
+          mimeType: _mimeType,
+          timeoutSeconds: 30,
+        );
+      }
+
+      if (responseText == null || responseText.trim().isEmpty) {
+        throw Exception('無法完成考卷文件/PDF辨識。請確保檔案未損毀、字跡清晰，並檢查網路連線後重試。');
       }
 
       stepTimer.cancel();

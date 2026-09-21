@@ -1,0 +1,2444 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI App 資料庫規格說明書與資料字典 (Data Dictionary)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #1e293b;
+      --border-dark: #000000;
+      --bg-page: #f8fafc;
+      --bg-paper: #ffffff;
+      --text-main: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Times New Roman', 'Noto Serif TC', 'PMingLiU', serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      padding: 30px 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Control Bar */
+    .top-controls {
+      max-width: 900px;
+      margin: 0 auto 24px auto;
+      background: #ffffff;
+      padding: 14px 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+
+    .controls-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .controls-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .select-table-jump {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 13px;
+      color: #1e293b;
+      background: #ffffff;
+      outline: none;
+    }
+
+    /* Document Paper Container */
+    .document-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--bg-paper);
+      padding: 50px 45px;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    .doc-header {
+      text-align: center;
+      margin-bottom: 36px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #000;
+    }
+
+    .doc-header h1 {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .doc-header p {
+      font-size: 14px;
+      color: #475569;
+    }
+
+    /* Academic Data Dictionary Table Style */
+    .table-section {
+      margin-bottom: 45px;
+      page-break-inside: avoid;
+    }
+
+    .academic-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+      text-align: center;
+      border: 2px solid #000000;
+      background: #ffffff;
+    }
+
+    /* Table Title Span */
+    .academic-table thead tr.table-title-row th {
+      font-size: 16px;
+      font-weight: 700;
+      padding: 10px 8px;
+      border-bottom: 1.5px solid #000000;
+      letter-spacing: 1px;
+      background: #ffffff;
+      color: #000000;
+    }
+
+    /* Column Headers */
+    .academic-table thead tr.col-header-row th {
+      font-size: 15px;
+      font-weight: 600;
+      padding: 8px 6px;
+      border: 1px solid #000000;
+      background: #ffffff;
+      color: #000000;
+    }
+
+    /* Data Rows */
+    .academic-table tbody td {
+      padding: 7px 8px;
+      border: 1px solid #000000;
+      font-size: 14px;
+      color: #000000;
+    }
+
+    .academic-table td.col-en {
+      font-family: 'Times New Roman', 'Fira Code', serif;
+      font-size: 14.5px;
+    }
+
+    .academic-table td.col-zh {
+      font-family: 'Noto Serif TC', 'PMingLiU', serif;
+    }
+
+    .academic-table td.col-type {
+      font-family: 'Times New Roman', serif;
+    }
+
+    .academic-table td.col-len {
+      font-family: 'Times New Roman', serif;
+    }
+
+    .academic-table td.col-pk, .academic-table td.col-fk {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    /* Table Actions / Live Data Preview */
+    .table-footer-bar {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .btn-toggle-data {
+      background: transparent;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #334155;
+    }
+    .btn-toggle-data:hover {
+      background: #e2e8f0;
+    }
+
+    .live-data-container {
+      display: none;
+      margin-top: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow-x: auto;
+      background: #f8fafc;
+      padding: 12px;
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+
+    .live-data-container.show {
+      display: block;
+    }
+
+    .live-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+    .live-table th {
+      background: #e2e8f0;
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      font-weight: 600;
+    }
+    .live-table td {
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      max-width: 250px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .top-controls, .table-footer-bar, .live-data-container {
+        display: none !important;
+      }
+      .document-container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .table-section {
+        page-break-inside: avoid;
+        margin-bottom: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Controls -->
+  <div class="top-controls">
+    <div class="controls-title">
+      <span>📑</span>
+      <span>AI App 資料表設計規格書 (全 21 張資料表)</span>
+    </div>
+
+    <div class="controls-actions">
+      <select class="select-table-jump" onchange="jumpToTable(this.value)">
+        <option value="">-- 快速跳轉至資料表 --</option>
+        <option value="T01">T01 users 使用者資料表</option>
+        <option value="T02">T02 calendar_events 行事曆事件資料表</option>
+        <option value="T03">T03 tags 標籤資料表</option>
+        <option value="T04">T04 questions 題庫題目資料表</option>
+        <option value="T05">T05 question_tag_map 題目標籤關聯表</option>
+        <option value="T06">T06 notes 筆記資料表</option>
+        <option value="T07">T07 diaries 日記資料表</option>
+        <option value="T08">T08 todos 待辦事項資料表</option>
+        <option value="T09">T09 posts 社群貼文資料表</option>
+        <option value="T10">T10 post_likes 貼文按讚資料表</option>
+        <option value="T11">T11 comments 貼文留言資料表</option>
+        <option value="T12">T12 quiz_results 測驗結果記錄表</option>
+        <option value="T13">T13 post_bookmarks 貼文收藏資料表</option>
+        <option value="T14">T14 community_groups 讀書會群組資料表</option>
+        <option value="T15">T15 group_members 群組成員資料表</option>
+        <option value="T16">T16 group_announcements 群組公告資料表</option>
+        <option value="T17">T17 user_papers 使用者自訂試卷資料表</option>
+        <option value="T18">T18 wrong_questions 錯題本資料表</option>
+        <option value="T19">T19 remedial_materials 弱點補救教材資料表</option>
+        <option value="T20">T20 point_transactions 點數積分交易紀錄資料表</option>
+        <option value="T21">T21 advertisements 廣告推廣資料表</option>
+      </select>
+      <button class="btn btn-primary" onclick="window.print()">🖨️ 列印 / 存為 PDF</button>
+      <button class="btn" onclick="toggleAllData()">👁️ 切換展開所有實際資料</button>
+    </div>
+  </div>
+
+  <!-- Main Document Container -->
+  <div class="document-container">
+    <div class="doc-header">
+      <h1>AI 智慧學習系統資料庫架構規格書</h1>
+      <p>系統版本：v1.7.6 | 資料庫引擎：SQLite 3 (Dart/Flutter 跨平台規格)</p>
+    </div>
+
+    <div id="tablesList">
+
+      <!-- T01 users -->
+      <div class="table-section" id="T01">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T01 users 使用者資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">username</td>
+              <td class="col-zh">使用者名稱</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">150</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">email</td>
+              <td class="col-zh">電子郵件</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">hashed_password</td>
+              <td class="col-zh">密碼雜湊</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">display_name</td>
+              <td class="col-zh">顯示暱稱</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">100</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">bio</td>
+              <td class="col-zh">個人簡介</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">tags</td>
+              <td class="col-zh">關注標籤</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">avatar_blob</td>
+              <td class="col-zh">頭像圖檔</td>
+              <td class="col-type">BLOB</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">avatar_color</td>
+              <td class="col-zh">頭像顏色編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">avatar_selected</td>
+              <td class="col-zh">自訂頭像</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">nickname_updated_at</td>
+              <td class="col-zh">最後暱稱更新時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_email_verified</td>
+              <td class="col-zh">信箱是否驗證</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">font_size_factor</td>
+              <td class="col-zh">字體倍率</td>
+              <td class="col-type">Decimal(3,1)</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">theme_color_idx</td>
+              <td class="col-zh">主題色編號</td>
+              <td class="col-type">TINYINT</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_dark_mode</td>
+              <td class="col-zh">是否深色模式</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">gemini_api_key</td>
+              <td class="col-zh">Gemini API 金鑰</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_google</td>
+              <td class="col-zh">是否 Google 登入</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">calendar_view_mode</td>
+              <td class="col-zh">行事曆檢視模式</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">social_feed_layout</td>
+              <td class="col-zh">社群排版樣式</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_currently_logged_in</td>
+              <td class="col-zh">當前是否登入</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">show_floating_nav_bar</td>
+              <td class="col-zh">是否顯示懸浮導覽列</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">nav_bar_items</td>
+              <td class="col-zh">自訂導覽列項目</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">push_notifications_enabled</td>
+              <td class="col-zh">是否啟用推播通知</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">language</td>
+              <td class="col-zh">介面語言設定</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">20</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">deleted_at</td>
+              <td class="col-zh">軟刪除時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">has_seen_tour</td>
+              <td class="col-zh">是否完成導覽教學</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">membership_tier</td>
+              <td class="col-zh">會員等級</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">20</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">membership_expires_at</td>
+              <td class="col-zh">會員到期時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">points_balance</td>
+              <td class="col-zh">積分點數餘額</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">last_daily_reward_at</td>
+              <td class="col-zh">最後簽到獎勵時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-users">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('users')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-users">
+          <table class="live-table">
+            <thead id="live-thead-users"></thead>
+            <tbody id="live-tbody-users"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T02 calendar_events -->
+      <div class="table-section" id="T02">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T02 calendar_events 行事曆事件資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">事件編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">title</td>
+              <td class="col-zh">事件標題</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">200</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">description</td>
+              <td class="col-zh">事件說明</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_all_day</td>
+              <td class="col-zh">是否全天事件</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">start_time</td>
+              <td class="col-zh">開始時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">end_time</td>
+              <td class="col-zh">結束時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">location</td>
+              <td class="col-zh">地點</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">color</td>
+              <td class="col-zh">標籤色彩</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">recurrence_type</td>
+              <td class="col-zh">週期重複類型</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">recurrence_days</td>
+              <td class="col-zh">重複星期設定</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">recurrence_end</td>
+              <td class="col-zh">重複結束日期</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">updated_at</td>
+              <td class="col-zh">更新時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-calendar_events">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('calendar_events')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-calendar_events">
+          <table class="live-table">
+            <thead id="live-thead-calendar_events"></thead>
+            <tbody id="live-tbody-calendar_events"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T03 tags -->
+      <div class="table-section" id="T03">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T03 tags 標籤資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">標籤編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">name</td>
+              <td class="col-zh">標籤名稱</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">100</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-tags">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('tags')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-tags">
+          <table class="live-table">
+            <thead id="live-thead-tags"></thead>
+            <tbody id="live-tbody-tags"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T04 questions -->
+      <div class="table-section" id="T04">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T04 questions 題庫題目資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">題目編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">建立者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">text</td>
+              <td class="col-zh">題目文字</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">options</td>
+              <td class="col-zh">題目選項 (JSON)</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">answer</td>
+              <td class="col-zh">標準解答</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">explanation</td>
+              <td class="col-zh">解析說明</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">subject</td>
+              <td class="col-zh">所屬學科</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">100</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">type</td>
+              <td class="col-zh">題型分類</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">difficulty</td>
+              <td class="col-zh">難易度</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_public</td>
+              <td class="col-zh">是否公開</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">bookmarked</td>
+              <td class="col-zh">是否收藏</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-questions">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('questions')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-questions">
+          <table class="live-table">
+            <thead id="live-thead-questions"></thead>
+            <tbody id="live-tbody-questions"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T05 question_tag_map -->
+      <div class="table-section" id="T05">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T05 question_tag_map 題目標籤關聯表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">question_id</td>
+              <td class="col-zh">題目編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">tag_id</td>
+              <td class="col-zh">標籤編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk">●</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-question_tag_map">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('question_tag_map')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-question_tag_map">
+          <table class="live-table">
+            <thead id="live-thead-question_tag_map"></thead>
+            <tbody id="live-tbody-question_tag_map"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T06 notes -->
+      <div class="table-section" id="T06">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T06 notes 筆記資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">筆記編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">title</td>
+              <td class="col-zh">筆記標題</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">200</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">content</td>
+              <td class="col-zh">筆記內容</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">updated_at</td>
+              <td class="col-zh">更新時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-notes">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('notes')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-notes">
+          <table class="live-table">
+            <thead id="live-thead-notes"></thead>
+            <tbody id="live-tbody-notes"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T07 diaries -->
+      <div class="table-section" id="T07">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T07 diaries 日記資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">日記編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">date</td>
+              <td class="col-zh">日記日期</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">content</td>
+              <td class="col-zh">日記內容</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">updated_at</td>
+              <td class="col-zh">更新時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-diaries">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('diaries')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-diaries">
+          <table class="live-table">
+            <thead id="live-thead-diaries"></thead>
+            <tbody id="live-tbody-diaries"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T08 todos -->
+      <div class="table-section" id="T08">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T08 todos 待辦事項資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">待辦編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">text</td>
+              <td class="col-zh">待辦內容</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">done</td>
+              <td class="col-zh">是否完成</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">done_at</td>
+              <td class="col-zh">完成時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-todos">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('todos')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-todos">
+          <table class="live-table">
+            <thead id="live-thead-todos"></thead>
+            <tbody id="live-tbody-todos"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T09 posts -->
+      <div class="table-section" id="T09">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T09 posts 社群貼文資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">貼文編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">發布者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">group_id</td>
+              <td class="col-zh">所屬群組編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">content</td>
+              <td class="col-zh">貼文內容</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">type</td>
+              <td class="col-zh">貼文類型</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">attached_data</td>
+              <td class="col-zh">附加資料 (JSON)</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">media_blob</td>
+              <td class="col-zh">圖片多媒體檔案</td>
+              <td class="col-type">BLOB</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">file_blob</td>
+              <td class="col-zh">附加檔案</td>
+              <td class="col-type">BLOB</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">likes</td>
+              <td class="col-zh">按讚數量</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_edited</td>
+              <td class="col-zh">是否已編輯</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">發布時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-posts">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('posts')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-posts">
+          <table class="live-table">
+            <thead id="live-thead-posts"></thead>
+            <tbody id="live-tbody-posts"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T10 post_likes -->
+      <div class="table-section" id="T10">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T10 post_likes 貼文按讚資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">按讚編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">post_id</td>
+              <td class="col-zh">貼文編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-post_likes">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('post_likes')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-post_likes">
+          <table class="live-table">
+            <thead id="live-thead-post_likes"></thead>
+            <tbody id="live-tbody-post_likes"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T11 comments -->
+      <div class="table-section" id="T11">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T11 comments 貼文留言資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">留言編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">post_id</td>
+              <td class="col-zh">貼文編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">留言者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">text</td>
+              <td class="col-zh">留言內容</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">parent_id</td>
+              <td class="col-zh">父留言編號 (巢狀回覆)</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">留言時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-comments">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('comments')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-comments">
+          <table class="live-table">
+            <thead id="live-thead-comments"></thead>
+            <tbody id="live-tbody-comments"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T12 quiz_results -->
+      <div class="table-section" id="T12">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T12 quiz_results 測驗結果記錄表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">紀錄編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">測驗者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">total</td>
+              <td class="col-zh">總題數</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">correct</td>
+              <td class="col-zh">答對題數</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">wrong_question_ids</td>
+              <td class="col-zh">錯題編號 (JSON)</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">duration_seconds</td>
+              <td class="col-zh">答題耗時(秒)</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">subject</td>
+              <td class="col-zh">測驗科目</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">100</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">paper_id</td>
+              <td class="col-zh">自訂試卷編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">timestamp</td>
+              <td class="col-zh">測驗完成時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-quiz_results">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('quiz_results')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-quiz_results">
+          <table class="live-table">
+            <thead id="live-thead-quiz_results"></thead>
+            <tbody id="live-tbody-quiz_results"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T13 post_bookmarks -->
+      <div class="table-section" id="T13">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T13 post_bookmarks 貼文收藏資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">收藏編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">post_id</td>
+              <td class="col-zh">貼文編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-post_bookmarks">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('post_bookmarks')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-post_bookmarks">
+          <table class="live-table">
+            <thead id="live-thead-post_bookmarks"></thead>
+            <tbody id="live-tbody-post_bookmarks"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T14 community_groups -->
+      <div class="table-section" id="T14">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T14 community_groups 讀書會群組資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">群組編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">name</td>
+              <td class="col-zh">群組名稱</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">150</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">description</td>
+              <td class="col-zh">群組簡介</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">icon_emoji</td>
+              <td class="col-zh">圖示表情</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">type</td>
+              <td class="col-zh">群組類型 (公開/私密)</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">owner_id</td>
+              <td class="col-zh">建立者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">tags</td>
+              <td class="col-zh">標籤清單 (JSON)</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">member_count</td>
+              <td class="col-zh">成員總數</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">invite_token</td>
+              <td class="col-zh">邀請碼 Token</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">token_expires_at</td>
+              <td class="col-zh">邀請碼到期時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">invite_link_active</td>
+              <td class="col-zh">邀請連結是否啟用</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">join_requires_approval</td>
+              <td class="col-zh">加入是否需審核</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-community_groups">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('community_groups')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-community_groups">
+          <table class="live-table">
+            <thead id="live-thead-community_groups"></thead>
+            <tbody id="live-tbody-community_groups"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T15 group_members -->
+      <div class="table-section" id="T15">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T15 group_members 群組成員資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">成員紀錄編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">group_id</td>
+              <td class="col-zh">群組編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">role</td>
+              <td class="col-zh">成員角色 (owner/admin/member)</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">status</td>
+              <td class="col-zh">狀態 (active/pending)</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">joined_at</td>
+              <td class="col-zh">加入時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">last_read_at</td>
+              <td class="col-zh">最後已讀時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_muted</td>
+              <td class="col-zh">是否靜音通知</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-group_members">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('group_members')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-group_members">
+          <table class="live-table">
+            <thead id="live-thead-group_members"></thead>
+            <tbody id="live-tbody-group_members"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T16 group_announcements -->
+      <div class="table-section" id="T16">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T16 group_announcements 群組公告資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">公告編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">group_id</td>
+              <td class="col-zh">群組編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">author_id</td>
+              <td class="col-zh">發布者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">content</td>
+              <td class="col-zh">公告內容</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_pinned</td>
+              <td class="col-zh">是否置頂</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-group_announcements">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('group_announcements')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-group_announcements">
+          <table class="live-table">
+            <thead id="live-thead-group_announcements"></thead>
+            <tbody id="live-tbody-group_announcements"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T17 user_papers -->
+      <div class="table-section" id="T17">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T17 user_papers 使用者自訂試卷資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">試卷編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">name</td>
+              <td class="col-zh">試卷名稱</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">150</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">question_ids</td>
+              <td class="col-zh">題目編號清單 (JSON)</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-user_papers">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('user_papers')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-user_papers">
+          <table class="live-table">
+            <thead id="live-thead-user_papers"></thead>
+            <tbody id="live-tbody-user_papers"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T18 wrong_questions -->
+      <div class="table-section" id="T18">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T18 wrong_questions 錯題本資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">錯題編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">question_id</td>
+              <td class="col-zh">題目編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">note</td>
+              <td class="col-zh">檢討筆記</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">加入時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-wrong_questions">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('wrong_questions')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-wrong_questions">
+          <table class="live-table">
+            <thead id="live-thead-wrong_questions"></thead>
+            <tbody id="live-tbody-wrong_questions"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T19 remedial_materials -->
+      <div class="table-section" id="T19">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T19 remedial_materials 弱點補救教材資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">教材編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">subject</td>
+              <td class="col-zh">弱點學科</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">100</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">content</td>
+              <td class="col-zh">AI 生成補救教材</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">生成時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">updated_at</td>
+              <td class="col-zh">更新時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-remedial_materials">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('remedial_materials')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-remedial_materials">
+          <table class="live-table">
+            <thead id="live-thead-remedial_materials"></thead>
+            <tbody id="live-tbody-remedial_materials"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T20 point_transactions -->
+      <div class="table-section" id="T20">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T20 point_transactions 點數積分交易紀錄資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">交易編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">user_id</td>
+              <td class="col-zh">使用者編號</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk">●</td>
+            </tr>
+            <tr>
+              <td class="col-en">amount</td>
+              <td class="col-zh">變動點數</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">4 bytes</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">type</td>
+              <td class="col-zh">交易類型 (reward/redeem)</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">description</td>
+              <td class="col-zh">交易說明</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">交易時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-point_transactions">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('point_transactions')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-point_transactions">
+          <table class="live-table">
+            <thead id="live-thead-point_transactions"></thead>
+            <tbody id="live-tbody-point_transactions"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- T21 advertisements -->
+      <div class="table-section" id="T21">
+        <table class="academic-table">
+          <thead>
+            <tr class="table-title-row">
+              <th colspan="6">T21 advertisements 廣告推廣資料表</th>
+            </tr>
+            <tr class="col-header-row">
+              <th style="width: 24%;">英文名稱</th>
+              <th style="width: 26%;">中文名稱</th>
+              <th style="width: 20%;">資料型態</th>
+              <th style="width: 14%;">資料長度</th>
+              <th style="width: 8%;">主鍵</th>
+              <th style="width: 8%;">外鍵</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-en">id</td>
+              <td class="col-zh">廣告編號</td>
+              <td class="col-type">INTEGER</td>
+              <td class="col-len">AUTO</td>
+              <td class="col-pk">●</td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">title</td>
+              <td class="col-zh">廣告標題</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">200</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">content</td>
+              <td class="col-zh">廣告內容文案</td>
+              <td class="col-type">TEXT</td>
+              <td class="col-len">-</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">sponsor</td>
+              <td class="col-zh">主辦/贊助單位</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">150</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">link_url</td>
+              <td class="col-zh">外部連結網址</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">255</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">bg_gradient</td>
+              <td class="col-zh">漸層背景配色</td>
+              <td class="col-type">VARCHAR</td>
+              <td class="col-len">50</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">is_active</td>
+              <td class="col-zh">是否啟用上架</td>
+              <td class="col-type">BOOLEAN</td>
+              <td class="col-len">1 byte</td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+            <tr>
+              <td class="col-en">created_at</td>
+              <td class="col-zh">建立時間</td>
+              <td class="col-type">DATETIME</td>
+              <td class="col-len"></td>
+              <td class="col-pk"></td>
+              <td class="col-fk"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="table-footer-bar">
+          <span>實體記錄筆數：<strong id="count-advertisements">0</strong> 筆</span>
+          <button class="btn-toggle-data" onclick="toggleLiveData('advertisements')">檢視當前資料庫內容</button>
+        </div>
+
+        <div class="live-data-container" id="live-data-advertisements">
+          <table class="live-table">
+            <thead id="live-thead-advertisements"></thead>
+            <tbody id="live-tbody-advertisements"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const DB_DATA = {"advertisements": {"name": "advertisements", "sql": "CREATE TABLE advertisements (\n          id          INTEGER PRIMARY KEY AUTOINCREMENT,\n          title       TEXT NOT NULL,\n          content     TEXT NOT NULL,\n          sponsor     TEXT NOT NULL,\n          link_url    TEXT,\n          bg_gradient TEXT,\n          is_active   INTEGER DEFAULT 1,\n          created_at  DATETIME DEFAULT CURRENT_TIMESTAMP\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "title", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "content", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "sponsor", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "link_url", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 5, "name": "bg_gradient", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 6, "name": "is_active", "type": "INTEGER", "notnull": 0, "dflt_value": "1", "pk": 0}, {"cid": 7, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [], "rowCount": 1, "rows": [{"id": 1, "title": "🎓 2026 全國大專院校 AI 創客大賽熱烈報名中！", "content": "總獎金高達 50 萬元！歡迎全台大專院校學生踴躍組隊參加，搶攻最高榮譽。", "sponsor": "教育部資訊教育司", "link_url": "https://example.com/contest", "bg_gradient": "purple", "is_active": 1, "created_at": "2026-09-21T11:01:48.173200"}]}, "calendar_events": {"name": "calendar_events", "sql": "CREATE TABLE calendar_events (\n        calendar_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        user_id VARCHAR NOT NULL,\n        title VARCHAR NOT NULL,\n        description TEXT DEFAULT '',\n        is_all_day BOOLEAN DEFAULT 0,\n        start_time DATETIME NOT NULL,\n        end_time DATETIME NOT NULL,\n        location VARCHAR DEFAULT '',\n        color VARCHAR DEFAULT 'bg-blue-400',\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, recurrence_type TEXT DEFAULT 'none', recurrence_days TEXT DEFAULT '', recurrence_end TEXT DEFAULT '',\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "calendar_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "title", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "description", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 4, "name": "is_all_day", "type": "BOOLEAN", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 5, "name": "start_time", "type": "DATETIME", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 6, "name": "end_time", "type": "DATETIME", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 7, "name": "location", "type": "VARCHAR", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 8, "name": "color", "type": "VARCHAR", "notnull": 0, "dflt_value": "'bg-blue-400'", "pk": 0}, {"cid": 9, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 10, "name": "updated_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 11, "name": "recurrence_type", "type": "TEXT", "notnull": 0, "dflt_value": "'none'", "pk": 0}, {"cid": 12, "name": "recurrence_days", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 13, "name": "recurrence_end", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 1, "rows": [{"calendar_id": 1, "user_id": "u1", "title": "專題討論會議", "description": "", "is_all_day": 0, "start_time": "2026-03-30 09:10:00", "end_time": "2026-03-30 12:00:00", "location": "", "color": "0xFFFFE082", "created_at": "2026-06-09 10:37:58", "updated_at": "2026-06-09 10:37:58", "recurrence_type": "none", "recurrence_days": "", "recurrence_end": ""}]}, "comments": {"name": "comments", "sql": "CREATE TABLE comments (\n        comment_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        post_id INTEGER NOT NULL,\n        user_id VARCHAR NOT NULL,\n        text TEXT NOT NULL,\n        parent_id INTEGER DEFAULT 0,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "comment_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "post_id", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "parent_id", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 5, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}, {"id": 1, "seq": 0, "table": "posts", "from": "post_id", "to": "post_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "community_groups": {"name": "community_groups", "sql": "CREATE TABLE community_groups (\n          id               INTEGER PRIMARY KEY AUTOINCREMENT,\n          name             TEXT    NOT NULL,\n          description      TEXT    DEFAULT '',\n          icon_emoji       TEXT    DEFAULT '📚',\n          type             TEXT    NOT NULL DEFAULT 'public',\n          owner_id         TEXT    NOT NULL,\n          tags             TEXT    DEFAULT '[]',\n          member_count     INTEGER DEFAULT 1,\n          invite_token     TEXT,\n          token_expires_at DATETIME,\n          invite_link_active INTEGER DEFAULT 1,\n          join_requires_approval INTEGER DEFAULT 0,\n          created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,\n          FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "name", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "description", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 3, "name": "icon_emoji", "type": "TEXT", "notnull": 0, "dflt_value": "'📚'", "pk": 0}, {"cid": 4, "name": "type", "type": "TEXT", "notnull": 1, "dflt_value": "'public'", "pk": 0}, {"cid": 5, "name": "owner_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 6, "name": "tags", "type": "TEXT", "notnull": 0, "dflt_value": "'[]'", "pk": 0}, {"cid": 7, "name": "member_count", "type": "INTEGER", "notnull": 0, "dflt_value": "1", "pk": 0}, {"cid": 8, "name": "invite_token", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 9, "name": "token_expires_at", "type": "DATETIME", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 10, "name": "invite_link_active", "type": "INTEGER", "notnull": 0, "dflt_value": "1", "pk": 0}, {"cid": 11, "name": "join_requires_approval", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 12, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "owner_id", "to": "id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "diaries": {"name": "diaries", "sql": "CREATE TABLE diaries (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          user_id VARCHAR NOT NULL,\n          date TEXT NOT NULL,\n          content TEXT NOT NULL,\n          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "date", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "content", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 5, "name": "updated_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "group_announcements": {"name": "group_announcements", "sql": "CREATE TABLE group_announcements (\n          id         INTEGER PRIMARY KEY AUTOINCREMENT,\n          group_id   INTEGER NOT NULL,\n          author_id  TEXT    NOT NULL,\n          content    TEXT    NOT NULL,\n          is_pinned  INTEGER DEFAULT 0,\n          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n          FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "group_id", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "author_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "content", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "is_pinned", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 5, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "community_groups", "from": "group_id", "to": "id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "group_members": {"name": "group_members", "sql": "CREATE TABLE group_members (\n          id        INTEGER PRIMARY KEY AUTOINCREMENT,\n          group_id  INTEGER NOT NULL,\n          user_id   TEXT    NOT NULL,\n          role      TEXT    DEFAULT 'member',\n          status    TEXT    DEFAULT 'active',\n          joined_at DATETIME DEFAULT CURRENT_TIMESTAMP, last_read_at DATETIME DEFAULT '1970-01-01T00:00:00.000', is_muted INTEGER DEFAULT 0,\n          FOREIGN KEY (group_id) REFERENCES community_groups(id) ON DELETE CASCADE,\n          FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE,\n          UNIQUE (group_id, user_id)\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "group_id", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "user_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "role", "type": "TEXT", "notnull": 0, "dflt_value": "'member'", "pk": 0}, {"cid": 4, "name": "status", "type": "TEXT", "notnull": 0, "dflt_value": "'active'", "pk": 0}, {"cid": 5, "name": "joined_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 6, "name": "last_read_at", "type": "DATETIME", "notnull": 0, "dflt_value": "'1970-01-01T00:00:00.000'", "pk": 0}, {"cid": 7, "name": "is_muted", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}, {"id": 1, "seq": 0, "table": "community_groups", "from": "group_id", "to": "id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "notes": {"name": "notes", "sql": "CREATE TABLE notes (\n        note_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        user_id VARCHAR NOT NULL,\n        title VARCHAR NOT NULL,\n        content TEXT DEFAULT '',\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "note_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "title", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "content", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 4, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 5, "name": "updated_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "point_transactions": {"name": "point_transactions", "sql": "CREATE TABLE point_transactions (\n          id          INTEGER PRIMARY KEY AUTOINCREMENT,\n          user_id     VARCHAR NOT NULL,\n          amount      INTEGER NOT NULL,\n          type        TEXT NOT NULL,\n          description TEXT NOT NULL,\n          created_at  DATETIME DEFAULT CURRENT_TIMESTAMP\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "amount", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "type", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "description", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 5, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [], "rowCount": 0, "rows": []}, "post_bookmarks": {"name": "post_bookmarks", "sql": "CREATE TABLE post_bookmarks (\n        bookmark_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        post_id INTEGER NOT NULL,\n        user_id VARCHAR NOT NULL,\n        UNIQUE (post_id, user_id),\n        FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "bookmark_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "post_id", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}, {"id": 1, "seq": 0, "table": "posts", "from": "post_id", "to": "post_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "post_likes": {"name": "post_likes", "sql": "CREATE TABLE post_likes (\n        like_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        post_id INTEGER NOT NULL,\n        user_id VARCHAR NOT NULL,\n        UNIQUE (post_id, user_id),\n        FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "like_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "post_id", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}, {"id": 1, "seq": 0, "table": "posts", "from": "post_id", "to": "post_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "posts": {"name": "posts", "sql": "CREATE TABLE posts (\n        post_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        user_id VARCHAR NOT NULL,\n        content TEXT NOT NULL,\n        type VARCHAR DEFAULT 'text',\n        attached_data TEXT DEFAULT '{}',\n        media_blob BLOB,\n        likes INTEGER DEFAULT 0,\n        is_edited INTEGER DEFAULT 0,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP, group_id INTEGER, file_blob BLOB,\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "post_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "content", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "type", "type": "VARCHAR", "notnull": 0, "dflt_value": "'text'", "pk": 0}, {"cid": 4, "name": "attached_data", "type": "TEXT", "notnull": 0, "dflt_value": "'{}'", "pk": 0}, {"cid": 5, "name": "media_blob", "type": "BLOB", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 6, "name": "likes", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 7, "name": "is_edited", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 8, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 9, "name": "group_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 10, "name": "file_blob", "type": "BLOB", "notnull": 0, "dflt_value": null, "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 1, "rows": [{"post_id": 1, "user_id": "u2", "content": "歡迎大家在社群分享學習心得與專題進度！", "type": "text", "attached_data": "{}", "media_blob": null, "likes": 5, "is_edited": 0, "created_at": "2026-06-08T18:37:58.040090", "group_id": null, "file_blob": null}]}, "question_tag_map": {"name": "question_tag_map", "sql": "CREATE TABLE question_tag_map (\n        question_id INTEGER NOT NULL,\n        tag_id INTEGER NOT NULL,\n        PRIMARY KEY (question_id, tag_id),\n        FOREIGN KEY (question_id) REFERENCES questions (question_id) ON DELETE CASCADE,\n        FOREIGN KEY (tag_id) REFERENCES tags (tag_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "question_id", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "tag_id", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2}], "foreign_keys": [{"id": 0, "seq": 0, "table": "tags", "from": "tag_id", "to": "tag_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}, {"id": 1, "seq": 0, "table": "questions", "from": "question_id", "to": "question_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 3, "rows": [{"question_id": 1, "tag_id": 1}, {"question_id": 2, "tag_id": 2}, {"question_id": 3, "tag_id": 3}]}, "questions": {"name": "questions", "sql": "CREATE TABLE questions (\n        question_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        user_id VARCHAR NOT NULL,\n        text TEXT NOT NULL,\n        options TEXT NOT NULL,\n        answer VARCHAR NOT NULL,\n        explanation TEXT DEFAULT '',\n        subject VARCHAR DEFAULT '',\n        type VARCHAR DEFAULT '單選題',\n        difficulty VARCHAR DEFAULT 'easy',\n        is_public BOOLEAN DEFAULT 0,\n        bookmarked BOOLEAN DEFAULT 0,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "question_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "options", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "answer", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 5, "name": "explanation", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 6, "name": "subject", "type": "VARCHAR", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 7, "name": "type", "type": "VARCHAR", "notnull": 0, "dflt_value": "'單選題'", "pk": 0}, {"cid": 8, "name": "difficulty", "type": "VARCHAR", "notnull": 0, "dflt_value": "'easy'", "pk": 0}, {"cid": 9, "name": "is_public", "type": "BOOLEAN", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 10, "name": "bookmarked", "type": "BOOLEAN", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 11, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 53, "rows": [{"question_id": 1, "user_id": "u2", "text": "下列何者不是關聯式資料庫的特性？", "options": "[\"支援 SQL 語法\",\"具備 ACID 特性\",\"採用樹狀結構存放\",\"資料以二維表格呈現\"]", "answer": "2", "explanation": "樹狀結構屬於階層式資料庫，而非關聯式。", "subject": "資訊管理", "type": "單選題", "difficulty": "中", "is_public": 0, "bookmarked": 1, "created_at": "2026-06-09 10:37:58"}, {"question_id": 2, "user_id": "u1", "text": "《師說》的作者是誰？", "options": "[\"柳宗元\",\"韓愈\",\"歐陽脩\",\"蘇軾\"]", "answer": "1", "explanation": "韓愈倡導古文運動，作《師說》。", "subject": "國文", "type": "單選題", "difficulty": "易", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 3, "user_id": "u3", "text": "長方形長5寬4，面積為何？", "options": "[\"18\",\"20\",\"25\",\"9\"]", "answer": "1", "explanation": "5x4=20", "subject": "數學", "type": "單選題", "difficulty": "易", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 4, "user_id": "u2", "text": "Former Sendai Company CEO Ken Nakata spoke about ------- career experiences.", "options": "[\"he\",\"his\",\"him\",\"himself\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 5, "user_id": "u2", "text": "Passengers who will be taking a ------ domestic flight should go to Terminal A.", "options": "[\"connectivity\",\"connects\",\"connect\",\"connecting\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 6, "user_id": "u2", "text": "Fresh and ------- apple-cider donuts are available at Oakcrest Orchard's retail shop for £6 per dozen.", "options": "[\"eaten\",\"open\",\"tasty\",\"free\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 7, "user_id": "u2", "text": "Zahn Flooring has the widest selection of ------- in the United Kingdom.", "options": "[\"paints\",\"tiles\",\"furniture\",\"curtains\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 8, "user_id": "u2", "text": "One responsibility of the IT department is to ensure that the company is using ------- software.", "options": "[\"update\",\"updating\",\"updates\",\"updated\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 9, "user_id": "u2", "text": "It is wise to check a company's dress code ------- visiting its head office.", "options": "[\"so\",\"how\",\"like\",\"before\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 10, "user_id": "u2", "text": "Wexler Store's management team expects that employees will ------- support any new hires.", "options": "[\"enthusiastically\",\"enthusiasm\",\"enthusiastic\",\"enthused\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 11, "user_id": "u2", "text": "Wheel alignments and brake system ------- are part of our vehicle service plan.", "options": "[\"inspects\",\"inspector\",\"inspected\",\"inspections\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 12, "user_id": "u2", "text": "Registration for the Marketing Coalition Conference is now open ------- September 30.", "options": "[\"until\",\"into\",\"yet\",\"while\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 13, "user_id": "u2", "text": "Growth in the home entertainment industry has been ------- this quarter.", "options": "[\"separate\",\"limited\",\"willing\",\"assorted\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 14, "user_id": "u2", "text": "Hawson Furniture will be making ------- on the east side of town on Thursday.", "options": "[\"deliveries\",\"delivered\",\"deliver\",\"deliverable\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 15, "user_id": "u2", "text": "The Marlton City Council does not have the authority to ------- parking on city streets.", "options": "[\"drive\",\"prohibit\",\"bother\",\"travel\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 16, "user_id": "u2", "text": "Project Earth Group is ------- for ways to reduce transport-related greenhouse gas emissions.", "options": "[\"looking\",\"seeing\",\"driving\",\"leaning\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 17, "user_id": "u2", "text": "Our skilled tailors are happy to design a custom-made suit that fits your style and budget -------.", "options": "[\"perfect\",\"perfects\",\"perfectly\",\"perfection\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 18, "user_id": "u2", "text": "Project manager Hannah Chung has proved to be very ------- with completing company projects.", "options": "[\"helpfulness\",\"help\",\"helpfully\",\"helpful\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 19, "user_id": "u2", "text": "Lehua Vacation Club members will receive double points ------- the month of August at participating hotels.", "options": "[\"onto\",\"above\",\"during\",\"between\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 20, "user_id": "u2", "text": "The costumes were not received ------- enough to be used in the first dress rehearsal.", "options": "[\"far\",\"very\",\"almost\",\"soon\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 21, "user_id": "u2", "text": "As a former publicist for several renowned orchestras, Mr. Wu would excel in the role of event -------.", "options": "[\"organized\",\"organizer\",\"organizes\",\"organizational\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 22, "user_id": "u2", "text": "The northbound lane on Davis Street will be ------- closed because of the city's bridge reinforcement project.", "options": "[\"temporarily\",\"competitively\",\"recently\",\"collectively\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 23, "user_id": "u2", "text": "Airline representatives must handle a wide range of passenger issues, ------- missed connections to lost luggage.", "options": "[\"from\",\"under\",\"on\",\"against\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 24, "user_id": "u2", "text": "The meeting notes were ------- deleted, but Mr. Hahm was able to recreate them from memory.", "options": "[\"accident\",\"accidental\",\"accidents\",\"accidentally\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 25, "user_id": "u2", "text": "The current issue of Farming Scene magazine predicts that the price of corn will rise 5 percent over the ------- year.", "options": "[\"next\",\"with\",\"which\",\"now\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 26, "user_id": "u2", "text": "Anyone who still ------- to take the fire safety training should do so before the end of the month.", "options": "[\"needing\",\"needs\",\"has needed\",\"were needing\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 27, "user_id": "u2", "text": "Emerging technologies have ------- begun to transform the shipping industry in ways that were once unimaginable.", "options": "[\"already\",\"exactly\",\"hardly\",\"closely\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 28, "user_id": "u2", "text": "The company handbook outlines the high ------- that employees are expected to meet every day.", "options": "[\"experts\",\"accounts\",\"recommendations\",\"standards\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 29, "user_id": "u2", "text": "Because ------- of the board members have scheduling conflicts, the board meeting will be moved to a date when all can attend.", "options": "[\"any\",\"everybody\",\"those\",\"some\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 30, "user_id": "u2", "text": "The project ------- the collaboration of several teams across the company.", "options": "[\"passed\",\"decided\",\"required\",\"performed\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 31, "user_id": "u2", "text": "We cannot send the store's coupon booklet to the printers until it ------- by Ms. Jeon.", "options": "[\"is approving\",\"approves\",\"has been approved\",\"will be approved\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 32, "user_id": "u2", "text": "------- the closure of Verdigold Transport Services, we are looking for a new shipping company.", "options": "[\"In spite of\",\"Just as\",\"In light of\",\"According to\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 33, "user_id": "u2", "text": "The ------- information provided by Uniss Bank's brochure helps applicants understand the terms of their loans.", "options": "[\"arbitrary\",\"supplemental\",\"superfluous\",\"potential\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 34, "user_id": "u2", "text": "Part 6-131: Rain garden definition - Which phrase best fits the blank about what a rain garden is?", "options": "[\"with a special soil mix to filter pollutants\",\"that requires professional landscaping\",\"made of concrete and stones\",\"located near residential areas\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 35, "user_id": "u2", "text": "Part 6-132: Rainwater filtering - The text discusses filtering pollutants from what?", "options": "[\"to use rainwater\",\"used to collect water\",\"by using natural filters\",\"that uses sustainable methods\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 36, "user_id": "u2", "text": "Part 6-133: Rain garden benefits - Which transition best introduces the benefits of rain gardens?", "options": "[\"Best of all\",\"For example\",\"In any event\",\"As a matter of fact\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 37, "user_id": "u2", "text": "Part 6-134: Multiple benefits - Which pronoun should replace the blank?", "options": "[\"we\",\"they\",\"both\",\"yours\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 38, "user_id": "u2", "text": "Part 6-135: Amazing support - Which word form fits with gratitude for support?", "options": "[\"amazed\",\"amazement\",\"amazing\",\"amazingly\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 39, "user_id": "u2", "text": "Part 6-136: Social media response - What did the designs receive on social media?", "options": "[\"attention\",\"proposals\",\"innovation\",\"criticism\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 40, "user_id": "u2", "text": "Part 6-137: Acknowledgment of efforts - Which sentence best fits as an appreciation statement?", "options": "[\"Several other events have gone surprisingly well.\",\"Thank you also for your flexibility in planning the event.\",\"Please stop by our office the next time you are in the city.\",\"Tokyo is a top tourism destination for many reasons.\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 41, "user_id": "u2", "text": "Part 6-138: Award program - Which verb form fits with the upcoming auction?", "options": "[\"will benefit\",\"to benefit\",\"has benefited\",\"benefits\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 42, "user_id": "u2", "text": "Part 6-139: Card renewal - What must be renewed?", "options": "[\"It\",\"You\",\"Our\",\"Each\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 43, "user_id": "u2", "text": "Part 6-140: Library renewal information - Which sentence provides additional helpful information?", "options": "[\"To sign up for a card, visit your local library branch.\",\"For questions about library membership, please visit our Web site.\",\"Renewal must be completed at least one week before your card expires.\",\"You may opt out of this program at any time.\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 44, "user_id": "u2", "text": "Part 6-141: Conditional statement - Which word best introduces the condition about closing an account?", "options": "[\"Also\",\"Should\",\"Because\",\"Although\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 45, "user_id": "u2", "text": "Part 6-142: Renewal deadline - Which word form means \"exactly stated or determined\"?", "options": "[\"specifically\",\"specifics\",\"specified\",\"specificity\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 46, "user_id": "u2", "text": "Part 6-143: Photography introduction - Which sentence best introduces Droplight Studio?", "options": "[\"I would like to introduce you to our business.\",\"Great photographs can make your property stand out.\",\"We are looking forward to your visit.\",\"It was the first studio of its kind to open in this area.\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 47, "user_id": "u2", "text": "Part 6-144: Image creation - What does Droplight Studio do when creating images?", "options": "[\"researching\",\"creating\",\"purchasing\",\"displaying\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 48, "user_id": "u2", "text": "Part 6-145: Studio equipment advantages - Which transition word best connects the equipment benefits?", "options": "[\"If not\",\"By comparison\",\"Otherwise\",\"Indeed\"]", "answer": "3", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 49, "user_id": "u2", "text": "Part 6-146: Image editing - What happens to every image after the photo shoot?", "options": "[\"receives\",\"is receiving\",\"had received\",\"had to receive\"]", "answer": "0", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 50, "user_id": "u2", "text": "Part 7-147: Where is the information about assembly most likely found?", "options": "[\"On a door\",\"On a receipt\",\"In a box\",\"On a Web site\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 51, "user_id": "u2", "text": "Part 7-148: What kind of item is most likely discussed in the assembly instructions?", "options": "[\"A desktop computer\",\"A piece of furniture\",\"A household appliance\",\"A power tool\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 52, "user_id": "u2", "text": "Part 7-149: What is suggested by the Winnipeg-Toulouse schedule?", "options": "[\"A conference has been scheduled.\",\"A firm has offices in two time zones.\",\"Administrative assistants make travel plans.\",\"Some meeting times have been changed.\"]", "answer": "1", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}, {"question_id": 53, "user_id": "u2", "text": "Part 7-150: What is indicated about 11:00 A.M. Winnipeg time?", "options": "[\"It is when the Winnipeg office closes for lunch.\",\"It is when staff in Toulouse begin their workday.\",\"It is not a preferred time to schedule a meeting.\",\"It has just been added to the schedule.\"]", "answer": "2", "explanation": "", "subject": "TOEIC", "type": "單選題", "difficulty": "easy", "is_public": 0, "bookmarked": 0, "created_at": "2026-06-09 10:37:58"}]}, "quiz_results": {"name": "quiz_results", "sql": "CREATE TABLE quiz_results (\n        result_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        user_id VARCHAR NOT NULL,\n        total INTEGER NOT NULL,\n        correct INTEGER NOT NULL,\n        wrong_question_ids TEXT DEFAULT '[]',\n        duration_seconds INTEGER DEFAULT 0,\n        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, subject TEXT DEFAULT '', paper_id INTEGER DEFAULT NULL,\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "result_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "total", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "correct", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "wrong_question_ids", "type": "TEXT", "notnull": 0, "dflt_value": "'[]'", "pk": 0}, {"cid": 5, "name": "duration_seconds", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 6, "name": "timestamp", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 7, "name": "subject", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 8, "name": "paper_id", "type": "INTEGER", "notnull": 0, "dflt_value": "NULL", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 11, "rows": [{"result_id": 1, "user_id": "u1", "total": 10, "correct": 8, "wrong_question_ids": "[1,3]", "duration_seconds": 720, "timestamp": "2026-05-25 14:30:00", "subject": "", "paper_id": null}, {"result_id": 2, "user_id": "u1", "total": 15, "correct": 13, "wrong_question_ids": "[2]", "duration_seconds": 1200, "timestamp": "2026-05-26 16:00:00", "subject": "", "paper_id": null}, {"result_id": 3, "user_id": "u2", "total": 20, "correct": 20, "wrong_question_ids": "[]", "duration_seconds": 900, "timestamp": "2026-05-24 09:00:00", "subject": "", "paper_id": null}, {"result_id": 4, "user_id": "u2", "total": 25, "correct": 24, "wrong_question_ids": "[5]", "duration_seconds": 1100, "timestamp": "2026-05-26 10:30:00", "subject": "", "paper_id": null}, {"result_id": 5, "user_id": "u2", "total": 15, "correct": 15, "wrong_question_ids": "[]", "duration_seconds": 600, "timestamp": "2026-05-27 08:00:00", "subject": "", "paper_id": null}, {"result_id": 6, "user_id": "u5", "total": 12, "correct": 9, "wrong_question_ids": "[4,7,10]", "duration_seconds": 800, "timestamp": "2026-05-23 15:00:00", "subject": "", "paper_id": null}, {"result_id": 7, "user_id": "u5", "total": 18, "correct": 14, "wrong_question_ids": "[2,6,8,11]", "duration_seconds": 1300, "timestamp": "2026-05-25 11:00:00", "subject": "", "paper_id": null}, {"result_id": 8, "user_id": "u5", "total": 10, "correct": 8, "wrong_question_ids": "[3,9]", "duration_seconds": 700, "timestamp": "2026-05-27 14:00:00", "subject": "", "paper_id": null}, {"result_id": 9, "user_id": "u6", "total": 30, "correct": 27, "wrong_question_ids": "[1,4,12]", "duration_seconds": 1500, "timestamp": "2026-05-22 10:00:00", "subject": "", "paper_id": null}, {"result_id": 10, "user_id": "u6", "total": 20, "correct": 19, "wrong_question_ids": "[8]", "duration_seconds": 950, "timestamp": "2026-05-24 16:00:00", "subject": "", "paper_id": null}, {"result_id": 11, "user_id": "u6", "total": 25, "correct": 22, "wrong_question_ids": "[2,6,13]", "duration_seconds": 1200, "timestamp": "2026-05-27 09:30:00", "subject": "", "paper_id": null}]}, "remedial_materials": {"name": "remedial_materials", "sql": "CREATE TABLE remedial_materials (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          user_id VARCHAR NOT NULL,\n          subject VARCHAR NOT NULL,\n          content TEXT NOT NULL,\n          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n          UNIQUE (user_id, subject) ON CONFLICT REPLACE\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "subject", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "content", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 5, "name": "updated_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [], "rowCount": 0, "rows": []}, "tags": {"name": "tags", "sql": "CREATE TABLE tags (\n        tag_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        name VARCHAR NOT NULL UNIQUE\n      )", "columns": [{"cid": 0, "name": "tag_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "name", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}], "foreign_keys": [], "rowCount": 3, "rows": [{"tag_id": 1, "name": "第二章 資料庫管理"}, {"tag_id": 2, "name": "師說"}, {"tag_id": 3, "name": "面積"}]}, "todos": {"name": "todos", "sql": "CREATE TABLE todos (\n        todo_id INTEGER PRIMARY KEY AUTOINCREMENT,\n        user_id VARCHAR NOT NULL,\n        text TEXT NOT NULL,\n        done BOOLEAN DEFAULT 0,\n        done_at DATETIME,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE\n      )", "columns": [{"cid": 0, "name": "todo_id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "done", "type": "BOOLEAN", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 4, "name": "done_at", "type": "DATETIME", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 5, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "user_id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 1, "rows": [{"todo_id": 1, "user_id": "u1", "text": "確認 AutoCAD 圓角圖層", "done": 0, "done_at": null, "created_at": "2026-03-30 00:00:00"}]}, "user_papers": {"name": "user_papers", "sql": "CREATE TABLE user_papers (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          user_id VARCHAR NOT NULL,\n          name VARCHAR NOT NULL,\n          question_ids TEXT NOT NULL DEFAULT '[]',\n          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "name", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "question_ids", "type": "TEXT", "notnull": 1, "dflt_value": "'[]'", "pk": 0}, {"cid": 4, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "users", "from": "user_id", "to": "id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}, "users": {"name": "users", "sql": "CREATE TABLE users (\n        user_id VARCHAR PRIMARY KEY,\n        username VARCHAR NOT NULL UNIQUE,\n        email VARCHAR NOT NULL UNIQUE,\n        hashed_password TEXT NOT NULL,\n        bio TEXT DEFAULT '',\n        tags TEXT DEFAULT '[]',\n        avatar_blob BLOB,\n        avatar_color INTEGER DEFAULT 0,\n        avatar_selected INTEGER DEFAULT 0,\n        nickname_updated_at DATETIME,\n        is_email_verified INTEGER DEFAULT 0,\n        font_size_factor REAL DEFAULT 1.0,\n        theme_color_idx INTEGER DEFAULT 0,\n        is_dark_mode INTEGER DEFAULT 0,\n        gemini_api_key TEXT,\n        is_google INTEGER DEFAULT 0,\n        calendar_view_mode TEXT DEFAULT 'dot',\n        social_feed_layout TEXT DEFAULT 'card',\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n      , deleted_at DATETIME, show_floating_nav_bar INTEGER DEFAULT 0, push_notifications_enabled INTEGER DEFAULT 1, language TEXT DEFAULT 'zh_TW', is_currently_logged_in INTEGER DEFAULT 0, has_seen_tour INTEGER DEFAULT 0, nav_bar_items TEXT DEFAULT 'calendar,quiz,social,notes,social_feed', membership_tier TEXT DEFAULT 'free', membership_expires_at DATETIME, points_balance INTEGER DEFAULT 100, last_daily_reward_at DATETIME)", "columns": [{"cid": 0, "name": "user_id", "type": "VARCHAR", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "username", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "email", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "hashed_password", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 4, "name": "bio", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 5, "name": "tags", "type": "TEXT", "notnull": 0, "dflt_value": "'[]'", "pk": 0}, {"cid": 6, "name": "avatar_blob", "type": "BLOB", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 7, "name": "avatar_color", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 8, "name": "avatar_selected", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 9, "name": "nickname_updated_at", "type": "DATETIME", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 10, "name": "is_email_verified", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 11, "name": "font_size_factor", "type": "REAL", "notnull": 0, "dflt_value": "1.0", "pk": 0}, {"cid": 12, "name": "theme_color_idx", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 13, "name": "is_dark_mode", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 14, "name": "gemini_api_key", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 15, "name": "is_google", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 16, "name": "calendar_view_mode", "type": "TEXT", "notnull": 0, "dflt_value": "'dot'", "pk": 0}, {"cid": 17, "name": "social_feed_layout", "type": "TEXT", "notnull": 0, "dflt_value": "'card'", "pk": 0}, {"cid": 18, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}, {"cid": 19, "name": "deleted_at", "type": "DATETIME", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 20, "name": "show_floating_nav_bar", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 21, "name": "push_notifications_enabled", "type": "INTEGER", "notnull": 0, "dflt_value": "1", "pk": 0}, {"cid": 22, "name": "language", "type": "TEXT", "notnull": 0, "dflt_value": "'zh_TW'", "pk": 0}, {"cid": 23, "name": "is_currently_logged_in", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 24, "name": "has_seen_tour", "type": "INTEGER", "notnull": 0, "dflt_value": "0", "pk": 0}, {"cid": 25, "name": "nav_bar_items", "type": "TEXT", "notnull": 0, "dflt_value": "'calendar,quiz,social,notes,social_feed'", "pk": 0}, {"cid": 26, "name": "membership_tier", "type": "TEXT", "notnull": 0, "dflt_value": "'free'", "pk": 0}, {"cid": 27, "name": "membership_expires_at", "type": "DATETIME", "notnull": 0, "dflt_value": null, "pk": 0}, {"cid": 28, "name": "points_balance", "type": "INTEGER", "notnull": 0, "dflt_value": "100", "pk": 0}, {"cid": 29, "name": "last_daily_reward_at", "type": "DATETIME", "notnull": 0, "dflt_value": null, "pk": 0}], "foreign_keys": [], "rowCount": 6, "rows": [{"user_id": "u1", "username": "Sharon", "email": "sharon@gmail.com", "hashed_password": "mock_password", "bio": "", "tags": "[]", "avatar_blob": null, "avatar_color": 0, "avatar_selected": 0, "nickname_updated_at": null, "is_email_verified": 0, "font_size_factor": 1.0, "theme_color_idx": 0, "is_dark_mode": 0, "gemini_api_key": null, "is_google": 0, "calendar_view_mode": "dot", "social_feed_layout": "card", "created_at": "2026-06-09 10:37:58", "deleted_at": null, "show_floating_nav_bar": 0, "push_notifications_enabled": 1, "language": "zh_TW", "is_currently_logged_in": 0, "has_seen_tour": 0, "nav_bar_items": "calendar,quiz,social,notes,social_feed", "membership_tier": "free", "membership_expires_at": null, "points_balance": 100, "last_daily_reward_at": null}, {"user_id": "u2", "username": "陳教授", "email": "prof@gmail.com", "hashed_password": "mock_password", "bio": "", "tags": "[]", "avatar_blob": null, "avatar_color": 0, "avatar_selected": 0, "nickname_updated_at": null, "is_email_verified": 0, "font_size_factor": 1.0, "theme_color_idx": 0, "is_dark_mode": 0, "gemini_api_key": null, "is_google": 0, "calendar_view_mode": "dot", "social_feed_layout": "card", "created_at": "2026-06-09 10:37:58", "deleted_at": null, "show_floating_nav_bar": 0, "push_notifications_enabled": 1, "language": "zh_TW", "is_currently_logged_in": 0, "has_seen_tour": 0, "nav_bar_items": "calendar,quiz,social,notes,social_feed", "membership_tier": "free", "membership_expires_at": null, "points_balance": 100, "last_daily_reward_at": null}, {"user_id": "u3", "username": "系統", "email": "sys@gmail.com", "hashed_password": "mock_password", "bio": "", "tags": "[]", "avatar_blob": null, "avatar_color": 0, "avatar_selected": 0, "nickname_updated_at": null, "is_email_verified": 0, "font_size_factor": 1.0, "theme_color_idx": 0, "is_dark_mode": 0, "gemini_api_key": null, "is_google": 0, "calendar_view_mode": "dot", "social_feed_layout": "card", "created_at": "2026-06-09 10:37:58", "deleted_at": null, "show_floating_nav_bar": 0, "push_notifications_enabled": 1, "language": "zh_TW", "is_currently_logged_in": 0, "has_seen_tour": 0, "nav_bar_items": "calendar,quiz,social,notes,social_feed", "membership_tier": "free", "membership_expires_at": null, "points_balance": 100, "last_daily_reward_at": null}, {"user_id": "u4", "username": "訪客", "email": "guest@gmail.com", "hashed_password": "mock_password", "bio": "", "tags": "[]", "avatar_blob": null, "avatar_color": 0, "avatar_selected": 0, "nickname_updated_at": null, "is_email_verified": 0, "font_size_factor": 1.0, "theme_color_idx": 0, "is_dark_mode": 0, "gemini_api_key": null, "is_google": 0, "calendar_view_mode": "dot", "social_feed_layout": "card", "created_at": "2026-06-09 10:37:58", "deleted_at": null, "show_floating_nav_bar": 0, "push_notifications_enabled": 1, "language": "zh_TW", "is_currently_logged_in": 0, "has_seen_tour": 0, "nav_bar_items": "calendar,quiz,social,notes,social_feed", "membership_tier": "free", "membership_expires_at": null, "points_balance": 100, "last_daily_reward_at": null}, {"user_id": "u5", "username": "李同學", "email": "lee@gmail.com", "hashed_password": "mock_password", "bio": "", "tags": "[]", "avatar_blob": null, "avatar_color": 0, "avatar_selected": 0, "nickname_updated_at": null, "is_email_verified": 0, "font_size_factor": 1.0, "theme_color_idx": 0, "is_dark_mode": 0, "gemini_api_key": null, "is_google": 0, "calendar_view_mode": "dot", "social_feed_layout": "card", "created_at": "2026-06-09 10:37:58", "deleted_at": null, "show_floating_nav_bar": 0, "push_notifications_enabled": 1, "language": "zh_TW", "is_currently_logged_in": 0, "has_seen_tour": 0, "nav_bar_items": "calendar,quiz,social,notes,social_feed", "membership_tier": "free", "membership_expires_at": null, "points_balance": 100, "last_daily_reward_at": null}, {"user_id": "u6", "username": "陳助教", "email": "ta@gmail.com", "hashed_password": "mock_password", "bio": "", "tags": "[]", "avatar_blob": null, "avatar_color": 0, "avatar_selected": 0, "nickname_updated_at": null, "is_email_verified": 0, "font_size_factor": 1.0, "theme_color_idx": 0, "is_dark_mode": 0, "gemini_api_key": null, "is_google": 0, "calendar_view_mode": "dot", "social_feed_layout": "card", "created_at": "2026-06-09 10:37:58", "deleted_at": null, "show_floating_nav_bar": 0, "push_notifications_enabled": 1, "language": "zh_TW", "is_currently_logged_in": 0, "has_seen_tour": 0, "nav_bar_items": "calendar,quiz,social,notes,social_feed", "membership_tier": "free", "membership_expires_at": null, "points_balance": 100, "last_daily_reward_at": null}]}, "wrong_questions": {"name": "wrong_questions", "sql": "CREATE TABLE wrong_questions (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          user_id VARCHAR NOT NULL,\n          question_id INTEGER NOT NULL,\n          note TEXT DEFAULT '',\n          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,\n          FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE\n        )", "columns": [{"cid": 0, "name": "id", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1}, {"cid": 1, "name": "user_id", "type": "VARCHAR", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 2, "name": "question_id", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0}, {"cid": 3, "name": "note", "type": "TEXT", "notnull": 0, "dflt_value": "''", "pk": 0}, {"cid": 4, "name": "created_at", "type": "DATETIME", "notnull": 0, "dflt_value": "CURRENT_TIMESTAMP", "pk": 0}], "foreign_keys": [{"id": 0, "seq": 0, "table": "questions", "from": "question_id", "to": "id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}, {"id": 1, "seq": 0, "table": "users", "from": "user_id", "to": "id", "on_update": "NO ACTION", "on_delete": "CASCADE", "match": "NONE"}], "rowCount": 0, "rows": []}};
+
+    function init() {
+      // Populate live data previews and row counts
+      Object.keys(DB_DATA).forEach(tableName => {
+        const tData = DB_DATA[tableName];
+        const countEl = document.getElementById(`count-${tableName}`);
+        if (countEl) {
+          countEl.innerText = tData.rowCount;
+        }
+
+        const thead = document.getElementById(`live-thead-${tableName}`);
+        const tbody = document.getElementById(`live-tbody-${tableName}`);
+        if (thead && tbody) {
+          // Headers
+          const trHead = document.createElement('tr');
+          tData.columns.forEach(col => {
+            const th = document.createElement('th');
+            th.innerText = col.name;
+            trHead.appendChild(th);
+          });
+          thead.appendChild(trHead);
+
+          // Rows (up to 10 preview)
+          if (tData.rows.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="${tData.columns.length}" style="text-align:center; color:#94a3b8;">當前資料表尚無資料記錄</td>`;
+            tbody.appendChild(tr);
+          } else {
+            tData.rows.slice(0, 10).forEach(r => {
+              const tr = document.createElement('tr');
+              tData.columns.forEach(col => {
+                const td = document.createElement('td');
+                const val = r[col.name];
+                td.innerText = val === null ? 'NULL' : String(val);
+                tr.appendChild(td);
+              });
+              tbody.appendChild(tr);
+            });
+          }
+        }
+      });
+    }
+
+    function jumpToTable(tableId) {
+      if (!tableId) return;
+      const el = document.getElementById(tableId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function toggleLiveData(tableName) {
+      const el = document.getElementById(`live-data-${tableName}`);
+      if (el) {
+        el.classList.toggle('show');
+      }
+    }
+
+    let allExpanded = false;
+    function toggleAllData() {
+      allExpanded = !allExpanded;
+      document.querySelectorAll('.live-data-container').forEach(el => {
+        if (allExpanded) {
+          el.classList.add('show');
+        } else {
+          el.classList.remove('show');
+        }
+      });
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
