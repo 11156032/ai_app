@@ -2011,12 +2011,37 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
 注意：總字數請控制在 80~120 字之間，文字親切溫暖。
 ''';
 
-    // 1. 嘗試 Cloudflare Groq / Compound
+    // 1. 優先嘗試直連 Gemini API (Streaming 串流極速輸出)
+    final apiKey = _kSystemGeminiApiKey;
+    if (apiKey.isNotEmpty) {
+      try {
+        final model = GenerativeModel(
+          model: 'gemini-1.5-flash',
+          apiKey: apiKey,
+        );
+        final responseStream = model
+            .generateContentStream([Content.text(prompt)])
+            .timeout(const Duration(seconds: 6));
+        final buffer = StringBuffer();
+        await for (final response in responseStream) {
+          final textChunk = response.text;
+          if (textChunk != null && textChunk.isNotEmpty) {
+            buffer.write(textChunk);
+            yield toTraditionalChinese(cleanThinkingTags(buffer.toString().trim()));
+          }
+        }
+        if (buffer.isNotEmpty) return;
+      } catch (e) {
+        debugPrint('AI 日記建議 Gemini 串流失敗: $e');
+      }
+    }
+
+    // 2. 嘗試 Cloudflare Groq / Compound ( Timeout 縮短至 3 秒)
     try {
       final text = await _tryCloudflareProxy(
         provider: 'groq',
         prompt: prompt,
-        timeoutSeconds: 8,
+        timeoutSeconds: 3,
       );
       if (text != null && text.isNotEmpty) {
         yield toTraditionalChinese(cleanThinkingTags(text.trim()));
@@ -2026,31 +2051,12 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       debugPrint('AI 日記建議 Groq 失敗: $e');
     }
 
-    // 2. 嘗試 Gemini API
-    final apiKey = _kSystemGeminiApiKey;
-    if (apiKey.isNotEmpty) {
-      try {
-        final model = GenerativeModel(
-          model: 'gemini-1.5-flash',
-          apiKey: apiKey,
-        );
-        final response = await model.generateContent([Content.text(prompt)]);
-        final respText = response.text;
-        if (respText != null && respText.trim().isNotEmpty) {
-          yield toTraditionalChinese(cleanThinkingTags(respText.trim()));
-          return;
-        }
-      } catch (e) {
-        debugPrint('AI 日記建議 Gemini 失敗: $e');
-      }
-    }
-
-    // 3. 嘗試 OpenRouter / Cloudflare Gemini
+    // 3. 嘗試 OpenRouter / Cloudflare Gemini ( Timeout 縮短至 3 秒)
     try {
       final text = await _tryCloudflareProxy(
         provider: 'gemini',
         prompt: prompt,
-        timeoutSeconds: 8,
+        timeoutSeconds: 3,
       );
       if (text != null && text.isNotEmpty) {
         yield toTraditionalChinese(cleanThinkingTags(text.trim()));
