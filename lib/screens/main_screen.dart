@@ -13784,8 +13784,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   widget.currentUser['gemini_api_key'] =
                       newKey.isEmpty ? null : newKey;
                 });
-                if (mounted) {
+                if (ctx.mounted) {
                   Navigator.pop(ctx);
+                }
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(newKey.isEmpty
