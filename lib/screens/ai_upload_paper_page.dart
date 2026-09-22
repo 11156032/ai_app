@@ -1072,8 +1072,8 @@ $pdfExtractedText
 
       // Show success popup
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
             content: Text('成功建立題本「$paperName」！包含 ${_questions.length} 題。'),
             backgroundColor: Colors.green,
           ),
@@ -1108,8 +1108,8 @@ $pdfExtractedText
   }
 
   void _showErrorSnackBar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
         content: Text(msg),
         backgroundColor: Colors.redAccent,
       ),

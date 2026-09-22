@@ -171,13 +171,13 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       }
       await loadWrongQuestions();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_currentMode == 0 ? '已從錯題本移除' : '已取消收藏')));
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(_currentMode == 0 ? '已從錯題本移除' : '已取消收藏')));
     } catch (e) {
       debugPrint('操作失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('操作失敗')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('操作失敗')));
     }
   }
 
@@ -199,7 +199,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
 
       if (qids.isEmpty) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('選取項目無題目')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('選取項目無題目')));
         return;
       }
       final db = await DatabaseHelper.instance.database;
@@ -239,7 +239,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       debugPrint('啟動練習失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('無法啟動練習')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('無法啟動練習')));
     }
   }
 
@@ -381,8 +381,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
         );
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已建立並成功加入「$newPaperName」')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已建立並成功加入「$newPaperName」')),
         );
         _exitSelectionMode();
         return;
@@ -401,20 +401,20 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
 
       if (!mounted) return;
       if (addedCount == 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('選取的題目已存在於「$paperName」中')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('選取的題目已存在於「$paperName」中')),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已成功加入 $addedCount 題至「$paperName」！')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已成功加入 $addedCount 題至「$paperName」！')),
         );
       }
       _exitSelectionMode();
     } catch (e) {
       debugPrint('批次加到題本失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('加入失敗，請稍後再試')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('加入失敗，請稍後再試')),
       );
     }
   }
@@ -466,7 +466,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   //       if (rows.isEmpty) {
   //         if (mounted) {
   //           Navigator.pop(context);
-  //           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('找不到題目資料')));
+  //           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('找不到題目資料')));
   //         }
   //         return;
   //       }
@@ -498,8 +498,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   //
   //       if (mounted) {
   //         Navigator.pop(context); // 關閉讀取框
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           const SnackBar(
+  //         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+  //           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
   //             content: Text('🎉 題目已成功分享至社群論壇！'),
   //             backgroundColor: Theme.of(context).primaryColor,
   //           ),
@@ -508,8 +508,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   //     } catch (e) {
   //       if (mounted) {
   //         Navigator.pop(context); // 關閉讀取框
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           SnackBar(
+  //         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+  //           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
   //             content: Text('分享失敗: $e'),
   //             backgroundColor: Colors.redAccent,
   //           ),
@@ -556,11 +556,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
             where: 'bookmarked = 1');
       }
       await loadWrongQuestions();
-      messenger.showSnackBar(
-          SnackBar(content: Text(_currentMode == 0 ? '錯題本已清空' : '已清空所有收藏')));
+      messenger..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(_currentMode == 0 ? '錯題本已清空' : '已清空所有收藏')));
     } catch (e) {
       debugPrint('清空失敗: $e');
-      messenger.showSnackBar(const SnackBar(content: Text('清空失敗')));
+      messenger..hideCurrentSnackBar()..showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('清空失敗')));
     }
   }
 
@@ -901,12 +901,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
 
                                               messenger.hideCurrentSnackBar();
                                               if (nextVal == 0) {
-                                                messenger.showSnackBar(
+                                                messenger..hideCurrentSnackBar()..showSnackBar(
                                                   SnackBar(
                                                     content:
                                                         const Text('已取消收藏'),
-                                                    duration: const Duration(
-                                                        seconds: 3),
+                                                    duration: const Duration(milliseconds: 1500),
                                                     action: SnackBarAction(
                                                       label: '復原',
                                                       textColor: Colors.amber,
@@ -931,7 +930,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                   ),
                                                 );
                                               } else {
-                                                messenger.showSnackBar(
+                                                messenger..hideCurrentSnackBar()..showSnackBar(
                                                   const SnackBar(
                                                     content: Text('已加入收藏'),
                                                     duration: Duration(
@@ -1167,8 +1166,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                 await DatabaseHelper.instance
                                                     .deleteWrongQuestionByRecordId(
                                                         rid);
-                                                messenger.showSnackBar(
-                                                    const SnackBar(
+                                                messenger..hideCurrentSnackBar()..showSnackBar(
+                                                    SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                                         content:
                                                             Text('已從錯題本移除')));
                                                 await loadWrongQuestions();
@@ -1187,12 +1186,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                 });
 
                                                 messenger.hideCurrentSnackBar();
-                                                messenger.showSnackBar(
+                                                messenger..hideCurrentSnackBar()..showSnackBar(
                                                   SnackBar(
                                                     content:
                                                         const Text('已取消收藏'),
-                                                    duration: const Duration(
-                                                        seconds: 3),
+                                                    duration: const Duration(milliseconds: 1500),
                                                     action: SnackBarAction(
                                                       label: '復原',
                                                       textColor: Colors.amber,

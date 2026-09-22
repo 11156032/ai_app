@@ -473,7 +473,7 @@ class _NotesScreenState extends State<NotesScreen> {
     if (manager.lastCompletedResult != null && manager.lastCreatedNote != null) {
       final newNote = manager.lastCreatedNote!;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -547,8 +547,8 @@ class _NotesScreenState extends State<NotesScreen> {
   Future<void> _showVoiceNoteSheet() async {
     final userId = widget.currentUser['id']?.toString() ?? '';
     if (userId == 'u4') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('訪客帳戶無法使用語音筆記功能，請先登入！')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('訪客帳戶無法使用語音筆記功能，請先登入！')),
       );
       return;
     }
@@ -589,7 +589,7 @@ class _NotesScreenState extends State<NotesScreen> {
             NotesDatabase.notes.insert(0, newNote);
             _refresh();
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                 SnackBar(
                   content: Row(
                     children: [
@@ -607,7 +607,7 @@ class _NotesScreenState extends State<NotesScreen> {
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
-                  duration: const Duration(seconds: 2),
+                  duration: const Duration(milliseconds: 1500),
                 ),
               );
             }
@@ -921,7 +921,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 NotesDatabase.notes.remove(note);
               });
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
+              ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                 const SnackBar(
                     content: Text('筆記已刪除 🗑️'), duration: Duration(seconds: 1)),
               );
@@ -996,18 +996,18 @@ class _NotesScreenState extends State<NotesScreen> {
                                 setState(() {});
                                 addController.clear();
                                 // 彈出明確新增成功 SnackBar 提示
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                                   SnackBar(
                                     content:
                                         Text('🎉 分類標籤「$newCat」新增成功！已排在列表最前。'),
                                     backgroundColor:
                                         Theme.of(context).primaryColor,
-                                    duration: const Duration(seconds: 2),
+                                    duration: const Duration(milliseconds: 1500),
                                   ),
                                 );
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
+                                ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                     content: Text('⚠️ 此分類標籤已經存在！'),
                                     backgroundColor: Colors.orange,
                                   ),
@@ -1088,7 +1088,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                         setState(() {});
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(
-                                          SnackBar(
+                                          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                               content: Text('已刪除分類標籤「$cat」')),
                                         );
                                       },
@@ -2008,7 +2008,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         if (mounted) {
           Navigator.pop(context); // 關閉讀取框
           messenger.clearSnackBars();
-          messenger.showSnackBar(
+          messenger..hideCurrentSnackBar()..showSnackBar(
             SnackBar(
               content: Row(
                 children: [
@@ -2035,7 +2035,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         if (mounted) {
           Navigator.pop(context); // 關閉讀取框
           messenger.clearSnackBars();
-          messenger.showSnackBar(
+          messenger..hideCurrentSnackBar()..showSnackBar(
             SnackBar(
               content: Text('分享失敗: $e'),
               backgroundColor: Colors.redAccent,
@@ -2058,7 +2058,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     if (_isBlank) {
       NotesDatabase.notes.remove(widget.note);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           const SnackBar(
             content: Text('已自動捨棄空白筆記 🗑️'),
             duration: Duration(milliseconds: 800),
@@ -2070,7 +2070,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
 
     _autoSave();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         const SnackBar(
           content: Text('筆記已自動儲存 💾'),
           duration: Duration(milliseconds: 800),
@@ -2105,7 +2105,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               NotesDatabase.notes.remove(widget.note);
               Navigator.pop(ctx);
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+              ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                 const SnackBar(
                   content: Text('筆記已刪除 🗑️'),
                   duration: Duration(seconds: 1),
@@ -2166,8 +2166,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             _autoSave();
             if (mounted) {
               setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+              ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                SnackBar(duration: const Duration(milliseconds: 1500), 
                   content: const Row(
                     children: [
                       Icon(Icons.check_circle, color: Colors.white, size: 18),
@@ -3194,8 +3194,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   _currentCategory = newCat;
                 });
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('🎉 已新增並套用分類「$newCat」！')),
+                ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('🎉 已新增並套用分類「$newCat」！')),
                 );
               }
             },

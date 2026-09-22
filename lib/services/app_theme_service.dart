@@ -108,6 +108,13 @@ class AppThemeService {
           foregroundColor: Colors.white,
         ),
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 4,
+      ),
     );
   }
 }

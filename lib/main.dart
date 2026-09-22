@@ -125,7 +125,7 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   Map<String, dynamic>? _currentUser;
-  bool _isInitializing = true; // APP 啟動時先顯示載入動畫
+  bool _isInitializing = true; // APP 啟動時先顯示精緻載入動畫
 
   @override
   void initState() {
@@ -133,8 +133,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
     _checkAutoLogin();
   }
 
-  /// APP 啟動時，從資料庫讀取是否有已登入的使用者
+  /// APP 啟動時，從資料庫讀取是否有已登入的使用者，並確保開屏動畫流暢銜接
   Future<void> _checkAutoLogin() async {
+    final stopwatch = Stopwatch()..start();
     try {
       final user = await DatabaseHelper.instance
           .getLoggedInUser()
@@ -153,6 +154,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
           AppLocaleService.setLanguage(user['language'].toString());
         }
       }
+
+      // 確保開屏畫面至少優雅停留 650ms，避免開屏快閃破綻
+      final elapsed = stopwatch.elapsedMilliseconds;
+      if (elapsed < 650) {
+        await Future.delayed(Duration(milliseconds: 650 - elapsed));
+      }
+
       if (mounted) {
         setState(() {
           _currentUser = user;
@@ -161,6 +169,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
     } catch (e) {
       debugPrint('Auto-login check failed: $e');
+      final elapsed = stopwatch.elapsedMilliseconds;
+      if (elapsed < 650) {
+        await Future.delayed(Duration(milliseconds: 650 - elapsed));
+      }
       if (mounted) {
         setState(() => _isInitializing = false);
       }
@@ -212,45 +224,161 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // 啟動初始化中 — 顯示精簡的啟動畫面
-    if (_isInitializing) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFFAF8F6),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const YeBangAppLogo(
-                size: 76,
-                showOrbitRings: true,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'YeBang 家教',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF4E342E),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8D6E63)),
-                ),
-              ),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      child: _isInitializing
+          ? const _SmoothAppSplash(key: ValueKey('app_splash'))
+          : KeyedSubtree(
+              key: ValueKey(_currentUser != null
+                  ? 'main_${_currentUser!['id']}'
+                  : 'login_screen'),
+              child: _currentUser == null
+                  ? LoginScreen(onLogin: _login)
+                  : MainScreen(currentUser: _currentUser!, onLogout: _logout),
+            ),
+    );
+  }
+}
+
+/// 進入 APP 的絲滑品牌開屏畫面
+class _SmoothAppSplash extends StatefulWidget {
+  const _SmoothAppSplash({super.key});
+
+  @override
+  State<_SmoothAppSplash> createState() => _SmoothAppSplashState();
+}
+
+class _SmoothAppSplashState extends State<_SmoothAppSplash>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.90, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+      ),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAF8F6),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFCFAF8),
+              Color(0xFFF7F2EE),
             ],
           ),
         ),
-      );
-    }
-
-    return _currentUser == null
-        ? LoginScreen(onLogin: _login)
-        : MainScreen(currentUser: _currentUser!, onLogout: _logout);
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _fadeAnimation.value,
+                child: Transform.scale(
+                  scale: _scaleAnimation.value,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF8D6E63).withValues(alpha: 0.16),
+                              blurRadius: 28,
+                              spreadRadius: 2,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const YeBangAppLogo(
+                          size: 82,
+                          showOrbitRings: true,
+                        ),
+                      ),
+                      const SizedBox(height: 26),
+                      const Text(
+                        'YeBang 家教',
+                        style: TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF3E2723),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '智慧陪伴 • 卓越學習',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF8D6E63).withValues(alpha: 0.85),
+                          letterSpacing: 2.0,
+                        ),
+                      ),
+                      const SizedBox(height: 36),
+                      SizedBox(
+                        width: 110,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: const LinearProgressIndicator(
+                            minHeight: 2.8,
+                            backgroundColor: Color(0xFFEFEBE9),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Color(0xFF8D6E63)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/ai_action_cards.dart';
 import '../services/ai_intent_service.dart';
 import 'question_list_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -220,7 +221,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.7.8';
+  String _appVersion = 'v1.8.0';
   String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
@@ -300,6 +301,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String? _selectedFolder;
   // ignore: unused_field
   String? _selectedSubjectForStudy; // 新增：追蹤題庫中選擇的科目
+  int _profileInitialTabIndex = 0;
 
   String _aiFlowState = 'none';
   Map<String, dynamic> _aiFlowData = {};
@@ -361,7 +363,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final messenger = ScaffoldMessenger.maybeOf(context);
         if (messenger != null) {
           messenger.clearSnackBars();
-          messenger.showSnackBar(
+          messenger..hideCurrentSnackBar()..showSnackBar(
             SnackBar(
               content: Row(
                 children: [
@@ -387,7 +389,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               behavior: SnackBarBehavior.floating,
               shape:
                   RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              duration: const Duration(seconds: 2),
+              duration: const Duration(milliseconds: 1500),
             ),
           );
         }
@@ -498,14 +500,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     await _loadData();
 
-    // 每次進入首頁自動彈出贊助廣告視窗 (高等級 VIP 自動免廣告)
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) {
-        final userId = widget.currentUser['id']?.toString() ?? '';
-        AdPopupDialog.show(context, userId: userId);
-      }
-    });
-
     // 首次登入自動觸發歡迎頁 + 互動引導（非訪客且還未看過）
     if (widget.currentUser['id'] != 'u4') {
       final seen = await DatabaseHelper.instance
@@ -513,6 +507,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!seen && mounted) {
         Future.delayed(const Duration(milliseconds: 600), () {
           if (mounted) _showWelcomeSplash();
+        });
+      } else if (mounted) {
+        // 使用者已就緒後優雅觸發贊助廣告（高等級 VIP 自動免廣告，且不干擾開屏體驗）
+        Future.delayed(const Duration(milliseconds: 2500), () {
+          if (mounted && _welcomeSplashEntry == null) {
+            final userId = widget.currentUser['id']?.toString() ?? '';
+            AdPopupDialog.show(context, userId: userId);
+          }
         });
       }
     }
@@ -527,7 +529,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         userName: _displayName,
         initialTopicIds: _userJoinedTopicIds,
         onDone: (selectedTopicIds, [preferences]) async {
-          // 關閉歡迎頁
+          // 關閉歡迎頁（在透明化後移除）
           _welcomeSplashEntry?.remove();
           _welcomeSplashEntry = null;
 
@@ -1556,15 +1558,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         featureIndex: 1,
         stepInFeature: 3,
         totalInFeature: 3,
-        targetPageIndex: 0,
-        targetKey: _tourAiChatBarKey,
-        title: '推薦開啟底部導覽列 🚀',
+        targetPageIndex: 4,
+        targetKey: TourKeys.bottomNavSettingKey,
+        title: '個人化：開啟與自訂底部導覽列 🚀',
         description:
-            '想更快速單手切換頁面？推薦前往「個人檔案 ➜ 設定與安全 ➜ 個人化設定」開啟「顯示底部導覽列」，還能自訂常用按鈕順序與 AI 快捷鍵！',
+            '在「個人檔案 ➜ 設定與安全 ➜ 個人化設定」中，你可以自由開啟「顯示底部導覽列」，並能自訂常用按鈕順序與中央 AI 智慧助理快捷鍵！',
         onEnter: () {
           if (_scaffoldKey.currentState?.isDrawerOpen == true) {
             Navigator.of(context).maybePop();
           }
+          final isMainScreenCurrent =
+              ModalRoute.of(context)?.isCurrent ?? true;
+          if (!isMainScreenCurrent && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          setState(() {
+            _profileInitialTabIndex = 1;
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.delayed(const Duration(milliseconds: 350), () {
+              if (TourKeys.bottomNavSettingKey.currentContext != null) {
+                Scrollable.ensureVisible(
+                  TourKeys.bottomNavSettingKey.currentContext!,
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOut,
+                  alignment: 0.75,
+                );
+              }
+            });
+          });
         },
         onLeaveBackward: () {
           final isMainScreenCurrent =
@@ -1572,17 +1594,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           if (!isMainScreenCurrent && Navigator.canPop(context)) {
             Navigator.pop(context);
           }
+          if (mounted) {
+            setState(() {
+              _profileInitialTabIndex = 0;
+            });
+          }
         },
       ),
     ];
 
-    // Block C：📝 錯題考卷（3 步）
+    // Block C：📝 錯題考卷（1 步）
     final questionBankBlock = [
       TourStep(
         featureTitle: '📝 錯題考卷',
         featureIndex: 2,
         stepInFeature: 1,
-        totalInFeature: 3,
+        totalInFeature: 1,
         targetPageIndex: 1,
         targetKey: null,
         title: '進入題庫系統',
@@ -1600,29 +1627,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           }
         },
       ),
-      TourStep(
-        featureTitle: '📝 錯題考卷',
-        featureIndex: 2,
-        stepInFeature: 2,
-        totalInFeature: 3,
-        targetPageIndex: 1,
-        targetKey: TourKeys.wrongQuestionsTabKey,
-        title: '切換「錯題」分頁',
-        description: '切換至第三個「錯題」分頁，查看所有曾經答錯的題目紀錄，一次看清弱點。',
-      ),
-      TourStep(
-        featureTitle: '📝 錯題考卷',
-        featureIndex: 2,
-        stepInFeature: 3,
-        totalInFeature: 3,
-        targetPageIndex: 1,
-        targetKey: TourKeys.startPracticeFabKey,
-        title: '開始全錯題複習',
-        description: '點擊右下角「開始練習全部」，系統彙整所有錯題成考卷，立即進行測驗！',
-      ),
     ];
 
-    // Block D：📒 智慧筆記（僅文字說明，指向筆記本頁）
+    // Block D：📒 智慧筆記（包含語音轉心智圖即時互動演示）
     final notesBlock = [
       TourStep(
         featureTitle: '📒 智慧筆記',
@@ -1633,11 +1640,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         targetKey: null,
         title: '語音轉心智圖筆記',
         description:
-            '在筆記頁面，你可以錄音後自動生成含說話者與時間戳的逐字稿，再一鍵轉換為結構化心智圖！',
+            '在筆記頁面，你可以錄音後自動生成含說話者與時間戳的逐字稿，再一鍵轉換為結構化心智圖！下方提供即時互動展示：',
         skipForGuest: true,
         guestNote: '🔒 此功能需要正式帳號才能使用。',
         recommendReason: _resolveRecommendReason(
             featureKey: 'notes', prefs: prefs),
+        customPreviewBuilder: (_) => const VoiceToMindMapTourDemo(),
         onEnter: () {
           if (_scaffoldKey.currentState?.isDrawerOpen == true) {
             Navigator.of(context).maybePop();
@@ -1716,6 +1724,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           // 只在 Block 第一步顯示推薦理由
           recommendReason:
               step.stepInFeature == 1 ? step.recommendReason : null,
+          customPreviewBuilder: step.customPreviewBuilder,
         ));
       }
     }
@@ -1723,7 +1732,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return result;
   }
 
-  void _startTour([UserOnboardingPreferences? prefs]) {
+  void _startTour([UserOnboardingPreferences? prefs, bool isManualReplay = false]) {
     if (_isTourActive) return;
     setState(() => _isTourActive = true);
 
@@ -1732,6 +1741,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       builder: (_) => TourOverlay(
         steps: _buildTourSteps(prefs: prefs),
         isGuest: widget.currentUser['id'] == 'u4',
+        showSkipConfirmation: !isManualReplay,
         onSkip: () => _stopTour(navigateToCalendar: true),
         onComplete: () async {
           _stopTour(navigateToCalendar: true);
@@ -1762,7 +1772,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _tourOverlayEntry?.remove();
     _tourOverlayEntry = null;
     if (mounted) {
-      setState(() => _isTourActive = false);
+      setState(() {
+        _isTourActive = false;
+        _profileInitialTabIndex = 0;
+      });
       if (navigateToCalendar) {
         if (widget.currentUser['id'] == 'u4') {
           setState(() {
@@ -1778,8 +1791,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _changePage(int index, String title) {
     if (index == 5 && widget.currentUser['id'] == 'u4') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('⚠️ 訪客帳戶無法使用筆記本功能，請註冊/登入正式帳號以開啟功能！'),
           backgroundColor: Colors.orange,
         ),
@@ -1787,8 +1800,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return;
     }
     if (index == 0 && widget.currentUser['id'] == 'u4') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('⚠️ 訪客帳戶無法使用日曆功能，請註冊/登入正式帳號以開啟功能！'),
           backgroundColor: Colors.orange,
         ),
@@ -2062,7 +2075,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 final newContent = contentController.text.trim();
                 if (newContent.isEmpty) {
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('貼文內容不能為空')));
+                      .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('貼文內容不能為空')));
                   return;
                 }
                 final db = await DatabaseHelper.instance.database;
@@ -2085,7 +2098,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 await _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('✅ 排程貼文已更新')));
+                      .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('✅ 排程貼文已更新')));
                 }
               },
               child: const Text('儲存'),
@@ -2097,30 +2110,43 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _publishAIPost(Map<String, dynamic> pData, bool isScheduled) async {
-    Navigator.pop(context);
+    if (Navigator.canPop(context)) Navigator.pop(context);
     _changePage(2, '社群');
     final db = await DatabaseHelper.instance.database;
     String tType = 'text';
-    if (pData['type'] == '學習筆記') tType = 'note';
-    if (pData['type'] == '心情文章') tType = 'diary';
-    if (pData['type'] == '分享資料') tType = 'share';
+    final rawType = pData['type']?.toString();
+    if (rawType == '學習筆記' || rawType == 'note') tType = 'note';
+    if (rawType == '心情文章' || rawType == 'mood') tType = 'mood';
+    if (rawType == '分享資料' || rawType == 'doc') tType = 'doc';
+    if (rawType == '學習 Pack' || rawType == 'learning_pack') tType = 'learning_pack';
 
-    String attached = '{}';
-    if (isScheduled) {
-      attached = '{"scheduled_at": "${pData['time']}"}';
+    final Map<String, dynamic> attachedMap = {};
+    if (isScheduled && pData['time'] != null && pData['time'].toString().isNotEmpty) {
+      attachedMap['scheduled_at'] = pData['time'].toString();
     }
+    final String attached = jsonEncode(attachedMap);
 
-    await db.insert('posts', <String, Object?>{
+    final newId = await db.insert('posts', <String, Object?>{
       'user_id': widget.currentUser['id'],
-      'content': pData['content'],
+      'content': pData['content'] ?? '',
       'type': tType,
       'attached_data': attached,
       'created_at': DateTime.now().toIso8601String(),
     });
+    if ((widget.currentUser['username'] ?? '') == '訪客') {
+      (widget.currentUser['session_post_ids'] as Set<int>?)?.add(newId);
+    }
     await _loadData();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(isScheduled ? '代理人已為您完成貼文排程！' : '貼文已立即發佈！')));
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.hideCurrentSnackBar();
+      messenger?..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(
+          content: Text(isScheduled ? '代理人已為您完成貼文排程！' : '貼文已立即發佈！'),
+          duration: const Duration(milliseconds: 1500),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -2177,8 +2203,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           whereArgs: [postId, userId],
         );
         if (mounted) {
-          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-            const SnackBar(content: Text('已取消收藏')),
+          ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已取消收藏')),
           );
         }
       } else {
@@ -2187,8 +2213,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           'user_id': userId,
         });
         if (mounted) {
-          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-            const SnackBar(content: Text('已收藏貼文')),
+          ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已收藏貼文')),
           );
         }
       }
@@ -2196,8 +2222,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('收藏操作失敗: $e');
       if (mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(content: Text('操作失敗，請稍後再試')),
+        ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('操作失敗，請稍後再試')),
         );
       }
     }
@@ -2233,8 +2259,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       setState(() {
         _calendarSubTab = 0;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('已新增行程：$title'),
           backgroundColor: Theme.of(context).primaryColor,
         ),
@@ -2242,8 +2268,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('新增行程失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('新增行程失敗，請稍後再試')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('新增行程失敗，請稍後再試')),
       );
     }
   }
@@ -2278,8 +2304,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           whereArgs: [id]);
       await _loadData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已更新行程：$title')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已更新行程：$title')),
       );
     } catch (e) {
       debugPrint('更新行程失敗: $e');
@@ -2293,8 +2319,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await db.delete('calendar_events', where: 'id = ?', whereArgs: [id]);
       await _loadData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('行程已刪除')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('行程已刪除')),
       );
     } catch (e) {
       debugPrint('刪除行程失敗: $e');
@@ -2322,8 +2348,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       });
       await _loadData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('已新增待辦：$title'),
           backgroundColor: Theme.of(context).primaryColor,
         ),
@@ -2331,8 +2357,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('新增待辦失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('新增待辦失敗，請稍後再試')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('新增待辦失敗，請稍後再試')),
       );
     }
   }
@@ -2343,8 +2369,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await db.delete('todos', where: 'id = ?', whereArgs: [int.parse(id)]);
       await _loadData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
             content: Text('待辦事項已刪除'), backgroundColor: Colors.redAccent),
       );
     } catch (e) {
@@ -2359,8 +2385,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           where: 'id = ?', whereArgs: [int.parse(id)]);
       await _loadData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已更新待辦事項為「$newText」')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已更新待辦事項為「$newText」')),
       );
     } catch (e) {
       debugPrint('更新待辦失敗: $e');
@@ -2391,8 +2417,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         await _loadData();
         _updateDiaryController(_selectedDate, force: true);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
             content: Text('日記已刪除'),
             backgroundColor: Colors.redAccent,
           ),
@@ -2451,8 +2477,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           reason: '生成 AI 回饋失敗退回',
         );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('AI 生成失敗，已自動退回扣除點數')),
+          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('AI 生成失敗，已自動退回扣除點數')),
           );
         }
       }
@@ -2760,8 +2786,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _loadData();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text(
               '已將「$title」規劃至行程中 ($startPart ~ ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')})'),
           backgroundColor: Theme.of(context).primaryColor,
@@ -2770,8 +2796,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('規劃行程失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('規劃行程失敗，請稍後再試')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('規劃行程失敗，請稍後再試')),
       );
     }
   }
@@ -3793,9 +3819,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           primaryColor: Theme.of(context).primaryColor,
                         ),
                       if (!_showFloatingNavBar &&
+                          !_isTourActive &&
                           (_currentIndex != 1 || _quizStep == 0))
                         _buildAIChatBar(),
-                      if (_showFloatingNavBar)
+                      if (_showFloatingNavBar || _isTourActive)
                         SizedBox(
                             height: 75 +
                                 MediaQuery.of(context)
@@ -3804,7 +3831,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     ]),
                   ),
                 ),
-                if (_quizStep != 2 && _showFloatingNavBar)
+                if (_quizStep != 2 && (_showFloatingNavBar || _isTourActive))
                   Positioned(
                     left: 0,
                     right: 0,
@@ -4226,7 +4253,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               voiceBaseText = '';
             });
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                 SnackBar(
                   content: Row(
                     children: [
@@ -4236,7 +4263,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       Expanded(child: Text(errMsg)),
                     ],
                   ),
-                  duration: const Duration(seconds: 3),
+                  duration: const Duration(milliseconds: 1500),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -5889,7 +5916,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                       ScaffoldMessenger.of(
                                                               context)
                                                           .showSnackBar(
-                                                              const SnackBar(
+                                                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                                                   content: Text(
                                                                       '已成功附加！')));
                                                       _changePage(5, '筆記本');
@@ -5915,8 +5942,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                       strokes: [],
                                       updatedAt: DateTime.now());
                                   NotesDatabase.notes.insert(0, newNote);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                  ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                           content: Text('已儲存為新筆記！')));
                                   _changePage(5, '筆記本');
                                   Navigator.pop(context);
@@ -5961,8 +5988,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   setState(() {
                                     questionBank.addAll(toAdd);
                                   });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
+                                  ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                           content: Text(
                                               '✅ 已成功匯入 ${toAdd.length} 題測驗至題庫！')));
                                 });
@@ -6707,6 +6734,120 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             );
                           }
 
+                          // ── 【模式一】視覺化發文草稿卡片 ──
+                          if (msg['widgetType'] == 'action_draft_card') {
+                            return AIDraftPostCard(
+                              draftData: (msg['draftData'] as Map<String, dynamic>?) ?? {},
+                              cardState: (msg['cardState'] as String?) ?? 'active',
+                              onQuickPublish: (data) {
+                                setModalState(() {
+                                  msg['cardState'] = 'completed';
+                                });
+                                _publishAIPost(data, false);
+                              },
+                              onOpenFullEditor: (data) {
+                                setModalState(() {
+                                  msg['cardState'] = 'completed';
+                                });
+                                if (Navigator.canPop(context)) Navigator.pop(context);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CreatePostPage(
+                                      currentUser: widget.currentUser,
+                                      onPosted: () {
+                                        _loadData();
+                                        _changePage(2, '社群');
+                                      },
+                                      draftData: data,
+                                    ),
+                                  ),
+                                );
+                              },
+                              onCancel: () {
+                                setModalState(() {
+                                  msg['cardState'] = 'cancelled';
+                                  chatLogs.add({
+                                    'isAI': true,
+                                    'text': '',
+                                    'widgetType': 'action_result_card',
+                                    'resultType': 'cancelled',
+                                    'actionType': 'create_post',
+                                    'summary': '已取消發佈貼文。',
+                                  });
+                                });
+                                _aiFlowState = 'none';
+                                _scrollToBottom();
+                              },
+                            );
+                          }
+
+                          // ── 【模式二】智慧預填喚起原生彈窗 ──
+                          if (msg['widgetType'] == 'smart_launch') {
+                            return AISmartLaunchCard(
+                              targetDialog: (msg['targetDialog'] as String?) ?? '',
+                              prefillData: (msg['prefillData'] as Map<String, dynamic>?) ?? {},
+                              cardState: (msg['cardState'] as String?) ?? 'active',
+                              onLaunch: () {
+                                setModalState(() {
+                                  msg['cardState'] = 'completed';
+                                  chatLogs.add({
+                                    'isAI': true,
+                                    'text': '',
+                                    'widgetType': 'action_result_card',
+                                    'resultType': 'success',
+                                    'actionType': msg['targetDialog'],
+                                    'summary': '已為您開啟操作介面！',
+                                  });
+                                });
+                                _scrollToBottom();
+                                final target = msg['targetDialog'] as String? ?? '';
+                                if (target == 'schedule_form') {
+                                  if (Navigator.canPop(context)) Navigator.pop(context);
+                                  _showAddScheduleDialog(initialData: msg['prefillData'] as Map<String, dynamic>?);
+                                } else if (target == 'quiz_jump') {
+                                  if (Navigator.canPop(context)) Navigator.pop(context);
+                                  _changePage(1, '題庫');
+                                } else if (target == 'create_post_page') {
+                                  if (Navigator.canPop(context)) Navigator.pop(context);
+                                  Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => CreatePostPage(
+                                      currentUser: widget.currentUser,
+                                      onPosted: () {
+                                        _loadData();
+                                        _changePage(2, '社群');
+                                      },
+                                      draftData: msg['prefillData'] as Map<String, dynamic>?,
+                                    )));
+                                }
+                              },
+                              onCancel: () {
+                                setModalState(() {
+                                  msg['cardState'] = 'cancelled';
+                                  chatLogs.add({
+                                    'isAI': true,
+                                    'text': '',
+                                    'widgetType': 'action_result_card',
+                                    'resultType': 'cancelled',
+                                    'actionType': msg['targetDialog'],
+                                    'summary': '已取消此操作。',
+                                  });
+                                });
+                                _aiFlowState = 'none';
+                                _scrollToBottom();
+                              },
+                            );
+                          }
+
+                          // ── 操作結果回饋卡片 ──
+                          if (msg['widgetType'] == 'action_result_card') {
+                            return AIActionResultCard(
+                              resultType: (msg['resultType'] as String?) ?? 'success',
+                              actionType: (msg['actionType'] as String?) ?? '',
+                              summary: (msg['summary'] as String?) ?? '',
+                            );
+                          }
+
                           if (msg['text'] == null || msg['text'].isEmpty) {
                             return const SizedBox();
                           }
@@ -6781,7 +6922,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                     ClipboardData(text: msg['text'] ?? ''));
                                 ScaffoldMessenger.of(context)
                                     .hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                                   SnackBar(
                                     content: const Row(
                                       children: [
@@ -6791,7 +6932,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                         Text('已複製代理人回覆內容'),
                                       ],
                                     ),
-                                    duration: const Duration(seconds: 2),
+                                    duration: const Duration(milliseconds: 1500),
                                     behavior: SnackBarBehavior.floating,
                                     shape: RoundedRectangleBorder(
                                         borderRadius:
@@ -6828,7 +6969,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                                     ScaffoldMessenger.of(
                                                             context)
                                                         .showSnackBar(
-                                                            const SnackBar(
+                                                            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                                                 content: Text(
                                                                     '已複製到剪貼簿')));
                                                   }),
@@ -7314,22 +7455,46 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         _showLogoutDialog();
         return true;
       case UserIntent.createPost:
-        // 觸發發文流程 — 先選類型
+        // 【模式一】視覺化草稿卡片 — 取代多輪問答
         updateLogs(() {
           chatLogs.add(
               {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
-          _aiFlowState = 'adding_post_type';
+          _aiFlowState = 'none';
           _aiFlowData = {};
+
+          String detectedType = '一般';
+          if (userInput.contains('學習筆記') || userInput.contains('筆記')) {
+            detectedType = '學習筆記';
+          } else if (userInput.contains('心情')) {
+            detectedType = '心情文章';
+          } else if (userInput.contains('資料') || userInput.contains('講義') || userInput.contains('分享')) {
+            detectedType = '分享資料';
+          }
+
+          String cleanContent = userInput;
+          final postKeywords = ['發貼文', '發一篇文', '發佈貼文', '分享文章', '分享內容', '新增貼文', '我要發文', '我想發文', '發文'];
+          for (final kw in postKeywords) {
+            cleanContent = cleanContent.replaceAll(kw, '');
+          }
+          cleanContent = cleanContent.trim();
+
           chatLogs.add({
             'isAI': true,
-            'text': '好的，我們來發佈一則貼文吧！\n請先選擇貼文的類型：',
+            'text': '沒問題！我為您準備了一張發文草稿卡片，您可以直接在卡片上選擇類型、編輯內容，然後一鍵發佈或前往完整發佈頁面 📝',
             'isCard': false,
           });
           chatLogs.add({
             'isAI': true,
             'text': '',
             'isCard': false,
-            'widgetType': 'post_type_picker'
+            'widgetType': 'action_draft_card',
+            'actionType': 'create_post',
+            'draftData': <String, dynamic>{
+              'type': detectedType,
+              'content': cleanContent,
+              'scheduledAt': null,
+            },
+            'cardState': 'active',
           });
           _scrollToBottom();
         });
@@ -7344,16 +7509,37 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         });
         return true;
       case UserIntent.createItinerary:
-        // 觸發新增行程流程
+        // 【模式二】智慧預填 — 一鍵喚起行程表單
         updateLogs(() {
           chatLogs.add(
               {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
-          _aiFlowState = 'adding_event_title';
+          _aiFlowState = 'none';
           _aiFlowData = {};
+
+          String cleanTitle = userInput;
+          final schedKeywords = ['新增行程', '加行程', '排行程', '記錄行程', '新增事件', '加一個事件', '新增會議', '排時間', '記錄會議', '我想加行程', '幫我排行程', '新增', '行程'];
+          for (final kw in schedKeywords) {
+            cleanTitle = cleanTitle.replaceAll(kw, '');
+          }
+          cleanTitle = cleanTitle.trim();
+          final prefill = <String, dynamic>{};
+          if (cleanTitle.isNotEmpty) {
+            prefill['title'] = cleanTitle;
+          }
+
           chatLogs.add({
             'isAI': true,
-            'text': '我很樂意幫您新增行程！\n請問這個行程的標題是什麼？',
+            'text': '好的！我為您準備了行程資訊，點擊下方卡片即可一鍵開啟行程表單 📅',
             'isCard': false
+          });
+          chatLogs.add({
+            'isAI': true,
+            'text': '',
+            'isCard': false,
+            'widgetType': 'smart_launch',
+            'targetDialog': 'schedule_form',
+            'prefillData': prefill,
+            'cardState': 'active',
           });
           _scrollToBottom();
         });
@@ -8124,8 +8310,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           }
 
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                 content: Row(children: [
                   Container(
                       width: 16,
@@ -8141,8 +8327,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         } catch (e) {
           debugPrint('代理人新增行程失敗: $e');
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                 content: Text('代理人新增行程失敗: $e'),
                 backgroundColor: Colors.redAccent,
               ),
@@ -8255,8 +8441,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           if (mounted) {
             if (Navigator.canPop(context)) Navigator.pop(context);
             _changePage(0, '日曆行程');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                 content: Text('✅ 行程標題已更新為「$newTitle」！'),
                 backgroundColor: Theme.of(context).primaryColor,
               ),
@@ -8332,8 +8518,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             if (mounted) {
               if (Navigator.canPop(context)) Navigator.pop(context);
               _changePage(0, '日曆行程');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+              ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                   content:
                       Text('✅ 行程「$eventTitle」時間已更新至 $newDate $newTimeRange！'),
                   backgroundColor: Theme.of(context).primaryColor,
@@ -8374,8 +8560,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             if (Navigator.canPop(context)) Navigator.pop(context);
             _changePage(0, '日曆行程');
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                 content: Text('✅ 代理人已新增待辦：${_aiFlowData['title']}'),
                 backgroundColor: Theme.of(context).primaryColor,
               ),
@@ -8384,8 +8570,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         } catch (e) {
           debugPrint('代理人新增待辦失敗: $e');
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                 content: Text('新增待辦事項失敗，請稍後再試。'),
                 backgroundColor: Colors.redAccent,
               ),
@@ -8570,8 +8756,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           if (mounted) {
             if (Navigator.canPop(context)) Navigator.pop(context);
             _changePage(0, '日曆行程');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                 content: Text('✅ 待辦事項內容已更新為「$newTitle」！'),
                 backgroundColor: Theme.of(context).primaryColor,
               ),
@@ -8606,8 +8792,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             if (mounted) {
               if (Navigator.canPop(context)) Navigator.pop(context);
               _changePage(0, '日曆行程');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+              ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                   content: Text('✅ 已刪除待辦事項：「$todoTitle」！'),
                   backgroundColor: Colors.redAccent,
                 ),
@@ -8893,8 +9079,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         if (mounted) {
           if (Navigator.canPop(context)) Navigator.pop(context);
           _changePage(3, '社群動態');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
               content: Text('✅ 貼文已成功發佈！'),
               backgroundColor: Theme.of(context).primaryColor,
             ),
@@ -11343,7 +11529,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   // 新增：編輯行程對話框 (修改自 _showManualAddDialog)
   void _showEditScheduleDialog(Map<String, dynamic> event) {
-    TextEditingController titleController =
+    final titleController =
         TextEditingController(text: (event['title'] ?? '').toString());
     // 解析原本的時間
     String timeRange = (event['time'] ?? '09:00~10:00').toString();
@@ -11366,9 +11552,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       0xFF80CBC4,
     ];
     int selectedColor = (event['color'] as int?) ?? vibrantColors[0];
-    if (!vibrantColors.contains(selectedColor)) {
-      selectedColor = vibrantColors[0];
-    }
 
     // 解析行程原本的日期區間（格式 YYYY-MM-DD）
     DateTime pickedStartDate =
@@ -11405,6 +11588,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       }
     }
 
+    bool showCustomColorPicker = !vibrantColors.contains(selectedColor);
+    double selectedHue = 0.0;
+
+    Color hslToColor(double h) {
+      const double sat = 0.70;
+      const double lig = 0.82;
+      final double c = (1 - (2 * lig - 1).abs()) * sat;
+      final double x = c * (1 - ((h / 60) % 2 - 1).abs());
+      final double m = lig - c / 2;
+      double r = 0, g = 0, b = 0;
+      if (h < 60) {
+        r = c; g = x; b = 0;
+      } else if (h < 120) {
+        r = x; g = c; b = 0;
+      } else if (h < 180) {
+        r = 0; g = c; b = x;
+      } else if (h < 240) {
+        r = 0; g = x; b = c;
+      } else if (h < 300) {
+        r = x; g = 0; b = c;
+      } else {
+        r = c; g = 0; b = x;
+      }
+      return Color.fromARGB(255, ((r + m) * 255).round(),
+          ((g + m) * 255).round(), ((b + m) * 255).round());
+    }
+
     StateSetter? dialogSetState;
     Future<void> selectTime(bool isStart) async {
       final TimeOfDay? picked = await showTimePicker(
@@ -11427,483 +11637,842 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return '$h:$m';
     }
 
+    final isDark = _isDarkMode;
+    final primaryColor = Theme.of(context).primaryColor;
+
     showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-                title: const Text('編輯行程'),
-                content: StatefulBuilder(builder: (context, setDialogState) {
-                  dialogSetState = setDialogState;
-                  return SingleChildScrollView(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      TextField(
-                          controller: titleController,
-                          decoration: InputDecoration(labelText: '行程名稱')),
-                      SizedBox(height: 16),
-                      // ── 跨日行程切換 ──
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('跨日行程',
-                            style:
-                                TextStyle(fontSize: 13, color: Colors.black87)),
-                        value: isMultiDay,
-                        activeThumbColor: Theme.of(context).primaryColor,
-                        onChanged: (val) {
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.edit_calendar_rounded,
+                  color: primaryColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              '編輯行程',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: StatefulBuilder(builder: (context, setDialogState) {
+          dialogSetState = setDialogState;
+          return SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 15),
+                    decoration: InputDecoration(
+                      labelText: '行程標題',
+                      hintText: '輸入行程標題...',
+                      hintStyle: TextStyle(
+                          color: Colors.grey.shade400, fontSize: 13),
+                      filled: true,
+                      fillColor: isDark
+                          ? Colors.white10
+                          : const Color(0xFFF8FAFC),
+                      prefixIcon: Icon(Icons.title_rounded,
+                          color: primaryColor, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                            color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide:
+                            BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── 顏色標籤選擇 ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '選擇顏色標籤',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey),
+                      ),
+                      InkWell(
+                        onTap: () {
                           setDialogState(() {
-                            isMultiDay = val;
-                            if (!isMultiDay) {
-                              pickedEndDate = pickedStartDate;
-                            }
+                            showCustomColorPicker = !showCustomColorPicker;
                           });
                         },
-                      ),
-                      const SizedBox(height: 10),
-                      if (!isMultiDay) ...[
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('行程日期',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: ctx,
-                              initialDate: pickedStartDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2030),
-                              locale: const Locale('zh', 'TW'),
-                            );
-                            if (picked != null) {
-                              setDialogState(() {
-                                pickedStartDate = picked;
-                                pickedEndDate = picked;
-                              });
-                            }
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(children: [
-                              Icon(Icons.calendar_today,
-                                  size: 16,
-                                  color: Theme.of(context).primaryColor),
-                              const SizedBox(width: 8),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          child: Row(
+                            children: [
+                              Icon(
+                                showCustomColorPicker
+                                    ? Icons.palette
+                                    : Icons.palette_outlined,
+                                size: 14,
+                                color: primaryColor,
+                              ),
+                              const SizedBox(width: 4),
                               Text(
-                                '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ]),
-                          ),
-                        ),
-                      ] else ...[
-                        // ── 日期區間選擇 ──
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('行程日期區間',
+                                showCustomColorPicker ? '收起調色盤' : '自訂調色盤',
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: ctx,
-                                    initialDate: pickedStartDate,
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime(2030),
-                                    locale: const Locale('zh', 'TW'),
-                                  );
-                                  if (picked != null) {
-                                    setDialogState(() {
-                                      pickedStartDate = picked;
-                                      if (pickedEndDate
-                                          .isBefore(pickedStartDate)) {
-                                        pickedEndDate = pickedStartDate;
-                                      }
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    border:
-                                        Border.all(color: Colors.grey.shade300),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(children: [
-                                      Icon(Icons.calendar_today,
-                                          size: 16,
-                                          color:
-                                              Theme.of(context).primaryColor),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ]),
-                                  ),
-                                ),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: primaryColor),
                               ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: Text('至'),
-                            ),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: ctx,
-                                    initialDate: pickedEndDate,
-                                    firstDate: pickedStartDate,
-                                    lastDate: DateTime(2030),
-                                    locale: const Locale('zh', 'TW'),
-                                  );
-                                  if (picked != null) {
-                                    setDialogState(() {
-                                      pickedEndDate = picked;
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    border:
-                                        Border.all(color: Colors.grey.shade300),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(children: [
-                                      Icon(Icons.calendar_today,
-                                          size: 16,
-                                          color:
-                                              Theme.of(context).primaryColor),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ]),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('重複設定',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey))),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedRecurrenceType,
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            ],
                           ),
                         ),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'none',
-                              child:
-                                  Text('不重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(
-                              value: 'daily',
-                              child:
-                                  Text('每天重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(
-                              value: 'weekly',
-                              child:
-                                  Text('每週重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(
-                              value: 'yearly',
-                              child:
-                                  Text('每年重複', style: TextStyle(fontSize: 13))),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() {
-                              selectedRecurrenceType = val;
-                              if (selectedRecurrenceType != 'none' &&
-                                  pickedRecurrenceEnd == null) {
-                                pickedRecurrenceEnd = pickedStartDate
-                                    .add(const Duration(days: 30));
-                              }
-                            });
-                          }
-                        },
                       ),
-                      if (selectedRecurrenceType == 'weekly') ...[
-                        const SizedBox(height: 12),
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('重複星期 (可多選)',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: List.generate(7, (index) {
-                            int weekday = index + 1; // 1 = Mon, 7 = Sun
-                            String weekdayLabel =
-                                ['一', '二', '三', '四', '五', '六', '日'][index];
-                            bool isSelected =
-                                selectedWeekdays.contains(weekday);
-                            return GestureDetector(
-                              onTap: () {
-                                setDialogState(() {
-                                  if (isSelected) {
-                                    selectedWeekdays.remove(weekday);
-                                  } else {
-                                    selectedWeekdays.add(weekday);
-                                  }
-                                });
-                              },
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ...vibrantColors.map((c) {
+                        final isSelected = selectedColor == c;
+                        return GestureDetector(
+                          onTap: () =>
+                              setDialogState(() => selectedColor = c),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Color(c),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? (isDark ? Colors.white : Colors.black87)
+                                    : Colors.transparent,
+                                width: 2.5,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: Color(c).withValues(alpha: 0.5),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: isSelected
+                                ? const Icon(Icons.check,
+                                    size: 16, color: Colors.white)
+                                : null,
+                          ),
+                        );
+                      }),
+                      // 自訂選色預覽小圓圈
+                      if (!vibrantColors.contains(selectedColor))
+                        GestureDetector(
+                          onTap: () {},
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Color(selectedColor),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDark ? Colors.white : Colors.black87,
+                                width: 2.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(selectedColor)
+                                      .withValues(alpha: 0.5),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.check,
+                                size: 16, color: Colors.white),
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  // ── 可展開彩虹色相滑桿 ──
+                  if (showCustomColorPicker) ...[
+                    const SizedBox(height: 12),
+                    LayoutBuilder(builder: (ctx2, constraints) {
+                      final sliderWidth = constraints.maxWidth;
+                      final thumbLeft =
+                          ((selectedHue / 360.0) * sliderWidth - 11)
+                              .clamp(0.0, sliderWidth - 22);
+                      return GestureDetector(
+                        onHorizontalDragUpdate: (d) {
+                          final hue = ((d.localPosition.dx / sliderWidth) *
+                                  360)
+                              .clamp(0.0, 360.0);
+                          setDialogState(() {
+                            selectedHue = hue;
+                            selectedColor =
+                                hslToColor(hue).toARGB32();
+                          });
+                        },
+                        onTapDown: (d) {
+                          final hue = ((d.localPosition.dx / sliderWidth) *
+                                  360)
+                              .clamp(0.0, 360.0);
+                          setDialogState(() {
+                            selectedHue = hue;
+                            selectedColor =
+                                hslToColor(hue).toARGB32();
+                          });
+                        },
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              height: 18,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(9),
+                                gradient: const LinearGradient(colors: [
+                                  Color(0xFFFF0000),
+                                  Color(0xFFFFFF00),
+                                  Color(0xFF00FF00),
+                                  Color(0xFF00FFFF),
+                                  Color(0xFF0000FF),
+                                  Color(0xFFFF00FF),
+                                  Color(0xFFFF0000),
+                                ]),
+                              ),
+                            ),
+                            Positioned(
+                              left: thumbLeft,
+                              top: -3,
                               child: Container(
-                                width: 32,
-                                height: 32,
+                                width: 24,
+                                height: 24,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected
-                                      ? Theme.of(context).primaryColor
-                                      : Colors.grey.shade200,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  weekdayLabel,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : Colors.black87,
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
+                                  color: Colors.white,
+                                  border: Border.all(
+                                      color: Color(selectedColor), width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.2),
+                                      blurRadius: 3,
+                                    ),
+                                  ],
                                 ),
                               ),
-                            );
-                          }),
-                        ),
-                      ],
-                      if (selectedRecurrenceType != 'none') ...[
-                        const SizedBox(height: 15),
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('結束重複',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          initialValue: endType,
-                          decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade300),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade300),
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'never',
-                                child: Text('一直重複下去',
-                                    style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(
-                                value: 'date',
-                                child: Text('重複到指定日期',
-                                    style: TextStyle(fontSize: 13))),
                           ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setDialogState(() {
-                                endType = val;
-                                if (endType == 'never') {
-                                  pickedRecurrenceEnd = null;
-                                } else {
-                                  pickedRecurrenceEnd ??= pickedStartDate
-                                      .add(const Duration(days: 30));
-                                }
-                              });
-                            }
-                          },
                         ),
-                        if (endType == 'date' &&
-                            pickedRecurrenceEnd != null) ...[
-                          const SizedBox(height: 10),
-                          InkWell(
+                      );
+                    }),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // ── 行程日期與區間 ──
+                  if (!isMultiDay) ...[
+                    const Text(
+                      '行程日期',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: pickedStartDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                          locale: const Locale('zh', 'TW'),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            pickedStartDate = picked;
+                            pickedEndDate = picked;
+                          });
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white10
+                              : const Color(0xFFF8FAFC),
+                          border: Border.all(
+                              color: Colors.grey.withValues(alpha: 0.2)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_today_rounded,
+                                size: 16, color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                              style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    const Text(
+                      '行程日期區間',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
                             onTap: () async {
                               final picked = await showDatePicker(
                                 context: ctx,
-                                initialDate: pickedRecurrenceEnd!,
-                                firstDate: pickedStartDate,
-                                lastDate: DateTime(2040),
+                                initialDate: pickedStartDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2030),
                                 locale: const Locale('zh', 'TW'),
                               );
                               if (picked != null) {
                                 setDialogState(() {
-                                  pickedRecurrenceEnd = picked;
+                                  pickedStartDate = picked;
+                                  if (pickedEndDate
+                                      .isBefore(pickedStartDate)) {
+                                    pickedEndDate = pickedStartDate;
+                                  }
                                 });
                               }
                             },
+                            borderRadius: BorderRadius.circular(12),
                             child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 10),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
+                                color: isDark
+                                    ? Colors.white10
+                                    : const Color(0xFFF8FAFC),
+                                border: Border.all(
+                                    color:
+                                        Colors.grey.withValues(alpha: 0.2)),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Row(children: [
-                                Icon(Icons.calendar_today,
-                                    size: 16,
-                                    color: Theme.of(context).primaryColor),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ]),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today_rounded,
+                                      size: 15, color: primaryColor),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                    style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ],
-                      ],
-                      const SizedBox(height: 16),
-                      const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('選擇顏色標籤',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey))),
-                      const SizedBox(height: 8),
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: vibrantColors
-                              .map((c) => GestureDetector(
-                                  onTap: () =>
-                                      setDialogState(() => selectedColor = c),
-                                  child: Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                          color: Color(c),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: selectedColor == c
-                                                  ? Colors.black87
-                                                  : Colors.transparent,
-                                              width: 2)))))
-                              .toList()),
-                      const SizedBox(height: 20),
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            TextButton.icon(
-                                icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(formatTime(pickedStartTime)),
-                                onPressed: () => selectTime(true)),
-                            const Text('~'),
-                            TextButton.icon(
-                                icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(formatTime(pickedEndTime)),
-                                onPressed: () => selectTime(false))
-                          ])
-                    ]),
-                  );
-                }),
-                actions: [
-                  TextButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        showDialog(
-                          context: context,
-                          builder: (confirmCtx) => AlertDialog(
-                            title: const Text('刪除行程'),
-                            content: Text('確定要刪除「${event['title']}」嗎？'),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(confirmCtx),
-                                  child: const Text('取消')),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.redAccent,
-                                    foregroundColor: Colors.white),
-                                onPressed: () {
-                                  Navigator.pop(confirmCtx);
-                                  _deleteSchedule(event['id']);
-                                },
-                                child: const Text('確定刪除'),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 6),
+                          child: Text('至',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey)),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: pickedEndDate,
+                                firstDate: pickedStartDate,
+                                lastDate: DateTime(2030),
+                                locale: const Locale('zh', 'TW'),
+                              );
+                              if (picked != null) {
+                                setDialogState(() {
+                                  pickedEndDate = picked;
+                                });
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white10
+                                    : const Color(0xFFF8FAFC),
+                                border: Border.all(
+                                    color:
+                                        Colors.grey.withValues(alpha: 0.2)),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ],
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today_rounded,
+                                      size: 15, color: primaryColor),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
+                                    style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  const SizedBox(height: 14),
+
+                  // ── 行程時間 ──
+                  const Text(
+                    '行程時間',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => selectTime(true),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white10
+                                  : const Color(0xFFF8FAFC),
+                              border: Border.all(
+                                  color:
+                                      Colors.grey.withValues(alpha: 0.2)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.access_time_rounded,
+                                    size: 16, color: primaryColor),
+                                const SizedBox(width: 6),
+                                Text(formatTime(pickedStartTime),
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('~',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey)),
+                      ),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => selectTime(false),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white10
+                                  : const Color(0xFFF8FAFC),
+                              border: Border.all(
+                                  color:
+                                      Colors.grey.withValues(alpha: 0.2)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.access_time_rounded,
+                                    size: 16, color: primaryColor),
+                                const SizedBox(width: 6),
+                                Text(formatTime(pickedEndTime),
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 14),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+
+                  // ── 跨日行程切換 ──
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('跨日行程',
+                        style: TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    value: isMultiDay,
+                    activeThumbColor: primaryColor,
+                    onChanged: (val) {
+                      setDialogState(() {
+                        isMultiDay = val;
+                        if (!isMultiDay) {
+                          pickedEndDate = pickedStartDate;
+                        }
+                      });
+                    },
+                  ),
+
+                  // ── 重複設定 ──
+                  const Text('重複設定',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedRecurrenceType,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      filled: true,
+                      fillColor: isDark
+                          ? Colors.white10
+                          : const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                            color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'none',
+                          child:
+                              Text('不重複', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'daily',
+                          child:
+                              Text('每天重複', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'weekly',
+                          child:
+                              Text('每週重複', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'yearly',
+                          child:
+                              Text('每年重複', style: TextStyle(fontSize: 13))),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedRecurrenceType = val;
+                          if (selectedRecurrenceType != 'none' &&
+                              pickedRecurrenceEnd == null) {
+                            pickedRecurrenceEnd = pickedStartDate
+                                .add(const Duration(days: 30));
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  if (selectedRecurrenceType == 'weekly') ...[
+                    const SizedBox(height: 10),
+                    const Text('重複星期 (可多選)',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(7, (index) {
+                        int weekday = index + 1;
+                        String weekdayLabel =
+                            ['一', '二', '三', '四', '五', '六', '日'][index];
+                        bool isSelected =
+                            selectedWeekdays.contains(weekday);
+                        return GestureDetector(
+                          onTap: () {
+                            setDialogState(() {
+                              if (isSelected) {
+                                selectedWeekdays.remove(weekday);
+                              } else {
+                                selectedWeekdays.add(weekday);
+                              }
+                            });
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isSelected
+                                  ? primaryColor
+                                  : Colors.grey.shade200,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              weekdayLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
                           ),
                         );
+                      }),
+                    ),
+                  ],
+                  if (selectedRecurrenceType != 'none') ...[
+                    const SizedBox(height: 12),
+                    const Text('結束重複',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: endType,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        filled: true,
+                        fillColor: isDark
+                            ? Colors.white10
+                            : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: Colors.grey.withValues(alpha: 0.2)),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'never',
+                            child: Text('一直重複下去',
+                                style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(
+                            value: 'date',
+                            child: Text('重複到指定日期',
+                                style: TextStyle(fontSize: 13))),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            endType = val;
+                            if (endType == 'never') {
+                              pickedRecurrenceEnd = null;
+                            } else {
+                              pickedRecurrenceEnd ??= pickedStartDate
+                                  .add(const Duration(days: 30));
+                            }
+                          });
+                        }
                       },
-                      child: Text('刪除',
-                          style: TextStyle(color: Colors.redAccent))),
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx), child: Text('取消')),
-                  ElevatedButton(
+                    ),
+                    if (endType == 'date' &&
+                        pickedRecurrenceEnd != null) ...[
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: pickedRecurrenceEnd!,
+                            firstDate: pickedStartDate,
+                            lastDate: DateTime(2040),
+                            locale: const Locale('zh', 'TW'),
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              pickedRecurrenceEnd = picked;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(children: [
+                            Icon(Icons.calendar_today_rounded,
+                                size: 16, color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              showDialog(
+                context: context,
+                builder: (confirmCtx) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                  title: const Text('刪除行程'),
+                  content: Text('確定要刪除「${event['title']}」嗎？'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(confirmCtx),
+                      child: const Text('取消'),
+                    ),
+                    ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white),
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
                       onPressed: () {
-                        if (titleController.text.isEmpty) return;
-                        String range =
-                            "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
-                        String recurrenceDays = '';
-                        if (selectedRecurrenceType == 'weekly' &&
-                            selectedWeekdays.isNotEmpty) {
-                          List<int> sortedDays = selectedWeekdays.toList()
-                            ..sort();
-                          recurrenceDays = sortedDays.join(',');
-                        }
-                        String recurrenceEndStr = '';
-                        if (selectedRecurrenceType != 'none' &&
-                            endType == 'date' &&
-                            pickedRecurrenceEnd != null) {
-                          recurrenceEndStr =
-                              pickedRecurrenceEnd!.toString().split(' ')[0];
-                        }
-                        _editSchedule(
-                          event['id'],
-                          range,
-                          titleController.text,
-                          selectedColor,
-                          startDate: pickedStartDate,
-                          endDate: pickedEndDate,
-                          recurrenceType: selectedRecurrenceType,
-                          recurrenceDays: recurrenceDays,
-                          recurrenceEnd: recurrenceEndStr,
-                        );
-                        Navigator.pop(ctx);
+                        Navigator.pop(confirmCtx);
+                        _deleteSchedule(event['id']);
                       },
-                      child: const Text('儲存修改'))
-                ]));
+                      child: const Text('確定刪除'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: const Text('刪除',
+                style: TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.w600)),
+          ),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.grey.shade700,
+              side: BorderSide(color: Colors.grey.shade300),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            onPressed: () {
+              if (titleController.text.isEmpty) return;
+              String range =
+                  "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
+              String recurrenceDays = '';
+              if (selectedRecurrenceType == 'weekly' &&
+                  selectedWeekdays.isNotEmpty) {
+                List<int> sortedDays = selectedWeekdays.toList()..sort();
+                recurrenceDays = sortedDays.join(',');
+              }
+              String recurrenceEndStr = '';
+              if (selectedRecurrenceType != 'none' &&
+                  endType == 'date' &&
+                  pickedRecurrenceEnd != null) {
+                recurrenceEndStr =
+                    pickedRecurrenceEnd!.toString().split(' ')[0];
+              }
+              _editSchedule(
+                event['id'],
+                range,
+                titleController.text,
+                selectedColor,
+                startDate: pickedStartDate,
+                endDate: isMultiDay ? pickedEndDate : pickedStartDate,
+                recurrenceType: selectedRecurrenceType,
+                recurrenceDays: recurrenceDays,
+                recurrenceEnd: recurrenceEndStr,
+              );
+              Navigator.pop(ctx);
+            },
+            child: const Text('儲存變更',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── 新手專屬客製化啟航操作建議卡片 (極簡清爽、圖案適當、絕不雜亂) ──
@@ -12105,42 +12674,121 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showAddTodoDialog() {
-    TextEditingController titleController = TextEditingController();
+    final titleController = TextEditingController();
+    final isDark = _isDarkMode;
+    final primaryColor = Theme.of(context).primaryColor;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('手動新增待辦事項'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.check_circle_outline_rounded,
+                  color: primaryColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              '手動新增待辦',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
         content: TextField(
           controller: titleController,
-          decoration: const InputDecoration(
-            labelText: '待辦內容',
-            hintText: '輸入待辦內容...',
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           autofocus: true,
+          decoration: InputDecoration(
+            labelText: '待辦內容',
+            hintText: '輸入待辦項目（例：背誦單字 Unit 3）...',
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+            filled: true,
+            fillColor: isDark ? Colors.white10 : const Color(0xFFF8FAFC),
+            prefixIcon: Icon(Icons.format_list_bulleted_rounded,
+                color: primaryColor, size: 20),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide:
+                  BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: primaryColor, width: 1.5),
+            ),
+          ),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.grey.shade700,
+              side: BorderSide(color: Colors.grey.shade300),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('取消'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
             onPressed: () {
               if (titleController.text.trim().isNotEmpty) {
                 _addTodo(titleController.text.trim());
               }
               Navigator.pop(ctx);
             },
-            child: const Text('確認加入'),
+            child: const Text('確認加入',
+                style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  void _showAddScheduleDialog() {
-    TextEditingController titleController = TextEditingController();
+  void _showAddScheduleDialog({Map<String, dynamic>? initialData}) {
+    final titleController =
+        TextEditingController(text: (initialData?['title'] ?? '').toString());
     TimeOfDay pickedStartTime = const TimeOfDay(hour: 10, minute: 0);
     TimeOfDay pickedEndTime = const TimeOfDay(hour: 11, minute: 0);
+    if (initialData != null && initialData['time'] != null) {
+      final timeStr = initialData['time'].toString();
+      if (timeStr.contains('~')) {
+        final parts = timeStr.split('~');
+        try {
+          final sParts = parts[0].trim().split(':');
+          pickedStartTime = TimeOfDay(
+              hour: int.parse(sParts[0]), minute: int.parse(sParts[1]));
+          final eParts = parts[1].trim().split(':');
+          pickedEndTime = TimeOfDay(
+              hour: int.parse(eParts[0]), minute: int.parse(eParts[1]));
+        } catch (_) {}
+      }
+    }
     DateTime pickedStartDate = _selectedDate;
     DateTime pickedEndDate = _selectedDate;
     bool isMultiDay = false;
@@ -12148,6 +12796,43 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     Set<int> selectedWeekdays = {};
     String endType = 'never';
     DateTime? pickedRecurrenceEnd;
+
+    final List<int> vibrantColors = [
+      0xFFFFCC80, // 亮橙
+      0xFF90CAF9, // 亮藍
+      0xFFA5D6A7, // 嫩綠
+      0xFFF48FB1, // 嫩粉
+      0xFFCE93D8, // 柔紫
+      0xFF80CBC4, // 青蔥
+    ];
+    int selectedColor = vibrantColors[0];
+    bool showCustomColorPicker = false;
+    double selectedHue = 0.0;
+
+    Color hslToColor(double h) {
+      const double sat = 0.70;
+      const double lig = 0.82;
+      final double c = (1 - (2 * lig - 1).abs()) * sat;
+      final double x = c * (1 - ((h / 60) % 2 - 1).abs());
+      final double m = lig - c / 2;
+      double r = 0, g = 0, b = 0;
+      if (h < 60) {
+        r = c; g = x; b = 0;
+      } else if (h < 120) {
+        r = x; g = c; b = 0;
+      } else if (h < 180) {
+        r = 0; g = c; b = x;
+      } else if (h < 240) {
+        r = 0; g = x; b = c;
+      } else if (h < 300) {
+        r = x; g = 0; b = c;
+      } else {
+        r = c; g = 0; b = x;
+      }
+      return Color.fromARGB(255, ((r + m) * 255).round(),
+          ((g + m) * 255).round(), ((b + m) * 255).round());
+    }
+
     StateSetter? dialogSetState;
     Future<void> selectTime(bool isStart) async {
       final TimeOfDay? picked = await showTimePicker(
@@ -12170,469 +12855,804 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return '$h:$m';
     }
 
-    final List<int> vibrantColors = [
-      0xFFFFCC80, // 亮橙
-      0xFF90CAF9, // 亮藍
-      0xFFA5D6A7, // 嫩綠
-      0xFFF48FB1, // 嫩粉
-      0xFFCE93D8, // 柔紫
-      0xFF80CBC4, // 青蔥
-    ];
-    int selectedColor = vibrantColors[0];
+    final isDark = _isDarkMode;
+    final primaryColor = Theme.of(context).primaryColor;
 
     showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-                title: const Text('手動新增行程'),
-                content: StatefulBuilder(builder: (context, setDialogState) {
-                  dialogSetState = setDialogState;
-                  return SingleChildScrollView(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      TextField(
-                          controller: titleController,
-                          decoration: const InputDecoration(labelText: '行程標題')),
-                      const SizedBox(height: 16),
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.event_available_rounded,
+                  color: primaryColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              '手動新增行程',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: StatefulBuilder(builder: (context, setDialogState) {
+          dialogSetState = setDialogState;
+          return SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 15),
+                    decoration: InputDecoration(
+                      labelText: '行程標題',
+                      hintText: '輸入行程標題（例：專案進度討論）...',
+                      hintStyle: TextStyle(
+                          color: Colors.grey.shade400, fontSize: 13),
+                      filled: true,
+                      fillColor: isDark
+                          ? Colors.white10
+                          : const Color(0xFFF8FAFC),
+                      prefixIcon: Icon(Icons.title_rounded,
+                          color: primaryColor, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                            color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide:
+                            BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-                      // 高頻率項目：顏色標籤
-                      const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('選擇顏色標籤',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey))),
-                      const SizedBox(height: 8),
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: vibrantColors
-                              .map((c) => GestureDetector(
-                                  onTap: () =>
-                                      setDialogState(() => selectedColor = c),
-                                  child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                          color: Color(c),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: selectedColor == c
-                                                  ? Colors.black87
-                                                  : Colors.transparent,
-                                              width: 2)))))
-                              .toList()),
-                      const SizedBox(height: 16),
-
-                      // 高頻率項目：行程日期
-                      if (!isMultiDay) ...[
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('行程日期',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: ctx,
-                              initialDate: pickedStartDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2030),
-                              locale: const Locale('zh', 'TW'),
-                            );
-                            if (picked != null) {
-                              setDialogState(() {
-                                pickedStartDate = picked;
-                                pickedEndDate = picked;
-                              });
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(children: [
-                              Icon(Icons.calendar_today,
-                                  size: 16,
-                                  color: Theme.of(context).primaryColor),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ]),
-                          ),
-                        ),
-                      ] else ...[
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('行程日期區間',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: ctx,
-                                    initialDate: pickedStartDate,
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime(2030),
-                                    locale: const Locale('zh', 'TW'),
-                                  );
-                                  if (picked != null) {
-                                    setDialogState(() {
-                                      pickedStartDate = picked;
-                                      if (pickedEndDate
-                                          .isBefore(pickedStartDate)) {
-                                        pickedEndDate = pickedStartDate;
-                                      }
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    border:
-                                        Border.all(color: Colors.grey.shade300),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(children: [
-                                      Icon(Icons.calendar_today,
-                                          size: 16,
-                                          color:
-                                              Theme.of(context).primaryColor),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ]),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: Text('至'),
-                            ),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: ctx,
-                                    initialDate: pickedEndDate,
-                                    firstDate: pickedStartDate,
-                                    lastDate: DateTime(2030),
-                                    locale: const Locale('zh', 'TW'),
-                                  );
-                                  if (picked != null) {
-                                    setDialogState(() {
-                                      pickedEndDate = picked;
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    border:
-                                        Border.all(color: Colors.grey.shade300),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(children: [
-                                      Icon(Icons.calendar_today,
-                                          size: 16,
-                                          color:
-                                              Theme.of(context).primaryColor),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ]),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 15),
-
-                      // 高頻率項目：行程時間
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            TextButton.icon(
-                                icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(formatTime(pickedStartTime)),
-                                onPressed: () => selectTime(true)),
-                            const Text('~'),
-                            TextButton.icon(
-                                icon: const Icon(Icons.access_time, size: 16),
-                                label: Text(formatTime(pickedEndTime)),
-                                onPressed: () => selectTime(false))
-                          ]),
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 8),
-
-                      // 低頻率/進階項目：跨日行程
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('跨日行程',
-                            style:
-                                TextStyle(fontSize: 13, color: Colors.black87)),
-                        value: isMultiDay,
-                        activeThumbColor: Theme.of(context).primaryColor,
-                        onChanged: (val) {
+                  // ── 顏色標籤選擇 ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '選擇顏色標籤',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey),
+                      ),
+                      InkWell(
+                        onTap: () {
                           setDialogState(() {
-                            isMultiDay = val;
-                            if (!isMultiDay) {
-                              pickedEndDate = pickedStartDate;
-                            }
+                            showCustomColorPicker = !showCustomColorPicker;
                           });
                         },
-                      ),
-                      const SizedBox(height: 10),
-
-                      // 低頻率/進階項目：重複設定
-                      const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('重複設定',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey))),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedRecurrenceType,
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          child: Row(
+                            children: [
+                              Icon(
+                                showCustomColorPicker
+                                    ? Icons.palette
+                                    : Icons.palette_outlined,
+                                size: 14,
+                                color: primaryColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                showCustomColorPicker ? '收起調色盤' : '自訂調色盤',
+                                style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: primaryColor),
+                              ),
+                            ],
                           ),
                         ),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'none',
-                              child:
-                                  Text('不重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(
-                              value: 'daily',
-                              child:
-                                  Text('每天重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(
-                              value: 'weekly',
-                              child:
-                                  Text('每週重複', style: TextStyle(fontSize: 13))),
-                          DropdownMenuItem(
-                              value: 'yearly',
-                              child:
-                                  Text('每年重複', style: TextStyle(fontSize: 13))),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() {
-                              selectedRecurrenceType = val;
-                              if (selectedRecurrenceType != 'none' &&
-                                  pickedRecurrenceEnd == null) {
-                                pickedRecurrenceEnd = pickedStartDate
-                                    .add(const Duration(days: 30));
-                              }
-                            });
-                          }
-                        },
                       ),
-                      if (selectedRecurrenceType == 'weekly') ...[
-                        const SizedBox(height: 12),
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('重複星期 (可多選)',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: List.generate(7, (index) {
-                            int weekday = index + 1; // 1 = Mon, 7 = Sun
-                            String weekdayLabel =
-                                ['一', '二', '三', '四', '五', '六', '日'][index];
-                            bool isSelected =
-                                selectedWeekdays.contains(weekday);
-                            return GestureDetector(
-                              onTap: () {
-                                setDialogState(() {
-                                  if (isSelected) {
-                                    selectedWeekdays.remove(weekday);
-                                  } else {
-                                    selectedWeekdays.add(weekday);
-                                  }
-                                });
-                              },
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ...vibrantColors.map((c) {
+                        final isSelected = selectedColor == c;
+                        return GestureDetector(
+                          onTap: () =>
+                              setDialogState(() => selectedColor = c),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Color(c),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? (isDark ? Colors.white : Colors.black87)
+                                    : Colors.transparent,
+                                width: 2.5,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: Color(c).withValues(alpha: 0.5),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: isSelected
+                                ? const Icon(Icons.check,
+                                    size: 16, color: Colors.white)
+                                : null,
+                          ),
+                        );
+                      }),
+                      if (!vibrantColors.contains(selectedColor))
+                        GestureDetector(
+                          onTap: () {},
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Color(selectedColor),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDark ? Colors.white : Colors.black87,
+                                width: 2.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(selectedColor)
+                                      .withValues(alpha: 0.5),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.check,
+                                size: 16, color: Colors.white),
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  // ── 可展開彩虹色相滑桿 ──
+                  if (showCustomColorPicker) ...[
+                    const SizedBox(height: 12),
+                    LayoutBuilder(builder: (ctx2, constraints) {
+                      final sliderWidth = constraints.maxWidth;
+                      final thumbLeft =
+                          ((selectedHue / 360.0) * sliderWidth - 11)
+                              .clamp(0.0, sliderWidth - 22);
+                      return GestureDetector(
+                        onHorizontalDragUpdate: (d) {
+                          final hue = ((d.localPosition.dx / sliderWidth) *
+                                  360)
+                              .clamp(0.0, 360.0);
+                          setDialogState(() {
+                            selectedHue = hue;
+                            selectedColor =
+                                hslToColor(hue).toARGB32();
+                          });
+                        },
+                        onTapDown: (d) {
+                          final hue = ((d.localPosition.dx / sliderWidth) *
+                                  360)
+                              .clamp(0.0, 360.0);
+                          setDialogState(() {
+                            selectedHue = hue;
+                            selectedColor =
+                                hslToColor(hue).toARGB32();
+                          });
+                        },
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              height: 18,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(9),
+                                gradient: const LinearGradient(colors: [
+                                  Color(0xFFFF0000),
+                                  Color(0xFFFFFF00),
+                                  Color(0xFF00FF00),
+                                  Color(0xFF00FFFF),
+                                  Color(0xFF0000FF),
+                                  Color(0xFFFF00FF),
+                                  Color(0xFFFF0000),
+                                ]),
+                              ),
+                            ),
+                            Positioned(
+                              left: thumbLeft,
+                              top: -3,
                               child: Container(
-                                width: 32,
-                                height: 32,
+                                width: 24,
+                                height: 24,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected
-                                      ? Theme.of(context).primaryColor
-                                      : Colors.grey.shade200,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  weekdayLabel,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : Colors.black87,
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
+                                  color: Colors.white,
+                                  border: Border.all(
+                                      color: Color(selectedColor), width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.2),
+                                      blurRadius: 3,
+                                    ),
+                                  ],
                                 ),
                               ),
-                            );
-                          }),
-                        ),
-                      ],
-                      if (selectedRecurrenceType != 'none') ...[
-                        const SizedBox(height: 15),
-                        const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('結束重複',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey))),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          initialValue: endType,
-                          decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade300),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade300),
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'never',
-                                child: Text('一直重複下去',
-                                    style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(
-                                value: 'date',
-                                child: Text('重複到指定日期',
-                                    style: TextStyle(fontSize: 13))),
                           ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setDialogState(() {
-                                endType = val;
-                                if (endType == 'never') {
-                                  pickedRecurrenceEnd = null;
-                                } else {
-                                  pickedRecurrenceEnd ??= pickedStartDate
-                                      .add(const Duration(days: 30));
-                                }
-                              });
-                            }
-                          },
                         ),
-                        if (endType == 'date' &&
-                            pickedRecurrenceEnd != null) ...[
-                          const SizedBox(height: 10),
-                          InkWell(
+                      );
+                    }),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // ── 行程日期 ──
+                  if (!isMultiDay) ...[
+                    const Text(
+                      '行程日期',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: pickedStartDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                          locale: const Locale('zh', 'TW'),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            pickedStartDate = picked;
+                            pickedEndDate = picked;
+                          });
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white10
+                              : const Color(0xFFF8FAFC),
+                          border: Border.all(
+                              color: Colors.grey.withValues(alpha: 0.2)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_today_rounded,
+                                size: 16, color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                              style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    const Text(
+                      '行程日期區間',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
                             onTap: () async {
                               final picked = await showDatePicker(
                                 context: ctx,
-                                initialDate: pickedRecurrenceEnd!,
-                                firstDate: pickedStartDate,
-                                lastDate: DateTime(2040),
+                                initialDate: pickedStartDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2030),
                                 locale: const Locale('zh', 'TW'),
                               );
                               if (picked != null) {
                                 setDialogState(() {
-                                  pickedRecurrenceEnd = picked;
+                                  pickedStartDate = picked;
+                                  if (pickedEndDate
+                                      .isBefore(pickedStartDate)) {
+                                    pickedEndDate = pickedStartDate;
+                                  }
                                 });
                               }
                             },
+                            borderRadius: BorderRadius.circular(12),
                             child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 10),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
+                                color: isDark
+                                    ? Colors.white10
+                                    : const Color(0xFFF8FAFC),
+                                border: Border.all(
+                                    color:
+                                        Colors.grey.withValues(alpha: 0.2)),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Row(children: [
-                                Icon(Icons.calendar_today,
-                                    size: 16,
-                                    color: Theme.of(context).primaryColor),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ]),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today_rounded,
+                                      size: 15, color: primaryColor),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${pickedStartDate.year}/${pickedStartDate.month.toString().padLeft(2, '0')}/${pickedStartDate.day.toString().padLeft(2, '0')}',
+                                    style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ],
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 6),
+                          child: Text('至',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey)),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: pickedEndDate,
+                                firstDate: pickedStartDate,
+                                lastDate: DateTime(2030),
+                                locale: const Locale('zh', 'TW'),
+                              );
+                              if (picked != null) {
+                                setDialogState(() {
+                                  pickedEndDate = picked;
+                                });
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white10
+                                    : const Color(0xFFF8FAFC),
+                                border: Border.all(
+                                    color:
+                                        Colors.grey.withValues(alpha: 0.2)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today_rounded,
+                                      size: 15, color: primaryColor),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${pickedEndDate.year}/${pickedEndDate.month.toString().padLeft(2, '0')}/${pickedEndDate.day.toString().padLeft(2, '0')}',
+                                    style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
-                    ]),
-                  );
-                }),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消')),
-                  ElevatedButton(
-                      onPressed: () {
-                        if (titleController.text.isEmpty) return;
-                        String range =
-                            "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
-                        String recurrenceDays = '';
-                        if (selectedRecurrenceType == 'weekly' &&
-                            selectedWeekdays.isNotEmpty) {
-                          List<int> sortedDays = selectedWeekdays.toList()
-                            ..sort();
-                          recurrenceDays = sortedDays.join(',');
+                    ),
+                  ],
+
+                  const SizedBox(height: 14),
+
+                  // ── 行程時間 ──
+                  const Text(
+                    '行程時間',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => selectTime(true),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white10
+                                  : const Color(0xFFF8FAFC),
+                              border: Border.all(
+                                  color:
+                                      Colors.grey.withValues(alpha: 0.2)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.access_time_rounded,
+                                    size: 16, color: primaryColor),
+                                const SizedBox(width: 6),
+                                Text(formatTime(pickedStartTime),
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('~',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey)),
+                      ),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => selectTime(false),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white10
+                                  : const Color(0xFFF8FAFC),
+                              border: Border.all(
+                                  color:
+                                      Colors.grey.withValues(alpha: 0.2)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.access_time_rounded,
+                                    size: 16, color: primaryColor),
+                                const SizedBox(width: 6),
+                                Text(formatTime(pickedEndTime),
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 14),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+
+                  // ── 跨日行程切換 ──
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('跨日行程',
+                        style: TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    value: isMultiDay,
+                    activeThumbColor: primaryColor,
+                    onChanged: (val) {
+                      setDialogState(() {
+                        isMultiDay = val;
+                        if (!isMultiDay) {
+                          pickedEndDate = pickedStartDate;
                         }
-                        String recurrenceEndStr = '';
-                        if (selectedRecurrenceType != 'none' &&
-                            endType == 'date' &&
-                            pickedRecurrenceEnd != null) {
-                          recurrenceEndStr =
-                              pickedRecurrenceEnd!.toString().split(' ')[0];
+                      });
+                    },
+                  ),
+
+                  // ── 重複設定 ──
+                  const Text('重複設定',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedRecurrenceType,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      filled: true,
+                      fillColor: isDark
+                          ? Colors.white10
+                          : const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                            color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'none',
+                          child:
+                              Text('不重複', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'daily',
+                          child:
+                              Text('每天重複', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'weekly',
+                          child:
+                              Text('每週重複', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'yearly',
+                          child:
+                              Text('每年重複', style: TextStyle(fontSize: 13))),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedRecurrenceType = val;
+                          if (selectedRecurrenceType != 'none' &&
+                              pickedRecurrenceEnd == null) {
+                            pickedRecurrenceEnd = pickedStartDate
+                                .add(const Duration(days: 30));
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  if (selectedRecurrenceType == 'weekly') ...[
+                    const SizedBox(height: 10),
+                    const Text('重複星期 (可多選)',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(7, (index) {
+                        int weekday = index + 1;
+                        String weekdayLabel =
+                            ['一', '二', '三', '四', '五', '六', '日'][index];
+                        bool isSelected =
+                            selectedWeekdays.contains(weekday);
+                        return GestureDetector(
+                          onTap: () {
+                            setDialogState(() {
+                              if (isSelected) {
+                                selectedWeekdays.remove(weekday);
+                              } else {
+                                selectedWeekdays.add(weekday);
+                              }
+                            });
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isSelected
+                                  ? primaryColor
+                                  : Colors.grey.shade200,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              weekdayLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                  if (selectedRecurrenceType != 'none') ...[
+                    const SizedBox(height: 12),
+                    const Text('結束重複',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: endType,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        filled: true,
+                        fillColor: isDark
+                            ? Colors.white10
+                            : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: Colors.grey.withValues(alpha: 0.2)),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'never',
+                            child: Text('一直重複下去',
+                                style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(
+                            value: 'date',
+                            child: Text('重複到指定日期',
+                                style: TextStyle(fontSize: 13))),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            endType = val;
+                            if (endType == 'never') {
+                              pickedRecurrenceEnd = null;
+                            } else {
+                              pickedRecurrenceEnd ??= pickedStartDate
+                                  .add(const Duration(days: 30));
+                            }
+                          });
                         }
-                        _addSchedule(range, titleController.text, selectedColor,
-                            startDate: pickedStartDate,
-                            endDate:
-                                isMultiDay ? pickedEndDate : pickedStartDate,
-                            recurrenceType: selectedRecurrenceType,
-                            recurrenceDays: recurrenceDays,
-                            recurrenceEnd: recurrenceEndStr);
-                        Navigator.pop(ctx);
                       },
-                      child: const Text('確認加入'))
-                ]));
+                    ),
+                    if (endType == 'date' &&
+                        pickedRecurrenceEnd != null) ...[
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: pickedRecurrenceEnd!,
+                            firstDate: pickedStartDate,
+                            lastDate: DateTime(2040),
+                            locale: const Locale('zh', 'TW'),
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              pickedRecurrenceEnd = picked;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(children: [
+                            Icon(Icons.calendar_today_rounded,
+                                size: 16, color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${pickedRecurrenceEnd!.year}/${pickedRecurrenceEnd!.month.toString().padLeft(2, '0')}/${pickedRecurrenceEnd!.day.toString().padLeft(2, '0')}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
+        actions: [
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.grey.shade700,
+              side: BorderSide(color: Colors.grey.shade300),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            onPressed: () {
+              if (titleController.text.isEmpty) return;
+              String range =
+                  "${formatTime(pickedStartTime)}~${formatTime(pickedEndTime)}";
+              String recurrenceDays = '';
+              if (selectedRecurrenceType == 'weekly' &&
+                  selectedWeekdays.isNotEmpty) {
+                List<int> sortedDays = selectedWeekdays.toList()..sort();
+                recurrenceDays = sortedDays.join(',');
+              }
+              String recurrenceEndStr = '';
+              if (selectedRecurrenceType != 'none' &&
+                  endType == 'date' &&
+                  pickedRecurrenceEnd != null) {
+                recurrenceEndStr =
+                    pickedRecurrenceEnd!.toString().split(' ')[0];
+              }
+              _addSchedule(
+                range,
+                titleController.text,
+                selectedColor,
+                startDate: pickedStartDate,
+                endDate: isMultiDay ? pickedEndDate : pickedStartDate,
+                recurrenceType: selectedRecurrenceType,
+                recurrenceDays: recurrenceDays,
+                recurrenceEnd: recurrenceEndStr,
+              );
+              Navigator.pop(ctx);
+            },
+            child: const Text('確認加入',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── 貼文編輯（僅貼文作者可操作）───────────────────────────────
@@ -12893,15 +13913,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         await db.delete('posts', where: 'id = ?', whereArgs: [postId]);
         await _loadData();
         if (mounted) {
-          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-            const SnackBar(content: Text('貼文已刪除')),
+          ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('貼文已刪除')),
           );
         }
       } catch (e) {
         debugPrint('刪除貼文失敗: $e');
         if (mounted) {
-          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-            const SnackBar(content: Text('刪除失敗，請稍後再試')),
+          ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('刪除失敗，請稍後再試')),
           );
         }
       }
@@ -12930,14 +13950,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           await _saveAvatar(blob: croppedBytes, colorIdx: _userAvatarColor);
           if (mounted) {
             ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('頭像可視範圍已更新並儲存')));
+                .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('頭像可視範圍已更新並儲存')));
           }
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('選取圖片失敗，請再試一次')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('選取圖片失敗，請再試一次')));
       }
     }
   }
@@ -12979,7 +13999,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       debugPrint('儲存頭像失敗: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('頭像儲存失敗，請再試一次')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('頭像儲存失敗，請再試一次')));
       }
     }
   }
@@ -13059,9 +14079,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         await _saveAvatar(
                             colorIdx: _userAvatarColor, blob: bytes);
                         if (mounted) {
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('頭像已更新')));
+                          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('頭像已更新')));
                         }
                       }
                     },
@@ -13111,8 +14130,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             if (mounted) {
                               ScaffoldMessenger.of(context)
                                   .hideCurrentSnackBar();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('頭像已更新')));
+                              ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('頭像已更新')));
                             }
                           },
                           child: Column(
@@ -13840,8 +14859,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   Navigator.pop(ctx);
                 }
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                  ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                    SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                       content: Text(newKey.isEmpty
                           ? '已清除自訂 API Key'
                           : '✅ Gemini API Key 已成功儲存！'),

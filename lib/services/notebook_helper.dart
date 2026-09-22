@@ -326,8 +326,8 @@ class NotebookHelper {
 
                     Navigator.pop(ctx);
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                      SnackBar(duration: const Duration(milliseconds: 1500), 
                         content: Row(
                           children: [
                             const Icon(Icons.check_circle_rounded,

@@ -876,3 +876,42 @@ List<String> normalizeCommunityTopicIds(Iterable<String> ids) {
   }
   return normalized.toList();
 }
+
+/// 全局輕量化快顯提示（確保收起速度靈敏，不阻塞畫面）
+void showAppPrompt(
+  BuildContext context,
+  String message, {
+  Duration duration = const Duration(milliseconds: 1500),
+  Color? backgroundColor,
+  SnackBarAction? action,
+}) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(message),
+      duration: duration,
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: backgroundColor,
+      action: action,
+    ),
+  );
+}
+
+extension FastPromptExtension on BuildContext {
+  void showPrompt(
+    String message, {
+    Duration duration = const Duration(milliseconds: 1500),
+    Color? backgroundColor,
+    SnackBarAction? action,
+  }) {
+    showAppPrompt(
+      this,
+      message,
+      duration: duration,
+      backgroundColor: backgroundColor,
+      action: action,
+    );
+  }
+}

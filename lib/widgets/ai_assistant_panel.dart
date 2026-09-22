@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import '../services/ai_diagnosis_service.dart';
 import '../services/voice_recognition_service.dart';
+import 'ai_action_cards.dart';
 
 class AIAssistantPanel extends StatefulWidget {
   final List<Map<String, dynamic>> chatLogs;
@@ -13,6 +14,9 @@ class AIAssistantPanel extends StatefulWidget {
   final VoidCallback onScrollToBottom;
   final ScrollController chatScrollController;
   final VoidCallback onClearChat;
+  final Function(String pageName, Map<String, dynamic>? data)? onNavigateToPage;
+  final Function(String dialogName, Map<String, dynamic>? prefillData)? onShowNativeDialog;
+  final Function(Map<String, dynamic> data)? onQuickPublishPost;
 
   const AIAssistantPanel({
     super.key,
@@ -21,6 +25,9 @@ class AIAssistantPanel extends StatefulWidget {
     required this.onScrollToBottom,
     required this.chatScrollController,
     required this.onClearChat,
+    this.onNavigateToPage,
+    this.onShowNativeDialog,
+    this.onQuickPublishPost,
   });
 
   @override
@@ -126,7 +133,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               _voiceSoundLevel = 0.0;
               _voiceBaseText = '';
             });
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(
                 content: Row(
                   children: [
@@ -136,7 +143,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     Expanded(child: Text(errMsg)),
                   ],
                 ),
-                duration: const Duration(seconds: 3),
+                duration: const Duration(milliseconds: 1500),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -234,6 +241,95 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     }
                     if (msg['widgetType'] == 'ai_loading') {
                       return _buildAiLoading(msg);
+                    }
+
+                    // ── 【模式一】視覺化發文草稿卡片 ──
+                    if (msg['widgetType'] == 'action_draft_card') {
+                      return AIDraftPostCard(
+                        draftData: (msg['draftData'] as Map<String, dynamic>?) ?? {},
+                        cardState: (msg['cardState'] as String?) ?? 'active',
+                        onQuickPublish: (data) {
+                          setModalState(() {
+                            msg['cardState'] = 'completed';
+                          });
+                          if (widget.onQuickPublishPost != null) {
+                            widget.onQuickPublishPost!(data);
+                          }
+                        },
+                        onOpenFullEditor: (data) {
+                          setModalState(() {
+                            msg['cardState'] = 'completed';
+                          });
+                          if (widget.onNavigateToPage != null) {
+                            widget.onNavigateToPage!('create_post_page', data);
+                          }
+                        },
+                        onCancel: () {
+                          setModalState(() {
+                            msg['cardState'] = 'cancelled';
+                            widget.chatLogs.add({
+                              'isAI': true,
+                              'text': '',
+                              'widgetType': 'action_result_card',
+                              'resultType': 'cancelled',
+                              'actionType': 'create_post',
+                              'summary': '已取消發佈貼文。',
+                            });
+                          });
+                          widget.onScrollToBottom();
+                        },
+                      );
+                    }
+
+                    // ── 【模式二】智慧預填喚起原生彈窗 ──
+                    if (msg['widgetType'] == 'smart_launch') {
+                      return AISmartLaunchCard(
+                        targetDialog: (msg['targetDialog'] as String?) ?? '',
+                        prefillData: (msg['prefillData'] as Map<String, dynamic>?) ?? {},
+                        cardState: (msg['cardState'] as String?) ?? 'active',
+                        onLaunch: () {
+                          setModalState(() {
+                            msg['cardState'] = 'completed';
+                            widget.chatLogs.add({
+                              'isAI': true,
+                              'text': '',
+                              'widgetType': 'action_result_card',
+                              'resultType': 'success',
+                              'actionType': msg['targetDialog'],
+                              'summary': '已為您開啟操作介面！',
+                            });
+                          });
+                          widget.onScrollToBottom();
+                          final target = msg['targetDialog'] as String? ?? '';
+                          final prefill = (msg['prefillData'] as Map<String, dynamic>?) ?? {};
+                          if (widget.onShowNativeDialog != null) {
+                            widget.onShowNativeDialog!(target, prefill);
+                          }
+                        },
+                        onCancel: () {
+                          setModalState(() {
+                            msg['cardState'] = 'cancelled';
+                            widget.chatLogs.add({
+                              'isAI': true,
+                              'text': '',
+                              'widgetType': 'action_result_card',
+                              'resultType': 'cancelled',
+                              'actionType': msg['targetDialog'],
+                              'summary': '已取消此操作。',
+                            });
+                          });
+                          widget.onScrollToBottom();
+                        },
+                      );
+                    }
+
+                    // ── 操作結果回饋卡片 ──
+                    if (msg['widgetType'] == 'action_result_card') {
+                      return AIActionResultCard(
+                        resultType: (msg['resultType'] as String?) ?? 'success',
+                        actionType: (msg['actionType'] as String?) ?? '',
+                        summary: (msg['summary'] as String?) ?? '',
+                      );
                     }
 
                     // ... 這裡可以放入原本 ListView.builder 裡的複雜邏輯 ...
@@ -1402,8 +1498,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         onLongPress: () {
           HapticFeedback.mediumImpact();
           Clipboard.setData(ClipboardData(text: msg['text'] ?? ''));
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
             SnackBar(
               content: const Row(
                 children: [
@@ -1413,7 +1508,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   Text('已複製代理人回覆內容'),
                 ],
               ),
-              duration: const Duration(seconds: 2),
+              duration: const Duration(milliseconds: 1500),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),

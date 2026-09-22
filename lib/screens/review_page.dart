@@ -143,8 +143,8 @@ class _ReviewPageState extends State<ReviewPage>
     }
     setState(() => _saving = false);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+      SnackBar(duration: const Duration(milliseconds: 1500), 
         content: const Row(
           children: [
             Icon(Icons.check_circle, color: Colors.white),
@@ -198,8 +198,8 @@ class _ReviewPageState extends State<ReviewPage>
     } catch (e) {
       if (mounted) {
         setState(() => _isAnalyzing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), 
             content: Text('分析失敗：$e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,

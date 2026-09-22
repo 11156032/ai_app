@@ -129,15 +129,15 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
         .toList();
 
     if (options.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('至少需要填寫兩個選項')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('至少需要填寫兩個選項')),
       );
       return;
     }
 
     if (answerIndex < 0 || answerIndex >= options.length) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請指定一個有效的正確答案')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請指定一個有效的正確答案')),
       );
       return;
     }
@@ -177,8 +177,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text(widget.initialData == null ? '題目已成功新增！' : '題目已成功儲存！'),
           backgroundColor: Colors.green.shade600,
         ),
@@ -187,8 +187,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     } catch (e) {
       debugPrint('儲存題目失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('儲存失敗，請稍後再試')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('儲存失敗，請稍後再試')),
       );
     } finally {
       if (mounted) {
@@ -199,8 +199,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
 
   void _addOption() {
     if (_optionCtrls.length >= 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('最多支援 6 個選項')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('最多支援 6 個選項')),
       );
       return;
     }
@@ -211,8 +211,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
 
   void _removeOption(int index) {
     if (_optionCtrls.length <= 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('題目至少需要 2 個選項')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('題目至少需要 2 個選項')),
       );
       return;
     }

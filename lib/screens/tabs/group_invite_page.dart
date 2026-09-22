@@ -68,7 +68,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
   Future<void> _copyLink() async {
     await Clipboard.setData(ClipboardData(text: _inviteUrl));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(
           content: Text('✅ 邀請連結已複製到剪貼板！'),
           backgroundColor: Theme.of(context).primaryColor,
@@ -118,7 +118,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
           _isLoading = false;
           _updateExpiryLabel();
         });
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           const SnackBar(
             content: Text('邀請連結已重新生成'),
             duration: Duration(seconds: 1),
@@ -154,7 +154,7 @@ class _GroupInvitePageState extends State<GroupInvitePage> {
         _group = updated ?? _group;
         _updateExpiryLabel();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(
           content: Text('已設定為：$label'),
           duration: const Duration(seconds: 1),

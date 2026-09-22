@@ -172,8 +172,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         });
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已新增題目並自動勾選加入本題本！'), backgroundColor: Colors.green),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已新增題目並自動勾選加入本題本！'), backgroundColor: Colors.green),
         );
       }
     }
@@ -226,8 +226,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         }
         setState(() {});
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('AI 辨識題目已自動加入並勾選！'), backgroundColor: Colors.green),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('AI 辨識題目已自動加入並勾選！'), backgroundColor: Colors.green),
         );
       }
     }
@@ -237,15 +237,15 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
   Future<void> _savePaper() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請輸入題本名稱')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請輸入題本名稱')),
       );
       return;
     }
 
     if (_selectedQuestionIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請至少勾選一道題目')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請至少勾選一道題目')),
       );
       return;
     }
@@ -265,8 +265,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('成功儲存題本「$name」！共 ${questionIds.length} 題。'),
           backgroundColor: Colors.green,
         ),
@@ -289,8 +289,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
       debugPrint('儲存題本錯誤: $e');
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('儲存失敗: $e')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('儲存失敗: $e')),
       );
     }
   }

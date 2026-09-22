@@ -1,8 +1,13 @@
 import 'dart:convert';
-import 'dart:io' show File;
+import 'dart:io' show File, Directory, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:http/http.dart' as http;
 
 import '../../database/database_helper.dart';
 import '../../widgets/common_widgets.dart';
@@ -234,8 +239,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       );
       await _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
             content: Text(_requiresApproval ? '已送出申請，等待管理員審核' : '🎉 成功加入群組！'),
             backgroundColor: Theme.of(context).primaryColor,
           ),
@@ -244,8 +249,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     } catch (e) {
       if (mounted) {
         setState(() => _isJoining = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失敗：$e')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('操作失敗：$e')),
         );
       }
     }
@@ -316,8 +321,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         .leaveGroup(_group['id'] as int, m['user_id'].toString());
     await _loadData();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('已將 $name 移出群組'),
           backgroundColor: Colors.redAccent,
         ),
@@ -359,8 +364,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     await DatabaseHelper.instance.deleteGroup(_group['id'] as int);
     if (mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('已刪除群組「$groupName」'),
           backgroundColor: Colors.redAccent,
         ),
@@ -373,8 +378,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         .toggleGroupMute(_group['id'] as int, _currentUserId);
     await _loadData();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text(newMuted ? '🔕 已將群組設定為靜音' : '🔔 已開啟群組通知'),
           backgroundColor: Theme.of(context).primaryColor,
         ),
@@ -387,8 +392,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         .markGroupAsUnread(_group['id'] as int, _currentUserId);
     if (mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('🔴 已標示為未讀'),
           backgroundColor: Theme.of(context).primaryColor,
         ),
@@ -402,8 +407,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         _group['id'] as int, member['user_id'].toString(), approved);
     await _loadData();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content:
               Text(approved ? '✅ 已同意 ${member['display_name']} 加入' : '已拒絕申請'),
           backgroundColor:
@@ -414,8 +419,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   }
 
   void _showGuestPrompt() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('請先登入才能加入群組')),
+    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請先登入才能加入群組')),
     );
   }
 
@@ -1115,8 +1120,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     } catch (e) {
       debugPrint('Error picking image in GroupDetailPage: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('選取圖片失敗：$e')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('選取圖片失敗：$e')),
         );
       }
     }
@@ -1148,9 +1153,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       await db.insert('posts', <String, Object?>{
         'group_id': _group['id'],
         'user_id': _currentUserId,
-        'content': text.isNotEmpty
-            ? text
-            : (mediaBlob != null ? '📷 [圖片]' : ''),
+        'content': text.trim(),
         'type': mediaBlob != null ? 'image' : 'text',
         'media_blob': mediaBlob,
         'is_edited': 0,
@@ -1164,8 +1167,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       await _loadData();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('發送失敗：$e')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('發送失敗：$e')),
         );
       }
     } finally {
@@ -1581,17 +1584,36 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                 attachedData, isMe, isDark, p);
                           }
 
-                          return Text(
-                            p['content'] ?? '',
-                            style: TextStyle(
-                                fontSize: 15, color: textColor, height: 1.3),
+                          final String rawContent =
+                              (p['content'] ?? '').toString().trim();
+                          final bool isDummyImageText =
+                              rawContent == '📷 [圖片]' ||
+                                  rawContent == '[圖片]' ||
+                                  rawContent == '📷 圖片' ||
+                                  rawContent == '圖片';
+                          final bool hasMedia = p['media_blob'] != null ||
+                              (p['media'] != null &&
+                                  p['media'].toString().isNotEmpty);
+
+                          if (rawContent.isEmpty ||
+                              (isDummyImageText && hasMedia)) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Padding(
+                            padding:
+                                EdgeInsets.only(bottom: hasMedia ? 8.0 : 0.0),
+                            child: Text(
+                              rawContent,
+                              style: TextStyle(
+                                  fontSize: 15, color: textColor, height: 1.3),
+                            ),
                           );
                         },
                       ),
                       if (p['media_blob'] != null ||
                           (p['media'] != null &&
                               p['media'].toString().isNotEmpty)) ...[
-                        const SizedBox(height: 8),
                         Builder(
                           builder: (context) {
                             Map<String, dynamic> attachedData = {};
@@ -1619,16 +1641,73 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                             final Alignment imgAlignment =
                                 Alignment(alignX, alignY);
 
-                            return ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: (p['media_blob'] != null)
-                                  ? Image.memory(p['media_blob'] as Uint8List,
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: 160,
-                                      alignment: imgAlignment)
-                                  : _buildNetworkOrFile(
-                                      p['media'].toString(), imgAlignment),
+                            final Uint8List? mediaBlob =
+                                p['media_blob'] as Uint8List?;
+                            final String? mediaSrc = p['media']?.toString();
+
+                            return GestureDetector(
+                              onTap: () => _openImagePreview(
+                                imageBlob: mediaBlob,
+                                imageSrc: mediaSrc,
+                                author: p['author']?.toString() ?? '成員',
+                                time: p['time']?.toString() ?? '',
+                              ),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 280,
+                                        maxHeight: 280,
+                                      ),
+                                      child: mediaBlob != null
+                                          ? Image.memory(
+                                              mediaBlob,
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              alignment: imgAlignment,
+                                            )
+                                          : _buildNetworkOrFile(
+                                              mediaSrc ?? '',
+                                              imgAlignment,
+                                            ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    right: 8,
+                                    bottom: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.65),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.fullscreen_rounded,
+                                            size: 14,
+                                            color: Colors.white,
+                                          ),
+                                          SizedBox(width: 3),
+                                          Text(
+                                            '檢視大圖',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             );
                           },
                         ),
@@ -1703,6 +1782,258 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         ],
       ),
     );
+  }
+
+  void _openImagePreview({
+    Uint8List? imageBlob,
+    String? imageSrc,
+    required String author,
+    required String time,
+  }) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black.withValues(alpha: 0.92),
+        pageBuilder: (context, anim1, anim2) {
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(
+              backgroundColor: Colors.black.withValues(alpha: 0.7),
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.close_rounded,
+                    color: Colors.white, size: 26),
+                tooltip: '關閉',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    author,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (time.isNotEmpty)
+                    Text(
+                      time,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.download_rounded, color: Colors.white),
+                  tooltip: '下載原圖',
+                  onPressed: () => _downloadImage(
+                    imageBlob: imageBlob,
+                    imageSrc: imageSrc,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+            body: Stack(
+              children: [
+                Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    clipBehavior: Clip.none,
+                    child: imageBlob != null
+                        ? Image.memory(
+                            imageBlob,
+                            fit: BoxFit.contain,
+                          )
+                        : _buildFullScreenImage(imageSrc ?? ''),
+                  ),
+                ),
+                Positioned(
+                  bottom: 24,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _downloadImage(
+                        imageBlob: imageBlob,
+                        imageSrc: imageSrc,
+                      ),
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      label: const Text('儲存 / 下載原圖'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 6,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        transitionsBuilder: (context, anim1, anim2, child) {
+          return FadeTransition(opacity: anim1, child: child);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFullScreenImage(String src) {
+    if (src.startsWith('data:image')) {
+      return Image.memory(base64Decode(src.split(',').last),
+          fit: BoxFit.contain);
+    } else if (src.startsWith('http') || kIsWeb) {
+      return Image.network(
+        src,
+        fit: BoxFit.contain,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              color: Colors.white,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.broken_image_rounded,
+                  color: Colors.white54, size: 48),
+              SizedBox(height: 8),
+              Text('圖片載入失敗', style: TextStyle(color: Colors.white54)),
+            ],
+          ),
+        ),
+      );
+    } else {
+      return Image.file(File(src), fit: BoxFit.contain);
+    }
+  }
+
+  Future<void> _downloadImage({
+    Uint8List? imageBlob,
+    String? imageSrc,
+  }) {
+    return _performDownloadImage(
+      imageBlob: imageBlob,
+      imageSrc: imageSrc,
+    );
+  }
+
+  Future<void> _performDownloadImage({
+    Uint8List? imageBlob,
+    String? imageSrc,
+  }) async {
+    try {
+      Uint8List? bytes = imageBlob;
+      if (bytes == null && imageSrc != null && imageSrc.isNotEmpty) {
+        if (imageSrc.startsWith('data:image')) {
+          bytes = base64Decode(imageSrc.split(',').last);
+        } else if (imageSrc.startsWith('http')) {
+          final res = await http.get(Uri.parse(imageSrc));
+          if (res.statusCode == 200) {
+            bytes = res.bodyBytes;
+          }
+        } else {
+          final f = File(imageSrc);
+          if (await f.exists()) {
+            bytes = await f.readAsBytes();
+          }
+        }
+      }
+
+      if (bytes == null || bytes.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('無法讀取圖片內容')),
+          );
+        }
+        return;
+      }
+
+      final fileName =
+          'group_img_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      String? savedPath;
+
+      if (!kIsWeb &&
+          (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+        savedPath = await FilePicker.platform.saveFile(
+          dialogTitle: '儲存圖片',
+          fileName: fileName,
+          type: FileType.image,
+        );
+        if (savedPath != null) {
+          final file = File(savedPath);
+          await file.writeAsBytes(bytes);
+        }
+      } else if (!kIsWeb) {
+        Directory? targetDir;
+        try {
+          targetDir = await getDownloadsDirectory();
+        } catch (_) {}
+        targetDir ??= await getApplicationDocumentsDirectory();
+        final file = File('${targetDir.path}/$fileName');
+        await file.writeAsBytes(bytes);
+        savedPath = file.path;
+      }
+
+      if (savedPath != null && mounted) {
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), 
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '圖片已儲存：$savedPath',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: '開啟',
+              textColor: Colors.amberAccent,
+              onPressed: () {
+                OpenFilex.open(savedPath!);
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
+            content: Text('下載失敗：$e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildNetworkOrFile(String src, Alignment alignment) {
@@ -2446,7 +2777,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       NotesDatabase.notes.insert(0, newNote);
 
       ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(
           content: const Row(
             children: [
@@ -2464,7 +2795,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       );
     } catch (e) {
       ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(
           content: Text('匯入失敗: $e'),
           backgroundColor: Colors.redAccent,

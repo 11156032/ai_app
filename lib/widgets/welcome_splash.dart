@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'common_widgets.dart';
@@ -25,14 +24,14 @@ class UserOnboardingPreferences {
 class WelcomeSplash extends StatefulWidget {
   final void Function(List<String> selectedTopicIds,
       [UserOnboardingPreferences? preferences]) onDone;
-  final VoidCallback onSkip;
+  final VoidCallback? onSkip;
   final String? userName;
   final List<String>? initialTopicIds;
 
   const WelcomeSplash({
     super.key,
     required this.onDone,
-    required this.onSkip,
+    this.onSkip,
     this.userName,
     this.initialTopicIds,
   });
@@ -45,11 +44,14 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     with TickerProviderStateMixin {
   final PageController _pageCtrl = PageController();
   int _currentPage = 0;
-  Timer? _autoAdvanceTimer;
 
   late AnimationController _entryAnim;
   late Animation<double> _fadeIn;
   late Animation<Offset> _slideIn;
+
+  late AnimationController _exitAnim;
+  late Animation<double> _fadeOut;
+  late Animation<Offset> _slideOut;
 
   // 4 題答案狀態收集
   String _selectedGoal = 'exam'; // Q1: 目標與動機 (單選)
@@ -119,7 +121,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
 
     _entryAnim = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 550),
     );
     _fadeIn = CurvedAnimation(parent: _entryAnim, curve: Curves.easeOut);
     _slideIn = Tween<Offset>(
@@ -127,24 +129,26 @@ class _WelcomeSplashState extends State<WelcomeSplash>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _entryAnim, curve: Curves.easeOutCubic));
     _entryAnim.forward();
+
+    _exitAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _exitAnim, curve: Curves.easeInCubic),
+    );
+    _slideOut = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0, -0.03),
+    ).animate(CurvedAnimation(parent: _exitAnim, curve: Curves.easeInCubic));
   }
 
   @override
   void dispose() {
-    _autoAdvanceTimer?.cancel();
     _entryAnim.dispose();
+    _exitAnim.dispose();
     _pageCtrl.dispose();
     super.dispose();
-  }
-
-  /// 250ms 自動延遲平滑跳轉下一頁（單選題流暢體驗）
-  void _triggerAutoAdvance() {
-    _autoAdvanceTimer?.cancel();
-    _autoAdvanceTimer = Timer(const Duration(milliseconds: 250), () {
-      if (mounted && _currentPage < 3) {
-        _nextPage();
-      }
-    });
   }
 
   void _nextPage() {
@@ -160,13 +164,16 @@ class _WelcomeSplashState extends State<WelcomeSplash>
   }
 
   void _prevPage() {
-    _autoAdvanceTimer?.cancel();
     HapticFeedback.lightImpact();
     if (_currentPage > 0) {
       _pageCtrl.previousPage(
         duration: const Duration(milliseconds: 360),
         curve: Curves.easeInOutCubic,
       );
+    } else {
+      _exitAnim.forward().then((_) {
+        widget.onSkip?.call();
+      });
     }
   }
 
@@ -174,7 +181,11 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     setState(() => _currentPage = page);
   }
 
-  void _finishOnboarding() {
+  void _finishOnboarding() async {
+    HapticFeedback.lightImpact();
+    if (_exitAnim.isAnimating || _exitAnim.isCompleted) return;
+    await _exitAnim.forward();
+    if (!mounted) return;
     if (_selectedTopicIds.isEmpty) {
       _selectedTopicIds.addAll(['topic_math', 'topic_ai']);
     }
@@ -234,44 +245,50 @@ class _WelcomeSplashState extends State<WelcomeSplash>
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0xFFF8FAFC), // Apple 純淨典雅白底
-      child: Stack(
-        children: [
-          // 頂級 Apple 白底氛圍背景漸層與柔和微光
-          _buildAppleLightBackground(),
+      child: FadeTransition(
+        opacity: _fadeOut,
+        child: SlideTransition(
+          position: _slideOut,
+          child: Stack(
+            children: [
+              // 頂級 Apple 白底氛圍背景漸層與柔和微光
+              _buildAppleLightBackground(),
 
-          SafeArea(
-            child: FadeTransition(
-              opacity: _fadeIn,
-              child: SlideTransition(
-                position: _slideIn,
-                child: Column(
-                  children: [
-                    // 頂部導航列：返回、分段式膠囊進度條、略過按鈕
-                    _buildTopBar(),
+              SafeArea(
+                child: FadeTransition(
+                  opacity: _fadeIn,
+                  child: SlideTransition(
+                    position: _slideIn,
+                    child: Column(
+                      children: [
+                        // 頂部導航列：返回與分段式膠囊進度條（無略過按鈕）
+                        _buildTopBar(),
 
-                    // 中央 4 大步驟多元互動 PageView
-                    Expanded(
-                      child: PageView(
-                        controller: _pageCtrl,
-                        onPageChanged: _onPageChanged,
-                        physics: const BouncingScrollPhysics(),
-                        children: [
-                          _buildGoalStep(), // Step 1: 直列卡片 + 250ms 自動跳轉
-                          _buildPainPointsStep(), // Step 2: 2x2 Bento 網格方形卡片
-                          _buildIncentiveStep(), // Step 3: 沉浸情境大卡片
-                          _buildSubjectsStep(), // Step 4: 靈活多選膠囊標籤雲
-                        ],
-                      ),
+                        // 中央 4 大步驟多元互動 PageView
+                        Expanded(
+                          child: PageView(
+                            controller: _pageCtrl,
+                            onPageChanged: _onPageChanged,
+                            physics: const BouncingScrollPhysics(),
+                            children: [
+                              _buildGoalStep(), // Step 1: 學習目標
+                              _buildPainPointsStep(), // Step 2: 學習困擾
+                              _buildIncentiveStep(), // Step 3: 學習模式
+                              _buildSubjectsStep(), // Step 4: 關注學科
+                            ],
+                          ),
+                        ),
+
+                        // 底部固定全寬膠囊按鈕
+                        _buildBottomBar(),
+                      ],
                     ),
-
-                    // 底部固定全寬膠囊按鈕
-                    _buildBottomBar(),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -358,10 +375,8 @@ class _WelcomeSplashState extends State<WelcomeSplash>
       child: Row(
         children: [
           // 左側返回上一題按鈕
-          AnimatedOpacity(
-            opacity: _currentPage > 0 ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 200),
-            child: IconButton(
+          if (_currentPage > 0)
+            IconButton(
               icon: const Icon(
                 Icons.arrow_back_ios_new_rounded,
                 color: Color(0xFF334155),
@@ -369,10 +384,11 @@ class _WelcomeSplashState extends State<WelcomeSplash>
               ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              onPressed: _currentPage > 0 ? _prevPage : null,
-              tooltip: '上一題',
-            ),
-          ),
+              onPressed: _prevPage,
+              tooltip: '上一步',
+            )
+          else
+            const SizedBox(width: 36, height: 36),
           const SizedBox(width: 8),
 
           // 中央 Apple 膠囊分段進度條 (4 段)
@@ -415,102 +431,60 @@ class _WelcomeSplashState extends State<WelcomeSplash>
           ),
           const SizedBox(width: 8),
 
-          // 右側晶透略過按鈕
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: widget.onSkip,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                    width: 1.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Text(
-                  '略過',
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // 右側佔位保持進度條置中平衡
+          const SizedBox(width: 36, height: 36),
         ],
       ),
     );
   }
 
   // ═════════════════════════════════════════════════════
-  // Step 1: 目標與動機 (白底直列卡片 + 250ms 自動跳轉)
+  // Step 1: 目標與動機 (點選不自動跳轉，文案清晰精簡)
   // ═════════════════════════════════════════════════════
   Widget _buildGoalStep() {
-    final name = (widget.userName != null && widget.userName!.trim().isNotEmpty)
-        ? widget.userName!.trim()
-        : '同學';
-
     return _StepContainer(
-      stepBadge: 'STEP 01 / 04 · 目標與動機',
-      title: '$name，你目前的學習目標是？',
-      subtitle: '點選後將為你客製化推薦內容與診斷深度（單選即自動前進）',
+      stepBadge: '步驟 1 / 4 · 學習目標',
+      title: '你的主要學習目標是什麼？',
+      subtitle: '選擇目前最符合的方向，為你推薦合適的內容與工具',
       children: [
         _AppleLinearCard(
           emoji: '🎓',
           title: '升學大考衝刺',
-          subtitle: '會考、學測、分科測驗重點複習與弱點突破',
+          subtitle: '會考、學測、統測與分科測驗重點複習',
           isSelected: _selectedGoal == 'exam',
           onTap: () {
-            HapticFeedback.lightImpact();
+            HapticFeedback.selectionClick();
             setState(() => _selectedGoal = 'exam');
-            _triggerAutoAdvance();
           },
         ),
         _AppleLinearCard(
           emoji: '📚',
-          title: '段考與課業鞏固',
-          subtitle: '緊跟課堂進度，精準掌握單元核心概念',
+          title: '學校課業鞏固',
+          subtitle: '緊跟平時進度，掌握單元核心概念與段考複習',
           isSelected: _selectedGoal == 'school',
           onTap: () {
-            HapticFeedback.lightImpact();
+            HapticFeedback.selectionClick();
             setState(() => _selectedGoal = 'school');
-            _triggerAutoAdvance();
           },
         ),
         _AppleLinearCard(
           emoji: '💡',
-          title: '科技與跨域自學',
-          subtitle: '探索 AI 程式、前沿科普與跨學科新知',
+          title: '科技與程式探索',
+          subtitle: '學習 AI 應用、程式開發與跨學科新知',
           isSelected: _selectedGoal == 'tech',
           onTap: () {
-            HapticFeedback.lightImpact();
+            HapticFeedback.selectionClick();
             setState(() => _selectedGoal = 'tech');
-            _triggerAutoAdvance();
           },
         ),
         _AppleLinearCard(
           emoji: '📝',
-          title: '日常自律與習慣養成',
-          subtitle: '持續打卡記錄、整理心智圖與讀書心得',
+          title: '自律習慣與日常',
+          subtitle: '規劃每日讀書節奏、整理筆記與打卡記錄',
           isSelected: _selectedGoal == 'daily',
           onTap: () {
-            HapticFeedback.lightImpact();
+            HapticFeedback.selectionClick();
             setState(() => _selectedGoal = 'daily');
-            _triggerAutoAdvance();
           },
         ),
       ],
@@ -518,13 +492,13 @@ class _WelcomeSplashState extends State<WelcomeSplash>
   }
 
   // ═════════════════════════════════════════════════════
-  // Step 2: 痛點共鳴 (白底 2x2 Bento 網格方形卡片)
+  // Step 2: 痛點與需求 (白底 2x2 Bento 網格方形卡片)
   // ═════════════════════════════════════════════════════
   Widget _buildPainPointsStep() {
     return _StepContainer(
-      stepBadge: 'STEP 02 / 04 · 痛點共鳴 (可多選)',
-      title: '在學習過程中，你遇到最大的挑戰？',
-      subtitle: '點選你的痛點，系統將為你優先配置對應的 AI 伴學工具',
+      stepBadge: '步驟 2 / 4 · 學習困擾 (可多選)',
+      title: '平時學習最常遇到哪些困擾？',
+      subtitle: '選取你的需求，系統將優先為你配置智慧輔助工具',
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
@@ -536,36 +510,36 @@ class _WelcomeSplashState extends State<WelcomeSplash>
                 _BentoSquareCard(
                   width: cardWidth,
                   emoji: '🧩',
-                  badgeText: 'AI 破題盲點',
-                  title: '卡題無人指引',
-                  subtitle: '即時自然語言破題，循序引導思考',
+                  badgeText: 'AI 破題',
+                  title: '遇到難題卡關',
+                  subtitle: '即時引導解題思路與盲點',
                   isSelected: _selectedPainPoints.contains('stuck_questions'),
                   onTap: () => _togglePainPoint('stuck_questions'),
                 ),
                 _BentoSquareCard(
                   width: cardWidth,
                   emoji: '📑',
-                  badgeText: '口述轉心智圖',
+                  badgeText: '語音轉大綱',
                   title: '筆記散亂繁雜',
-                  subtitle: '語音錄音秒轉樹狀大綱與知識架構',
+                  subtitle: '口述秒轉心智圖與重點架構',
                   isSelected: _selectedPainPoints.contains('scattered_notes'),
                   onTap: () => _togglePainPoint('scattered_notes'),
                 ),
                 _BentoSquareCard(
                   width: cardWidth,
                   emoji: '⏰',
-                  badgeText: '智慧排程日曆',
-                  title: '缺乏自律拖延',
-                  subtitle: '自動生成讀書計畫並同步行事曆',
+                  badgeText: '智慧排程',
+                  title: '缺乏自律規劃',
+                  subtitle: '自動產生計畫並同步日曆',
                   isSelected: _selectedPainPoints.contains('procrastination'),
                   onTap: () => _togglePainPoint('procrastination'),
                 ),
                 _BentoSquareCard(
                   width: cardWidth,
                   emoji: '📦',
-                  badgeText: '社群 Pack 模組',
-                  title: '缺優質題庫試卷',
-                  subtitle: '同儕優質資源與考題一鍵匯入刷題',
+                  badgeText: '資源共享',
+                  title: '缺少練習資源',
+                  subtitle: '同儕優質題庫與試卷一鍵獲取',
                   isSelected: _selectedPainPoints.contains('resource_lacking'),
                   onTap: () => _togglePainPoint('resource_lacking'),
                 ),
@@ -578,68 +552,64 @@ class _WelcomeSplashState extends State<WelcomeSplash>
   }
 
   // ═════════════════════════════════════════════════════
-  // Step 3: 同儕與動機誘因 (白底 沉浸情境大卡片)
+  // Step 3: 學習模式偏好 (點選不自動跳轉，情境大卡片)
   // ═════════════════════════════════════════════════════
   Widget _buildIncentiveStep() {
     return _StepContainer(
-      stepBadge: 'STEP 03 / 04 · 學習模式偏好',
-      title: '你喜歡自己專注，還是與他人一起進步？',
-      subtitle: '依你的偏好決定推薦社群互動、組隊打卡或安靜個人模式',
+      stepBadge: '步驟 3 / 4 · 學習模式',
+      title: '你偏好哪種學習氛圍？',
+      subtitle: '依照你的學習習慣，為你打造最舒服的使用方式',
       children: [
         _ImmersiveHeroCard(
           emoji: '🧘',
-          tag: '極簡私密 · AI 隨行',
-          title: '個人深度專注，安靜沈浸學習',
-          description: '個人隱私模式優先，沉浸於個人題庫、筆記與 AI 解題，不受干擾',
+          tag: '個人專注',
+          title: '安靜沉浸，個人專注學習',
+          description: '以個人題庫、專屬筆記與 AI 解題為主，不受外界打擾',
           accentColor: const Color(0xFF0284C7),
           tintBgColor: const Color(0xFFF0F9FF),
           isSelected: _selectedIncentive == 'solo',
           onTap: () {
-            HapticFeedback.lightImpact();
+            HapticFeedback.selectionClick();
             setState(() => _selectedIncentive = 'solo');
-            _triggerAutoAdvance();
           },
         ),
         _ImmersiveHeroCard(
           emoji: '🤝',
-          tag: '同儕互動 · 心得共享',
-          title: '喜歡與他人交流，互相激勵打氣',
-          description: '推薦社群互動、熱門討論主題與同學筆記心得資源共享',
+          tag: '同儕交流',
+          title: '社群互動，與同儕互相交流',
+          description: '參與熱門主題討論、查看同學分享的筆記與心得資源',
           accentColor: const Color(0xFF7C3AED),
           tintBgColor: const Color(0xFFF5F3FF),
           isSelected: _selectedIncentive == 'peer',
           onTap: () {
-            HapticFeedback.lightImpact();
+            HapticFeedback.selectionClick();
             setState(() => _selectedIncentive = 'peer');
-            _triggerAutoAdvance();
           },
         ),
         _ImmersiveHeroCard(
           emoji: '🔥',
-          tag: '榮譽成就 · 組隊激勵',
-          title: '喜歡組隊打卡與成就排行榜',
-          description: '結合學習點數、成就排行榜與同儕組隊激勵前行',
+          tag: '目標排行',
+          title: '打卡激勵，成就排行榜挑戰',
+          description: '結合學習點數、累積連續天數與成就榜激勵自己前進',
           accentColor: const Color(0xFFEA580C),
           tintBgColor: const Color(0xFFFFF7ED),
           isSelected: _selectedIncentive == 'team',
           onTap: () {
-            HapticFeedback.lightImpact();
+            HapticFeedback.selectionClick();
             setState(() => _selectedIncentive = 'team');
-            _triggerAutoAdvance();
           },
         ),
         _ImmersiveHeroCard(
           emoji: '🤖',
-          tag: '24H 即時 · 弱點診斷',
-          title: '只要 AI 智慧教練專屬隨身陪伴',
-          description: '24 小時伴學解題，提供量化弱點診斷與即時精準反饋',
+          tag: 'AI 伴學',
+          title: '專屬教練，24 小時智慧隨行',
+          description: '隨時提問解惑、提供弱點診斷與即時精準回饋',
           accentColor: const Color(0xFF059669),
           tintBgColor: const Color(0xFFECFDF5),
           isSelected: _selectedIncentive == 'ai_coach',
           onTap: () {
-            HapticFeedback.lightImpact();
+            HapticFeedback.selectionClick();
             setState(() => _selectedIncentive = 'ai_coach');
-            _triggerAutoAdvance();
           },
         ),
       ],
@@ -653,9 +623,9 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     final totalSelected = _selectedTopicIds.length;
 
     return _StepContainer(
-      stepBadge: 'STEP 04 / 04 · 關注學科 (可多選)',
-      title: '選擇你想優先關注的學科領域',
-      subtitle: '可靈活點選下方膠囊標籤，優先推薦對應動態與精選題庫',
+      stepBadge: '步驟 4 / 4 · 關注學科 (可多選)',
+      title: '選擇你想關注的學科領域',
+      subtitle: '優先為你推薦相關的題目與學習動態',
       headerExtra: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -677,7 +647,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
             ),
             const SizedBox(width: 6),
             Text(
-              '已選取 $totalSelected 個關注標籤',
+              '已選取 $totalSelected 個領域標籤',
               style: const TextStyle(
                 color: Color(0xFFC2410C),
                 fontSize: 12,
@@ -812,7 +782,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    isLastPage ? '開啟專屬學習旅程' : '下一步',
+                    isLastPage ? '開始使用' : '下一步',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,

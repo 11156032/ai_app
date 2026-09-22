@@ -276,12 +276,12 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         _isRecording = false;
         _isPaused = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         const SnackBar(
           content: Text('無法啟動麥克風錄音，請確認已授予麥克風權限 🎙️'),
           backgroundColor: Color(0xFFE53935),
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 3),
+          duration: Duration(milliseconds: 1500),
         ),
       );
     }
@@ -382,7 +382,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             content: Text('語音轉錄提示：$cleanMsg'),
             backgroundColor: const Color(0xFFD32F2F),
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
+            duration: const Duration(milliseconds: 1500),
           ),
         );
     }
@@ -557,7 +557,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         onPressed: () {
                           Clipboard.setData(
                               ClipboardData(text: tempController.text));
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                             const SnackBar(
                               content: Text('📋 已複製逐字稿至剪貼簿'),
                               duration: Duration(milliseconds: 1000),
@@ -672,7 +672,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     }
 
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
       SnackBar(
         content: const Row(
           children: [
@@ -685,7 +685,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         ),
         backgroundColor: const Color(0xFF4A148C),
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(milliseconds: 1500),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
@@ -842,7 +842,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             content: Text('🎙️ 錄音已轉為逐字稿！請先瀏覽或修改文字，確認無誤後再次點擊開始 AI 整理 ✨'),
             behavior: SnackBarBehavior.floating,
             backgroundColor: Color(0xFF4A148C),
-            duration: Duration(seconds: 3),
+            duration: Duration(milliseconds: 1500),
           ),
         );
       return;
@@ -851,8 +851,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     final rawText = _transcriptController.text.trim();
     if (rawText.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('請先錄音或輸入文字內容再進行 AI 整理 🎙️')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請先錄音或輸入文字內容再進行 AI 整理 🎙️')),
         );
       }
       return;
@@ -1051,8 +1051,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     final rawText = _transcriptController.text.trim();
     if (rawText.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('無文字內容可儲存 📝')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('無文字內容可儲存 📝')),
         );
       }
       return;
@@ -1360,7 +1360,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                       TextPosition(offset: _transcriptController.text.length),
                     );
                   });
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                     const SnackBar(
                       content: Text('✨ 已成功還原上次語音逐字稿草稿！'),
                       duration: Duration(milliseconds: 1500),
@@ -3277,10 +3277,10 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     return '- $check ${a.task}$owner$due';
                   }).join('\n');
                   Clipboard.setData(ClipboardData(text: text));
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                     const SnackBar(
                       content: Text('📋 已複製待辦清單至剪貼簿'),
-                      duration: Duration(seconds: 2),
+                      duration: Duration(milliseconds: 1500),
                     ),
                   );
                 },

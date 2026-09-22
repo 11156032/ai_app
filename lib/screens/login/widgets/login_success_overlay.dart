@@ -43,25 +43,25 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
           ..repeat();
 
     _entranceCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1500));
+        vsync: this, duration: const Duration(milliseconds: 500));
     _exitCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
+        vsync: this, duration: const Duration(milliseconds: 300));
 
     _entranceOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
         parent: _entranceCtrl,
-        curve: const Interval(0, 0.4, curve: Curves.easeOut)));
-    _textSlideY = Tween<double>(begin: 30, end: 0).animate(CurvedAnimation(
+        curve: const Interval(0, 0.45, curve: Curves.easeOut)));
+    _textSlideY = Tween<double>(begin: 20, end: 0).animate(CurvedAnimation(
         parent: _entranceCtrl,
-        curve: const Interval(0.1, 0.7, curve: Curves.easeOutCubic)));
+        curve: const Interval(0.05, 0.75, curve: Curves.easeOutCubic)));
     _dividerProgress = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
         parent: _entranceCtrl,
-        curve: const Interval(0.4, 0.9, curve: Curves.easeOut)));
+        curve: const Interval(0.3, 0.85, curve: Curves.easeOut)));
     _welcomeOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
         parent: _entranceCtrl,
-        curve: const Interval(0.6, 1.0, curve: Curves.easeOut)));
+        curve: const Interval(0.45, 1.0, curve: Curves.easeOut)));
 
     _exitOpacity = Tween<double>(begin: 1, end: 0)
-        .animate(CurvedAnimation(parent: _exitCtrl, curve: Curves.easeIn));
+        .animate(CurvedAnimation(parent: _exitCtrl, curve: Curves.easeInCubic));
 
     // Initialize 6 drifting leaves
     final random = math.Random();
@@ -81,9 +81,12 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
   }
 
   Future<void> _runSequence() async {
+    if (!mounted) return;
     _entranceCtrl.forward();
-    await Future.delayed(const Duration(milliseconds: 2200));
+    await Future.delayed(const Duration(milliseconds: 750));
+    if (!mounted) return;
     await _exitCtrl.forward();
+    if (!mounted) return;
     widget.onComplete();
   }
 

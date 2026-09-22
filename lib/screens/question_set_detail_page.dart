@@ -392,15 +392,15 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('題目已移除')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('題目已移除')),
       );
       await _loadQuestions();
     } catch (e) {
       debugPrint('刪除題目失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('移除失敗')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('移除失敗')),
       );
     }
   }
@@ -497,8 +497,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         );
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已建立並成功加入「$newPaperName」')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已建立並成功加入「$newPaperName」')),
         );
         return;
       }
@@ -509,22 +509,22 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
       if (ids.contains(questionId)) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('此題目已存在於該自訂題本中')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('此題目已存在於該自訂題本中')),
         );
       } else {
         ids.add(questionId);
         await DatabaseHelper.instance.updatePaper(paperId, paperName, ids);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已將題目成功加入「$paperName」')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已將題目成功加入「$paperName」')),
         );
       }
     } catch (e) {
       debugPrint('加到題本失敗: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('加入失敗，請稍後再試')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('加入失敗，請稍後再試')),
       );
     }
   }
@@ -629,8 +629,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         finalPaperName = newPaperName;
 
         if (!mounted) return null;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
               content: Text('已建立並成功匯入 ${allIds.length} 題至「$newPaperName」')),
         );
       } else {
@@ -648,12 +648,12 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
         if (!mounted) return null;
         if (addedCount == 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('所有題目均已存在於「$finalPaperName」中')),
+          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('所有題目均已存在於「$finalPaperName」中')),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已成功匯入 $addedCount 題至「$finalPaperName」！')),
+          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已成功匯入 $addedCount 題至「$finalPaperName」！')),
           );
         }
       }
@@ -661,8 +661,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     } catch (e) {
       debugPrint('整套匯入失敗: $e');
       if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('匯入失敗，請稍後再試')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('匯入失敗，請稍後再試')),
       );
       return null;
     }
@@ -737,8 +737,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     setState(() {
                       question['isFavorite'] = nextVal == 1;
                     });
-                    messenger.showSnackBar(
-                      SnackBar(content: Text(nextVal == 1 ? '已加入收藏' : '已取消收藏')),
+                    messenger..hideCurrentSnackBar()..showSnackBar(
+                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(nextVal == 1 ? '已加入收藏' : '已取消收藏')),
                     );
                   } catch (e) {
                     debugPrint('切換收藏失敗: $e');
@@ -1212,8 +1212,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     setState(() {
                       question['isFavorite'] = nextVal == 1;
                     });
-                    messenger.showSnackBar(
-                      SnackBar(content: Text(nextVal == 1 ? '已加入收藏' : '已取消收藏')),
+                    messenger..hideCurrentSnackBar()..showSnackBar(
+                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(nextVal == 1 ? '已加入收藏' : '已取消收藏')),
                     );
                   } catch (e) {
                     debugPrint('切換收藏失敗: $e');

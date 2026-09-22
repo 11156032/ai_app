@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/dialogs/image_edit_dialogs.dart';
@@ -14,17 +15,20 @@ class CreatePostPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
   final VoidCallback onPosted;
   final int? groupId; // null = 廣場貼文, 非 null = 群組貼文
+  final Map<String, dynamic>? draftData; // AI 代理人預填草稿
   const CreatePostPage(
       {super.key,
       required this.currentUser,
       required this.onPosted,
-      this.groupId});
+      this.groupId,
+      this.draftData});
   @override
   State<CreatePostPage> createState() => _CreatePostPageState();
 }
 
 class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _contentController = TextEditingController();
+  final FocusNode _contentFocusNode = FocusNode();
   XFile? _selectedImageX;
   double _imgAlignX = 0.0;
   double _imgAlignY = 0.0;
@@ -34,22 +38,61 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool _isSubmitting = false;
   DateTime? _scheduledAt; // 定時發佈時間
   Map<String, dynamic>? _learningPackData; // 學習 Pack 的資料
-  final ScrollController _typeScrollController = ScrollController();
 
   Uint8List? _userAvatarBlob;
   int? _userAvatarColor;
   int _userAvatarSelected = 0;
   bool _isLoadingUserAvatar = true;
 
+  // 熱門標籤清單
+  static const List<String> _popularTags = [
+    '學習打卡',
+    '會考衝刺',
+    '解題求助',
+    '筆記分享',
+    '讀書心得',
+    '每日一句',
+  ];
+
   @override
   void initState() {
     super.initState();
     _loadUserAvatar();
+    _applyDraftData();
+  }
+
+  /// 若從 AI 代理人攜帶草稿資料進入，自動預填
+  void _applyDraftData() {
+    final draft = widget.draftData;
+    if (draft == null) return;
+    if (draft['type'] != null) {
+      final t = draft['type'].toString();
+      if (t == '學習筆記' || t == 'note') {
+        _postType = 'note';
+      } else if (t == '心情文章' || t == 'mood') {
+        _postType = 'mood';
+      } else if (t == '分享資料' || t == 'doc') {
+        _postType = 'doc';
+      } else if (t == '學習 Pack' || t == 'learning_pack') {
+        _postType = 'learning_pack';
+      } else {
+        _postType = null;
+      }
+    }
+    if (draft['content'] != null && (draft['content'] as String).isNotEmpty) {
+      _contentController.text = draft['content'] as String;
+    }
+    if (draft['scheduledAt'] != null) {
+      _scheduledAt = DateTime.tryParse(draft['scheduledAt'].toString());
+    } else if (draft['time'] != null && draft['time'] != '現在') {
+      _scheduledAt = DateTime.tryParse(draft['time'].toString());
+    }
   }
 
   @override
   void dispose() {
-    _typeScrollController.dispose();
+    _contentController.dispose();
+    _contentFocusNode.dispose();
     super.dispose();
   }
 
@@ -116,7 +159,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
       if (result != null && mounted) {
         final file = result.files.single;
 
-        // 手動驗證副檔名 (做為部分系統選擇器忽略 allowedExtensions 的防呆機制)
         if (type == FileType.custom &&
             allowedExtensions != null &&
             allowedExtensions.isNotEmpty) {
@@ -124,10 +166,13 @@ class _CreatePostPageState extends State<CreatePostPage> {
           final allowedLower =
               allowedExtensions.map((e) => e.toLowerCase()).toList();
           if (ext == null || !allowedLower.contains(ext)) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(
-                  content:
-                      Text('格式不符！請選擇 ${allowedExtensions.join(", ")} 格式的檔案')),
+                content:
+                    Text('格式不符！請選擇 ${allowedExtensions.join(", ")} 格式的檔案'),
+                duration: const Duration(milliseconds: 1500),
+                behavior: SnackBarBehavior.floating,
+              ),
             );
             return;
           }
@@ -137,14 +182,24 @@ class _CreatePostPageState extends State<CreatePostPage> {
           _selectedFileName = file.name;
           _selectedFileBytes = file.bytes;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已附加${labelHint ?? '檔案'}：${file.name}')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(
+            content: Text('已附加${labelHint ?? '檔案'}：${file.name}'),
+            duration: const Duration(milliseconds: 1500),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('選取檔案失敗，請再試一次')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          const SnackBar(
+            content: Text('選取檔案失敗，請再試一次'),
+            duration: Duration(milliseconds: 1500),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -155,18 +210,43 @@ class _CreatePostPageState extends State<CreatePostPage> {
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _scheduledAt ?? now,
       firstDate: now,
       lastDate: DateTime(2030),
       locale: const Locale('zh', 'TW'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black87,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: _scheduledAt != null
+          ? TimeOfDay(hour: _scheduledAt!.hour, minute: _scheduledAt!.minute)
+          : TimeOfDay.now(),
       builder: (ctx, child) => MediaQuery(
           data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
-          child: child!),
+          child: Theme(
+            data: Theme.of(ctx).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: Theme.of(ctx).primaryColor,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: Colors.black87,
+              ),
+            ),
+            child: child!,
+          )),
     );
     if (time == null || !mounted) return;
     setState(() {
@@ -175,8 +255,78 @@ class _CreatePostPageState extends State<CreatePostPage> {
     });
   }
 
+  Future<void> _openLearningPackModal() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => CreateLearningPackDialog(
+        currentUser: widget.currentUser,
+        initialData: _learningPackData,
+      ),
+    );
+    if (!mounted) return;
+    if (result != null) {
+      setState(() {
+        _learningPackData = result;
+        _postType = 'learning_pack';
+      });
+      messenger.hideCurrentSnackBar();
+      messenger..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '已打包：${result['pack_title'] ?? '學習 Pack'}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          duration: const Duration(milliseconds: 1500),
+          backgroundColor: const Color(0xFFE65100),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
+  void _insertTag(String tag) {
+    final text = _contentController.text;
+    final tagText = '#$tag ';
+    if (text.contains('#$tag')) return;
+
+    if (text.isEmpty || text.endsWith(' ') || text.endsWith('\n')) {
+      _contentController.text = '$text$tagText';
+    } else {
+      _contentController.text = '$text $tagText';
+    }
+    _contentController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _contentController.text.length),
+    );
+    setState(() {});
+  }
+
   void _submitPost() async {
-    if (_contentController.text.isEmpty && _selectedImageX == null) return;
+    final hasContent = _contentController.text.trim().isNotEmpty;
+    final hasImage = _selectedImageX != null;
+    final hasFile = _selectedFileName != null;
+    final hasPack = _learningPackData != null;
+
+    if (!hasContent && !hasImage && !hasFile && !hasPack) {
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        const SnackBar(
+          content: Text('請輸入貼文內容或附加媒體資料！'),
+          duration: Duration(milliseconds: 1500),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (_isSubmitting) return;
 
     setState(() => _isSubmitting = true);
@@ -225,8 +375,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       widget.onPosted();
       if (mounted) Navigator.pop(context);
       if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(
           content: Row(
             children: [
               const Icon(Icons.check_circle_rounded,
@@ -246,7 +395,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(milliseconds: 1500),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ));
@@ -255,508 +404,544 @@ class _CreatePostPageState extends State<CreatePostPage> {
       debugPrint("Error submitting post: $e");
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('發佈失敗: $e')));
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(
+            content: Text('發佈失敗: $e'),
+            duration: const Duration(milliseconds: 2000),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
     final String displayName = widget.currentUser['display_name'] ??
         widget.currentUser['username'] ??
         '我';
+
     final String hintText = _postType == 'note'
-        ? '寫下你的學習筆記，記錄每一次成長...'
+        ? '記錄今天的學習筆記、考試重點或讀書摘要...'
         : _postType == 'mood'
-            ? '今天心情怎麼樣呢？說出來和大家分享吧！'
-            : _postType == 'learning_pack'
-                ? '為你的學習 Pack 寫點介紹，讓大家知道這個 Pack 有多棒！'
-                : '有什麼想和大家說的嗎？';
+            ? '分享今天的心情、讀書體會或給同學一句打氣的話...'
+            : _postType == 'doc'
+                ? '介紹你分享的這份學習資料，重點是什麼呢？'
+                : _postType == 'learning_pack'
+                    ? '為你的學習 Pack 寫點介紹，讓大家了解這份排程與試卷的特色！'
+                    : '有什麼想和大家分享的嗎？可以加上 #標籤 讓更多人看到！';
+
+    final bool canSubmit = _contentController.text.trim().isNotEmpty ||
+        _selectedImageX != null ||
+        _selectedFileName != null ||
+        _learningPackData != null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8F6),
+      backgroundColor: const Color(0xFFF9FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 0.5,
+        shadowColor: Colors.black12,
         surfaceTintColor: Colors.transparent,
         leading: TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('取消',
-              maxLines: 1, style: TextStyle(color: Colors.grey, fontSize: 15)),
+              maxLines: 1,
+              style: TextStyle(
+                  color: Colors.black54,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500)),
         ),
-        leadingWidth: 80,
-        title: const Text('發表新貼文',
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87)),
+        leadingWidth: 70,
+        title: Text(
+          widget.groupId != null ? '發表群組貼文' : '發表新貼文',
+          style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1E293B)),
+        ),
         centerTitle: true,
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 14),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitPost,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _contentController.text.isEmpty
-                      ? Colors.grey.shade300
-                      : Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22)),
-                ),
-                child: _isSubmitting
+              child: ElevatedButton.icon(
+                onPressed: (_isSubmitting || !canSubmit) ? null : _submitPost,
+                icon: _isSubmitting
                     ? const SizedBox(
                         width: 14,
                         height: 14,
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2))
-                    : Text(_scheduledAt != null ? '排程' : '發佈',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14)),
+                    : Icon(
+                        _scheduledAt != null
+                            ? Icons.alarm_rounded
+                            : Icons.send_rounded,
+                        size: 16),
+                label: Text(
+                  _scheduledAt != null ? '排程發佈' : '發佈',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.grey.shade500,
+                  elevation: canSubmit ? 1 : 0,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                ),
               ),
             ),
           )
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.grey.shade100, height: 1),
-        ),
       ),
       body: Column(
         children: [
           // ── 主要編輯區 ──
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 用戶資訊列
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      buildAvatar(
-                        blob: _isLoadingUserAvatar
-                            ? (widget.currentUser['avatar_blob'] as Uint8List?)
-                            : _userAvatarBlob,
-                        colorIdx: (_isLoadingUserAvatar
-                                ? (widget.currentUser['avatar_color'] as int?)
-                                : _userAvatarColor) ??
-                            getAvatarColorIdx(displayName),
-                        initial: displayName.isNotEmpty
-                            ? displayName.substring(0, 1)
-                            : '我',
-                        radius: 20,
-                        usePreset: ((_isLoadingUserAvatar
-                                    ? (widget.currentUser['avatar_selected']
-                                            as int? ??
-                                        0)
-                                    : _userAvatarSelected) ==
-                                1) &&
-                            (_isLoadingUserAvatar
-                                    ? widget.currentUser['avatar_blob']
-                                    : _userAvatarBlob) ==
-                                null,
+                  // ── AI 草稿來源提示 ──
+                  if (widget.draftData != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            primaryColor.withValues(alpha: 0.08),
+                            const Color(0xFFFFF8E1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: primaryColor.withValues(alpha: 0.2)),
                       ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(displayName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: Colors.black87)),
-                          // 排程提示
-                          if (_scheduledAt != null)
-                            Text(
-                              '⏰ ${_scheduledAt!.year}-${_scheduledAt!.month.toString().padLeft(2, '0')}-${_scheduledAt!.day.toString().padLeft(2, '0')} ${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')} 發布',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.w500),
-                            )
-                          else
-                            const Text('公開發布',
-                                style: TextStyle(
-                                    fontSize: 11, color: Colors.grey)),
+                          Icon(Icons.auto_awesome_rounded,
+                              size: 16, color: primaryColor),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '由 AI 特助預填草稿，您可自由修改後發佈',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  // 貼文類型標籤
-                  RawScrollbar(
-                    controller: _typeScrollController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    thumbColor:
-                        Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                    trackColor: Colors.grey.shade200,
-                    thickness: 4,
-                    radius: const Radius.circular(10),
-                    padding: const EdgeInsets.only(top: 8),
-                    child: SingleChildScrollView(
-                      controller: _typeScrollController,
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(bottom: 12), // 為捲軸預留空間
-                      child: Row(children: [
-                        _buildTypeChip('📝 學習筆記', 'note',
-                            selectedColor: const Color(0xFF4CAF50),
-                            bgColor: const Color(0xFFE8F5E9)),
-                        const SizedBox(width: 8),
-                        _buildTypeChip('💭 心情文章', 'mood',
-                            selectedColor: const Color(0xFF9C27B0),
-                            bgColor: const Color(0xFFF3E5F5)),
-                        const SizedBox(width: 8),
-                        _buildTypeChip('📄 分享資料', 'doc',
-                            selectedColor: const Color(0xFF2196F3),
-                            bgColor: const Color(0xFFE3F2FD)),
-                        const SizedBox(width: 8),
-                        _buildTypeChip('📦 學習 Pack', 'learning_pack',
-                            selectedColor: const Color(0xFFFF9800),
-                            bgColor: const Color(0xFFFFF3E0)),
-                      ]),
                     ),
-                  ),
-                  if (_postType == 'learning_pack') ...[
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () async {
-                        final messenger = ScaffoldMessenger.of(context);
-                        final result = await showDialog<Map<String, dynamic>>(
-                          context: context,
-                          builder: (ctx) => CreateLearningPackDialog(
-                            currentUser: widget.currentUser,
-                            initialData: _learningPackData,
-                          ),
-                        );
-                        if (!mounted) return;
-                        if (result != null) {
-                          setState(() {
-                            _learningPackData = result;
-                          });
-                          messenger.showSnackBar(
-                              const SnackBar(content: Text('已設定學習 Pack！')));
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(
-                            color: _learningPackData != null
-                                ? Colors.orange.shade50
-                                : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: _learningPackData != null
-                                    ? Colors.orange
-                                    : Colors.grey.shade300)),
-                        child: Row(
-                          children: [
-                            Icon(Icons.inventory_2_outlined,
-                                color: _learningPackData != null
-                                    ? Colors.orange
-                                    : Colors.grey.shade600),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                  // 用戶資訊列與發布標的
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        buildAvatar(
+                          blob: _isLoadingUserAvatar
+                              ? (widget.currentUser['avatar_blob'] as Uint8List?)
+                              : _userAvatarBlob,
+                          colorIdx: (_isLoadingUserAvatar
+                                  ? (widget.currentUser['avatar_color'] as int?)
+                                  : _userAvatarColor) ??
+                              getAvatarColorIdx(displayName),
+                          initial: displayName.isNotEmpty
+                              ? displayName.substring(0, 1)
+                              : '我',
+                          radius: 20,
+                          usePreset: ((_isLoadingUserAvatar
+                                      ? (widget.currentUser['avatar_selected']
+                                              as int? ??
+                                          0)
+                                      : _userAvatarSelected) ==
+                                  1) &&
+                              (_isLoadingUserAvatar
+                                      ? widget.currentUser['avatar_blob']
+                                      : _userAvatarBlob) ==
+                                  null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(displayName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                      color: Color(0xFF1E293B))),
+                              const SizedBox(height: 2),
+                              Row(
                                 children: [
-                                  Text(
-                                    _learningPackData != null
-                                        ? ((_learningPackData!['pack_title']
-                                                        as String? ??
-                                                    '')
-                                                .isNotEmpty
-                                            ? _learningPackData!['pack_title']
-                                            : '已打包 Learning Pack')
-                                        : '點擊設定你要打包的排程與試卷',
-                                    style: TextStyle(
-                                      color: _learningPackData != null
-                                          ? Colors.orange.shade900
-                                          : Colors.black87,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: widget.groupId != null
+                                          ? const Color(0xFFEEF2FF)
+                                          : const Color(0xFFF0FDF4),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: widget.groupId != null
+                                            ? const Color(0xFFC7D2FE)
+                                            : const Color(0xFFBBF7D0),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          widget.groupId != null
+                                              ? Icons.group_outlined
+                                              : Icons.public_rounded,
+                                          size: 11,
+                                          color: widget.groupId != null
+                                              ? const Color(0xFF4338CA)
+                                              : const Color(0xFF15803D),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          widget.groupId != null
+                                              ? '群組專屬貼文'
+                                              : '探索廣場公開',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: widget.groupId != null
+                                                ? const Color(0xFF4338CA)
+                                                : const Color(0xFF15803D),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  if (_learningPackData != null) ...[
-                                    if ((_learningPackData!['pack_description']
-                                                as String? ??
-                                            '')
-                                        .isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        _learningPackData!['pack_description'],
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.orange.shade800),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                  if (_scheduledAt != null) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF7ED),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                            color: const Color(0xFFFFEDD5),
+                                            width: 0.8),
                                       ),
-                                    ],
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '包含: ${_learningPackData!['calendar_events']?.length ?? 0} 個排程, ${_learningPackData!['user_papers']?.length ?? 0} 套試卷 (點擊可重新編輯)',
-                                      style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.orange.shade700),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.alarm_rounded,
+                                              size: 11,
+                                              color: Color(0xFFC2410C)),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            '${_scheduledAt!.month}/${_scheduledAt!.day} ${DateFormat('HH:mm').format(_scheduledAt!)}',
+                                            style: const TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFFC2410C),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ],
                               ),
-                            ),
-                            Icon(Icons.chevron_right,
-                                color: Colors.grey.shade400)
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  // 文字輸入區
-                  TextField(
-                    controller: _contentController,
-                    minLines: 6,
-                    maxLines: null,
-                    autofocus: false,
-                    scrollPadding: const EdgeInsets.all(20),
-                    style: const TextStyle(
-                        fontSize: 17, height: 1.55, color: Colors.black87),
-                    decoration: InputDecoration(
-                        hintText: hintText,
-                        hintStyle: TextStyle(
-                            color: Colors.grey.shade400, fontSize: 17),
-                        border: InputBorder.none),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  // 已選圖片預覽
-                  if (_selectedImageX != null) ...[
-                    Stack(alignment: Alignment.center, children: [
-                      Container(
-                        width: double.infinity,
-                        height: 220,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: Image.file(
-                                  File(_selectedImageX!.path),
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment(_imgAlignX, _imgAlignY),
-                                  filterQuality: FilterQuality.high,
-                                ),
-                              ),
                             ],
                           ),
                         ),
-                      ),
-                      Positioned(
-                        left: 10,
-                        bottom: 10,
-                        child: GestureDetector(
-                          onTap: () async {
-                            final bytes = await _selectedImageX!.readAsBytes();
-                            if (!context.mounted) return;
-                            final Offset? offset = await showDialog<Offset>(
-                              context: context,
-                              builder: (_) => ImageFocalPointDialog(
-                                rawBytes: bytes,
-                                initialAlignX: _imgAlignX,
-                                initialAlignY: _imgAlignY,
-                              ),
-                            );
-                            if (offset != null && mounted) {
-                              setState(() {
-                                _imgAlignX = offset.dx;
-                                _imgAlignY = offset.dy;
-                              });
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ── 分類標籤區 (清晰簡潔的分類選擇器) ──
+                  const Text(
+                    '選擇貼文類別',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.2),
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: [
+                        _buildTypeSegmentChip(
+                          icon: Icons.edit_note_rounded,
+                          label: '學習筆記',
+                          type: 'note',
+                          activeColor: const Color(0xFF10B981),
+                          activeBgColor: const Color(0xFFECFDF5),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildTypeSegmentChip(
+                          icon: Icons.chat_bubble_outline_rounded,
+                          label: '心情交流',
+                          type: 'mood',
+                          activeColor: const Color(0xFF8B5CF6),
+                          activeBgColor: const Color(0xFFF5F3FF),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildTypeSegmentChip(
+                          icon: Icons.folder_open_rounded,
+                          label: '學習資料',
+                          type: 'doc',
+                          activeColor: const Color(0xFF3B82F6),
+                          activeBgColor: const Color(0xFFEFF6FF),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildTypeSegmentChip(
+                          icon: Icons.inventory_2_rounded,
+                          label: '學習 Pack',
+                          type: 'learning_pack',
+                          activeColor: const Color(0xFFF59E0B),
+                          activeBgColor: const Color(0xFFFFFBEB),
+                          onTapExtra: () {
+                            if (_learningPackData == null) {
+                              _openLearningPackModal();
                             }
                           },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.75),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                  color: const Color(0xFF7C6AFF)
-                                      .withValues(alpha: 0.6)),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.center_focus_strong,
-                                    color: Color(0xFF7C6AFF), size: 14),
-                                SizedBox(width: 4),
-                                Text(
-                                  '🎯 點擊微調社群顯示焦點',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── 學習 Pack 特殊卡片 ──
+                  if (_postType == 'learning_pack') ...[
+                    const SizedBox(height: 12),
+                    _buildLearningPackCard(),
+                  ],
+
+                  const SizedBox(height: 14),
+
+                  // ── 貼文文字輸入區 ──
+                  Container(
+                    constraints: const BoxConstraints(minHeight: 140),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: TextField(
+                      controller: _contentController,
+                      focusNode: _contentFocusNode,
+                      minLines: 5,
+                      maxLines: null,
+                      autofocus: false,
+                      style: const TextStyle(
+                          fontSize: 16,
+                          height: 1.6,
+                          color: Color(0xFF1E293B)),
+                      decoration: InputDecoration(
+                        hintText: hintText,
+                        hintStyle: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 15,
+                            height: 1.5),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ── 快速熱門話題標籤 ──
+                  Row(
+                    children: [
+                      const Icon(Icons.tag_rounded,
+                          size: 15, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 4),
+                      const Text(
+                        '熱門標籤：',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF94A3B8)),
+                      ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: _popularTags.map((tag) {
+                              final isUsed =
+                                  _contentController.text.contains('#$tag');
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: InkWell(
+                                  onTap: () => _insertTag(tag),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 9, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isUsed
+                                          ? primaryColor.withValues(alpha: 0.1)
+                                          : Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isUsed
+                                            ? primaryColor.withValues(alpha: 0.4)
+                                            : Colors.grey.shade200,
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '#$tag',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: isUsed
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
+                                        color: isUsed
+                                            ? primaryColor
+                                            : const Color(0xFF64748B),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              );
+                            }).toList(),
                           ),
                         ),
                       ),
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selectedImageX = null),
-                          child: Container(
-                            padding: const EdgeInsets.all(5),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.55),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.close,
-                                color: Colors.white, size: 16),
-                          ),
-                        ),
-                      ),
-                    ]),
-                    const SizedBox(height: 10),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ── 附加檔案預覽卡片 ──
+                  if (_selectedImageX != null) ...[
+                    _buildImagePreviewCard(),
+                    const SizedBox(height: 12),
                   ],
-                  // 已選檔案顯示
+
                   if (_selectedFileName != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.blue.shade100)),
-                      child: Row(children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade100,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(Icons.description_outlined,
-                              size: 16, color: Colors.blue),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                            child: Text(_selectedFileName!,
-                                style: const TextStyle(
-                                    fontSize: 13, color: Colors.blue))),
-                        GestureDetector(
-                          onTap: () => setState(() => _selectedFileName = null),
-                          child: const Icon(Icons.close,
-                              size: 16, color: Colors.grey),
-                        ),
-                      ]),
-                    ),
-                    const SizedBox(height: 10),
+                    _buildFileAttachmentCard(),
+                    const SizedBox(height: 12),
                   ],
-                  // 排程顯示（可點擊清除）
+
                   if (_scheduledAt != null) ...[
-                    GestureDetector(
-                      onTap: () => setState(() => _scheduledAt = null),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.orange.shade200)),
-                        child: Row(children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade100,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(Icons.schedule,
-                                size: 16, color: Colors.orange),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('定時發布',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.orange)),
-                                Text(
-                                  '${_scheduledAt!.year}-${_scheduledAt!.month.toString().padLeft(2, '0')}-${_scheduledAt!.day.toString().padLeft(2, '0')} ${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(
-                                      fontSize: 13, color: Colors.deepOrange),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.close,
-                              size: 16, color: Colors.orange),
-                        ]),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+                    _buildScheduledBanner(),
+                    const SizedBox(height: 12),
                   ],
                 ],
               ),
             ),
           ),
 
-          // ── 底部工具列 ──
+          // ── 底部直覺工具列 ──
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
               border: Border(
-                  top: BorderSide(color: Colors.grey.shade100, width: 1)),
+                  top: BorderSide(color: Colors.grey.shade200, width: 0.8)),
             ),
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
-                    // 附加圖片
-                    _buildToolBtn(
-                      icon: Icons.image_outlined,
-                      label: '圖片',
-                      color: Theme.of(context).primaryColor,
+                    // 附加圖片按鈕
+                    _buildModernToolBtn(
+                      icon: Icons.photo_library_rounded,
+                      label: '照片',
+                      active: _selectedImageX != null,
+                      color: const Color(0xFF10B981),
                       onTap: _isSubmitting ? null : _pickImage,
                     ),
-                    // 附加文件
-                    _buildToolBtn(
-                      icon: Icons.attach_file,
+                    const SizedBox(width: 6),
+
+                    // 附加文件按鈕
+                    _buildModernToolBtn(
+                      icon: Icons.attach_file_rounded,
                       label: '文件',
-                      color: Colors.blue,
+                      active: _selectedFileName != null,
+                      color: const Color(0xFF3B82F6),
                       onTap: _isSubmitting
                           ? null
                           : () => _pickFileWithType(
                               type: FileType.any, labelHint: '檔案'),
                     ),
+                    const SizedBox(width: 6),
 
-                    // 定時發布
-                    _buildToolBtn(
-                      icon: Icons.schedule,
-                      label: _scheduledAt != null ? '修改時間' : '定時發布',
-                      color: Colors.orange,
-                      onTap: _isSubmitting ? null : _pickScheduleTime,
-                      isActive: _scheduledAt != null,
+                    // 學習 Pack 打包按鈕
+                    _buildModernToolBtn(
+                      icon: Icons.inventory_2_rounded,
+                      label: '學習Pack',
+                      active: _learningPackData != null,
+                      color: const Color(0xFFF59E0B),
+                      onTap: _isSubmitting ? null : _openLearningPackModal,
                     ),
+                    const SizedBox(width: 6),
+
+                    // 定時排程按鈕
+                    _buildModernToolBtn(
+                      icon: Icons.alarm_rounded,
+                      label: _scheduledAt != null ? '已排程' : '定時',
+                      active: _scheduledAt != null,
+                      color: const Color(0xFFEA580C),
+                      onTap: _isSubmitting ? null : _pickScheduleTime,
+                    ),
+
+                    const Spacer(),
+
+                    // 清除全部或字數指示
+                    if (_contentController.text.isNotEmpty)
+                      Text(
+                        '${_contentController.text.length} 字',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade400),
+                      ),
                   ],
                 ),
               ),
@@ -767,64 +952,593 @@ class _CreatePostPageState extends State<CreatePostPage> {
     );
   }
 
-  Widget _buildToolBtn({
+  /// 分類標籤 Chip
+  Widget _buildTypeSegmentChip({
     required IconData icon,
     required String label,
-    required Color color,
-    VoidCallback? onTap,
-    bool isActive = false,
+    required String type,
+    required Color activeColor,
+    required Color activeBgColor,
+    VoidCallback? onTapExtra,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Column(
+    final isSelected = _postType == type;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _postType = isSelected ? null : type;
+        });
+        if (!isSelected && onTapExtra != null) {
+          onTapExtra();
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? activeBgColor : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isSelected ? activeColor : Colors.grey.shade300,
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : [],
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                color: isActive ? color : color.withValues(alpha: 0.7),
-                size: 22),
-            const SizedBox(height: 3),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 10,
-                    color: isActive ? color : Colors.grey.shade600,
-                    fontWeight:
-                        isActive ? FontWeight.bold : FontWeight.normal)),
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? activeColor : Colors.grey.shade600,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? activeColor : Colors.grey.shade700,
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.check_circle_rounded, size: 14, color: activeColor),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTypeChip(
-    String label,
-    String type, {
-    Color? selectedColor,
-    Color bgColor = const Color(0xFFF5F0EE),
-  }) {
-    selectedColor ??= Theme.of(context).primaryColor;
-    final bool isSelected = _postType == type;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      child: GestureDetector(
-        onTap: () => setState(() => _postType = isSelected ? null : type),
+  /// 學習 Pack 預覽卡片
+  Widget _buildLearningPackCard() {
+    final bool hasData = _learningPackData != null;
+
+    if (!hasData) {
+      return InkWell(
+        onTap: _openLearningPackModal,
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-              color: isSelected ? selectedColor : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected ? selectedColor : Colors.grey.shade200,
-                width: 1.2,
-              )),
-          child: Text(label,
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFFDE68A),
+              width: 1.2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.inventory_2_rounded,
+                  color: Color(0xFFD97706),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '打包學習 Pack (排程 + 試卷)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '點擊自訂你要分享給同學的學習排程與題庫試卷',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB45309),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '設定',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
+                    ),
+                    Icon(Icons.arrow_forward_ios_rounded,
+                        size: 10, color: Colors.white),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final title = _learningPackData!['pack_title'] as String? ?? '學習 Pack';
+    final desc = _learningPackData!['pack_description'] as String? ?? '';
+    final events = (_learningPackData!['calendar_events'] as List?)?.length ?? 0;
+    final papers = (_learningPackData!['user_papers'] as List?)?.length ?? 0;
+    final startDateStr = _learningPackData!['start_date'] as String?;
+    final endDateStr = _learningPackData!['end_date'] as String?;
+
+    String dateRange = '';
+    if (startDateStr != null && endDateStr != null) {
+      final s = DateTime.tryParse(startDateStr);
+      final e = DateTime.tryParse(endDateStr);
+      if (s != null && e != null) {
+        dateRange = '${s.month}/${s.day} ~ ${e.month}/${e.day}';
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFCD34D), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // 頂部標題列
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.inventory_2_rounded,
+                      color: Colors.white, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title.isNotEmpty ? title : '已打包 Learning Pack',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF92400E),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _openLearningPackModal,
+                  icon: const Icon(Icons.edit_rounded,
+                      size: 13, color: Color(0xFFD97706)),
+                  label: const Text(
+                    '編輯',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD97706)),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _learningPackData = null;
+                      _postType = null;
+                    });
+                  },
+                  icon: const Icon(Icons.close_rounded,
+                      size: 18, color: Colors.grey),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+
+          // 內容細節
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (desc.isNotEmpty) ...[
+                  Text(
+                    desc,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                // 統計標籤列
+                Row(
+                  children: [
+                    _buildPackStatBadge(
+                      icon: Icons.event_note_rounded,
+                      label: '$events 個排程',
+                      color: const Color(0xFF2563EB),
+                      bgColor: const Color(0xFFEFF6FF),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildPackStatBadge(
+                      icon: Icons.quiz_rounded,
+                      label: '$papers 套試卷',
+                      color: const Color(0xFF059669),
+                      bgColor: const Color(0xFFECFDF5),
+                    ),
+                    if (dateRange.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      _buildPackStatBadge(
+                        icon: Icons.date_range_rounded,
+                        label: dateRange,
+                        color: const Color(0xFF7C3AED),
+                        bgColor: const Color(0xFFF5F3FF),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPackStatBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 圖片預覽卡片
+  Widget _buildImagePreviewCard() {
+    return Container(
+      width: double.infinity,
+      height: 220,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.file(
+                File(_selectedImageX!.path),
+                fit: BoxFit.cover,
+                alignment: Alignment(_imgAlignX, _imgAlignY),
+                filterQuality: FilterQuality.high,
+              ),
+            ),
+          ),
+          // 焦點調整按鈕
+          Positioned(
+            left: 10,
+            bottom: 10,
+            child: GestureDetector(
+              onTap: () async {
+                final bytes = await _selectedImageX!.readAsBytes();
+                if (!mounted) return;
+                final Offset? offset = await showDialog<Offset>(
+                  context: context,
+                  builder: (_) => ImageFocalPointDialog(
+                    rawBytes: bytes,
+                    initialAlignX: _imgAlignX,
+                    initialAlignY: _imgAlignY,
+                  ),
+                );
+                if (offset != null && mounted) {
+                  setState(() {
+                    _imgAlignX = offset.dx;
+                    _imgAlignY = offset.dy;
+                  });
+                }
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: const Color(0xFF7C6AFF).withValues(alpha: 0.8)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.center_focus_strong_rounded,
+                        color: Color(0xFF9D8EFF), size: 14),
+                    SizedBox(width: 5),
+                    Text(
+                      '🎯 調整縮圖顯示焦點',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // 移除圖片按鈕
+          Positioned(
+            right: 10,
+            top: 10,
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedImageX = null),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close_rounded,
+                    color: Colors.white, size: 16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 檔案附加預覽卡片
+  Widget _buildFileAttachmentCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B82F6),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.description_rounded,
+                size: 18, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _selectedFileName!,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E3A8A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  '已附加檔案',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF3B82F6)),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => setState(() {
+              _selectedFileName = null;
+              _selectedFileBytes = null;
+            }),
+            icon: const Icon(Icons.close_rounded,
+                size: 18, color: Color(0xFF64748B)),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 排程發佈指示橫幅
+  Widget _buildScheduledBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFEDD5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEA580C),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.alarm_rounded,
+                size: 18, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '定時排程發佈',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFC2410C),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${_scheduledAt!.year}年${_scheduledAt!.month}月${_scheduledAt!.day}日 ${DateFormat('HH:mm').format(_scheduledAt!)}',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF9A3412),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _pickScheduleTime,
+            child: const Text('修改',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFC2410C))),
+          ),
+          IconButton(
+            onPressed: () => setState(() => _scheduledAt = null),
+            icon: const Icon(Icons.close_rounded,
+                size: 18, color: Color(0xFF9A3412)),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 底部工具列按鈕
+  Widget _buildModernToolBtn({
+    required IconData icon,
+    required String label,
+    required Color color,
+    VoidCallback? onTap,
+    bool active = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: active
+              ? Border.all(color: color.withValues(alpha: 0.3), width: 1)
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                color: active ? color : const Color(0xFF64748B), size: 18),
+            const SizedBox(width: 4),
+            Text(
+              label,
               style: TextStyle(
-                  fontSize: 12,
-                  color: isSelected ? Colors.white : Colors.grey.shade700,
-                  fontWeight:
-                      isSelected ? FontWeight.bold : FontWeight.normal)),
+                fontSize: 12,
+                fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                color: active ? color : const Color(0xFF475569),
+              ),
+            ),
+          ],
         ),
       ),
     );

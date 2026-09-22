@@ -634,7 +634,7 @@ html_code += '''      </select>
   <div class="document-container">
     <div class="doc-header">
       <h1>AI 智慧學習系統資料庫架構規格書</h1>
-      <p>系統版本：v1.7.8 | 資料庫引擎：SQLite 3 (Dart/Flutter 跨平台規格)</p>
+      <p>系統版本：v1.8.0 | 資料庫引擎：SQLite 3 (Dart/Flutter 跨平台規格)</p>
     </div>
 
     <div id="tablesList">

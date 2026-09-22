@@ -8,7 +8,9 @@ extension MainScreenProfileTab on _MainScreenState {
     return Container(
       color: _isDarkMode ? Colors.black87 : const Color(0xFFFAFAFA),
       child: DefaultTabController(
+        key: ValueKey('profile_tab_$_profileInitialTabIndex'),
         length: 3,
+        initialIndex: _profileInitialTabIndex,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -46,9 +48,9 @@ extension MainScreenProfileTab on _MainScreenState {
                       const SizedBox(height: 16),
                       _buildPersonalizedDashboard(context),
                       const SizedBox(height: 16),
-                      _buildBasicInfoModule(context),
-                      const SizedBox(height: 16),
                       _buildLearningProgressModule(context),
+                      const SizedBox(height: 16),
+                      _buildBasicInfoModule(context),
                       const SizedBox(height: 16),
                       _buildInteractionModule(context),
                     ],
@@ -678,223 +680,256 @@ extension MainScreenProfileTab on _MainScreenState {
     final bool isDark = _isDarkMode;
     final primary = _currentPrimaryColor;
     final hasBio = _userBio != null && _userBio!.trim().isNotEmpty;
+    final isGoogle = widget.currentUser['is_google'] == 1;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+        color: isDark ? const Color(0xFF1E1E24) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+          width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-            blurRadius: 12,
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: primary.withValues(alpha: 0.25),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: buildAvatar(
-                      blob: _userAvatarBlob,
-                      colorIdx: _userAvatarColor,
-                      initial: (_displayName ?? '?').substring(0, 1),
-                      radius: 36,
-                      usePreset: _userAvatarSelected && _userAvatarBlob == null,
+          // ── 左側：簡潔頭像 ──
+          GestureDetector(
+            onTap: _showUnifiedAvatarPicker,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: primary.withValues(alpha: 0.35),
+                      width: 2.0,
                     ),
                   ),
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: GestureDetector(
-                      onTap: _showUnifiedAvatarPicker,
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color:
-                                isDark ? const Color(0xFF1E1E22) : Colors.white,
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              blurRadius: 4,
+                  child: buildAvatar(
+                    blob: _userAvatarBlob,
+                    colorIdx: _userAvatarColor,
+                    initial: (_displayName ?? '?').substring(0, 1),
+                    radius: 30,
+                    usePreset:
+                        _userAvatarSelected && _userAvatarBlob == null,
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4.5),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2D2D35) : const Color(0xFF64748B),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+                        width: 1.8,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 14),
+
+          // ── 右側：名稱、座右銘與學習數據 ──
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 使用者名稱與帳號標籤
+                Row(
+                  children: [
+                    Flexible(
+                      child: GestureDetector(
+                        onTap: _showEditNicknameDialog,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _displayName ?? '學習者',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1E293B),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: isDark
+                                  ? Colors.white38
+                                  : Colors.grey.shade400,
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.camera_alt_rounded,
-                            color: Colors.white, size: 12),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                    if (isGoogle) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F0FE),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: const Color(0xFFADCCF9), width: 0.6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GoogleLogo(size: 10),
+                            SizedBox(width: 3),
+                            Text(
+                              'Google',
+                              style: TextStyle(
+                                color: Color(0xFF1967D2),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+
+                const SizedBox(height: 4),
+
+                // 個人簡介／座右銘 (俐落單行點擊編輯)
+                GestureDetector(
+                  onTap: _showEditBioDialog,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
                       children: [
-                        Flexible(
+                        Expanded(
                           child: Text(
-                            _displayName ?? '使用者',
+                            hasBio ? _userBio! : '點擊設定個人簡介或學習目標...',
                             style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87,
+                              fontSize: 12.5,
+                              color: hasBio
+                                  ? (isDark
+                                      ? const Color(0xFFCBD5E1)
+                                      : const Color(0xFF475569))
+                                  : (isDark
+                                      ? Colors.white30
+                                      : const Color(0xFF94A3B8)),
+                              fontStyle: hasBio
+                                  ? FontStyle.normal
+                                  : FontStyle.italic,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (widget.currentUser['is_google'] == 1) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F0FE),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: const Color(0xFFADCCF9), width: 1),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                GoogleLogo(size: 11),
-                                SizedBox(width: 3),
-                                Text(
-                                  'Google',
-                                  style: TextStyle(
-                                    color: Color(0xFF1967D2),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.edit_note_rounded,
+                          size: 14,
+                          color: isDark
+                              ? Colors.white24
+                              : Colors.grey.shade300,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                // 簡潔學習數據標籤
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: primary.withValues(
+                            alpha: isDark ? 0.15 : 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.menu_book_rounded,
+                            size: 11,
+                            color: primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_totalQuestionsAnswered 題測驗',
+                            style: TextStyle(
+                              color: primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            '🔥',
+                            style: TextStyle(fontSize: 10),
                           ),
-                          child: Text(
-                            '累積答題：$_totalQuestionsAnswered 題',
-                            style: TextStyle(
-                              color: primary,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '🔥 $_streakDays 天打卡',
+                          const SizedBox(width: 3),
+                          Text(
+                            '$_streakDays 天連勝',
                             style: const TextStyle(
-                              color: Colors.deepOrange,
-                              fontSize: 11.5,
+                              color: Color(0xFFC2410C),
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // ── 個人簡介互動氣泡卡片 ──
-          InkWell(
-            onTap: _showEditBioDialog,
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? primary.withValues(alpha: 0.08)
-                    : primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: primary.withValues(alpha: hasBio ? 0.2 : 0.12),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.format_quote_rounded,
-                    size: 16,
-                    color: primary.withValues(alpha: 0.8),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      hasBio ? _userBio! : '點擊此處設定個人簡介，讓社群同學認識你 ✨',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        fontStyle: hasBio ? FontStyle.normal : FontStyle.italic,
-                        color: hasBio
-                            ? (isDark ? Colors.white70 : Colors.black87)
-                            : (isDark ? Colors.white38 : Colors.grey.shade500),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.edit_outlined,
-                    size: 15,
-                    color: primary.withValues(alpha: 0.7),
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
         ],
@@ -1212,6 +1247,7 @@ extension MainScreenProfileTab on _MainScreenState {
     final primaryColor = Theme.of(context).primaryColor;
 
     return Container(
+      key: TourKeys.bottomNavSettingKey,
       decoration: BoxDecoration(
         color:
             isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
@@ -1338,7 +1374,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               ),
                               const SizedBox(height: 1),
                               Text(
-                                '自訂 5 格分頁與抽屜備用功能',
+                                '調整底欄與側欄功能順序',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: isDark
@@ -3304,18 +3340,18 @@ extension MainScreenProfileTab on _MainScreenState {
     String getItemDesc(String key) {
       switch (key) {
         case 'home':
-          return '今日學習進度總覽與核心功能快速捷徑';
+          return '今日進度與捷徑';
         case 'calendar':
-          return '課堂日程、讀書計畫與重要待辦追蹤';
+          return '行事曆與排程';
         case 'quiz':
-          return '國高中題庫、單元測驗與 AI 錯題解析';
+          return '題庫測驗與錯題';
         case 'social':
-          return '討論社群、學科群組與同儕互助共學';
+          return '討論群組與社群';
         case 'social_feed':
         case 'activity':
-          return '同學動態牆、學習貼文與即時互動交流';
+          return '動態牆與貼文';
         case 'notes':
-          return '語音速記、互動心智圖與手寫畫布筆記';
+          return '語音與心智圖筆記';
         default:
           return '';
       }
@@ -3413,7 +3449,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '自訂 5 格底欄與 2 項側邊抽屜備用功能',
+                                  '點選任兩項即可互換位置',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: isDark
@@ -3477,7 +3513,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                           size: 14, color: primaryColor),
                                       const SizedBox(width: 6),
                                       Text(
-                                        '🌟 底部導覽列即時佈局（共 5 格）',
+                                        '底欄預覽',
                                         style: TextStyle(
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.bold,
@@ -3498,7 +3534,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      '3 可調 + 2 固定',
+                                      '即時預覽',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -3593,79 +3629,6 @@ extension MainScreenProfileTab on _MainScreenState {
                                   ],
                                 ),
                               ),
-
-                              const SizedBox(height: 8),
-
-                              // 側邊抽屜備用庫預覽列
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? const Color(0xFFF59E0B)
-                                          .withValues(alpha: 0.10)
-                                      : const Color(0xFFFFF8E1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? const Color(0xFFF59E0B)
-                                            .withValues(alpha: 0.3)
-                                        : const Color(0xFFFFD54F),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.inventory_2_rounded,
-                                        size: 14,
-                                        color: isDark
-                                            ? const Color(0xFFFFB74D)
-                                            : const Color(0xFFE65100)),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        '側邊抽屜備用庫：',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark
-                                              ? const Color(0xFFFFB74D)
-                                              : const Color(0xFFE65100),
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildDrawerPreviewPill(
-                                              icon: _getNavBarItemIcon(
-                                                  tempOrder[3]),
-                                              name: _getNavBarItemName(
-                                                  tempOrder[3]),
-                                              badge: '備用 1',
-                                              isDark: isDark,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: _buildDrawerPreviewPill(
-                                              icon: _getNavBarItemIcon(
-                                                  tempOrder[4]),
-                                              name: _getNavBarItemName(
-                                                  tempOrder[4]),
-                                              badge: '備用 2',
-                                              isDark: isDark,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -3679,7 +3642,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 size: 16, color: primaryColor),
                             const SizedBox(width: 6),
                             Text(
-                              '底部導覽列項目（第 1, 2, 4 格）',
+                              '底欄項目',
                               style: TextStyle(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.bold,
@@ -3698,7 +3661,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                selectedForSwap != null ? '已選中 · 點目標對調' : '常駐底欄 · 點擊交換',
+                                selectedForSwap != null ? '已選取 · 點目標對調' : '點選項目互換',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -3711,8 +3674,8 @@ extension MainScreenProfileTab on _MainScreenState {
                         const SizedBox(height: 3),
                         Text(
                           selectedForSwap != null
-                              ? '👉 已選取【${_getNavBarItemName(tempOrder[selectedForSwap!])}】，請點選任意目標完成對調'
-                              : '點擊項目可與下方「側邊抽屜備用庫」的功能互換位置',
+                              ? '👉 已選取【${_getNavBarItemName(tempOrder[selectedForSwap!])}】，請點選欲對調的項目'
+                              : '點選任兩項可互換順序或移至側欄',
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: selectedForSwap != null ? FontWeight.bold : FontWeight.normal,
@@ -3733,7 +3696,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           final name = _getNavBarItemName(itemKey);
                           final desc = getItemDesc(itemKey);
                           final slotLabel =
-                              '導覽列 第 ${index == 2 ? 4 : index + 1} 格';
+                              '第 ${index == 2 ? 4 : index + 1} 格';
 
                           return _buildSwapItemCard(
                             itemKey: itemKey,
@@ -3793,7 +3756,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                           : const Color(0xFFE65100)),
                                   const SizedBox(width: 6),
                                   Text(
-                                    '側邊抽屜備用庫（2 項備用功能）',
+                                    '側欄備用項目',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -3814,7 +3777,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      '常駐側欄',
+                                      '側欄收納',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -3828,7 +3791,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '💡 備用功能常駐於左側選單抽屜中，點擊「換至導覽列」可立即交換至底欄！',
+                                '不常使用的功能可收納於側欄，點擊隨時換回底欄',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: isDark
@@ -3847,7 +3810,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 final icon = _getNavBarItemIcon(itemKey);
                                 final name = _getNavBarItemName(itemKey);
                                 final desc = getItemDesc(itemKey);
-                                final slotLabel = '📱 側邊抽屜備用 ${dIndex + 1}';
+                                final slotLabel = '側欄備用 ${dIndex + 1}';
 
                                 return _buildSwapItemCard(
                                   itemKey: itemKey,
@@ -4200,7 +4163,7 @@ extension MainScreenProfileTab on _MainScreenState {
                             ? '已選'
                             : (hasOtherSelected
                                 ? '對調'
-                                : (isDrawer ? '換至導覽列' : '點選互換')),
+                                : (isDrawer ? '移入底欄' : '互換')),
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
@@ -4226,52 +4189,6 @@ extension MainScreenProfileTab on _MainScreenState {
     );
   }
 
-  // 抽屜備用小預覽膠囊組件
-  Widget _buildDrawerPreviewPill({
-    required IconData icon,
-    required String name,
-    required String badge,
-    required bool isDark,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C34) : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDark
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
-              : const Color(0xFFFFD54F),
-          width: 0.8,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 13,
-            color: isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100),
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              name,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // 導覽列自訂小膠囊預覽組件
   Widget _buildPreviewPill({
@@ -4436,7 +4353,7 @@ extension MainScreenProfileTab on _MainScreenState {
               icon: Icons.explore_outlined,
               label: AppLocaleService.tr('tour_label', _appLanguage),
               value: AppLocaleService.tr('tour_value', _appLanguage),
-              onTap: _startTour,
+              onTap: () => _startTour(null, true),
             ),
             if (showService || showLegal) const Divider(height: 20),
           ],
@@ -4725,7 +4642,7 @@ extension MainScreenProfileTab on _MainScreenState {
                       final subject = subjectCtrl.text.trim();
                       final body = bodyCtrl.text.trim();
                       if (subject.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                           const SnackBar(
                             content: Text('請填寫主旨'),
                             duration: Duration(milliseconds: 1500),
@@ -4743,7 +4660,7 @@ extension MainScreenProfileTab on _MainScreenState {
                         );
                         if (ctx.mounted) Navigator.pop(ctx);
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                             SnackBar(
                               content: Text(ok
                                   ? '已送出，感謝您的回饋！我們會盡快處理。'
@@ -7175,7 +7092,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '最新發布',
-      'version': 'v1.7.8',
+      'version': 'v1.8.0',
       'date': '2026-09-21',
       'isPinned': true,
       'icon': Icons.auto_awesome_rounded,
@@ -8025,7 +7942,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.7.8',
+                                  'v1.8.0',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -8149,7 +8066,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                       : Colors.grey.shade500),
                               const SizedBox(width: 6),
                               Text(
-                                '版本：v1.7.8  |  修訂發布日期：2026 年 9 月 21 日',
+                                '版本：v1.8.0  |  修訂發布日期：2026 年 9 月 23 日',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,

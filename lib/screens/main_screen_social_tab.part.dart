@@ -731,8 +731,8 @@ extension MainScreenSocialTab on _MainScreenState {
                             g['id'] as int, widget.currentUser['id']);
                     await _loadData();
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                           content:
                               Text(newMuted ? '🔕 已將群組設定為靜音' : '🔔 已開啟群組通知'),
                           backgroundColor: _currentPrimaryColor,
@@ -804,8 +804,8 @@ extension MainScreenSocialTab on _MainScreenState {
                             .deleteGroup(g['id'] as int);
                         await _loadData();
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
+                          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                               content: Text('已刪除群組「$groupName」'),
                               backgroundColor: Colors.redAccent,
                             ),
@@ -1547,7 +1547,7 @@ extension MainScreenSocialTab on _MainScreenState {
       await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('已刪除排程貼文')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已刪除排程貼文')));
       }
     }
   }
@@ -1566,14 +1566,14 @@ extension MainScreenSocialTab on _MainScreenState {
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('貼文已發佈！')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('貼文已發佈！')));
     }
   }
 
   void _showCreatePostScreen() {
     if (widget.currentUser['id'] == 'u4') {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('訪客無法發佈貼文，請登入完整帳號')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('訪客無法發佈貼文，請登入完整帳號')));
       return;
     }
     Navigator.push(
@@ -2816,8 +2816,8 @@ extension MainScreenSocialTab on _MainScreenState {
                           }
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('預覽發生錯誤: $e')));
+                            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                                SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('預覽發生錯誤: $e')));
                           }
                         }
                       }),
@@ -2879,7 +2879,7 @@ extension MainScreenSocialTab on _MainScreenState {
 
                           if (savedFile != null && mounted) {
                             final filePath = savedFile.path;
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                               SnackBar(
                                 content: Text('✅ 檔案已成功儲存至：$displayLocation'),
                                 behavior: SnackBarBehavior.floating,
@@ -2893,14 +2893,14 @@ extension MainScreenSocialTab on _MainScreenState {
                               ),
                             );
                           } else if (mounted && savedFile == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('下載已取消或無法儲存')),
+                            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('下載已取消或無法儲存')),
                             );
                           }
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('下載失敗: $e')),
+                            ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('下載失敗: $e')),
                             );
                           }
                         }
@@ -3053,11 +3053,10 @@ startxref
         } else if (result.message.isNotEmpty) {
           msg = '開啟失敗: ${result.message}';
         }
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(
             content: Text(msg),
-            duration: const Duration(seconds: 3),
+            duration: const Duration(milliseconds: 1500),
             backgroundColor: Colors.orange.shade800,
             behavior: SnackBarBehavior.floating,
           ),
@@ -3065,11 +3064,10 @@ startxref
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(
             content: Text('開啟檔案失敗: $e'),
-            duration: const Duration(seconds: 3),
+            duration: const Duration(milliseconds: 1500),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -4447,14 +4445,14 @@ startxref
 
       await _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('✅ 成功匯入 $importedEvents 個排程與 $importedPapers 套試卷！'),
           backgroundColor: Colors.green,
         ));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('匯入失敗: $e'),
           backgroundColor: Colors.red,
         ));
@@ -4504,15 +4502,15 @@ startxref
       // 匯入至 NotesDatabase 運行時列表中
       NotesDatabase.notes.insert(0, newNote);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('🎉 筆記已成功匯入您的筆記本！'),
           backgroundColor: _currentPrimaryColor,
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text('匯入失敗: $e'),
           backgroundColor: Colors.redAccent,
         ),
@@ -4550,8 +4548,8 @@ startxref
       _loadData();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
             content: Text('🎉 題目已成功收藏至您的題庫！'),
             backgroundColor: _currentPrimaryColor,
           ),
@@ -4559,8 +4557,8 @@ startxref
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
             content: Text('收藏失敗: $e'),
             backgroundColor: Colors.redAccent,
           ),

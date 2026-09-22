@@ -878,7 +878,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
               Icon(Icons.verified_outlined, size: 16, color: primaryColor),
               const SizedBox(width: 8),
               Text(
-                '版本 v1.7.8  |  2026 年 9 月 21 日 最新發布',
+                '版本 v1.8.0  |  2026 年 9 月 23 日 最新發布',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,

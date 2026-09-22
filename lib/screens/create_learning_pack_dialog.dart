@@ -68,6 +68,13 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     final db = await DatabaseHelper.instance.database;
     final papers = await db.query('user_papers',
@@ -97,15 +104,51 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
           _selectedEventCount = events.length;
         });
       }
-    } catch (e) {
-      // ignore
+    } catch (_) {}
+  }
+
+  void _setQuickRange(int days) {
+    final now = DateTime.now();
+    setState(() {
+      _startDate = DateTime(now.year, now.month, now.day);
+      _endDate = _startDate.add(Duration(days: days));
+    });
+    _countEvents();
+  }
+
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black87,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      await _countEvents();
     }
   }
 
   Future<void> _buildAndReturnPack() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('請輸入 Pack 標題')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請輸入 Pack 標題')));
       return;
     }
 
@@ -170,8 +213,11 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
           }
         }
 
-        packPapers.add(
-            {'id': paper['id'], 'name': paper['name'], 'questions': questions});
+        packPapers.add({
+          'id': paper['id'],
+          'name': paper['name'],
+          'questions': questions,
+        });
       }
 
       final packData = {
@@ -189,125 +235,548 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('打包失敗: $e')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('打包失敗: $e')));
         setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-    );
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-      });
-      await _countEvents();
+  int _getPaperQuestionCount(Map<String, dynamic> paper) {
+    try {
+      final qIds = jsonDecode(paper['question_ids'] as String);
+      return (qIds as List).length;
+    } catch (_) {
+      return 0;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      clipBehavior: Clip.antiAlias,
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        padding: const EdgeInsets.all(20),
+        width: MediaQuery.of(context).size.width * 0.92,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         child: _isLoading
             ? const SizedBox(
-                height: 200, child: Center(child: CircularProgressIndicator()))
+                height: 220,
+                child: Center(
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+              )
             : Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('📦 建立學習 Pack',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                        labelText: 'Pack 標題 (必填)',
-                        border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _descController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                        labelText: 'Pack 描述 (選填)',
-                        border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('📅 包含行事曆區間',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                        '${_startDate.toIso8601String().split('T')[0]} ~ ${_endDate.toIso8601String().split('T')[0]}'),
-                    subtitle: Text('此區間共包含 $_selectedEventCount 個排程',
-                        style: TextStyle(
-                            color: Colors.orange.shade700,
-                            fontWeight: FontWeight.bold)),
-                    trailing: const Icon(Icons.calendar_month),
-                    onTap: _pickDateRange,
-                  ),
-                  const Divider(),
-                  const Text('📝 包含試卷',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  if (_allPapers.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('目前沒有任何自訂試卷',
-                          style: TextStyle(color: Colors.grey)),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _allPapers.length,
-                        itemBuilder: (context, index) {
-                          final paper = _allPapers[index];
-                          final id = paper['id'] as int;
-                          return CheckboxListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(paper['name'] as String),
-                            value: _selectedPaperIds.contains(id),
-                            onChanged: (val) {
-                              setState(() {
-                                if (val == true) {
-                                  _selectedPaperIds.add(id);
-                                } else {
-                                  _selectedPaperIds.remove(id);
-                                }
-                              });
-                            },
-                          );
-                        },
+                  // 頂部標題列
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 14),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.06),
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade200),
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('取消',
-                            style: TextStyle(color: Colors.grey)),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9800)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.inventory_2_rounded,
+                            color: Color(0xFFE65100),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '建立學習 Pack',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2C2523),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                '打包讀書排程與練習試卷，讓同學一鍵套用',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded,
+                              color: Colors.grey),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 滾動內容區
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 1. Pack 基本資訊
+                          _buildSectionTitle(
+                            icon: Icons.edit_note_rounded,
+                            title: 'Pack 基本資訊',
+                            color: primaryColor,
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _titleController,
+                            decoration: InputDecoration(
+                              labelText: 'Pack 標題 *',
+                              hintText: '例如：學測衝刺 7 天排程與模考包',
+                              filled: true,
+                              fillColor: const Color(0xFFF9F7F5),
+                              prefixIcon: const Icon(Icons.title_rounded,
+                                  size: 20, color: Colors.grey),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide:
+                                    BorderSide(color: Colors.grey.shade300),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide:
+                                    BorderSide(color: Colors.grey.shade200),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: primaryColor, width: 1.5),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _descController,
+                            maxLines: 2,
+                            decoration: InputDecoration(
+                              labelText: '簡介描述（選填）',
+                              hintText: '說明這個 Pack 適合的年級、科目或複習建議...',
+                              filled: true,
+                              fillColor: const Color(0xFFF9F7F5),
+                              prefixIcon: const Icon(Icons.notes_rounded,
+                                  size: 20, color: Colors.grey),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide:
+                                    BorderSide(color: Colors.grey.shade300),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide:
+                                    BorderSide(color: Colors.grey.shade200),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: primaryColor, width: 1.5),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // 2. 行事曆排程區間
+                          _buildSectionTitle(
+                            icon: Icons.calendar_month_rounded,
+                            title: '行事曆排程區間',
+                            color: const Color(0xFFE65100),
+                            badge: '$_selectedEventCount 個事件',
+                          ),
+                          const SizedBox(height: 8),
+
+                          // 快速選擇膠囊
+                          Row(
+                            children: [
+                              _buildQuickRangeChip('未來 7 天', 7),
+                              const SizedBox(width: 6),
+                              _buildQuickRangeChip('未來 14 天', 14),
+                              const SizedBox(width: 6),
+                              _buildQuickRangeChip('未來 30 天', 30),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // 日期區間選取卡片
+                          InkWell(
+                            onTap: _pickDateRange,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF8E1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: const Color(0xFFFFE082)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.date_range_rounded,
+                                      color: Color(0xFFE65100), size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${_startDate.toIso8601String().split('T')[0]}  ➔  ${_endDate.toIso8601String().split('T')[0]}',
+                                          style: const TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF5D4037),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _selectedEventCount > 0
+                                              ? '已包含區間內 $_selectedEventCount 個學習排程'
+                                              : '此區間內無行事曆排程',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            color: _selectedEventCount > 0
+                                                ? const Color(0xFFE65100)
+                                                : Colors.grey.shade600,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: const Color(0xFFFFD54F)),
+                                    ),
+                                    child: const Text(
+                                      '變更日期',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFE65100),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // 3. 包含試卷
+                          Row(
+                            children: [
+                              _buildSectionTitle(
+                                icon: Icons.quiz_rounded,
+                                title: '包含題庫試卷',
+                                color: const Color(0xFF1565C0),
+                                badge: '${_selectedPaperIds.length} 套',
+                              ),
+                              const Spacer(),
+                              if (_allPapers.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      if (_selectedPaperIds.length ==
+                                          _allPapers.length) {
+                                        _selectedPaperIds.clear();
+                                      } else {
+                                        _selectedPaperIds.addAll(_allPapers
+                                            .map((p) => p['id'] as int));
+                                      }
+                                    });
+                                  },
+                                  child: Text(
+                                    _selectedPaperIds.length ==
+                                            _allPapers.length
+                                        ? '取消全選'
+                                        : '全選',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          if (_allPapers.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9F7F5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: Colors.grey.shade200),
+                              ),
+                              child: const Column(
+                                children: [
+                                  Icon(Icons.feed_outlined,
+                                      color: Colors.grey, size: 28),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    '尚未建立自訂試卷，仍可單獨打包排程！',
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Column(
+                              children: _allPapers.map((paper) {
+                                final id = paper['id'] as int;
+                                final name =
+                                    paper['name'] as String? ?? '未命名試卷';
+                                final qCount = _getPaperQuestionCount(paper);
+                                final isSelected =
+                                    _selectedPaperIds.contains(id);
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? primaryColor.withValues(alpha: 0.06)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? primaryColor.withValues(alpha: 0.4)
+                                          : Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  child: CheckboxListTile(
+                                    dense: true,
+                                    activeColor: primaryColor,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 0),
+                                    title: Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? Colors.black87
+                                            : Colors.grey.shade800,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      '包含 $qCount 題題目',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    value: isSelected,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        if (val == true) {
+                                          _selectedPaperIds.add(id);
+                                        } else {
+                                          _selectedPaperIds.remove(id);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                        ],
                       ),
-                      ElevatedButton(
-                        onPressed: _buildAndReturnPack,
-                        child: const Text('確認打包'),
-                      )
-                    ],
-                  )
+                    ),
+                  ),
+
+                  // 底部統計與動作按鈕
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // 打包即時概況
+                        Row(
+                          children: [
+                            Icon(Icons.check_circle_outline_rounded,
+                                size: 14, color: primaryColor),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                '已選 $_selectedEventCount 個排程事件 ＋ ${_selectedPaperIds.length} 套試卷',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  foregroundColor: Colors.grey.shade700,
+                                  side: BorderSide(
+                                      color: Colors.grey.shade300),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('取消'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                onPressed: _buildAndReturnPack,
+                                icon: const Icon(Icons.archive_rounded,
+                                    size: 18),
+                                label: const Text('確認打包 Pack'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF9800),
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle({
+    required IconData icon,
+    required String title,
+    required Color color,
+    String? badge,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 17, color: color),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2C2523),
+          ),
+        ),
+        if (badge != null) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              badge,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildQuickRangeChip(String label, int days) {
+    return Expanded(
+      child: InkWell(
+        onTap: () => _setQuickRange(days),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade800,
+            ),
+          ),
+        ),
       ),
     );
   }

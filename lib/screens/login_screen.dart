@@ -163,8 +163,8 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: () async {
               final email = emailResetCtrl.text.trim();
               if (email.isEmpty || email == '@gmail.com') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('請輸入有效的信箱')),
+                ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請輸入有效的信箱')),
                 );
                 return;
               }
@@ -275,14 +275,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   final confPass = confirmPasswordCtrl.text;
 
                   if (newPass.isEmpty || confPass.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('欄位不可為空')),
+                    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('欄位不可為空')),
                     );
                     return;
                   }
                   if (newPass != confPass) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('兩次輸入密碼不同')),
+                    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('兩次輸入密碼不同')),
                     );
                     return;
                   }
@@ -379,7 +379,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'v1.7.8',
+                          'v1.8.0',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
@@ -432,7 +432,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       _buildInlineSection(
                         '5. 免責聲明與管轄法院',
-                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.7.8（修訂發布：2026 年 9 月 21 日）。',
+                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.8.0（修訂發布：2026 年 9 月 23 日）。',
                         themeColor,
                       ),
                     ]
@@ -459,7 +459,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       _buildInlineSection(
                         '5. 第三方服務安全規範',
-                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.7.8（修訂發布：2026 年 9 月 21 日）。',
+                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.8.0（修訂發布：2026 年 9 月 23 日）。',
                         themeColor,
                       ),
                     ],
@@ -533,7 +533,7 @@ class _LoginScreenState extends State<LoginScreen> {
           inputEmail == '@gmail.com' ||
           inputPassword.isEmpty) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('信箱與密碼不得為空')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('信箱與密碼不得為空')));
         return;
       }
     } else {
@@ -542,7 +542,7 @@ class _LoginScreenState extends State<LoginScreen> {
           inputEmail == '@gmail.com' ||
           inputPassword.isEmpty) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('所有欄位皆不得為空')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('所有欄位皆不得為空')));
         return;
       }
       if (inputPassword != inputConfirm) {
@@ -560,8 +560,8 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
       if (!_agreedToTerms) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), 
             content: Text('請先閱讀並勾選同意「服務條款」與「隱私權政策」才能完成註冊。'),
             behavior: SnackBarBehavior.floating,
           ),
@@ -821,8 +821,8 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       debugPrint('Google 登入失敗: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google 登入失敗：$e')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('Google 登入失敗：$e')),
         );
       }
     }

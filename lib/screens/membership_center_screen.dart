@@ -74,8 +74,8 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
       final bonus = await MembershipService.instance.claimDailyBonus(userId);
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), 
           content: Text('🎉 每日簽到成功！獲得 +$bonus 點數'),
           backgroundColor: const Color(0xFF4CAF50),
           behavior: SnackBarBehavior.floating,
@@ -84,8 +84,8 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
       _loadMembershipData();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), 
           content: Text(e.toString().replaceAll('Exception: ', '')),
           backgroundColor: Colors.orange[800],
           behavior: SnackBarBehavior.floating,

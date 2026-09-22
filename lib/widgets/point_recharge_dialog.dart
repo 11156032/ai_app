@@ -133,8 +133,8 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
         _isProcessing = false;
         _isSuccess = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('模擬交易失敗: $e')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('模擬交易失敗: $e')),
       );
     }
   }

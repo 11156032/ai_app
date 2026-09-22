@@ -9,11 +9,13 @@ import 'mindmap_node.dart';
 class FullscreenMindMapView extends StatefulWidget {
   final MindMapNode root;
   final String title;
+  final VoidCallback? onClose;
 
   const FullscreenMindMapView({
     super.key,
     required this.root,
     this.title = '心智圖全螢幕檢視',
+    this.onClose,
   });
 
   static Future<void> open(
@@ -94,7 +96,7 @@ class _FullscreenMindMapViewState extends State<FullscreenMindMapView> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: widget.onClose ?? () => Navigator.of(context).pop(),
           tooltip: '關閉全螢幕',
         ),
         actions: [

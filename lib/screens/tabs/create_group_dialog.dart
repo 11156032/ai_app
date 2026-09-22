@@ -71,8 +71,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   Future<void> _createGroup() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請輸入群組名稱')),
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請輸入群組名稱')),
       );
       return;
     }
@@ -90,8 +90,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       if (mounted) {
         Navigator.pop(context);
         widget.onCreated();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
             content: Text('🎉 群組「$name」已建立！'),
             backgroundColor: Theme.of(context).primaryColor,
           ),
@@ -100,8 +100,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isCreating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('建立失敗：$e')),
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('建立失敗：$e')),
         );
       }
     }
