@@ -7942,7 +7942,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.8.0',
+                                  'v1.8.1',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -8066,7 +8066,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                       : Colors.grey.shade500),
                               const SizedBox(width: 6),
                               Text(
-                                '版本：v1.8.0  |  修訂發布日期：2026 年 9 月 23 日',
+                                '版本：v1.8.1  |  修訂發布日期：2026 年 9 月 27 日',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,

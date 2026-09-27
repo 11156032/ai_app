@@ -5,9 +5,12 @@ import 'database/database_helper.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/notes_screen.dart';
+import 'screens/maintenance_screen.dart';
 import 'widgets/common_widgets.dart';
+import 'widgets/app_update_dialog.dart';
 import 'services/app_theme_service.dart';
 import 'services/app_locale_service.dart';
+import 'services/app_config_service.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -43,13 +46,16 @@ Future<void> main() async {
   // 立即啟動 UI 渲染，避免原生 Splash 畫面卡死
   runApp(const MyApp());
 
-  // 非同步進行 Firebase 與推播服務初始化，配置逾時保護
+  // 非同步進行 Firebase、Remote Config 與推播服務初始化，配置逾時保護
   _initFirebaseAndNotifications();
 }
 
 Future<void> _initFirebaseAndNotifications() async {
   try {
     await Firebase.initializeApp().timeout(const Duration(seconds: 4));
+    await AppConfigService.instance
+        .initialize()
+        .timeout(const Duration(seconds: 4));
     await PushNotificationService()
         .initialize()
         .timeout(const Duration(seconds: 4));
@@ -126,6 +132,7 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   Map<String, dynamic>? _currentUser;
   bool _isInitializing = true; // APP 啟動時先顯示精緻載入動畫
+  bool _hasCheckedUpdate = false;
 
   @override
   void initState() {
@@ -137,6 +144,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _checkAutoLogin() async {
     final stopwatch = Stopwatch()..start();
     try {
+      // 確保 Remote Config 已完成初步載入
+      await AppConfigService.instance
+          .initialize()
+          .timeout(const Duration(seconds: 3), onTimeout: () {});
+
       final user = await DatabaseHelper.instance
           .getLoggedInUser()
           .timeout(const Duration(seconds: 3), onTimeout: () => null);
@@ -166,6 +178,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           _currentUser = user;
           _isInitializing = false;
         });
+        _checkUpdatePrompt();
       }
     } catch (e) {
       debugPrint('Auto-login check failed: $e');
@@ -175,8 +188,36 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
       if (mounted) {
         setState(() => _isInitializing = false);
+        _checkUpdatePrompt();
       }
     }
+  }
+
+  void _checkUpdatePrompt() {
+    if (_hasCheckedUpdate) return;
+    _hasCheckedUpdate = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // 若處於維護中，維護畫面優先
+      if (AppConfigService.instance.isMaintenance) return;
+
+      final updateType = AppConfigService.instance.updateType;
+      if (updateType == AppUpdateType.none) return;
+
+      final isForce = updateType == AppUpdateType.force;
+      final targetVersion = isForce
+          ? AppConfigService.instance.minVersion
+          : AppConfigService.instance.latestVersion;
+
+      AppUpdateDialog.show(
+        context,
+        isForceUpdate: isForce,
+        currentVersion: AppConfigService.instance.currentAppVersion,
+        targetVersion: targetVersion,
+        updateUrl: AppConfigService.instance.updateUrl,
+      );
+    });
   }
 
   /// 登入成功時，寫入資料庫並更新 UI
@@ -224,26 +265,40 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppConfigService.instance.isMaintenanceNotifier,
+      builder: (context, isMaintenance, _) {
+        if (isMaintenance) {
+          return MaintenanceScreen(
+            onResolved: () {
+              setState(() {});
+              _checkUpdatePrompt();
+            },
+          );
+        }
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          child: _isInitializing
+              ? const _SmoothAppSplash(key: ValueKey('app_splash'))
+              : KeyedSubtree(
+                  key: ValueKey(_currentUser != null
+                      ? 'main_${_currentUser!['id']}'
+                      : 'login_screen'),
+                  child: _currentUser == null
+                      ? LoginScreen(onLogin: _login)
+                      : MainScreen(currentUser: _currentUser!, onLogout: _logout),
+                ),
         );
       },
-      child: _isInitializing
-          ? const _SmoothAppSplash(key: ValueKey('app_splash'))
-          : KeyedSubtree(
-              key: ValueKey(_currentUser != null
-                  ? 'main_${_currentUser!['id']}'
-                  : 'login_screen'),
-              child: _currentUser == null
-                  ? LoginScreen(onLogin: _login)
-                  : MainScreen(currentUser: _currentUser!, onLogout: _logout),
-            ),
     );
   }
 }

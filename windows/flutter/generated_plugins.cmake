@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_windows
   firebase_core
+  firebase_remote_config
   record_windows
   speech_to_text_windows
   sqlite3_flutter_libs

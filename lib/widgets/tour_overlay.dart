@@ -357,17 +357,19 @@ class _TourOverlayState extends State<TourOverlay>
     final isDimmedOrModal =
         isVideoOpen || _isConfirmingSkip || isMindMapFullscreen;
 
-    return TourOverlayScope(
-      openFullscreenMindMap: (root, title) {
-        setState(() {
-          _activeFullscreenMindMapRoot = root;
-          _activeFullscreenMindMapTitle = title;
-        });
-      },
-      child: FadeTransition(
-        opacity: _fadeAnim,
-        child: Stack(
-          children: [
+    return Material(
+      type: MaterialType.transparency,
+      child: TourOverlayScope(
+        openFullscreenMindMap: (root, title) {
+          setState(() {
+            _activeFullscreenMindMapRoot = root;
+            _activeFullscreenMindMapTitle = title;
+          });
+        },
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: Stack(
+            children: [
             // ── 遮罩 + 聚光燈（開啟影片、略過確認或全螢幕時聚光燈關閉） ──
             Positioned.fill(
               child: Listener(
@@ -398,33 +400,46 @@ class _TourOverlayState extends State<TourOverlay>
               ),
             ),
 
-            // ── 步驟提示卡（開啟影片、略過確認或全螢幕時隱藏，動態偵測聚光燈位置避免遮擋） ──
+            // ── 步驟提示卡（動態避讓聚光燈目標，操作按鈕固定在底部永不遮擋） ──
             if (!isDimmedOrModal)
             AnimatedBuilder(
               animation: _pulseCtrl,
               builder: (context, child) {
                 final liveRect = _getTargetRect(step.targetKey);
                 final curScreenSize = MediaQuery.of(context).size;
+                final safePadding = MediaQuery.of(context).padding;
+                final safeTop = safePadding.top;
+                final safeBottom = safePadding.bottom;
 
                 double? dynamicCardTop, dynamicCardBottom;
-                if (step.customPreviewBuilder != null && liveRect == null) {
-                  dynamicCardBottom = 36;
-                } else if (liveRect != null) {
-                  final spaceBelow = curScreenSize.height - liveRect.bottom;
-                  final spaceAbove = liveRect.top;
+                double dynamicMaxHeight;
 
-                  if (spaceAbove >= 220) {
-                    // 目標元件在中部或偏下，卡片放於目標上方，徹底露出高亮目標！
-                    dynamicCardBottom = curScreenSize.height - liveRect.top + 14;
-                  } else if (spaceBelow >= 250) {
-                    // 目標元件在中部或偏上，卡片放於目標下方
-                    dynamicCardTop = liveRect.bottom + 14;
+                if (liveRect != null) {
+                  final spaceAbove = (liveRect.top - safeTop - 16.0).clamp(0.0, curScreenSize.height);
+                  final spaceBelow = (curScreenSize.height - liveRect.bottom - safeBottom - 16.0).clamp(0.0, curScreenSize.height);
+
+                  if (spaceAbove < 150 && spaceBelow < 150) {
+                    // 目標佔據中間大面積，將卡片置於底部安全區上方
+                    dynamicCardBottom = safeBottom + 16.0;
+                    dynamicMaxHeight = (curScreenSize.height - safeTop - safeBottom - 32.0).clamp(180.0, 500.0);
+                  } else if (spaceAbove >= spaceBelow) {
+                    // 上方空間較大，卡片置於目標上方
+                    dynamicCardBottom = (curScreenSize.height - liveRect.top + 12.0)
+                        .clamp(safeBottom + 12.0, curScreenSize.height - safeTop - 120.0);
+                    final availableAbove = curScreenSize.height - safeTop - dynamicCardBottom - 12.0;
+                    dynamicMaxHeight = availableAbove.clamp(140.0, curScreenSize.height * 0.72);
                   } else {
-                    // 極端螢幕空間：置頂顯示
-                    dynamicCardTop = 75;
+                    // 下方空間較大，卡片置於目標下方
+                    dynamicCardTop = (liveRect.bottom + 12.0)
+                        .clamp(safeTop + 12.0, curScreenSize.height - safeBottom - 120.0);
+                    final availableBelow = curScreenSize.height - safeBottom - dynamicCardTop - 12.0;
+                    dynamicMaxHeight = availableBelow.clamp(140.0, curScreenSize.height * 0.72);
                   }
                 } else {
-                  dynamicCardBottom = 60; // 無目標時置於底部
+                  // 無聚光燈目標時（如全覽步驟、社群介紹或心智圖演示）置於底部
+                  dynamicCardBottom = safeBottom + 20.0;
+                  final availableH = curScreenSize.height - safeTop - safeBottom - 40.0;
+                  dynamicMaxHeight = availableH.clamp(200.0, step.customPreviewBuilder != null ? 580.0 : 500.0);
                 }
 
                 return Positioned(
@@ -432,248 +447,261 @@ class _TourOverlayState extends State<TourOverlay>
                   right: 16,
                   top: dynamicCardTop,
                   bottom: dynamicCardBottom,
-                  child: child!,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: dynamicMaxHeight,
+                    ),
+                    child: child!,
+                  ),
                 );
               },
               child: Material(
                 color: Colors.transparent,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: screenSize.height * 0.85,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        blurRadius: 28,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // ── 個人化推薦橫幅（有 recommendReason 時才顯示）
-                          if (step.recommendReason != null) ...[
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    primaryColor.withValues(alpha: 0.12),
-                                    primaryColor.withValues(alpha: 0.05),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: primaryColor.withValues(alpha: 0.25),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('✨',
-                                      style: const TextStyle(fontSize: 13)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      step.recommendReason!,
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: primaryColor,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          // 功能標籤 + 總進度
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      step.featureTitle,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: primaryColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                '步驟 $visibleStepNumber / ${visibleSteps.length}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade500,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-
-                          // 該功能的步驟進度條
-                          Row(
-                            children: List.generate(step.totalInFeature, (i) {
-                              final active = i == step.stepInFeature - 1;
-                              return AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                margin: const EdgeInsets.only(right: 5),
-                                width: active ? 16 : 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  color: active
-                                      ? primaryColor
-                                      : primaryColor.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              );
-                            }),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // 步驟標題
-                          Text(
-                            step.title,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-
-                          // 步驟說明
-                          Text(
-                            displayDesc,
-                            style: const TextStyle(
-                              fontSize: 13.5,
-                              color: Color(0xFF555555),
-                              height: 1.6,
-                            ),
-                          ),
-
-                          // ── 若該步驟有自訂展示區塊（如：語音轉心智圖即時演示） ──
-                          if (step.customPreviewBuilder != null) ...[
-                            const SizedBox(height: 12),
-                            step.customPreviewBuilder!(context),
-                          ],
-                          const SizedBox(height: 12),
-
-                      // 若該步驟有教學影片，顯示點擊觀看示範按鈕
-                      if (step.tutorialVideoAsset != null) ...[
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _activeVideoAsset = step.tutorialVideoAsset;
-                                _activeVideoTitle =
-                                    step.tutorialVideoTitle ?? '操作示範';
-                                _activeVideoBadge =
-                                    step.featureIndex == 2 ? '題庫測驗教學' : '操作教學';
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 9),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.amber.shade50,
-                                    Colors.orange.shade50,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: Colors.amber.shade400, width: 1.2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.amber.shade100
-                                        .withValues(alpha: 0.6),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.play_circle_fill_rounded,
-                                      color: Colors.amber.shade800, size: 22),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      step.tutorialVideoTitle ??
-                                          '觀看題庫測驗操作示範影片 🎬',
-                                      style: TextStyle(
-                                        color: Colors.amber.shade900,
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  Icon(Icons.arrow_forward_ios_rounded,
-                                      size: 12, color: Colors.amber.shade800),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-
-                      // 按鈕列
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── 頂部固定 Header：功能標籤 + 總進度 ──
                       Row(
                         children: [
-                          TextButton(
-                            onPressed: _confirmAndSkip,
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.grey.shade500,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              minimumSize: const Size(0, 36),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Text('略過'),
+                            child: Text(
+                              step.featureTitle,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                              ),
+                            ),
                           ),
+                          const Spacer(),
+                          Text(
+                            '步驟 $visibleStepNumber / ${visibleSteps.length}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // 該功能的步驟進度條
+                      Row(
+                        children: List.generate(step.totalInFeature, (i) {
+                          final active = i == step.stepInFeature - 1;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.only(right: 5),
+                            width: active ? 16 : 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? primaryColor
+                                  : primaryColor.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // ── 可滾動主體內容區（內容過長時在此滾動，永不遮擋按鈕） ──
+                      Flexible(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 個人化推薦橫幅
+                              if (step.recommendReason != null) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        primaryColor.withValues(alpha: 0.12),
+                                        primaryColor.withValues(alpha: 0.05),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: primaryColor.withValues(alpha: 0.25),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('✨',
+                                          style: TextStyle(fontSize: 13)),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          step.recommendReason!,
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            color: primaryColor,
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              // 步驟標題
+                              Text(
+                                step.title,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+
+                              // 步驟說明
+                              Text(
+                                displayDesc,
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  color: Color(0xFF555555),
+                                  height: 1.6,
+                                ),
+                              ),
+
+                              // 若該步驟有自訂展示區塊（如：語音轉心智圖即時演示）
+                              if (step.customPreviewBuilder != null) ...[
+                                const SizedBox(height: 12),
+                                step.customPreviewBuilder!(context),
+                              ],
+
+                              // 若該步驟有教學影片按鈕
+                              if (step.tutorialVideoAsset != null) ...[
+                                const SizedBox(height: 12),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _activeVideoAsset = step.tutorialVideoAsset;
+                                        _activeVideoTitle =
+                                            step.tutorialVideoTitle ?? '操作示範';
+                                        _activeVideoBadge =
+                                            step.featureIndex == 2 ? '題庫測驗教學' : '操作教學';
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.amber.shade50,
+                                            Colors.orange.shade50,
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: Colors.amber.shade400, width: 1.2),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.amber.shade100
+                                                .withValues(alpha: 0.6),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.play_circle_fill_rounded,
+                                              color: Colors.amber.shade800, size: 22),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              step.tutorialVideoTitle ??
+                                                  '觀看題庫測驗操作示範影片 🎬',
+                                              style: TextStyle(
+                                                color: Colors.amber.shade900,
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          Icon(Icons.arrow_forward_ios_rounded,
+                                              size: 12, color: Colors.amber.shade800),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      const SizedBox(height: 10),
+
+                      // ── 永遠釘在底部、絕不被遮擋的按鈕列 (Pinned Actions Bar) ──
+                      Row(
+                        children: [
+                          if (!isLastVisible) ...[
+                            TextButton(
+                              onPressed: _confirmAndSkip,
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.grey.shade500,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                minimumSize: const Size(0, 36),
+                              ),
+                              child: const Text('略過', style: TextStyle(fontSize: 13)),
+                            ),
+                          ],
                           const Spacer(),
                           if (effectiveIdx > 0) ...[
                             OutlinedButton(
                               onPressed: _goBack,
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: primaryColor,
-                                side: BorderSide(color: primaryColor),
+                                side: BorderSide(color: primaryColor, width: 1.2),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 10),
+                                    horizontal: 14, vertical: 9),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12)),
+                                minimumSize: const Size(0, 38),
                               ),
                               child: const Text('← 上一步',
                                   style: TextStyle(
@@ -688,15 +716,16 @@ class _TourOverlayState extends State<TourOverlay>
                               backgroundColor: primaryColor,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10),
+                                  horizontal: 16, vertical: 9),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
                               elevation: 0,
+                              minimumSize: const Size(0, 38),
                             ),
                             child: Text(
                               isLastVisible ? '已了解 ✅' : '下一步 →',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14),
+                                  fontWeight: FontWeight.bold, fontSize: 13.5),
                             ),
                           ),
                         ],
@@ -706,8 +735,6 @@ class _TourOverlayState extends State<TourOverlay>
                 ),
               ),
             ),
-          ),
-        ),
 
           // ── 教學影片播放視窗（最上層、無遮擋、關閉聚光燈、純白典雅底色） ──
           if (isVideoOpen)
@@ -751,9 +778,10 @@ class _TourOverlayState extends State<TourOverlay>
                               child: Text(
                                 _activeVideoTitle ?? '操作教學示範',
                                 style: const TextStyle(
-                                  color: Color(0xFF3E2723), // 典雅深咖
+                                  color: Color(0xFF3E2723),
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.none,
                                 ),
                               ),
                             ),
@@ -792,7 +820,7 @@ class _TourOverlayState extends State<TourOverlay>
                 ),
               ),
             ),
-          // ── 略過引導確認彈窗（最上層、無遮擋、置於最前方） ──
+                    // ── 略過引導確認彈窗（最上層、無遮擋、置於最前方） ──
           if (_isConfirmingSkip)
             Positioned.fill(
               child: GestureDetector(
@@ -806,139 +834,142 @@ class _TourOverlayState extends State<TourOverlay>
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: GestureDetector(
                     onTap: () {}, // 攔截點擊，避免點擊彈窗內部關閉
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: primaryColor.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: primaryColor.withValues(alpha: 0.3),
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.help_outline_rounded,
-                                color: primaryColor,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            '確定要略過功能引導嗎？',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B),
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                            ),
-                            child: const Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.info_outline_rounded,
-                                  color: Color(0xFFE65100),
-                                  size: 18,
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      elevation: 12,
+                      shadowColor: Colors.black.withValues(alpha: 0.25),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: primaryColor.withValues(alpha: 0.3),
+                                  width: 1.5,
                                 ),
-                                SizedBox(width: 8),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.help_outline_rounded,
+                                  color: primaryColor,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              '確定要略過功能引導嗎？',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
+                                letterSpacing: -0.2,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: const Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    color: Color(0xFFE65100),
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '略過引導可能會影響後續操作的使用體驗與新功能探索。只需幾個步驟即可快速掌握核心功能，確定要略過嗎？',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF475569),
+                                        height: 1.5,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
                                 Expanded(
-                                  child: Text(
-                                    '略過引導可能會影響後續操作的使用體驗與新功能探索。只需幾個步驟即可快速掌握核心功能，確定要略過嗎？',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF475569),
-                                      height: 1.5,
+                                  child: OutlinedButton(
+                                    onPressed: () {
+                                      setState(() => _isConfirmingSkip = false);
+                                      widget.onSkip();
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF64748B),
+                                      side: const BorderSide(
+                                          color: Color(0xFFCBD5E1)),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 13),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      '確認略過',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      setState(() => _isConfirmingSkip = false);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 13),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      '繼續引導',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.none,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () {
-                                    setState(() => _isConfirmingSkip = false);
-                                    widget.onSkip();
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF64748B),
-                                    side: const BorderSide(
-                                        color: Color(0xFFCBD5E1)),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 13),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    '確認略過',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    setState(() => _isConfirmingSkip = false);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: primaryColor,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 13),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    '繼續引導',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -962,8 +993,9 @@ class _TourOverlayState extends State<TourOverlay>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ─────────────────────────────────────────────

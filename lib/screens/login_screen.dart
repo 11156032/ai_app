@@ -379,7 +379,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'v1.8.0',
+                          'v1.8.1',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
