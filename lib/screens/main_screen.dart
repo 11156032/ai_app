@@ -47,26 +47,36 @@ import 'home_page.dart';
 import 'quiz_history_page.dart';
 import 'create_post_page.dart';
 import 'post_reply_page.dart';
+import 'my_posts_page.dart';
 import '../widgets/dialogs/note_organize_widgets.dart';
 import '../widgets/loading/ai_loading_indicators.dart';
 import '../widgets/dialogs/image_edit_dialogs.dart';
+import '../widgets/dialogs/ai_diagnosis_sheet.dart';
+import '../widgets/dialogs/add_todo_dialog.dart';
+import '../widgets/dialogs/edit_delete_todo_dialog.dart';
+import '../widgets/dialogs/logout_dialog.dart';
 
 export 'quiz_history_page.dart';
 export 'create_post_page.dart';
 export 'post_reply_page.dart';
+export 'my_posts_page.dart';
 export 'question_discussion_page.dart';
 export '../widgets/dialogs/note_organize_widgets.dart';
 export '../widgets/loading/ai_loading_indicators.dart';
 export '../widgets/dialogs/image_edit_dialogs.dart';
+export '../widgets/dialogs/ai_diagnosis_sheet.dart';
 
 part 'main_screen_profile_tab.part.dart';
 part 'main_screen_social_tab.part.dart';
 part 'main_screen_activity_tab.part.dart';
+part 'main_screen_constants.part.dart';
+part 'main_screen_utils.part.dart';
+part 'main_screen_timers.part.dart';
+
 
 typedef _QuizHistoryPage = QuizHistoryPage;
 typedef _OrganizeNotePickerWidget = OrganizeNotePickerWidget;
 typedef _OrganizedNoteResultWidget = OrganizedNoteResultWidget;
-typedef _DiagnosisLoadingProgress = DiagnosisLoadingProgress;
 typedef _NoteSummaryLoadingBubble = NoteSummaryLoadingBubble;
 
 // 移除原本在這裡的 kPresetAvatars 與 _buildAvatar，已移至 common_widgets.dart
@@ -75,19 +85,7 @@ typedef _NoteSummaryLoadingBubble = NoteSummaryLoadingBubble;
 // ─────────────────────────────────────────────────────────────────
 
 // ── 社群貼文相關常量 (移至頂層以便分片檔案存取) ──
-const Map<String, String?> kSocialFilterMap = {
-  '全部': null,
-  '📝 學習筆記': 'note',
-  '💭 心情文章': 'mood',
-  '📄 分享資料': 'doc',
-  '📦 學習 Pack': 'learning_pack',
-};
 
-const Map<String, String> kPostTypeLabel = {
-  'note': '📝 學習筆記',
-  'mood': '💭 心情文章',
-  'doc': '📄 分享資料',
-};
 
 class MainScreen extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -134,16 +132,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Map<String, int> _topicMemberCounts = {};
   Map<String, int> _topicPostCounts = {};
 
-  int _getTopicMemberCount(String topicId) {
-    if (_topicMemberCounts.containsKey(topicId)) {
-      return _topicMemberCounts[topicId] ?? (_userJoinedTopicIds.contains(topicId) ? 1 : 0);
-    }
-    return _userJoinedTopicIds.contains(topicId) ? 1 : 0;
-  }
 
-  int _getTopicPostCount(String topicId) {
-    return _topicPostCounts[topicId] ?? 0;
-  }
+
+
 
   String _selectedSocialTopicFilter = '全部'; // 社群主題篩選
   String _socialFilter = '全部'; // 社群貼文分類篩選狀態
@@ -153,15 +144,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   late PageController _socialPageController; // 0=廣場, 1=群組
   final ScrollController _socialFeedScrollController = ScrollController();
 
-  void _scrollToTopSocialFeed() {
-    if (_socialFeedScrollController.hasClients) {
-      _socialFeedScrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOutCubic,
-      );
-    }
-  }
+
 
   int _groupSubTab = 0; // 0=我的群組, 1=探索
   String _exploreGroupSearchQuery = ''; // 探索群組搜尋字串
@@ -279,12 +262,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return true;
   }
 
-  void _clearPostTimers() {
-    for (var t in _postTimers) {
-      t.cancel();
-    }
-    _postTimers.clear();
-  }
+
 
   // ignore: unused_field
   int _remainingSeconds = 1800;
@@ -2868,24 +2846,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showLogoutDialog() {
-    showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-                title: Text('系統提示'),
-                content: Text('確定要登出並切換至其他帳號嗎？'),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx), child: Text('取消')),
-                  ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        widget.onLogout();
-                      },
-                      child: const Text('確定登出'))
-                ]));
+    showLogoutDialog(
+      context: context,
+      primaryColor: Theme.of(context).primaryColor,
+      onLogout: widget.onLogout,
+    );
   }
 
   // --- 測驗精靈邏輯 ---
@@ -11362,64 +11327,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
-    TextEditingController editCtrl = TextEditingController(text: item['title']);
-    showDialog(
+    showEditDeleteTodoDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('管理待辦事項'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: editCtrl,
-              decoration: const InputDecoration(labelText: '內容'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              showDialog(
-                context: context,
-                builder: (confirmCtx) => AlertDialog(
-                  title: const Text('刪除待辦事項'),
-                  content: Text('確定要刪除「${item['title']}」嗎？'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(confirmCtx),
-                        child: const Text('取消')),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white),
-                      onPressed: () {
-                        Navigator.pop(confirmCtx);
-                        _deleteTodo(item['id']);
-                      },
-                      child: const Text('確定刪除'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            child: const Text('刪除', style: TextStyle(color: Colors.redAccent)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (editCtrl.text.trim().isNotEmpty) {
-                _editTodo(item['id'], editCtrl.text.trim());
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('儲存'),
-          ),
-        ],
-      ),
+      item: item,
+      onEdit: _editTodo,
+      onDelete: _deleteTodo,
     );
   }
 
@@ -12674,99 +12586,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showAddTodoDialog() {
-    final titleController = TextEditingController();
-    final isDark = _isDarkMode;
-    final primaryColor = Theme.of(context).primaryColor;
-
-    showDialog(
+    showAddTodoDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-        contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: primaryColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.check_circle_outline_rounded,
-                  color: primaryColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              '手動新增待辦',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-          ],
-        ),
-        content: TextField(
-          controller: titleController,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: '待辦內容',
-            hintText: '輸入待辦項目（例：背誦單字 Unit 3）...',
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-            filled: true,
-            fillColor: isDark ? Colors.white10 : const Color(0xFFF8FAFC),
-            prefixIcon: Icon(Icons.format_list_bulleted_rounded,
-                color: primaryColor, size: 20),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: primaryColor, width: 1.5),
-            ),
-          ),
-        ),
-        actions: [
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.grey.shade700,
-              side: BorderSide(color: Colors.grey.shade300),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            ),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            onPressed: () {
-              if (titleController.text.trim().isNotEmpty) {
-                _addTodo(titleController.text.trim());
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('確認加入',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+      isDark: _isDarkMode,
+      primaryColor: Theme.of(context).primaryColor,
+      onSubmit: _addTodo,
     );
   }
 
@@ -15119,166 +14943,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (ctx) => Scaffold(
-          backgroundColor: const Color(0xFFFAFAFA),
-          appBar: AppBar(
-            title: const Text('我的貼文'),
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black87,
-            elevation: 0.5,
-          ),
-          body: _buildMyPostsList(),
+        builder: (_) => MyPostsPage(
+          posts: socialPosts,
+          currentUser: widget.currentUser,
+          onNavigateToPost: (post) {
+            _changePage(3, '社群動態');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PostReplyPage(
+                  originalPost: post,
+                  currentUser: widget.currentUser,
+                ),
+              ),
+            ).then((_) => _loadData());
+          },
         ),
       ),
-    );
-  }
-
-  Widget _buildMyPostsList() {
-    final currentUserId = widget.currentUser['id'];
-    final myPosts =
-        socialPosts.where((p) => p['userId'] == currentUserId).toList();
-
-    if (myPosts.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.article_outlined, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text('尚未發布任何貼文',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
-            const SizedBox(height: 8),
-            Text('前往社群分享你的學習心得吧！',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-          ],
-        ),
-      );
-    }
-
-    final typeIconMap = {
-      'note': Icons.sticky_note_2_outlined,
-      'mood': Icons.sentiment_satisfied_alt_outlined,
-      'share': Icons.share_outlined,
-      'text': Icons.chat_bubble_outline,
-    };
-    final typeNameMap = {
-      'note': '筆記',
-      'mood': '心情',
-      'share': '分享',
-      'text': '一般',
-    };
-
-    return ListView.separated(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      itemCount: myPosts.length,
-      separatorBuilder: (_, __) => SizedBox(height: 12),
-      itemBuilder: (ctx, i) {
-        final post = myPosts[i];
-        final postType = post['postType'] as String? ?? 'text';
-        final icon = typeIconMap[postType] ?? Icons.chat_bubble_outline;
-        final typeName = typeNameMap[postType] ?? '一般';
-        final primaryColor = Theme.of(context).primaryColor;
-
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              Navigator.pop(ctx);
-              _changePage(3, '社群動態');
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PostReplyPage(
-                    originalPost: post,
-                    currentUser: widget.currentUser,
-                  ),
-                ),
-              ).then((_) => _loadData());
-            },
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2)),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(icon, size: 12, color: primaryColor),
-                            const SizedBox(width: 4),
-                            Text(typeName,
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: primaryColor,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(post['time'] as String? ?? '',
-                          style: const TextStyle(
-                              fontSize: 11, color: Colors.grey)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    post['content'] as String? ?? '',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, height: 1.5),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Icon(Icons.favorite_border,
-                          size: 14, color: Colors.grey.shade400),
-                      const SizedBox(width: 4),
-                      Text('${post['likes'] ?? 0}',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade500)),
-                      const SizedBox(width: 16),
-                      Icon(Icons.chat_bubble_outline,
-                          size: 14, color: Colors.grey.shade400),
-                      const SizedBox(width: 4),
-                      Text('${post['replies'] ?? 0}',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade500)),
-                      const Spacer(),
-                      Text('前往貼文',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: primaryColor,
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 2),
-                      Icon(Icons.arrow_forward_ios_rounded,
-                          size: 11, color: primaryColor),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -15298,568 +14979,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   // ignore: unused_element
   void _showAiDiagnosisSheet() {
     if (!mounted) return;
-    showModalBottomSheet(
+    AiDiagnosisSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          _sheetStateSetter = setSheetState;
-
-          return DraggableScrollableSheet(
-            initialChildSize: 0.85,
-            minChildSize: 0.5,
-            maxChildSize: 0.95,
-            builder: (ctx, sc) => Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFFFAF8F6), // Warm background
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Title Area
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            ShaderMask(
-                              shaderCallback: (bounds) => LinearGradient(
-                                colors: [
-                                  Theme.of(context).primaryColor,
-                                  Color(0xFFD7CCC8)
-                                ],
-                              ).createShader(bounds),
-                              child: const Icon(
-                                Icons.analytics_outlined,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'AI 學習診斷報告',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF4E342E),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (!_isDiagnosing && _diagnosisResult != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _diagnosisResult!.isAiGenerated
-                                  ? const Color(0xFFE8F5E9)
-                                  : const Color(0xFFEFEBE9),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: _diagnosisResult!.isAiGenerated
-                                    ? const Color(0xFFA5D6A7)
-                                    : const Color(0xFFD7CCC8),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _diagnosisResult!.isAiGenerated
-                                      ? Icons.bolt
-                                      : Icons.settings_applications,
-                                  size: 14,
-                                  color: _diagnosisResult!.isAiGenerated
-                                      ? Colors.green.shade700
-                                      : Colors.brown,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _diagnosisResult!.isAiGenerated
-                                      ? 'AI 智慧生成'
-                                      : '本地規則分析',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: _diagnosisResult!.isAiGenerated
-                                        ? Colors.green.shade700
-                                        : Colors.brown,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Divider(height: 1),
-
-                  // Body
-                  Expanded(
-                    child: _isDiagnosing
-                        ? (_streamedDiagnosisText.isEmpty
-                            ? _buildLoadingState() // 第一個 chunk 還沒來：轉圈
-                            : _buildStreamingState()) // 逐字顯示串流文字
-                        : (_diagnosisResult == null
-                            ? _buildErrorState()
-                            : _buildReportContent(sc)),
-                  ),
-
-                  // Bottom Actions
-                  Divider(height: 1),
-                  Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 14),
-                              side: BorderSide(
-                                  color: Theme.of(context).primaryColor),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                            ),
-                            onPressed: () {
-                              _sheetStateSetter = null;
-                              Navigator.pop(context);
-                            },
-                            child: Text('關閉',
-                                style: TextStyle(
-                                    color: Theme.of(context).primaryColor,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        if (!_isDiagnosing && _lastQuizWrongIds.isNotEmpty) ...[
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                padding: EdgeInsets.symmetric(vertical: 14),
-                                backgroundColor: Theme.of(context).primaryColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
-                              ),
-                              onPressed: () {
-                                _sheetStateSetter = null;
-                                Navigator.pop(context);
-                                _showWrongQuestionsDialog(_lastQuizWrongIds);
-                              },
-                              child: Text(
-                                  '開始複習錯題 (${_lastQuizWrongIds.length})',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      isDiagnosing: _isDiagnosing,
+      diagnosisResult: _diagnosisResult,
+      streamedDiagnosisText: _streamedDiagnosisText,
+      lastQuizWrongIds: _lastQuizWrongIds,
+      currentUser: widget.currentUser,
+      onSetSheetState: (setter) => _sheetStateSetter = setter,
+      onReviewWrongQuestions: _showWrongQuestionsDialog,
+      onNavigateToPage: (index, title) => _changePage(index, title),
     ).then((_) {
       _sheetStateSetter = null;
     });
-  }
-
-  /// 第一個 chunk 還沒來：顯示具體進度條動畫 (非卡死 95% 版本)
-  Widget _buildLoadingState() {
-    return const _DiagnosisLoadingProgress();
-  }
-
-  /// 串流進行中：逐字顯示已到達的文字（ListView.builder + 打字機效果）
-  Widget _buildStreamingState() {
-    // 將累積文字依行展開
-    final lines = _streamedDiagnosisText.split('\n');
-    return Column(
-      children: [
-        // 頂部轉圈提示列
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Color(0xFFFFF8F5),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                      Theme.of(context).primaryColor),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'AI 導師正在產出診斷內容...',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.brown.shade400,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // 逐行顯示串流文字
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            itemCount: lines.length,
-            itemBuilder: (ctx, i) {
-              final line = lines[i];
-              final isHeader = line.startsWith('[') && line.endsWith(']');
-              final isBullet = line.trimLeft().startsWith('•');
-              return Padding(
-                padding: EdgeInsets.only(
-                  bottom: isHeader ? 4 : 3,
-                  top: isHeader && i > 0 ? 12 : 0,
-                ),
-                child: Text(
-                  line,
-                  style: TextStyle(
-                    fontSize: isHeader ? 13.5 : 13,
-                    fontWeight: isHeader ? FontWeight.w700 : FontWeight.normal,
-                    color: isHeader
-                        ? const Color(0xFF6D4C41)
-                        : (isBullet ? Colors.black87 : Colors.grey.shade700),
-                    height: 1.55,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
-            const SizedBox(height: 16),
-            const Text(
-              '無法生成診斷報告',
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '可能因為未取得有效的測驗資訊。請嘗試重新測驗。',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReportContent(ScrollController sc) {
-    final report = _diagnosisResult!;
-
-    return ListView(
-      controller: sc,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      children: [
-        if (!report.isAiGenerated)
-          FadeInUp(
-            duration: const Duration(milliseconds: 400),
-            child: Builder(builder: (context) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: widget.currentUser['id'] == 'u4'
-                      ? const Color(0xFFFFF3E0)
-                      : const Color(0xFFFFFDE7),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: widget.currentUser['id'] == 'u4'
-                        ? const Color(0xFFFFE0B2)
-                        : const Color(0xFFFFF59D),
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      widget.currentUser['id'] == 'u4'
-                          ? Icons.lock_outline
-                          : Icons.info_outline,
-                      color: widget.currentUser['id'] == 'u4'
-                          ? const Color(0xFFF57C00)
-                          : const Color(0xFFFBC02D),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.currentUser['id'] == 'u4'
-                                ? '登入解鎖 AI 智慧報告'
-                                : '目前內建 AI 額度已達上限',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: widget.currentUser['id'] == 'u4'
-                                  ? const Color(0xFFE65100)
-                                  : const Color(0xFFF57F17),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.currentUser['id'] == 'u4'
-                                ? '訪客帳戶目前不支援 AI 智慧診斷功能。立即註冊或登入正式帳號，即可啟用由代理人助理生成的客製化學習診斷與複習建議！'
-                                : '目前測試金鑰為所有使用者共享，今日免費額度已耗盡。系統已自動切換為「本地規則分析」報告，造成不便敬請見諒！',
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF5D4037),
-                                height: 1.4),
-                          ),
-                          if (widget.currentUser['id'] == 'u4') ...[
-                            const SizedBox(height: 6),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                _changePage(4, '個人檔案');
-                              },
-                              child: const Text(
-                                '立即去登入/註冊 ➔',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFE65100)),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-
-        // 1. 本次摘要
-        FadeInUp(
-          duration: Duration(milliseconds: 500),
-          child: Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Theme.of(context).primaryColor, Color(0xFF795548)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        Theme.of(context).primaryColor.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ]),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.analytics, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      '學習診斷摘要',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  report.summary,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.5,
-                      fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // 2. 待加強單元 (弱項)
-        FadeInUp(
-          duration: const Duration(milliseconds: 600),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.orange.shade100),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.warning_amber_outlined,
-                        color: Colors.orange.shade800, size: 18),
-                    const SizedBox(width: 6),
-                    Text(
-                      '待加強單元 (弱項)',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Colors.orange.shade900),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (report.weaknesses.isEmpty)
-                  Text('無特別明顯弱項',
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade500))
-                else
-                  ...report.weaknesses.map((weak) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('• ',
-                                style: TextStyle(
-                                    color: Colors.orange.shade800,
-                                    fontWeight: FontWeight.bold)),
-                            Expanded(
-                              child: Text(
-                                weak,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade800,
-                                    height: 1.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // 3. AI 學習建議
-        FadeInUp(
-          duration: const Duration(milliseconds: 700),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.lightbulb, color: Color(0xFFFBC02D), size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'AI 導師複習建議',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Color(0xFF4E342E)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  report.suggestion,
-                  style: TextStyle(
-                      fontSize: 13, color: Colors.grey.shade800, height: 1.5),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // 4. 溫馨鼓勵
-        FadeInUp(
-          duration: const Duration(milliseconds: 800),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFEBE9),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFD7CCC8)),
-            ),
-            child: Row(
-              children: [
-                const Text(
-                  '💬',
-                  style: TextStyle(fontSize: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '"${report.encouragement}"',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF5D4037),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   void _showWrongQuestionsDialog(List<dynamic> wrongIds) async {
