@@ -32,7 +32,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _isLoading = true;
   double _todayStudyHours = 0.0;
   int _todayCompletedQuestions = 0;
   final int _dailyTarget = 20;
@@ -129,11 +128,9 @@ class _HomePageState extends State<HomePage> {
         _questionBank = qBank;
         _weeklyMatrixData = weeklyMatrix;
         _streakDays = 3; // 連續打卡預設
-        _isLoading = false;
       });
     } catch (e) {
       debugPrint('載入首頁數據失敗: $e');
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -204,11 +201,7 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FA),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(color: primaryColor),
-            )
-          : RefreshIndicator(
+      body: RefreshIndicator(
         onRefresh: _loadDashboardData,
         color: primaryColor,
         child: CustomScrollView(

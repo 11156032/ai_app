@@ -139,49 +139,47 @@ void main() {
       expect(VoiceRecognitionService.instance.resolveLocaleId(null), 'zh_TW');
     });
 
-    test('Transcript accumulation preserves multiple utterances without losing text', () {
+    test('VoiceRecognitionService.joinText smart joining for Chinese and English', () {
+      // 中文無縫拼接
+      expect(VoiceRecognitionService.joinText('我想查詢', '今天的數學作業'), '我想查詢今天的數學作業');
+      // 英文空格拼接
+      expect(VoiceRecognitionService.joinText('Hello', 'World'), 'Hello World');
+      // 標點符號後接中文無縫
+      expect(VoiceRecognitionService.joinText('你好，', '請問今天天氣'), '你好，請問今天天氣');
+      // 標點符號後接英文保留適當空格
+      expect(VoiceRecognitionService.joinText('Note:', 'Chapter 1'), 'Note: Chapter 1');
+      // 空白基底安全拼接
+      expect(VoiceRecognitionService.joinText('', '開始錄音'), '開始錄音');
+      expect(VoiceRecognitionService.joinText('結束錄音', ''), '結束錄音');
+    });
+
+    test('Transcript accumulation preserves multiple utterances across pauses without losing text', () {
       String base = '';
-      
-      String combine(String b, String c) {
-        final bTrim = b.trim();
-        final cTrim = c.trim();
-        if (bTrim.isEmpty) return cTrim;
-        if (cTrim.isEmpty) return bTrim;
-        if (bTrim.endsWith('。') || bTrim.endsWith('！') || bTrim.endsWith('？') || bTrim.endsWith('，') || bTrim.endsWith('\n')) {
-          return '$bTrim$cTrim';
-        }
-        return '$bTrim $cTrim';
-      }
 
       // 模擬第 1 句串流中
-      String interim = '今天天氣真好';
-      expect(combine(base, interim), '今天天氣真好');
+      String interim = '我想查詢';
+      expect(VoiceRecognitionService.joinText(base, interim), '我想查詢');
 
-      // 第 1 句定稿
-      base = combine(base, VoiceRecognitionService.cleanFillerWords(interim));
-      expect(base, '今天天氣真好。');
+      // 使用者停頓，第 1 句定稿
+      base = VoiceRecognitionService.joinText(base, interim);
+      expect(base, '我想查詢');
 
-      // 模擬第 2 句串流中（包含語助詞）
-      interim = '痾我們去圖書館讀書。';
-      String cleanedInterim = VoiceRecognitionService.cleanFillerWords(interim);
-      expect(combine(base, cleanedInterim), '今天天氣真好。我們去圖書館讀書。');
+      // 使用者停頓後繼續說第 2 句（串流中，前句保留）
+      interim = '今天的數學作業';
+      expect(VoiceRecognitionService.joinText(base, interim), '我想查詢今天的數學作業');
 
-      // 第 2 句定稿（以句號結尾）
-      base = combine(base, cleanedInterim);
-      expect(base, '今天天氣真好。我們去圖書館讀書。');
+      // 第 2 句定稿
+      base = VoiceRecognitionService.joinText(base, interim);
+      expect(base, '我想查詢今天的數學作業');
 
-      // 模擬第 3 句串流中（句號後方直接緊接中文）
-      interim = '順便借兩本物理講義';
-      expect(combine(base, VoiceRecognitionService.cleanFillerWords(interim)), '今天天氣真好。我們去圖書館讀書。順便借兩本物理講義。');
+      // 模擬再次停頓後繼續說第 3 句
+      interim = '還有物理公式筆記';
+      expect(VoiceRecognitionService.joinText(base, interim), '我想查詢今天的數學作業還有物理公式筆記');
 
-      // 第 3 句定稿
-      base = combine(base, VoiceRecognitionService.cleanFillerWords(interim));
-      expect(base, '今天天氣真好。我們去圖書館讀書。順便借兩本物理講義。');
-
-      // 驗證最終逐字稿完整不漏字
-      expect(base.contains('今天天氣真好'), isTrue);
-      expect(base.contains('我們去圖書館讀書'), isTrue);
-      expect(base.contains('順便借兩本物理講義'), isTrue);
+      // 停止收音，整段修飾
+      base = VoiceRecognitionService.joinText(base, interim);
+      final finalCleaned = VoiceRecognitionService.cleanFillerWords(base);
+      expect(finalCleaned.contains('我想查詢今天的數學作業還有物理公式筆記'), isTrue);
     });
   });
 }

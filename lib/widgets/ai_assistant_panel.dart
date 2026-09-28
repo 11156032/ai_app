@@ -37,7 +37,6 @@ class AIAssistantPanel extends StatefulWidget {
 class _AIAssistantPanelState extends State<AIAssistantPanel> {
   final TextEditingController _modalController = TextEditingController();
   bool _isVoiceListening = false;
-  String _voiceBaseText = '';
   double _voiceSoundLevel = 0.0;
 
   @override
@@ -52,13 +51,15 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
   Future<void> _stopVoiceListening() async {
     if (!_isVoiceListening) return;
     _isVoiceListening = false;
-    await VoiceRecognitionService.instance.stopListening();
+    final finalResult = await VoiceRecognitionService.instance.stopListening();
     if (mounted) {
       setState(() {
         _voiceSoundLevel = 0.0;
-        _voiceBaseText = '';
+        final targetText = finalResult.trim().isNotEmpty
+            ? finalResult.trim()
+            : _modalController.text.trim();
         _modalController.text =
-            VoiceRecognitionService.cleanFillerWords(_modalController.text);
+            VoiceRecognitionService.cleanFillerWords(targetText);
         _modalController.selection = TextSelection.collapsed(
           offset: _modalController.text.length,
         );
@@ -71,7 +72,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       await _stopVoiceListening();
     } else {
       FocusScope.of(context).unfocus();
-      _voiceBaseText = _modalController.text.trim();
+      final currentInput = _modalController.text.trim();
       if (mounted) {
         setState(() {
           _isVoiceListening = true;
@@ -79,22 +80,11 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         });
       }
       final started = await VoiceRecognitionService.instance.startListening(
-        onResult: (words, isFinal) {
+        initialText: currentInput,
+        onResult: (fullText, isFinal) {
           if (!mounted || !_isVoiceListening) return;
-          final currentWords = words.trim();
-          if (currentWords.isEmpty && !isFinal) return;
-
           setState(() {
-            final fullText = _voiceBaseText.isNotEmpty
-                ? '$_voiceBaseText $currentWords'
-                : currentWords;
-            final cleaned = isFinal
-                ? VoiceRecognitionService.cleanFillerWords(fullText)
-                : fullText;
-            _modalController.text = cleaned;
-            if (isFinal) {
-              _voiceBaseText = cleaned.trim();
-            }
+            _modalController.text = fullText;
             _modalController.selection = TextSelection.collapsed(
               offset: _modalController.text.length,
             );
@@ -107,15 +97,17 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           });
         },
         onStatusChange: (status) {
-          if (status == 'done' || status == 'notListening') {
+          if (!VoiceRecognitionService.instance.isListening) {
             if (mounted && _isVoiceListening) {
               setState(() {
                 _isVoiceListening = false;
                 _voiceSoundLevel = 0.0;
-                _voiceBaseText = '';
                 _modalController.text =
                     VoiceRecognitionService.cleanFillerWords(
                         _modalController.text);
+                _modalController.selection = TextSelection.collapsed(
+                  offset: _modalController.text.length,
+                );
               });
             }
           } else if (status == 'listening') {
@@ -131,7 +123,6 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             setState(() {
               _isVoiceListening = false;
               _voiceSoundLevel = 0.0;
-              _voiceBaseText = '';
             });
             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(
@@ -153,7 +144,6 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       if (!started && mounted) {
         setState(() {
           _isVoiceListening = false;
-          _voiceBaseText = '';
         });
       }
     }
@@ -1762,7 +1752,6 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                           _isVoiceListening = false;
                           VoiceRecognitionService.instance.stopListening();
                         }
-                        _voiceBaseText = '';
                         final textToSend = _modalController.text.trim();
                         _modalController.clear();
                         setState(() {
@@ -1858,7 +1847,6 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       _isVoiceListening = false;
                       VoiceRecognitionService.instance.stopListening();
                     }
-                    _voiceBaseText = '';
                     final textToSend = _modalController.text.trim();
                     _modalController.clear();
                     setState(() {

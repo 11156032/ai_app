@@ -20,13 +20,13 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
     with TickerProviderStateMixin {
   late AnimationController _bgCtrl; // Ambient drift
   late AnimationController _shimmerCtrl; // Text shimmer reflection
+  late AnimationController _dotsCtrl; // Jumping dots bounce
   late AnimationController _entranceCtrl; // Elements slide/fade/scale
   late AnimationController _exitCtrl; // Overall fade out
 
   late Animation<double> _entranceOpacity;
   late Animation<double> _textSlideY;
-  late Animation<double> _dividerProgress;
-  late Animation<double> _welcomeOpacity;
+  late Animation<double> _loadingOpacity;
   late Animation<double> _exitOpacity;
 
   final List<LeafParticle> _leaves = [];
@@ -41,6 +41,9 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
     _shimmerCtrl =
         AnimationController(vsync: this, duration: const Duration(seconds: 3))
           ..repeat();
+    _dotsCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat();
 
     _entranceCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 500));
@@ -53,12 +56,9 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
     _textSlideY = Tween<double>(begin: 20, end: 0).animate(CurvedAnimation(
         parent: _entranceCtrl,
         curve: const Interval(0.05, 0.75, curve: Curves.easeOutCubic)));
-    _dividerProgress = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
+    _loadingOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
         parent: _entranceCtrl,
-        curve: const Interval(0.3, 0.85, curve: Curves.easeOut)));
-    _welcomeOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
-        parent: _entranceCtrl,
-        curve: const Interval(0.45, 1.0, curve: Curves.easeOut)));
+        curve: const Interval(0.35, 0.9, curve: Curves.easeOut)));
 
     _exitOpacity = Tween<double>(begin: 1, end: 0)
         .animate(CurvedAnimation(parent: _exitCtrl, curve: Curves.easeInCubic));
@@ -83,7 +83,7 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
   Future<void> _runSequence() async {
     if (!mounted) return;
     _entranceCtrl.forward();
-    await Future.delayed(const Duration(milliseconds: 750));
+    await Future.delayed(const Duration(milliseconds: 950));
     if (!mounted) return;
     await _exitCtrl.forward();
     if (!mounted) return;
@@ -94,6 +94,7 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
   void dispose() {
     _bgCtrl.dispose();
     _shimmerCtrl.dispose();
+    _dotsCtrl.dispose();
     _entranceCtrl.dispose();
     _exitCtrl.dispose();
     super.dispose();
@@ -102,8 +103,8 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation:
-          Listenable.merge([_bgCtrl, _shimmerCtrl, _entranceCtrl, _exitCtrl]),
+      animation: Listenable.merge(
+          [_bgCtrl, _shimmerCtrl, _dotsCtrl, _entranceCtrl, _exitCtrl]),
       builder: (_, __) {
         return Opacity(
           opacity: _exitOpacity.value,
@@ -127,7 +128,7 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
                   ),
                 ),
 
-                // Center Content: Shimmer Text, Minimalist Divider, Welcome
+                // Center Content: Shimmer Text & Bouncing Loading Dots
                 Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -168,34 +169,16 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
-                      // Minimalist leaf divider
+                      // 載入中.... (跳動點點動畫)
                       Opacity(
-                        opacity: _entranceOpacity.value,
-                        child: CustomPaint(
-                          size: const Size(200, 30),
-                          painter: LeafBranchDivider(
-                            progress: _dividerProgress.value,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Welcome text
-                      Opacity(
-                        opacity: _welcomeOpacity.value,
+                        opacity: _loadingOpacity.value,
                         child: Transform.translate(
-                          offset: Offset(0, _textSlideY.value * 0.5),
-                          child: Text(
-                            'Welcome, ${widget.displayName}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF8D6E63),
-                              letterSpacing: 0.5,
-                            ),
+                          offset: Offset(0, _textSlideY.value * 0.4),
+                          child: _BouncingDotsIndicator(
+                            animationValue: _dotsCtrl.value,
+                            color: const Color(0xFF8D6E63),
                           ),
                         ),
                       ),
@@ -207,6 +190,59 @@ class _LoginSuccessOverlayState extends State<LoginSuccessOverlay>
           ),
         );
       },
+    );
+  }
+}
+
+/// 帶有節奏跳動點點的載入指示器組件
+class _BouncingDotsIndicator extends StatelessWidget {
+  final double animationValue; // 0.0 to 1.0 from AnimationController
+  final Color color;
+
+  const _BouncingDotsIndicator({
+    required this.animationValue,
+    this.color = const Color(0xFF8D6E63),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          '載入中',
+          style: TextStyle(
+            fontSize: 16.5,
+            fontWeight: FontWeight.w600,
+            color: color,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(width: 4),
+        ...List.generate(4, (index) {
+          // Staggered bounce wave
+          final delay = index * 0.18;
+          final t = (animationValue + delay) % 1.0;
+          final bounce = math.sin(t * math.pi);
+          final offsetY = bounce > 0 ? -6.0 * bounce : 0.0;
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2.0),
+            child: Transform.translate(
+              offset: Offset(0, offsetY),
+              child: Container(
+                width: 4.8,
+                height: 4.8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.45 + 0.55 * (bounce > 0 ? bounce : 0)),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
 }

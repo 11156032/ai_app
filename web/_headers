@@ -1,0 +1,9 @@
+/*
+  X-Content-Type-Options: nosniff
+  Access-Control-Allow-Origin: *
+
+/og-image.png
+  Cache-Control: public, max-age=604800
+
+/favicon.png
+  Cache-Control: public, max-age=604800

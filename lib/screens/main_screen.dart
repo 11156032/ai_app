@@ -197,7 +197,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.8.1';
+  String _appVersion = 'v1.8.2';
   String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
@@ -4142,18 +4142,19 @@ void _showLogoutDialog() {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     TextEditingController modalController = TextEditingController();
     bool isVoiceListening = false;
-    String voiceBaseText = '';
     double voiceSoundLevel = 0.0;
 
     Future<void> stopVoiceListening(StateSetter setModalState) async {
       if (!isVoiceListening) return;
       isVoiceListening = false;
-      await VoiceRecognitionService.instance.stopListening();
+      final finalResult = await VoiceRecognitionService.instance.stopListening();
       setModalState(() {
         voiceSoundLevel = 0.0;
-        voiceBaseText = '';
+        final targetText = finalResult.trim().isNotEmpty
+            ? finalResult.trim()
+            : modalController.text.trim();
         modalController.text =
-            VoiceRecognitionService.cleanFillerWords(modalController.text);
+            VoiceRecognitionService.cleanFillerWords(targetText);
         modalController.selection = TextSelection.collapsed(
           offset: modalController.text.length,
         );
@@ -4165,28 +4166,18 @@ void _showLogoutDialog() {
         await stopVoiceListening(setModalState);
       } else {
         FocusScope.of(context).unfocus();
-        voiceBaseText = modalController.text.trim();
+        final currentInput = modalController.text.trim();
         setModalState(() {
           isVoiceListening = true;
           voiceSoundLevel = 0.0;
         });
         final started = await VoiceRecognitionService.instance.startListening(
           languageCode: _appLanguage,
-          onResult: (words, isFinal) {
+          initialText: currentInput,
+          onResult: (fullText, isFinal) {
             if (!isVoiceListening) return;
-            final currentWords = words.trim();
-            if (currentWords.isEmpty && !isFinal) return;
             setModalState(() {
-              final fullText = voiceBaseText.isNotEmpty
-                  ? '$voiceBaseText $currentWords'
-                  : currentWords;
-              final cleaned = isFinal
-                  ? VoiceRecognitionService.cleanFillerWords(fullText)
-                  : fullText;
-              modalController.text = cleaned;
-              if (isFinal) {
-                voiceBaseText = cleaned.trim();
-              }
+              modalController.text = fullText;
               modalController.selection = TextSelection.collapsed(
                 offset: modalController.text.length,
               );
@@ -4199,15 +4190,17 @@ void _showLogoutDialog() {
             });
           },
           onStatusChange: (status) {
-            if (status == 'done' || status == 'notListening') {
+            if (!VoiceRecognitionService.instance.isListening) {
               if (isVoiceListening) {
                 setModalState(() {
                   isVoiceListening = false;
                   voiceSoundLevel = 0.0;
-                  voiceBaseText = '';
                   modalController.text =
                       VoiceRecognitionService.cleanFillerWords(
                           modalController.text);
+                  modalController.selection = TextSelection.collapsed(
+                    offset: modalController.text.length,
+                  );
                 });
               }
             } else if (status == 'listening') {
@@ -4222,7 +4215,6 @@ void _showLogoutDialog() {
             setModalState(() {
               isVoiceListening = false;
               voiceSoundLevel = 0.0;
-              voiceBaseText = '';
             });
             if (context.mounted) {
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
@@ -4245,7 +4237,6 @@ void _showLogoutDialog() {
         if (!started) {
           setModalState(() {
             isVoiceListening = false;
-            voiceBaseText = '';
           });
         }
       }
@@ -7170,7 +7161,6 @@ void _showLogoutDialog() {
                                         VoiceRecognitionService.instance
                                             .stopListening();
                                       }
-                                      voiceBaseText = '';
                                       final textToSend =
                                           modalController.text.trim();
                                       modalController.clear();
@@ -7275,7 +7265,6 @@ void _showLogoutDialog() {
                                         VoiceRecognitionService.instance
                                             .stopListening();
                                       }
-                                      voiceBaseText = '';
                                       final textToSend =
                                           modalController.text.trim();
                                       modalController.clear();

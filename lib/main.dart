@@ -94,6 +94,7 @@ class MyApp extends StatelessWidget {
                 );
 
                 return MaterialApp(
+                  title: 'YeBang 家教',
                   debugShowCheckedModeBanner: false,
                   scrollBehavior: AppScrollBehavior(),
                   theme: AppThemeService.createThemeData(
@@ -303,7 +304,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 }
 
-/// 進入 APP 的絲滑品牌開屏畫面
+/// 進入 APP 的絲滑質感品牌開屏畫面
 class _SmoothAppSplash extends StatefulWidget {
   const _SmoothAppSplash({super.key});
 
@@ -314,28 +315,28 @@ class _SmoothAppSplash extends StatefulWidget {
 class _SmoothAppSplashState extends State<_SmoothAppSplash>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.90, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
       ),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _slideAnimation = Tween<double>(begin: 14.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+        curve: const Interval(0.1, 0.8, curve: Curves.easeOutCubic),
       ),
     );
 
@@ -351,7 +352,7 @@ class _SmoothAppSplashState extends State<_SmoothAppSplash>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8F6),
+      backgroundColor: const Color(0xFFFAF7F4),
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -360,8 +361,8 @@ class _SmoothAppSplashState extends State<_SmoothAppSplash>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFFCFAF8),
-              Color(0xFFF7F2EE),
+              Color(0xFFFAF7F4),
+              Color(0xFFF3EDE8),
             ],
           ),
         ),
@@ -371,55 +372,64 @@ class _SmoothAppSplashState extends State<_SmoothAppSplash>
             builder: (context, child) {
               return Opacity(
                 opacity: _fadeAnimation.value,
-                child: Transform.scale(
-                  scale: _scaleAnimation.value,
+                child: Transform.translate(
+                  offset: Offset(0, _slideAnimation.value),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // 品牌 Logo 搭配柔和幾何光暈，展現高階質感
                       Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF8D6E63).withValues(alpha: 0.16),
-                              blurRadius: 28,
-                              spreadRadius: 2,
+                              color: const Color(0xFF9CCC65).withValues(alpha: 0.16),
+                              blurRadius: 36,
+                              spreadRadius: 4,
+                            ),
+                            BoxShadow(
+                              color: const Color(0xFF4DD0E1).withValues(alpha: 0.12),
+                              blurRadius: 24,
                               offset: const Offset(0, 8),
                             ),
                           ],
                         ),
                         child: const YeBangAppLogo(
-                          size: 82,
-                          showOrbitRings: true,
+                          size: 114,
+                          showOrbitRings: false,
                         ),
                       ),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 30),
+                      // 品牌主標題：溫潤深褐色，適度字距呈現高級感
                       const Text(
                         'YeBang 家教',
                         style: TextStyle(
-                          fontSize: 23,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 25.5,
+                          fontWeight: FontWeight.w700,
                           color: Color(0xFF3E2723),
-                          letterSpacing: 1.2,
+                          letterSpacing: 2.0,
+                          height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
+                      const SizedBox(height: 10),
+                      // 副標題：優雅灰褐色搭配加大字距
+                      const Text(
                         '智慧陪伴 • 卓越學習',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF8D6E63).withValues(alpha: 0.85),
-                          letterSpacing: 2.0,
+                          color: Color(0xFF8D6E63),
+                          letterSpacing: 3.2,
                         ),
                       ),
-                      const SizedBox(height: 36),
+                      const SizedBox(height: 42),
+                      // 膠囊質感細微進度條
                       SizedBox(
-                        width: 110,
+                        width: 130,
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(10),
                           child: const LinearProgressIndicator(
-                            minHeight: 2.8,
+                            minHeight: 3.2,
                             backgroundColor: Color(0xFFEFEBE9),
                             valueColor:
                                 AlwaysStoppedAnimation<Color>(Color(0xFF8D6E63)),

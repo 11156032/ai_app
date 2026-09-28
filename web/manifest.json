@@ -1,11 +1,11 @@
 {
-    "name": "ai_app",
-    "short_name": "ai_app",
+    "name": "YeBang 家教",
+    "short_name": "YeBang 家教",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#9CCC65",
+    "description": "隨身 AI 智慧家教，讓學習更高效！涵蓋題庫練習、行事曆規劃、社群論壇與智慧筆記整理。",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

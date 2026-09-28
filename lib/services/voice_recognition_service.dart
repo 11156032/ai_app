@@ -131,23 +131,64 @@ class VoiceRecognitionService {
   String? _currentLanguageCode;
   Timer? _restartTimer;
 
+  // 累積已定稿的文字（跨多個底層 Session 與停頓）
+  String _accumulatedFinalText = '';
+  // 當前 Session 正在收音的即時臨時辨識文字
+  String _currentInterimWords = '';
+
   // 記錄單次原生 Session 交付的最後內容，防範原生無預警在中途 done 造成丟字
   String _lastRecognizedWords = '';
   bool _lastWasFinal = false;
 
   bool get isListening => _shouldKeepListening || _speech.isListening;
 
+  /// 當前累積所有已定稿與臨時辨識字詞的即時完整文字
+  String get fullRecognizedText => joinText(_accumulatedFinalText, _currentInterimWords);
+
+  /// 智慧拼接前後語句，避免中文間產生多餘空白、英文字詞間缺少空白
+  static String joinText(String base, String addition) {
+    final b = base.trim();
+    final a = addition.trim();
+    if (b.isEmpty) return a;
+    if (a.isEmpty) return b;
+
+    // 檢查 base 結尾與 addition 開頭
+    final lastChar = b.substring(b.length - 1);
+    final firstChar = a.substring(0, 1);
+
+    // 如果 base 結尾已有標點符號（如 ，。！？,!?），直接拼接或加適當空格
+    final isPunct = RegExp(r'[，。！？；：、\.,!?;:]').hasMatch(lastChar);
+    if (isPunct) {
+      if (RegExp(r'[a-zA-Z0-9]').hasMatch(firstChar) && RegExp(r'[\.,!?;:]').hasMatch(lastChar)) {
+        return '$b $a';
+      }
+      return '$b$a';
+    }
+
+    // 如果前後都是 ASCII 英數字，需要加上空格隔開
+    final isBaseAlnum = RegExp(r'[a-zA-Z0-9]').hasMatch(lastChar);
+    final isAddAlnum = RegExp(r'[a-zA-Z0-9]').hasMatch(firstChar);
+    if (isBaseAlnum && isAddAlnum) {
+      return '$b $a';
+    }
+
+    // 繁體中文/日韓等 CJK 字符直接無縫拼接
+    return '$b$a';
+  }
+
   /// 開始語音辨識
-  /// [onResult] 回傳即時辨識出的文字與是否為最終結果
+  /// [onResult] 回傳即時辨識出的完整文字與是否為最終結果
   /// [onSoundLevelChange] 回傳即時音量分貝 (0.0 ~ 10.0+)，可供波形視覺化
   /// [onStatusChange] 狀態變動監聽 (listening, notListening, done)
   /// [onError] 錯誤通知
+  /// [initialText] 起始文字（若輸入框中原本已有文字，會自動作為底稿繼續拼接）
   Future<bool> startListening({
     required void Function(String words, bool isFinal) onResult,
     void Function(double level)? onSoundLevelChange,
     void Function(String status)? onStatusChange,
     void Function(String errorMessage)? onError,
     String? languageCode,
+    String initialText = '',
   }) async {
     _shouldKeepListening = true;
     _onResultCallback = onResult;
@@ -155,6 +196,8 @@ class VoiceRecognitionService {
     _onStatusCallback = onStatusChange;
     _onErrorCallback = onError;
     _currentLanguageCode = languageCode;
+    _accumulatedFinalText = initialText.trim();
+    _currentInterimWords = '';
     _lastRecognizedWords = '';
     _lastWasFinal = false;
 
@@ -176,20 +219,29 @@ class VoiceRecognitionService {
   void _handleStatusChange(String status) {
     debugPrint(
         'VoiceRecognitionService 狀態變更: $status (shouldKeepListening: $_shouldKeepListening)');
-    _onStatusCallback?.call(status);
 
-    // 若底層 Session 結束（notListening / done），但最後辨識出的文字尚未標記為 Final，強制交付定稿
-    if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
-      debugPrint(
-          'VoiceRecognitionService: 原生階段結束，強制保存未定稿字詞: $_lastRecognizedWords');
-      _onResultCallback?.call(_lastRecognizedWords.trim(), true);
+    // 若底層 Session 結束（notListening / done），但最後辨識出的文字尚未定稿，強制累積合併
+    if (_currentInterimWords.trim().isNotEmpty) {
+      _accumulatedFinalText = joinText(_accumulatedFinalText, _currentInterimWords);
+      _currentInterimWords = '';
       _lastRecognizedWords = '';
       _lastWasFinal = true;
+      _onResultCallback?.call(_accumulatedFinalText, true);
+    } else if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
+      _accumulatedFinalText = joinText(_accumulatedFinalText, _lastRecognizedWords);
+      _lastRecognizedWords = '';
+      _lastWasFinal = true;
+      _onResultCallback?.call(_accumulatedFinalText, true);
     }
 
-    if (_shouldKeepListening &&
-        (status == 'notListening' || status == 'done')) {
-      _scheduleAutoRestart();
+    if (_shouldKeepListening) {
+      // 處於持續收音模式下，單次 session 的暫停不向外發送終止狀態，維持 UI 的聆聽波形
+      _onStatusCallback?.call('listening');
+      if (status == 'notListening' || status == 'done') {
+        _scheduleAutoRestart();
+      }
+    } else {
+      _onStatusCallback?.call(status);
     }
   }
 
@@ -202,7 +254,7 @@ class VoiceRecognitionService {
     }
   }
 
-  void _scheduleAutoRestart([int delayMs = 350]) {
+  void _scheduleAutoRestart([int delayMs = 150]) {
     _restartTimer?.cancel();
     if (!_shouldKeepListening) return;
 
@@ -220,7 +272,7 @@ class VoiceRecognitionService {
     try {
       if (_speech.isListening) {
         await _speech.stop();
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(const Duration(milliseconds: 30));
       }
 
       final localeId = resolveLocaleId(_currentLanguageCode);
@@ -228,12 +280,22 @@ class VoiceRecognitionService {
 
       await _speech.listen(
         onResult: (SpeechRecognitionResult result) {
-          final words = result.recognizedWords;
+          final words = result.recognizedWords.trim();
           _lastRecognizedWords = words;
           _lastWasFinal = result.finalResult;
 
-          if (words.isNotEmpty || result.finalResult) {
-            _onResultCallback?.call(words, result.finalResult);
+          if (result.finalResult) {
+            if (words.isNotEmpty) {
+              _accumulatedFinalText = joinText(_accumulatedFinalText, words);
+            }
+            _currentInterimWords = '';
+            _onResultCallback?.call(_accumulatedFinalText, true);
+          } else {
+            _currentInterimWords = words;
+            final liveFullText = joinText(_accumulatedFinalText, _currentInterimWords);
+            if (liveFullText.isNotEmpty) {
+              _onResultCallback?.call(liveFullText, false);
+            }
           }
         },
         onSoundLevelChange: _onSoundLevelCallback,
@@ -252,7 +314,7 @@ class VoiceRecognitionService {
     } catch (e) {
       debugPrint('啟動語音辨識異常: $e');
       if (_shouldKeepListening) {
-        _scheduleAutoRestart(500);
+        _scheduleAutoRestart(300);
       } else {
         _onErrorCallback?.call('無法啟動語音辨識: $e');
       }
@@ -260,27 +322,30 @@ class VoiceRecognitionService {
     }
   }
 
-  /// 停止語音辨識並重置狀態
-  Future<void> stopListening() async {
+  /// 停止語音辨識並重置狀態，回傳最終文字
+  Future<String> stopListening() async {
     _shouldKeepListening = false;
     _restartTimer?.cancel();
     _restartTimer = null;
 
-    final callback = _onResultCallback;
-    final lastWords = _lastRecognizedWords.trim();
-    final wasFinal = _lastWasFinal;
-
-    _lastRecognizedWords = '';
+    if (_currentInterimWords.trim().isNotEmpty) {
+      _accumulatedFinalText = joinText(_accumulatedFinalText, _currentInterimWords);
+      _currentInterimWords = '';
+    } else if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
+      _accumulatedFinalText = joinText(_accumulatedFinalText, _lastRecognizedWords);
+      _lastRecognizedWords = '';
+    }
     _lastWasFinal = true;
 
-    // 如果還有未交付的字詞，立即交付定稿
-    if (lastWords.isNotEmpty && !wasFinal) {
-      callback?.call(lastWords, true);
-    }
+    final finalText = _accumulatedFinalText.trim();
+    _onResultCallback?.call(finalText, true);
+    _onStatusCallback?.call('notListening');
 
     try {
       await _speech.stop();
     } catch (_) {}
+
+    return finalText;
   }
 
   /// 智慧過濾去除語音常見贅字、語助詞 (如「痾」、「呃」、「唔」與嚴重口吃)

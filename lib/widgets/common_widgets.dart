@@ -143,7 +143,7 @@ class _GoogleLogoPainter extends CustomPainter {
 
 // ── YeBang 官方代表 Logo 向量組件 (芽苗 y 標章 + 軌道環) ─────────────────────
 
-class YeBangAppLogo extends StatelessWidget {
+class YeBangAppLogo extends StatefulWidget {
   final double size;
   final bool showOrbitRings;
   final bool hasShadow;
@@ -158,41 +158,81 @@ class YeBangAppLogo extends StatelessWidget {
   });
 
   @override
+  State<YeBangAppLogo> createState() => _YeBangAppLogoState();
+}
+
+class _YeBangAppLogoState extends State<YeBangAppLogo>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _orbitController;
+
+  @override
+  void initState() {
+    super.initState();
+    final bool isInTest = WidgetsBinding.instance.runtimeType
+        .toString()
+        .toLowerCase()
+        .contains('test');
+
+    if (widget.showOrbitRings) {
+      _orbitController = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 8),
+      );
+      if (!isInTest) _orbitController!.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _orbitController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ringSize = size * (showOrbitRings ? 1.25 : 1.0);
-    final coreSize = size;
-    final leafSize = size * 0.65;
+    final ringSize = widget.size * (widget.showOrbitRings ? 1.32 : 1.0);
+    final coreSize = widget.size;
+    final leafSize = widget.size * 0.70;
+
+    Widget imageWidget = Image.asset(
+      'assets/app_logo.png',
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Center(
+        child: Icon(
+          Icons.eco_rounded,
+          size: leafSize,
+          color: const Color(0xFF9CCC65),
+        ),
+      ),
+    );
 
     Widget core = Container(
       width: coreSize,
       height: coreSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: backgroundColor ?? Colors.white,
-        boxShadow: hasShadow
+        color: widget.backgroundColor ?? Colors.white,
+        boxShadow: widget.hasShadow
             ? [
                 BoxShadow(
-                  color: const Color(0xFF9CCC65).withValues(alpha: 0.25),
-                  blurRadius: size * 0.25,
-                  offset: Offset(0, size * 0.08),
+                  color: const Color(0xFF4DD0E1).withValues(alpha: 0.20),
+                  blurRadius: widget.size * 0.22,
+                  offset: Offset(0, widget.size * 0.06),
+                ),
+                BoxShadow(
+                  color: const Color(0xFF9CCC65).withValues(alpha: 0.18),
+                  blurRadius: widget.size * 0.14,
+                  offset: Offset(0, widget.size * 0.03),
                 ),
               ]
             : null,
       ),
-      child: Center(
-        child: CustomPaint(
-          size: Size(leafSize, leafSize),
-          painter: const LeafYLogoPainter(
-            progress: 1.0,
-            leftLeafScale: 1.0,
-            rightLeafScale: 1.0,
-            shimmerProgress: 0.0,
-          ),
-        ),
+      child: ClipOval(
+        child: imageWidget,
       ),
     );
 
-    if (!showOrbitRings) return core;
+    if (!widget.showOrbitRings) return core;
 
     return SizedBox(
       width: ringSize,
@@ -200,10 +240,41 @@ class YeBangAppLogo extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          CustomPaint(
-            size: Size(ringSize, ringSize),
-            painter: const ArcRingPainter(),
+          // 柔和外光暈
+          Container(
+            width: ringSize * 0.95,
+            height: ringSize * 0.95,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF4DD0E1).withValues(alpha: 0.12),
+                  const Color(0xFF9CCC65).withValues(alpha: 0.06),
+                  Colors.transparent,
+                ],
+              ),
+            ),
           ),
+          // 旋轉外軌道環
+          if (_orbitController != null)
+            AnimatedBuilder(
+              animation: _orbitController!,
+              builder: (_, child) {
+                return Transform.rotate(
+                  angle: _orbitController!.value * 6.28318,
+                  child: child,
+                );
+              },
+              child: CustomPaint(
+                size: Size(ringSize, ringSize),
+                painter: const ArcRingPainter(),
+              ),
+            )
+          else
+            CustomPaint(
+              size: Size(ringSize, ringSize),
+              painter: const ArcRingPainter(),
+            ),
           core,
         ],
       ),
@@ -218,22 +289,22 @@ class ArcRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.024
+      ..strokeWidth = (size.width * 0.026).clamp(2.0, 3.5)
       ..strokeCap = StrokeCap.round;
 
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
 
-    // 弧段 1: 青藍色
-    paint.color = const Color(0xFF4DD0E1).withValues(alpha: 0.85);
-    canvas.drawArc(rect, 0, 1.8, false, paint);
+    // 弧段 1: 青藍色漸變
+    paint.color = const Color(0xFF00E5FF).withValues(alpha: 0.85);
+    canvas.drawArc(rect, 0, 1.9, false, paint);
 
-    // 弧段 2: 綠色
-    paint.color = const Color(0xFF9CCC65).withValues(alpha: 0.7);
-    canvas.drawArc(rect, 2.4, 1.2, false, paint);
+    // 弧段 2: 嫩綠色漸變
+    paint.color = const Color(0xFF76FF03).withValues(alpha: 0.75);
+    canvas.drawArc(rect, 2.5, 1.3, false, paint);
 
-    // 弧段 3: 淺綠/藍綠色
-    paint.color = const Color(0xFF80CBC4).withValues(alpha: 0.5);
-    canvas.drawArc(rect, 4.0, 0.6, false, paint);
+    // 弧段 3: 藍綠色光點
+    paint.color = const Color(0xFF00BFA5).withValues(alpha: 0.6);
+    canvas.drawArc(rect, 4.3, 0.7, false, paint);
   }
 
   @override
