@@ -28,7 +28,9 @@
   <meta property="og:url" content="https://ai-app-cdl.pages.dev/">
   <meta property="og:title" content="YeBang 家教">
   <meta property="og:description" content="隨身 AI 智慧家教，讓學習更高效！涵蓋題庫練習、行事曆規劃、社群論壇與智慧筆記整理。">
-  <meta property="og:image" content="https://ai-app-cdl.pages.dev/og-image.png">
+  <meta property="og:image" content="https://ai-app-cdl.pages.dev/og-image.png?v=1.8.2">
+  <meta property="og:image:secure_url" content="https://ai-app-cdl.pages.dev/og-image.png?v=1.8.2">
+  <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="YeBang 家教 Logo">
@@ -39,7 +41,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="YeBang 家教">
   <meta name="twitter:description" content="隨身 AI 智慧家教，讓學習更高效！涵蓋題庫練習、行事曆規劃、社群論壇與智慧筆記整理。">
-  <meta name="twitter:image" content="https://ai-app-cdl.pages.dev/og-image.png">
+  <meta name="twitter:image" content="https://ai-app-cdl.pages.dev/og-image.png?v=1.8.2">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -70,12 +72,18 @@
       -webkit-overflow-scrolling: touch;
       touch-action: manipulation;
     }
-    #flutter_container, flt-glass-pane {
+    #flutter_container, flt-glass-pane, flutter-view {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
+      overflow: hidden;
+    }
+    /* 防止 iOS Safari 在輸入框聚焦時自動放大頁面導致鍵盤收起時版面偏移跳動 */
+    input, textarea, select, .flt-text-editing, [contenteditable="true"] {
+      font-size: 16px !important;
+      -webkit-text-size-adjust: 100%;
     }
   </style>
   <script>
@@ -85,20 +93,24 @@
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       
       function resetScrollPosition() {
-        if (window.scrollY !== 0 || (document.documentElement && document.documentElement.scrollTop !== 0)) {
+        if (window.scrollY !== 0 || (document.documentElement && document.documentElement.scrollTop !== 0) || (document.body && document.body.scrollTop !== 0)) {
           window.scrollTo(0, 0);
-          document.body.scrollTop = 0;
-          if (document.documentElement) {
-            document.documentElement.scrollTop = 0;
-          }
+          if (document.body) document.body.scrollTop = 0;
+          if (document.documentElement) document.documentElement.scrollTop = 0;
         }
       }
 
       // 輸入框失焦或鍵盤收起時強制歸位
       window.addEventListener('focusout', function(e) {
-        setTimeout(resetScrollPosition, 30);
-        setTimeout(resetScrollPosition, 150);
-        setTimeout(resetScrollPosition, 320);
+        setTimeout(resetScrollPosition, 10);
+        setTimeout(resetScrollPosition, 80);
+        setTimeout(resetScrollPosition, 250);
+        setTimeout(resetScrollPosition, 450);
+      });
+
+      // 監聽 focusin 時防止頁面被推擠
+      window.addEventListener('focusin', function(e) {
+        setTimeout(resetScrollPosition, 10);
       });
 
       if (window.visualViewport) {
@@ -106,14 +118,14 @@
         window.visualViewport.addEventListener('resize', function() {
           var currHeight = window.visualViewport.height;
           // 當視窗高度變大（鍵盤收起）時即時平滑歸位
-          if (currHeight > lastHeight && currHeight >= window.innerHeight * 0.75) {
+          if (currHeight > lastHeight && currHeight >= window.innerHeight * 0.7) {
             resetScrollPosition();
           }
           lastHeight = currHeight;
         });
 
         window.visualViewport.addEventListener('scroll', function() {
-          if (window.visualViewport.offsetTop > 0 && window.visualViewport.height >= window.innerHeight * 0.75) {
+          if (window.visualViewport.offsetTop > 0 && window.visualViewport.height >= window.innerHeight * 0.7) {
             resetScrollPosition();
           }
         });

@@ -296,6 +296,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
             Expanded(
               child: ListView(
                 physics: const BouncingScrollPhysics(),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 children: [
                   // 原始貼文 header
