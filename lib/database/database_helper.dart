@@ -3,6 +3,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path/path.dart';
 import 'dart:convert';
+import 'dart:math';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -1018,9 +1019,11 @@ class DatabaseHelper {
 
   /// 產生一個簡單的 UUID-like token（不依賴外部套件）
   String _generateToken() {
+    final rand = Random();
     final now = DateTime.now().millisecondsSinceEpoch;
-    final rand = (now * 6364136223846793005 + 1442695040888963407) % (1 << 53);
-    return '${now.toRadixString(16)}-${rand.abs().toRadixString(16)}';
+    final r1 = rand.nextInt(0xFFFFFF).toRadixString(16).padLeft(6, '0');
+    final r2 = rand.nextInt(0xFFFFFF).toRadixString(16).padLeft(6, '0');
+    return '${now.toRadixString(16)}-$r1-$r2';
   }
 
   /// 動態修復 group_members 欄位 (確保 last_read_at 與 is_muted 存在)
