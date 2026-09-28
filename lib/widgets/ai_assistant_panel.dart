@@ -1715,7 +1715,9 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               ],
             ),
           ),
-        Padding(
+        AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
           padding: EdgeInsets.fromLTRB(16, 4, 16, paddingBottom),
           child: Row(
             children: [

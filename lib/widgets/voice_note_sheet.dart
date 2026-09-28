@@ -1109,7 +1109,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeBottom = math.max(bottomInset, bottomPadding) + 20.0;
+    final safeBottom = bottomInset > 0
+        ? (bottomInset - bottomPadding).clamp(0.0, double.infinity) + 16.0
+        : 20.0;
 
     return PopScope(
       canPop: false,
@@ -1150,16 +1152,23 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
 
               // 主滾動區域
               Flexible(
-                child: SingleChildScrollView(
-                  controller: widget.scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 8,
-                    bottom: safeBottom,
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  padding: EdgeInsets.only(bottom: safeBottom),
+                  child: SingleChildScrollView(
+                    controller: widget.scrollController,
+                    physics: const BouncingScrollPhysics(),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      top: 8,
+                      bottom: 8,
+                    ),
+                    child: _buildStepContent(),
                   ),
-                  child: _buildStepContent(),
                 ),
               ),
             ],

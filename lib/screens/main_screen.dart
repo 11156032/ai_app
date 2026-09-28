@@ -3821,7 +3821,8 @@ void _showLogoutDialog() {
   Widget _buildFloatingNavBar() {
     final double bottomInset = MediaQuery.of(context).padding.bottom;
     final double safeBottom = bottomInset > 0 ? bottomInset + 6 : 20;
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       margin: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -3860,8 +3861,9 @@ void _showLogoutDialog() {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   List<Widget> _buildConfiguredNavItems() {
     const validKeys = [
@@ -7117,7 +7119,9 @@ void _showLogoutDialog() {
                           ? bottomInset + 12.0
                           : math.max(systemBottom, 12.0) + 10.0;
 
-                      return Padding(
+                      return AnimatedPadding(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
                         padding: EdgeInsets.fromLTRB(16, 4, 16, paddingBottom),
                         child: Row(
                           children: [

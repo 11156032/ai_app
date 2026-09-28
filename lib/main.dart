@@ -97,6 +97,16 @@ class MyApp extends StatelessWidget {
                   title: 'YeBang 家教',
                   debugShowCheckedModeBanner: false,
                   scrollBehavior: AppScrollBehavior(),
+                  builder: (context, child) {
+                    return GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () {
+                        // 點擊空白處時平滑收起鍵盤，避免 iOS 留下未關閉焦點造成跳動
+                        FocusManager.instance.primaryFocus?.unfocus();
+                      },
+                      child: child ?? const SizedBox.shrink(),
+                    );
+                  },
                   theme: AppThemeService.createThemeData(
                     themeIdx: themeIdx,
                     isDark: isDark,

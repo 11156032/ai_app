@@ -841,12 +841,17 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           // 動態流光背景
           const Positioned.fill(
-            child: _AmbientFlowBackground(),
+            child: RepaintBoundary(
+              child: _AmbientFlowBackground(),
+            ),
           ),
 
           // 主體內容
           Center(
             child: SingleChildScrollView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

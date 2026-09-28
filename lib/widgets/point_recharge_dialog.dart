@@ -145,7 +145,9 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
     final themeColor = widget.primaryColor ?? Theme.of(context).primaryColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
       margin: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E22) : Colors.white,

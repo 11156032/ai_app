@@ -18,7 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="description" content="隨身 AI 智慧家教，讓學習更高效！涵蓋題庫練習、行事曆規劃、社群論壇與智慧筆記整理。">
   <meta name="keywords" content="YeBang, YeBang家教, AI家教, 題庫測驗, 智慧學習, 學習診斷, 錯題本, 語音筆記, 行事曆">
   <meta name="theme-color" content="#9CCC65">
@@ -55,6 +55,71 @@
 
   <title>YeBang 家教</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
+      touch-action: manipulation;
+    }
+    #flutter_container, flt-glass-pane {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <script>
+    // 解決 iOS 設備上軟體鍵盤收起後的畫面向上殘留偏移與抖動問題
+    (function() {
+      var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      function resetScrollPosition() {
+        if (window.scrollY !== 0 || (document.documentElement && document.documentElement.scrollTop !== 0)) {
+          window.scrollTo(0, 0);
+          document.body.scrollTop = 0;
+          if (document.documentElement) {
+            document.documentElement.scrollTop = 0;
+          }
+        }
+      }
+
+      // 輸入框失焦或鍵盤收起時強制歸位
+      window.addEventListener('focusout', function(e) {
+        setTimeout(resetScrollPosition, 30);
+        setTimeout(resetScrollPosition, 150);
+        setTimeout(resetScrollPosition, 320);
+      });
+
+      if (window.visualViewport) {
+        var lastHeight = window.visualViewport.height;
+        window.visualViewport.addEventListener('resize', function() {
+          var currHeight = window.visualViewport.height;
+          // 當視窗高度變大（鍵盤收起）時即時平滑歸位
+          if (currHeight > lastHeight && currHeight >= window.innerHeight * 0.75) {
+            resetScrollPosition();
+          }
+          lastHeight = currHeight;
+        });
+
+        window.visualViewport.addEventListener('scroll', function() {
+          if (window.visualViewport.offsetTop > 0 && window.visualViewport.height >= window.innerHeight * 0.75) {
+            resetScrollPosition();
+          }
+        });
+      }
+    })();
+  </script>
 </head>
 <body>
   <!--

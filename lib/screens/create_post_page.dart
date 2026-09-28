@@ -507,6 +507,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
           // ── 主要編輯區 ──
           Expanded(
             child: SingleChildScrollView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
