@@ -68,9 +68,15 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
-      overscroll-behavior: none;
-      -webkit-overflow-scrolling: touch;
-      touch-action: manipulation;
+      /* 關鍵優化：關閉瀏覽器原生橡皮筋回彈，交由 Flutter 內部 ScrollPhysics 處理 */
+      overscroll-behavior-y: none;
+      overscroll-behavior-x: none;
+      /* 關鍵優化：關閉瀏覽器預設手勢競爭，讓 Flutter Canvas 完整接管觸控 */
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      background-color: #FAFAFA;
     }
     #flutter_container, flt-glass-pane, flutter-view {
       position: absolute;
@@ -79,6 +85,10 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      /* 啟用 GPU 硬體加速層 */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      will-change: transform;
     }
     /* 防止 iOS Safari 在輸入框聚焦時自動放大頁面導致鍵盤收起時版面偏移跳動 */
     input, textarea, select, .flt-text-editing, [contenteditable="true"] {

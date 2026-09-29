@@ -99,27 +99,29 @@ jobs:
           flutter-version: '3.x'
           cache: true
 
-      # 動態生成 keys.env (若 Web 端也需要讀取 API 金鑰)
-      - name: Generate keys.env file
-        env:
-          KEYS_ENV_CONTENT: ${{ secrets.KEYS_ENV_CONTENT }}
+      # 安全防禦：Web 編譯建立空白 keys.env 避免 pubspec 資源缺失報錯，絕不注入敏感金鑰
+      - name: Prepare Safe Web Assets
         run: |
           mkdir -p assets
-          echo "$KEYS_ENV_CONTENT" > assets/keys.env
+          touch assets/keys.env
 
       - name: Install dependencies
         run: flutter pub get
 
-      # 1. 啟用 CanvasKit 渲染器、裁剪未使用圖示並移除 source-map 減輕體積
+      # 1. 最佳化編譯 Web（啟用最高優化等級 O4 + 圖示裁剪 + 關閉 source-maps）
       - name: Build Flutter Web
         run: |
           flutter build web --release \
-            --web-renderer canvaskit \
             --tree-shake-icons \
             --no-source-maps \
-            --pwa-strategy=offline-first
+            -O4
 
-      # 2. 自動為 Cloudflare Pages 注入 _headers 快取規則，避免重複下載 canvaskit.wasm
+      # 2. 安全防護：徹底清除 Web 輸出目錄中可能殘留之 .env 與設定檔
+      - name: Sanitize and Secure Web Assets
+        run: |
+          find build/web -name "*.env" -type f -delete || true
+
+      # 3. 自動為 Cloudflare Pages 注入 _headers 安全與快取規則
       - name: Setup Cloudflare Headers
         run: |
           cat << 'EOF' > build/web/_headers
@@ -127,6 +129,7 @@ jobs:
             X-Content-Type-Options: nosniff
             X-Frame-Options: SAMEORIGIN
             Referrer-Policy: strict-origin-when-cross-origin
+            Permissions-Policy: camera=(), microphone=*, geolocation=()
           
           # 靜態資源與 wasm 啟用永久快取
           /assets/*
@@ -146,6 +149,14 @@ jobs:
             Cache-Control: no-cache, no-store, must-revalidate
           /flutter_service_worker.js
             Cache-Control: no-cache, no-store, must-revalidate
+
+          # 敏感檔案直接遮蔽
+          /*.env
+            Cache-Control: no-store
+            X-Robots-Tag: noindex
+          /assets/*.env
+            Cache-Control: no-store
+            X-Robots-Tag: noindex
           EOF
 
       - name: Deploy to Cloudflare Pages
