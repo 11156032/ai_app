@@ -110,8 +110,43 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # 1. 啟用 CanvasKit 渲染器、裁剪未使用圖示並移除 source-map 減輕體積
       - name: Build Flutter Web
-        run: flutter build web --release
+        run: |
+          flutter build web --release \
+            --web-renderer canvaskit \
+            --tree-shake-icons \
+            --no-source-maps \
+            --pwa-strategy=offline-first
+
+      # 2. 自動為 Cloudflare Pages 注入 _headers 快取規則，避免重複下載 canvaskit.wasm
+      - name: Setup Cloudflare Headers
+        run: |
+          cat << 'EOF' > build/web/_headers
+          /*
+            X-Content-Type-Options: nosniff
+            X-Frame-Options: SAMEORIGIN
+            Referrer-Policy: strict-origin-when-cross-origin
+          
+          # 靜態資源與 wasm 啟用永久快取
+          /assets/*
+            Cache-Control: public, max-age=31536000, immutable
+          /canvaskit/*
+            Cache-Control: public, max-age=31536000, immutable
+          *.wasm
+            Cache-Control: public, max-age=31536000, immutable
+            Content-Type: application/wasm
+          *.js
+            Cache-Control: public, max-age=31536000, immutable
+
+          # 進入點與 ServiceWorker 絕不快取
+          /index.html
+            Cache-Control: no-cache, no-store, must-revalidate
+          /version.json
+            Cache-Control: no-cache, no-store, must-revalidate
+          /flutter_service_worker.js
+            Cache-Control: no-cache, no-store, must-revalidate
+          EOF
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -119,3 +154,4 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy build/web --project-name=ai-app
+
