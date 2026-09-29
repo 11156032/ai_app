@@ -1,6 +1,5 @@
 // ignore_for_file: prefer_final_fields
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:convert';
@@ -2940,7 +2939,7 @@ void _showLogoutDialog() {
         child: Builder(builder: (context) {
           return Scaffold(
             key: _scaffoldKey,
-            resizeToAvoidBottomInset: false,
+            resizeToAvoidBottomInset: true,
             backgroundColor: Colors.transparent, // Let Container behind it show
             extendBody: true, // Allow body to scroll under bottom nav bar
             appBar: (_quizStep == 2 || _currentIndex == 6)
@@ -3004,16 +3003,10 @@ void _showLogoutDialog() {
                                     _isDarkMode ? Colors.white : Colors.black87,
                                 fontWeight: FontWeight.bold)),
                     backgroundColor: _isDarkMode
-                        ? Colors.black.withValues(alpha: 0.7)
-                        : Colors.white.withValues(alpha: 0.7),
+                        ? const Color(0xE61E1E24)
+                        : const Color(0xF2FFFFFF),
                     iconTheme: IconThemeData(
                         color: _isDarkMode ? Colors.white : Colors.black87),
-                    flexibleSpace: ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(color: Colors.transparent),
-                      ),
-                    ),
                     elevation: 0,
                     actions: [
                         // 點數顯示與儲值入口 (放在跳轉按鈕左側，置中避免 2px 溢出)
@@ -3853,8 +3846,10 @@ void _showLogoutDialog() {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          color: _isDarkMode
+              ? const Color(0xF01E1E24)
+              : const Color(0xF2F5F8FB),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: _buildConfiguredNavItems(),

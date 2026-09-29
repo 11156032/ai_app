@@ -12,13 +12,18 @@ import 'services/app_theme_service.dart';
 import 'services/app_locale_service.dart';
 import 'services/app_config_service.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/push_notification_service.dart';
+import 'services/repository_manager.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化 Repository 倉儲層（支援未來一鍵切換雲端/本地資料庫）
+  RepositoryManager.instance.initialize();
 
   // 鎖定手機直向顯示，避免旋轉造成畫面溢位與排版錯亂（商業 App 標準做法）
   await SystemChrome.setPreferredOrientations([
@@ -98,13 +103,43 @@ class MyApp extends StatelessWidget {
                   debugShowCheckedModeBanner: false,
                   scrollBehavior: AppScrollBehavior(),
                   builder: (context, child) {
-                    return GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: () {
-                        // 點擊空白處時平滑收起鍵盤，避免 iOS 留下未關閉焦點造成跳動
-                        FocusManager.instance.primaryFocus?.unfocus();
-                      },
-                      child: child ?? const SizedBox.shrink(),
+                    final mq = MediaQuery.of(context);
+                    // 針對 Web 端在行動裝置（iOS/Android Safari/Chrome）缺少原生頂部安全區域（Status Bar）的情況進行智慧補償
+                    final isMobileWeb = kIsWeb &&
+                        (defaultTargetPlatform == TargetPlatform.iOS ||
+                            defaultTargetPlatform == TargetPlatform.android);
+                    final safeTop = isMobileWeb &&
+                            mq.padding.top == 0 &&
+                            mq.size.width < 600
+                        ? (defaultTargetPlatform == TargetPlatform.iOS
+                            ? 44.0
+                            : 24.0)
+                        : mq.padding.top;
+                    final safeBottom = isMobileWeb &&
+                            mq.padding.bottom == 0 &&
+                            mq.size.width < 600
+                        ? (defaultTargetPlatform == TargetPlatform.iOS
+                            ? 20.0
+                            : 0.0)
+                        : mq.padding.bottom;
+
+                    final effectiveMq = mq.copyWith(
+                      padding: mq.padding
+                          .copyWith(top: safeTop, bottom: safeBottom),
+                      viewPadding: mq.viewPadding
+                          .copyWith(top: safeTop, bottom: safeBottom),
+                    );
+
+                    return MediaQuery(
+                      data: effectiveMq,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () {
+                          // 點擊空白處時平滑收起鍵盤，避免 iOS 留下未關閉焦點造成跳動
+                          FocusManager.instance.primaryFocus?.unfocus();
+                        },
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     );
                   },
                   theme: AppThemeService.createThemeData(

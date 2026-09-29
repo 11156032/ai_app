@@ -1322,6 +1322,9 @@ extension MainScreenSocialTab on _MainScreenState {
                     alignment: Alignment.center,
                     child: Text(
                       displayLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight:
@@ -1602,12 +1605,14 @@ extension MainScreenSocialTab on _MainScreenState {
   Widget _buildPostCard(Map<String, dynamic> p,
       [int? index, bool isSocialFeed = false]) {
     final idx = index ?? 0;
-    return FadeInUp(
+    return RepaintBoundary(
       key: ValueKey(
           '${p['id']}_${_socialFilter}_${_socialAuthorFilter}_${_socialFeedLayout}_$_themeColorIdx'),
-      duration: const Duration(milliseconds: 350),
-      delay: Duration(milliseconds: 50 * (idx % 10)),
-      child: _buildPostItem(p, idx, isSocialFeed),
+      child: FadeInUp(
+        duration: const Duration(milliseconds: 200),
+        delay: Duration(milliseconds: 20 * (idx % 5)),
+        child: _buildPostItem(p, idx, isSocialFeed),
+      ),
     );
   }
 

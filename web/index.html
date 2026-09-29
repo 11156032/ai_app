@@ -69,10 +69,10 @@
       padding: 0;
       overflow: hidden;
       /* 關鍵優化：關閉瀏覽器原生橡皮筋回彈，交由 Flutter 內部 ScrollPhysics 處理 */
+      overscroll-behavior: none;
       overscroll-behavior-y: none;
       overscroll-behavior-x: none;
-      /* 關鍵優化：關閉瀏覽器預設手勢競爭，讓 Flutter Canvas 完整接管觸控 */
-      touch-action: none;
+      touch-action: manipulation;
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
@@ -97,46 +97,32 @@
     }
   </style>
   <script>
-    // 解決 iOS 設備上軟體鍵盤收起後的畫面向上殘留偏移與抖動問題
+    // 平滑處理 iOS Safari 鍵盤收起後的畫面歸位，避免劇烈彈跳
     (function() {
       var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      
-      function resetScrollPosition() {
-        if (window.scrollY !== 0 || (document.documentElement && document.documentElement.scrollTop !== 0) || (document.body && document.body.scrollTop !== 0)) {
+      if (!isIOS) return;
+
+      var resetTimer = null;
+      function smoothReset() {
+        if (window.scrollY !== 0 || (document.body && document.body.scrollTop !== 0) || (document.documentElement && document.documentElement.scrollTop !== 0)) {
           window.scrollTo(0, 0);
           if (document.body) document.body.scrollTop = 0;
           if (document.documentElement) document.documentElement.scrollTop = 0;
         }
       }
 
-      // 輸入框失焦或鍵盤收起時強制歸位
-      window.addEventListener('focusout', function(e) {
-        setTimeout(resetScrollPosition, 10);
-        setTimeout(resetScrollPosition, 80);
-        setTimeout(resetScrollPosition, 250);
-        setTimeout(resetScrollPosition, 450);
-      });
-
-      // 監聽 focusin 時防止頁面被推擠
-      window.addEventListener('focusin', function(e) {
-        setTimeout(resetScrollPosition, 10);
+      window.addEventListener('focusout', function() {
+        clearTimeout(resetTimer);
+        // 等待 iOS 鍵盤完全縮回動畫結束（約 300ms）後平滑校正一次，避免中途搶奪渲染造成跳動
+        resetTimer = setTimeout(smoothReset, 320);
       });
 
       if (window.visualViewport) {
-        var lastHeight = window.visualViewport.height;
         window.visualViewport.addEventListener('resize', function() {
-          var currHeight = window.visualViewport.height;
-          // 當視窗高度變大（鍵盤收起）時即時平滑歸位
-          if (currHeight > lastHeight && currHeight >= window.innerHeight * 0.7) {
-            resetScrollPosition();
-          }
-          lastHeight = currHeight;
-        });
-
-        window.visualViewport.addEventListener('scroll', function() {
-          if (window.visualViewport.offsetTop > 0 && window.visualViewport.height >= window.innerHeight * 0.7) {
-            resetScrollPosition();
+          if (window.visualViewport.height >= window.innerHeight * 0.9) {
+            clearTimeout(resetTimer);
+            resetTimer = setTimeout(smoothReset, 150);
           }
         });
       }
