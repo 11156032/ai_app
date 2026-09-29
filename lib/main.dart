@@ -132,11 +132,14 @@ class MyApp extends StatelessWidget {
 
                     return MediaQuery(
                       data: effectiveMq,
-                      child: GestureDetector(
+                      child: Listener(
                         behavior: HitTestBehavior.translucent,
-                        onTap: () {
-                          // 點擊空白處時平滑收起鍵盤，避免 iOS 留下未關閉焦點造成跳動
-                          FocusManager.instance.primaryFocus?.unfocus();
+                        onPointerDown: (event) {
+                          // 點擊空白處時立即平滑收起鍵盤，避免 iOS 留下未關閉焦點造成跳動
+                          final focus = FocusManager.instance.primaryFocus;
+                          if (focus != null && focus.hasFocus) {
+                            focus.unfocus();
+                          }
                         },
                         child: child ?? const SizedBox.shrink(),
                       ),

@@ -112,6 +112,16 @@
         }
       }
 
+      // 自然收起鍵盤：當點擊輸入框外部任意畫布區域時，自動觸發 blur 讓 iOS 鍵盤自然平滑退場
+      window.addEventListener('pointerdown', function(e) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable || (active.classList && active.classList.contains('flt-text-editing')))) {
+          if (e.target !== active && !active.contains(e.target)) {
+            active.blur();
+          }
+        }
+      }, { passive: true });
+
       window.addEventListener('focusout', function() {
         clearTimeout(resetTimer);
         // 等待 iOS 鍵盤完全縮回動畫結束（約 300ms）後平滑校正一次，避免中途搶奪渲染造成跳動

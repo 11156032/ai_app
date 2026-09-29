@@ -4,19 +4,15 @@ import 'package:flutter/services.dart';
 import '../services/mascot_tip_service.dart';
 import 'common_widgets.dart';
 
-/// 伴學精靈吉祥物元件
+/// 伴學精靈吉祥物元件（預設極簡跑馬燈膠囊型態）
 ///
 /// 功能規格：
-/// - 以官方葉子 Logo 作為精靈本體，平時輕微隨風擺動（Sway）+ 呼吸上下微浮動（Float）
-/// - 圓形外框：淡薄荷綠柔和漸層 + 1px 淺色邊框 + 輕微環境光暈（Soft Glow）
-/// - 點擊精靈本體：彈跳（Bounce）動畫 + 刷新成長小語（若收合則自動展開）
-/// - 成長小語氣泡：
-///   - 右側指向精靈的對話框小尾巴（Bubble Tail）
-///   - 左上角淡綠色小膠囊標籤（Badge: 葉棒小語，主題深綠字體）
-///   - 右上角微型關閉/收合圖示
-///   - 內文適度行距與左右 14dp 內距
-/// - 顯示範圍：由外層決定（首頁儀表板 + 日曆頁；作答與筆記等隱藏）
-/// - 每次冷啟動自動換一句（由 MascotTipService 種子控制）
+/// - 精靈本體：官方葉子 Logo，平時隨風微擺（Sway）+ 上下呼吸微浮動（Float）
+/// - 點擊精靈或膠囊：觸發彈跳（Bounce）+ 觸覺震動反饋 + 即時切換下一句成長小語
+/// - 跑馬燈膠囊（Marquee Capsule）：
+///   - 左側：淡薄荷綠膠囊徽章 [ 葉棒小語 ]
+///   - 中右側：單行跑馬燈文字平滑捲動，左右邊緣柔和漸隱（ShaderMask）
+///   - 右側小尾巴（Tail）優雅指向精靈本體
 class MascotCompanion extends StatefulWidget {
   final String lang;
   final bool isDarkMode;
@@ -47,14 +43,13 @@ class _MascotCompanionState extends State<MascotCompanion>
   late AnimationController _bounceCtrl;
   late Animation<double> _bounceAnim;
 
-  // ── 氣泡滑入/滑出動畫
+  // ── 膠囊滑入/淡入動畫
   late AnimationController _bubbleCtrl;
   late Animation<double> _bubbleFade;
   late Animation<Offset> _bubbleSlide;
 
   // ── 小語狀態
   String _currentTip = '';
-  bool _isBubbleCollapsed = false;
 
   @override
   void initState() {
@@ -63,7 +58,7 @@ class _MascotCompanionState extends State<MascotCompanion>
     // 取得冷啟動小語
     _currentTip = MascotTipService.getTip(widget.lang);
 
-    // ── Sway：持續左右擺動，振幅 ±4°
+    // ── Sway：持續左右擺動，振幅 ±3.5°
     _swayCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2800),
@@ -72,12 +67,12 @@ class _MascotCompanionState extends State<MascotCompanion>
       CurvedAnimation(parent: _swayCtrl, curve: Curves.easeInOut),
     );
 
-    // ── Float：持續上下呼吸微浮動，幅度 -3.5dp
+    // ── Float：持續上下呼吸微浮動，幅度 -3.0dp
     _floatCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     )..repeat(reverse: true);
-    _floatAnim = Tween<double>(begin: 0.0, end: -3.5).animate(
+    _floatAnim = Tween<double>(begin: 0.0, end: -3.0).animate(
       CurvedAnimation(parent: _floatCtrl, curve: Curves.easeInOut),
     );
 
@@ -88,12 +83,12 @@ class _MascotCompanionState extends State<MascotCompanion>
     );
     _bounceAnim = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.75)
+        tween: Tween<double>(begin: 1.0, end: 0.78)
             .chain(CurveTween(curve: Curves.easeIn)),
         weight: 40,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.75, end: 1.12)
+        tween: Tween<double>(begin: 0.78, end: 1.12)
             .chain(CurveTween(curve: Curves.easeOut)),
         weight: 35,
       ),
@@ -104,19 +99,18 @@ class _MascotCompanionState extends State<MascotCompanion>
       ),
     ]).animate(_bounceCtrl);
 
-    // ── 氣泡滑入：延遲 600ms 後從右側滑入
+    // ── 膠囊滑入：延遲 500ms 後從右側優雅滑入
     _bubbleCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 450),
+      duration: const Duration(milliseconds: 420),
     );
     _bubbleFade = CurvedAnimation(parent: _bubbleCtrl, curve: Curves.easeOut);
     _bubbleSlide = Tween<Offset>(
-      begin: const Offset(0.3, 0),
+      begin: const Offset(0.25, 0),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _bubbleCtrl, curve: Curves.easeOut));
 
-    // 冷啟動 600ms 後氣泡優雅滑入
-    Future.delayed(const Duration(milliseconds: 600), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) _bubbleCtrl.forward();
     });
   }
@@ -130,42 +124,35 @@ class _MascotCompanionState extends State<MascotCompanion>
     super.dispose();
   }
 
-  // ── 點擊精靈：彈跳 + 換小語 + 自動展開氣泡
+  // ── 點擊精靈或膠囊：彈跳 + 刷新小語
   void _onMascotTap() {
-    HapticFeedback.mediumImpact();
+    HapticFeedback.selectionClick();
     _bounceCtrl.forward(from: 0);
     setState(() {
       _currentTip = MascotTipService.refreshTip(widget.lang);
-      _isBubbleCollapsed = false;
     });
-  }
-
-  // ── 點擊收合/展開氣泡
-  void _toggleBubble() {
-    HapticFeedback.selectionClick();
-    setState(() => _isBubbleCollapsed = !_isBubbleCollapsed);
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ── 氣泡（靠右，精靈左邊）
+          // ── 跑馬燈膠囊（靠右，精靈左邊）
           Flexible(
             child: FadeTransition(
               opacity: _bubbleFade,
               child: SlideTransition(
                 position: _bubbleSlide,
-                child: _buildBubbleWithTail(),
+                child: _buildMarqueeCapsuleWithTail(),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          // ── 精靈本體（葉子 Logo + Sway + Float + Bounce + 柔和薄荷漸層與光暈）
+          const SizedBox(width: 6),
+          // ── 精靈本體
           _buildMascot(),
         ],
       ),
@@ -173,22 +160,139 @@ class _MascotCompanionState extends State<MascotCompanion>
   }
 
   // ────────────────────────────────────────────────
-  // 精靈本體：淡薄荷綠柔和漸層 + 1px 邊框 + Soft Glow + 上下呼吸微浮動
+  // 跑馬燈膠囊本體（含右側小尾巴）
+  // ────────────────────────────────────────────────
+  Widget _buildMarqueeCapsuleWithTail() {
+    final isDark = widget.isDarkMode;
+    final bgColor =
+        isDark ? const Color(0xF0222228) : const Color(0xF5FFFFFF);
+    final borderColor = isDark
+        ? const Color(0xFF3E4C42)
+        : const Color(0xFF81C784).withValues(alpha: 0.35);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.centerRight,
+      children: [
+        // 膠囊主體
+        _buildMarqueeCapsule(isDark, bgColor, borderColor),
+        // 右側指向精靈的微型小尾巴
+        Positioned(
+          right: -5.5,
+          child: CustomPaint(
+            size: const Size(6, 10),
+            painter: SpeechBubbleTailPainter(
+              color: bgColor,
+              borderColor: borderColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 膠囊內部結構：[葉棒小語 標籤] + [跑馬燈文字]
+  Widget _buildMarqueeCapsule(
+      bool isDark, Color bgColor, Color borderColor) {
+    final textColor =
+        isDark ? const Color(0xFFEEEEEE) : const Color(0xFF2C342E);
+
+    final badgeBgColor =
+        isDark ? const Color(0xFF1E3A2B) : const Color(0xFFE8F5E9);
+    final badgeBorderColor = isDark
+        ? const Color(0xFF2E7D32).withValues(alpha: 0.45)
+        : const Color(0xFFA5D6A7).withValues(alpha: 0.6);
+    final badgeTextColor =
+        isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+
+    return GestureDetector(
+      onTap: _onMascotTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 34,
+        constraints: const BoxConstraints(maxWidth: 260, minWidth: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: borderColor, width: 1.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 左側綠色小徽章 [ 葉棒小語 ]
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: badgeBgColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: badgeBorderColor, width: 0.8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 4.5,
+                    height: 4.5,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: badgeTextColor,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '葉棒小語',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: badgeTextColor,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            // 中右側跑馬燈文字
+            Expanded(
+              child: _MascotMarqueeText(
+                key: ValueKey(_currentTip),
+                text: _currentTip,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                  letterSpacing: 0.15,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────
+  // 精靈本體：淡薄荷綠漸層 + 1px 邊框 + Soft Glow + 上下呼吸浮動
   // ────────────────────────────────────────────────
   Widget _buildMascot() {
     final isDark = widget.isDarkMode;
 
-    // 淡薄荷綠柔和漸層
     final gradientColors = isDark
         ? const [Color(0xFF1D3B2E), Color(0xFF142920)]
         : const [Color(0xFFE8F8F0), Color(0xFFF1FCF6)];
 
-    // 1px 淺色邊框
     final borderColor = isDark
         ? const Color(0xFF2E6647).withValues(alpha: 0.6)
         : const Color(0xFF81C784).withValues(alpha: 0.45);
 
-    // 環境光暈
     final glowColor = isDark
         ? const Color(0xFF4CAF50).withValues(alpha: 0.22)
         : const Color(0xFF81C784).withValues(alpha: 0.28);
@@ -212,8 +316,8 @@ class _MascotCompanionState extends State<MascotCompanion>
           );
         },
         child: Container(
-          width: 44,
-          height: 44,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
@@ -226,14 +330,12 @@ class _MascotCompanionState extends State<MascotCompanion>
               width: 1.0,
             ),
             boxShadow: [
-              // 環境光暈 (Soft Glow)
               BoxShadow(
                 color: glowColor,
-                blurRadius: 14,
+                blurRadius: 12,
                 spreadRadius: 1,
-                offset: const Offset(0, 3),
+                offset: const Offset(0, 2),
               ),
-              // 微懸浮底層陰影
               BoxShadow(
                 color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
                 blurRadius: 6,
@@ -243,12 +345,11 @@ class _MascotCompanionState extends State<MascotCompanion>
           ),
           child: Center(
             child: CustomPaint(
-              size: const Size(26, 26),
+              size: const Size(24, 24),
               painter: const LeafYLogoPainter(
                 progress: 1.0,
                 leftLeafScale: 1.0,
                 rightLeafScale: 1.0,
-                shimmerProgress: 0.0,
               ),
             ),
           ),
@@ -256,223 +357,115 @@ class _MascotCompanionState extends State<MascotCompanion>
       ),
     );
   }
+}
 
-  // ────────────────────────────────────────────────
-  // 成長小語氣泡（含小尾巴 Bubble Tail）
-  // ────────────────────────────────────────────────
-  Widget _buildBubbleWithTail() {
-    final isDark = widget.isDarkMode;
-    final bgColor = isDark ? const Color(0xFF2A2A2A) : Colors.white;
-    final borderColor = isDark
-        ? const Color(0xFF3E4C42)
-        : const Color(0xFF81C784).withValues(alpha: 0.25);
+/// ────────────────────────────────────────────────
+/// 平滑無縫跑馬燈文字元件 (Marquee Text)
+/// ────────────────────────────────────────────────
+class _MascotMarqueeText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.bottomRight,
-      children: [
-        // 氣泡主體
-        _buildBubbleBody(isDark, bgColor, borderColor),
-        // 右側指向精靈的對話框小尾巴
-        Positioned(
-          right: -6.5,
-          bottom: 14,
-          child: CustomPaint(
-            size: const Size(7, 12),
-            painter: SpeechBubbleTailPainter(
-              color: bgColor,
-              borderColor: borderColor,
-            ),
-          ),
-        ),
-      ],
-    );
+  const _MascotMarqueeText({
+    super.key,
+    required this.text,
+    required this.style,
+  });
+
+  @override
+  State<_MascotMarqueeText> createState() => _MascotMarqueeTextState();
+}
+
+class _MascotMarqueeTextState extends State<_MascotMarqueeText> {
+  late ScrollController _scrollController;
+  bool _isDisposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startMarqueeLoop());
   }
 
-  // 氣泡卡片內容
-  Widget _buildBubbleBody(bool isDark, Color bgColor, Color borderColor) {
-    final textColor = isDark
-        ? const Color(0xFFEEEEEE)
-        : const Color(0xFF2C342E);
+  @override
+  void didUpdateWidget(covariant _MascotMarqueeText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startMarqueeLoop());
+    }
+  }
 
-    // 淡薄荷綠膠囊標籤配色
-    final badgeBgColor = isDark
-        ? const Color(0xFF1E3A2B)
-        : const Color(0xFFE8F5E9);
-    final badgeBorderColor = isDark
-        ? const Color(0xFF2E7D32).withValues(alpha: 0.45)
-        : const Color(0xFFA5D6A7).withValues(alpha: 0.55);
-    final badgeTextColor = isDark
-        ? const Color(0xFF81C784)
-        : const Color(0xFF2E7D32); // 主題深綠字體
+  Future<void> _startMarqueeLoop() async {
+    if (_isDisposed || !mounted || !_scrollController.hasClients) return;
 
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.fastOutSlowIn,
-      alignment: Alignment.bottomRight,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 240, minWidth: 140),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 1.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
-              blurRadius: 14,
-              offset: const Offset(0, 3),
-            ),
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) return; // 單行字數已可完整呈現，無需捲動
+
+    while (!_isDisposed && mounted && _scrollController.hasClients) {
+      // 1. 起始停留 1.6 秒
+      await Future.delayed(const Duration(milliseconds: 1600));
+      if (_isDisposed || !mounted || !_scrollController.hasClients) break;
+
+      final currentMax = _scrollController.position.maxScrollExtent;
+      if (currentMax <= 0) break;
+
+      // 2. 均速跑馬燈滑向末端（每 32px 耗時約 1 秒，保持舒適閱讀速度）
+      final durationMs = (currentMax * 32).clamp(2200, 12000).toInt();
+      await _scrollController.animateTo(
+        currentMax,
+        duration: Duration(milliseconds: durationMs),
+        curve: Curves.linear,
+      );
+
+      // 3. 末端停留 1.5 秒
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (_isDisposed || !mounted || !_scrollController.hasClients) break;
+
+      // 4. 重置回起點，循環播放
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      shaderCallback: (rect) {
+        return const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.transparent,
+            Colors.black,
+            Colors.black,
+            Colors.transparent,
           ],
-        ),
-        child: AnimatedCrossFade(
-          duration: const Duration(milliseconds: 260),
-          firstCurve: Curves.easeOut,
-          secondCurve: Curves.easeIn,
-          crossFadeState: _isBubbleCollapsed
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          // ── 展開狀態：左上角膠囊標籤 + 右上角微型關閉圖示 + 14dp 內距內文
-          firstChild: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 頂部列：左邊淡綠膠囊標籤，右邊微型關閉按鈕
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 8, 0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // 淡綠色小膠囊標籤（Badge）
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: badgeBgColor,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: badgeBorderColor,
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: badgeTextColor,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '葉棒小語',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w700,
-                              color: badgeTextColor,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 右上角微型關閉/收合圖示
-                    GestureDetector(
-                      onTap: _toggleBubble,
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.black.withValues(alpha: 0.04),
-                        ),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 11,
-                          color: isDark ? Colors.white60 : Colors.black45,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // 內文小語：左右內距 14dp，適度行距 1.58
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 11),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 280),
-                  transitionBuilder: (child, anim) => FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.12),
-                        end: Offset.zero,
-                      ).animate(anim),
-                      child: child,
-                    ),
-                  ),
-                  child: Text(
-                    _currentTip,
-                    key: ValueKey(_currentTip),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: textColor,
-                      height: 1.58,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          // ── 收合狀態：極簡膠囊，點擊展開
-          secondChild: GestureDetector(
-            onTap: _toggleBubble,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: badgeBgColor,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: badgeBorderColor,
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Text(
-                      '葉棒小語',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        color: badgeTextColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.unfold_more_rounded,
-                    size: 12,
-                    color: isDark ? Colors.white54 : Colors.black38,
-                  ),
-                ],
-              ),
-            ),
+          stops: [0.0, 0.04, 0.94, 1.0],
+        ).createShader(rect);
+      },
+      blendMode: BlendMode.dstIn,
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            widget.text,
+            style: widget.style,
+            maxLines: 1,
+            softWrap: false,
           ),
         ),
       ),
@@ -503,7 +496,6 @@ class SpeechBubbleTailPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    // 繪製平滑指向右側的微弧形小三角形
     final path = Path();
     path.moveTo(0, 0);
     path.quadraticBezierTo(
@@ -522,7 +514,6 @@ class SpeechBubbleTailPainter extends CustomPainter {
 
     canvas.drawPath(path, fillPaint);
 
-    // 僅描繪上下邊緣弧線，保留左側開口以完美融入卡片
     final strokePath = Path();
     strokePath.moveTo(0, 0);
     strokePath.quadraticBezierTo(

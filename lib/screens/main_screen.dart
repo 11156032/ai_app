@@ -2939,7 +2939,7 @@ void _showLogoutDialog() {
         child: Builder(builder: (context) {
           return Scaffold(
             key: _scaffoldKey,
-            resizeToAvoidBottomInset: true,
+            resizeToAvoidBottomInset: false,
             backgroundColor: Colors.transparent, // Let Container behind it show
             extendBody: true, // Allow body to scroll under bottom nav bar
             appBar: (_quizStep == 2 || _currentIndex == 6)
