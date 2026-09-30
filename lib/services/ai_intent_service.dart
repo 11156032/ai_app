@@ -139,6 +139,7 @@ class AIIntentService {
     UserIntent.viewProfile: {
       'label': '個人檔案',
       'keywords': [
+        '我的',
         '個人檔案',
         '我的資料',
         '主頁',

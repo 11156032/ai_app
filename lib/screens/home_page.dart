@@ -445,14 +445,18 @@ class _HomePageState extends State<HomePage> {
                     accentColor: const Color(0xFFF59E0B), // 琥珀金
                     isDark: isDark,
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => NotesScreen(
-                            currentUser: widget.currentUser,
+                      if (widget.onNavigateToTab != null) {
+                        widget.onNavigateToTab!(5); // 筆記 Tab
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => NotesScreen(
+                              currentUser: widget.currentUser,
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     },
                   ),
                   _buildFeatureCard(
@@ -463,19 +467,19 @@ class _HomePageState extends State<HomePage> {
                     isDark: isDark,
                     onTap: () {
                       if (widget.onNavigateToTab != null) {
-                        widget.onNavigateToTab!(2); // 日曆 Tab
+                        widget.onNavigateToTab!(0); // 日曆 Tab (Index 0)
                       }
                     },
                   ),
                   _buildFeatureCard(
-                    title: '社群同儕',
+                    title: '社群',
                     subtitle: '學習廣場與討論群組',
                     icon: Icons.forum_rounded,
                     accentColor: const Color(0xFFEC4899), // 粉紅
                     isDark: isDark,
                     onTap: () {
                       if (widget.onNavigateToTab != null) {
-                        widget.onNavigateToTab!(3); // 社群 Tab
+                        widget.onNavigateToTab!(2); // 社群 Tab (Index 2)
                       }
                     },
                   ),
