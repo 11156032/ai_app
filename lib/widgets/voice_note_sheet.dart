@@ -245,11 +245,31 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   // Groq Whisper 錄音與轉錄控制
   // ============================================================
 
+  // 【錄影專用・暫時】--dart-define=DEMO_TRANSCRIPT=true 時以模擬逐字稿取代實際錄音轉錄
+  static const bool _kDemoTranscript = bool.fromEnvironment('DEMO_TRANSCRIPT');
+  static const String _kDemoTranscriptText =
+      '同學們好，今天我們來複習牛頓三大運動定律。第一定律是慣性定律：物體在不受外力時，靜者恆靜，動者恆作等速度運動。'
+      '第二定律告訴我們，物體的加速度與所受的淨力成正比，與質量成反比，也就是 F 等於 m 乘以 a。'
+      '第三定律是作用力與反作用力定律：兩個物體之間的作用力，大小相等、方向相反，而且作用在不同物體上。'
+      '考試常考的重點有三個：第一，判斷物體是否處於力平衡；第二，用 F 等於 m a 計算加速度；第三，分辨作用力與反作用力，不要和平衡力搞混。'
+      '下課前請大家完成課本第五十頁的練習題。';
+  Timer? _demoLevelTimer;
+
   /// 開始高品質錄音
   Future<void> _startRecording() async {
     if (_isRecording || _isTranscribing) return;
 
-    final started = await GroqWhisperService.instance.startRecording(
+    if (_kDemoTranscript) {
+      final rnd = math.Random();
+      _demoLevelTimer?.cancel();
+      _demoLevelTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+        if (mounted && _isRecording) {
+          setState(() => _soundLevel = 3 + rnd.nextDouble() * 6);
+        }
+      });
+    }
+    final started = _kDemoTranscript ||
+        await GroqWhisperService.instance.startRecording(
       onAmplitudeChange: (level) {
         if (!mounted) return;
         setState(() {
@@ -325,14 +345,22 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     });
 
     try {
-      final result = await GroqWhisperService.instance.stopAndTranscribeResult(
-        onProgressStatus: (msg) {
-          if (mounted) setState(() => _transcribingStatusMsg = msg);
-        },
-      );
+      if (_kDemoTranscript) {
+        _demoLevelTimer?.cancel();
+        await Future.delayed(const Duration(seconds: 2));
+      }
+      final result = _kDemoTranscript
+          ? null
+          : await GroqWhisperService.instance.stopAndTranscribeResult(
+              onProgressStatus: (msg) {
+                if (mounted) setState(() => _transcribingStatusMsg = msg);
+              },
+            );
       if (!mounted) return;
 
-      final transcript = result.toFormattedDiarizedText().trim();
+      final transcript = result == null
+          ? _kDemoTranscriptText
+          : result.toFormattedDiarizedText().trim();
       if (transcript.isEmpty) {
         throw Exception('未能從音訊中識別出清晰人聲語音，請靠近麥克風並確保音量清晰後重試 🎙️');
       }
@@ -357,7 +385,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           ..clearSnackBars()
           ..showSnackBar(
             SnackBar(
-              content: Text(result.isDiarized
+              content: Text(result?.isDiarized == true
                   ? '✨ 語音轉錄完成！已分離說話者與時間戳'
                   : '✨ 語音轉文字完成！已填入文字稿'),
               duration: const Duration(milliseconds: 1800),

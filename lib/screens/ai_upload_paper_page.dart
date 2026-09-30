@@ -903,9 +903,10 @@ $pdfExtractedText
   static String _cleanOptionText(String raw) {
     String opt = _cleanAiSymbols(raw);
     // 移除選項開頭重複的 A. B. C. D.、(A) (B)、[A] [B]、① ② 或 1. 2. 標號
+    // 標號後必須接標點，避免把「2 和 3」「a = 3」等選項內容的開頭誤刪
     opt = opt.replaceAll(
       RegExp(
-          r'^(?:[A-Da-d][\.\、\:\)\s\-]+|\([A-Da-d]\)\s*|\[[A-Da-d]\]\s*|[①②③④⑤]\s*|\d+[\.\、\:\)\s\-]+)'),
+          r'^(?:[A-Da-d][\.\、\:\)](?!\d)\s*|\([A-Da-d]\)\s*|\[[A-Da-d]\]\s*|[①②③④⑤]\s*|\d{1,2}[\、\:\)]\s*|\d{1,2}\.(?!\d)\s*)'),
       '',
     );
     return opt.trim();
