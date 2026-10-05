@@ -76,6 +76,30 @@ class AppConfigService {
       debugPrint('⚠️ [AppConfigService] Firebase Remote Config 初始化失敗: $e');
       _syncFromRemoteConfig();
     }
+    _applyDemoRemote();
+  }
+
+  // TODO(demo): 影片錄製用，錄完即移除。Web 建置加 --dart-define=DEMO_REMOTE=true，
+  // 網址帶 ?demo_remote=maint|optional|force 模擬 Remote Config 的維護與更新狀態。
+  static const bool _kDemoRemote = bool.fromEnvironment('DEMO_REMOTE');
+  void _applyDemoRemote() {
+    if (!_kDemoRemote) return;
+    final mode = Uri.base.queryParameters['demo_remote'];
+    final p = _currentAppVersion.split('+').first.split('.');
+    final major = int.tryParse(p.first) ?? 1;
+    final minor = p.length > 1 ? int.tryParse(p[1]) ?? 0 : 0;
+    if (mode == 'maint') {
+      isMaintenanceNotifier.value = true;
+      maintenanceMsgNotifier.value = _maintenanceMsg;
+    } else if (mode == 'optional') {
+      _latestVersion = '$major.${minor + 1}.0';
+    } else if (mode == 'force') {
+      _minVersion = '${major + 1}.0.0';
+      _latestVersion = _minVersion;
+    } else {
+      return;
+    }
+    _evaluateUpdateType();
   }
 
   /// 重新檢查最新狀態（用於維護頁面點擊「重新檢查」按鈕）
