@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'about/about_us_painters.dart';
 import 'about/about_us_animations.dart';
+import '../services/app_locale_service.dart';
 
 typedef _ShimmerCard = ShimmerCard;
 typedef _RevealOnScroll = RevealOnScroll;
@@ -30,8 +31,8 @@ class _AboutUsScreenState extends State<AboutUsScreen>
   double _scrollOffset = 0.0;
 
   // ✏️ [修改處 1] 我們所打造的目標
-  static const _missionText =
-      '「讓每一位學習者都能享有規劃時間管理、系統化知識整理並提供即時 AI 智慧伴學。\n無論身在何處，解決您時間管理、知識統整及獨自學習的困擾！」';
+  static String get _missionText =>
+      tr('about_mission');
 
   @override
   void initState() {
@@ -153,8 +154,8 @@ class _AboutUsScreenState extends State<AboutUsScreen>
         // ✏️ [修改處 2] 頁面頂部標題
         title: Opacity(
           opacity: topBarOpacity,
-          child: const Text(
-            '關於我們',
+          child: Text(
+            tr('about_title'),
             style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -300,7 +301,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                     child: Column(
                       children: [
                         Text(
-                          'AI 學習助手',
+                          tr('about_ai_assistant'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 32,
@@ -320,7 +321,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '智慧伴學 × 學習無界',
+                          tr('about_tagline'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,
@@ -410,7 +411,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   slideBegin: const Offset(-0.10, 0),
                   duration: const Duration(milliseconds: 550),
                   curve: Curves.easeOutCubic,
-                  child: _sectionLabel('關於這款 App', '🚀', primaryColor, isDark),
+                  child: _sectionLabel(tr('about_this_app'), '🚀', primaryColor, isDark),
                 ),
                 const SizedBox(height: 14),
                 _RevealOnScroll(
@@ -420,7 +421,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   duration: const Duration(milliseconds: 650),
                   curve: Curves.easeOutCubic,
                   child: Text(
-                    'YeBang 家教 是一款融合人工智慧技術、題庫與互動學習社群的全方位學習平台。以市面上穩定 AI 作為核心引擎，為每位使用者打造專屬於你的學習體驗。',
+                    tr('about_intro'),
                     style: TextStyle(
                       fontSize: 15,
                       height: 1.9,
@@ -438,7 +439,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   slideBegin: const Offset(-0.10, 0),
                   duration: const Duration(milliseconds: 500),
                   curve: Curves.easeOutCubic,
-                  child: _sectionLabel('設計初衷', '💡', primaryColor, isDark),
+                  child: _sectionLabel(tr('about_origin'), '💡', primaryColor, isDark),
                 ),
                 const SizedBox(height: 18),
                 _buildDesignIntentGrid(primaryColor, isDark),
@@ -450,7 +451,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   slideBegin: const Offset(-0.10, 0),
                   duration: const Duration(milliseconds: 500),
                   curve: Curves.easeOutCubic,
-                  child: _sectionLabel('核心功能', '✨', primaryColor, isDark),
+                  child: _sectionLabel(tr('about_core'), '✨', primaryColor, isDark),
                 ),
                 const SizedBox(height: 16),
                 ..._buildFeatureList(primaryColor, isDark),
@@ -509,33 +510,33 @@ class _AboutUsScreenState extends State<AboutUsScreen>
     final intents = [
       _SimpleDesignIntent(
         icon: Icons.hourglass_bottom_rounded,
-        tag: '時間管理',
-        title: '無法有效識別並善用空閒時間',
+        tag: tr('about_tag_time'),
+        title: tr('about_p1_title'),
         themeColor: const Color(0xFFFF7043),
         problemText:
-            '日常課業繁忙常產生「沒時間學習」的盲點。關鍵在於無法清楚視覺化整天的時間軸以找出空閒時間；同時因缺乏整合的待辦事項，短暫空閒時無法快速篩選適合在該時長內完成的任務，白白浪費零星時間。',
+            tr('about_p1_problem'),
         solutionText:
-            '提供視覺化時間軸與智慧待辦整合，一眼判斷空檔長度並自動挑選合適時長的學習任務，搭配隨手 AI 語音速記與 3 分鐘微測驗，充分活用零星時間。',
+            tr('about_p1_solution'),
       ),
       _SimpleDesignIntent(
         icon: Icons.hub_rounded,
-        tag: '知識整合',
-        title: '知識整理與產出格式混亂',
+        tag: tr('about_tag_knowledge'),
+        title: tr('about_p2_title'),
         themeColor: const Color(0xFF0288D1),
         problemText:
-            '在自主學習與刷題過程中，學生的知識點往往散落於各處（如線上筆記或本機檔案）。這種「知識分散」的現況，使得在需要快速複習時，難以進行高效的檢索與系統化整理。',
+            tr('about_p2_problem'),
         solutionText:
-            '一站式整合個人筆記、心智圖、錯題本與題庫，打破檔案分散孤島，建立雙向關聯知識圖譜，讓考點檢索與複習條理清晰、一目了然。',
+            tr('about_p2_solution'),
       ),
       _SimpleDesignIntent(
         icon: Icons.people_alt_rounded,
-        tag: '伴學反饋',
-        title: '孤獨學習缺乏同儕與反饋',
+        tag: tr('about_tag_peer'),
+        title: tr('about_p3_title'),
         themeColor: const Color(0xFF8E24AA),
         problemText:
-            '自主學習屬於高度個體化過程。練習題庫遇到瓶頸或對知識點產生疑惑時，常因缺乏即時討論機制而容易受挫放棄；且缺乏客觀的歷程量化數據，難以評估自身盲點。',
+            tr('about_p3_problem'),
         solutionText:
-            '提供 24 小時在線的 AI 智慧伴學即時解惑，搭配同學社群互動打氣，並具備學習歷程量化數據分析，精準定位弱項、陪伴持續進步。',
+            tr('about_p3_solution'),
       ),
     ];
 
@@ -703,7 +704,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                 const Text('💡 ', style: TextStyle(fontSize: 15)),
                 Expanded(
                   child: Text(
-                    '本系統旨在改變分散式工具現況，透過高度整合的數位平台，為自主學習者提供時間軸、知識中樞與社群數據的全方位支持。',
+                    tr('about_mission_sum'),
                     style: TextStyle(
                       fontSize: 12.5,
                       height: 1.55,
@@ -725,24 +726,24 @@ class _AboutUsScreenState extends State<AboutUsScreen>
   // ✏️ [修改處 6 項目] 核心功能 — 奇偶項交錯左右飛入
   List<Widget> _buildFeatureList(Color primaryColor, bool isDark) {
     final List<(IconData, String, String)> features = [
-      (Icons.mic_rounded, 'AI 代理人助理 (語音即時輸入)', '支援邊講話邊即時文字轉寫、自然語言意圖排程與全站智慧導覽'),
-      (Icons.menu_book_rounded, '題庫測驗與錯題本', '學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習'),
+      (Icons.mic_rounded, tr('about_f1'), tr('about_f1_d')),
+      (Icons.menu_book_rounded, tr('about_f2'), tr('about_f2_d')),
       (
         Icons.edit_note_rounded,
-        '智慧個人筆記 (Markdown 富文字)',
-        '支援豐富文字排版與一鍵 AI 重點摘要整理'
+        tr('about_f3'),
+        tr('about_f3_d')
       ),
-      (Icons.bar_chart_rounded, '學習歷程與弱項診斷', '知識掌握度矩陣圖、能力雷達圖與一鍵生成客製化弱項補強教材'),
+      (Icons.bar_chart_rounded, tr('about_f4'), tr('about_f4_d')),
       (
         Icons.calendar_month_rounded,
-        '智慧行事曆與待辦排程',
-        '自然語言直覺新增行程與待辦事項 (Todo)，並支援推播提醒'
+        tr('about_f5'),
+        tr('about_f5_d')
       ),
-      (Icons.forum_rounded, '學習社群與筆記分享', '同學學習心得貼文交流、優質筆記一鍵匯入與按讚互動'),
+      (Icons.forum_rounded, tr('about_f6'), tr('about_f6_d')),
       (
         Icons.support_agent_rounded,
-        '24H 智慧線上客服',
-        '各功能常見問答教學、在線智慧客服專員與問題意見回饋表單'
+        tr('about_f7'),
+        tr('about_f7_d')
       ),
     ];
 
@@ -835,7 +836,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   children: [
                     Icon(Icons.flag_rounded, color: primaryColor, size: 20),
                     const SizedBox(width: 8),
-                    Text('我們所打造的目標',
+                    Text(tr('about_goal'),
                         style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -878,7 +879,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
               Icon(Icons.verified_outlined, size: 16, color: primaryColor),
               const SizedBox(width: 8),
               Text(
-                '版本 v1.8.1  |  2026 年 9 月 27 日 最新發布',
+                tr('about_version'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,

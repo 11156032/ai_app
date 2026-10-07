@@ -194,8 +194,10 @@ class DatabaseHelper {
           tags             TEXT    DEFAULT '[]',
           member_count     INTEGER DEFAULT 1,
           invite_token     TEXT,
+          invite_code      TEXT,
           token_expires_at DATETIME,
           invite_link_active INTEGER DEFAULT 1,
+          join_requires_approval INTEGER DEFAULT 0,
           created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
         )
@@ -1026,7 +1028,36 @@ class DatabaseHelper {
     return '${now.toRadixString(16)}-$r1-$r2';
   }
 
-  /// 動態修復 group_members 欄位 (確保 last_read_at 與 is_muted 存在)
+  /// 產生唯一 4 碼數字加入碼 (1000~9999)
+  Future<String> _generateUniqueInviteCode(Database db) async {
+    final rand = Random();
+    for (int i = 0; i < 50; i++) {
+      final code = (1000 + rand.nextInt(9000)).toString();
+      final existing = await db.query('community_groups',
+          where: 'invite_code = ?', whereArgs: [code], limit: 1);
+      if (existing.isEmpty) return code;
+    }
+    return (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
+  }
+
+  /// 自動為現有尚未配置 4 碼數字的群組補齊代碼
+  Future<void> _backfillGroupInviteCodes(Database db) async {
+    try {
+      final rows = await db.query('community_groups',
+          columns: ['id', 'invite_code'],
+          where: 'invite_code IS NULL OR length(invite_code) < 4');
+      for (final r in rows) {
+        final id = r['id'] as int;
+        final code = await _generateUniqueInviteCode(db);
+        await db.update('community_groups', {'invite_code': code},
+            where: 'id = ?', whereArgs: [id]);
+      }
+    } catch (e) {
+      debugPrint('Error backfilling group invite codes: $e');
+    }
+  }
+
+  /// 動態修復 group_members 與 community_groups 欄位 (確保 last_read_at, is_muted, join_requires_approval, invite_code 存在)
   Future<void> _ensureGroupMembersColumns(Database db) async {
     try {
       var gmCols = await db.rawQuery('PRAGMA table_info(group_members)');
@@ -1055,7 +1086,14 @@ class DatabaseHelper {
           await db.execute(
               "UPDATE community_groups SET join_requires_approval = CASE WHEN type = 'private' THEN 1 ELSE 0 END");
         }
+        if (!cgCols.any((c) => c['name'] == 'invite_code')) {
+          await db.execute(
+              "ALTER TABLE community_groups ADD COLUMN invite_code TEXT");
+          debugPrint(
+              'Dynamic migration: Added invite_code column to community_groups table.');
+        }
       }
+      await _backfillGroupInviteCodes(db);
     } catch (e) {
       debugPrint('Error in _ensureGroupMembersColumns: $e');
     }
@@ -1075,6 +1113,7 @@ class DatabaseHelper {
     await _ensureGroupMembersColumns(db);
 
     final token = _generateToken();
+    final inviteCode = await _generateUniqueInviteCode(db);
     final groupId = await db.insert('community_groups', <String, Object?>{
       'name': name,
       'description': description,
@@ -1084,6 +1123,7 @@ class DatabaseHelper {
       'tags': jsonEncode(tags),
       'member_count': 1,
       'invite_token': token,
+      'invite_code': inviteCode,
       'invite_link_active': 1,
       'join_requires_approval': joinRequiresApproval ? 1 : 0,
       'created_at': DateTime.now().toIso8601String(),
@@ -1367,15 +1407,49 @@ class DatabaseHelper {
     }
   }
 
-  /// 透過 invite_token 查詢群組
-  Future<Map<String, dynamic>?> getGroupByToken(String token) async {
+  /// 透過 invite_token、4 碼數字加入碼 (invite_code) 或分享連結查詢群組
+  Future<Map<String, dynamic>?> getGroupByInviteCode(String query) async {
+    final raw = query.trim();
+    if (raw.isEmpty) return null;
     final db = await database;
-    final rows = await db.query('community_groups',
-        where: 'invite_token = ? AND invite_link_active = 1',
-        whereArgs: [token],
+    await _ensureGroupMembersColumns(db);
+
+    String candidate = raw;
+    try {
+      final uri = Uri.tryParse(raw);
+      if (uri != null && uri.hasQuery) {
+        candidate = uri.queryParameters['code'] ??
+            uri.queryParameters['token'] ??
+            raw;
+      }
+    } catch (_) {}
+
+    // 1. 優先比對 4 碼數字加入碼 (invite_code)
+    var rows = await db.query('community_groups',
+        where: 'invite_code = ? AND invite_link_active = 1',
+        whereArgs: [candidate],
         limit: 1);
+
+    // 2. 若無，比對 invite_token
+    if (rows.isEmpty) {
+      rows = await db.query('community_groups',
+          where: 'invite_token = ? AND invite_link_active = 1',
+          whereArgs: [candidate],
+          limit: 1);
+    }
+
+    // 3. 若無且 candidate != raw，比對原始字串 raw
+    if (rows.isEmpty && candidate != raw) {
+      rows = await db.query('community_groups',
+          where:
+              '(invite_code = ? OR invite_token = ?) AND invite_link_active = 1',
+          whereArgs: [raw, raw],
+          limit: 1);
+    }
+
     if (rows.isEmpty) return null;
     final group = Map<String, dynamic>.from(rows.first);
+
     // 檢查是否過期
     final expiresAt = group['token_expires_at'] as String?;
     if (expiresAt != null && expiresAt.isNotEmpty) {
@@ -1385,14 +1459,38 @@ class DatabaseHelper {
     return group;
   }
 
-  /// 重新生成 invite_token（讓舊連結失效）
-  Future<String> regenerateInviteToken(int groupId) async {
+  /// 透過 invite_token 查詢群組（相容 4 碼代碼）
+  Future<Map<String, dynamic>?> getGroupByToken(String token) async {
+    return await getGroupByInviteCode(token);
+  }
+
+  /// 重新生成 4 碼數字加入碼與 token（讓舊 4 碼與舊連結失效）
+  Future<Map<String, String>> regenerateInviteTokenAndCode(int groupId) async {
     final db = await database;
+    await _ensureGroupMembersColumns(db);
     final token = _generateToken();
+    final code = await _generateUniqueInviteCode(db);
     await db.update(
-        'community_groups', <String, Object?>{'invite_token': token},
-        where: 'id = ?', whereArgs: [groupId]);
-    return token;
+        'community_groups',
+        <String, Object?>{
+          'invite_token': token,
+          'invite_code': code,
+        },
+        where: 'id = ?',
+        whereArgs: [groupId]);
+    return {'token': token, 'code': code};
+  }
+
+  /// 重新生成 invite_token（相容舊呼叫，同時更新 4 碼與 token）
+  Future<String> regenerateInviteToken(int groupId) async {
+    final res = await regenerateInviteTokenAndCode(groupId);
+    return res['token']!;
+  }
+
+  /// 重新生成 4 碼加入碼（同時更新 4 碼與 token）
+  Future<String> regenerateInviteCode(int groupId) async {
+    final res = await regenerateInviteTokenAndCode(groupId);
+    return res['code']!;
   }
 
   /// 設定邀請連結過期時間（null = 永久）

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
+import '../services/app_locale_service.dart';
 
 class QuestionEditPage extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -130,14 +131,14 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
 
     if (options.length < 2) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('至少需要填寫兩個選項')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qe_min_two'))),
       );
       return;
     }
 
     if (answerIndex < 0 || answerIndex >= options.length) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請指定一個有效的正確答案')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qe_need_answer'))),
       );
       return;
     }
@@ -179,7 +180,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text(widget.initialData == null ? '題目已成功新增！' : '題目已成功儲存！'),
+          content: Text(widget.initialData == null ? tr('qe_added') : tr('qe_saved')),
           backgroundColor: Colors.green.shade600,
         ),
       );
@@ -188,7 +189,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
       debugPrint('儲存題目失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('儲存失敗，請稍後再試')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qe_save_failed'))),
       );
     } finally {
       if (mounted) {
@@ -200,7 +201,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
   void _addOption() {
     if (_optionCtrls.length >= 6) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('最多支援 6 個選項')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qe_max_six'))),
       );
       return;
     }
@@ -212,7 +213,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
   void _removeOption(int index) {
     if (_optionCtrls.length <= 2) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('題目至少需要 2 個選項')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qe_min_two_opts'))),
       );
       return;
     }
@@ -236,10 +237,10 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
           _optionCtrls.add(TextEditingController());
         }
         if (_optionCtrls[0].text.trim().isEmpty) {
-          _optionCtrls[0].text = '正確 (O)';
+          _optionCtrls[0].text = tr('qe_true');
         }
         if (_optionCtrls[1].text.trim().isEmpty) {
-          _optionCtrls[1].text = '錯誤 (X)';
+          _optionCtrls[1].text = tr('qe_false');
         }
         if (answerIndex >= 2) answerIndex = 0;
       } else {
@@ -274,7 +275,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          widget.initialData == null ? '手動新增題目' : '編輯題目',
+          widget.initialData == null ? tr('ql_manual_add') : tr('qs_edit_q'),
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -282,6 +283,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
           ),
         ),
         backgroundColor: Colors.transparent,
+        foregroundColor: const Color(0xFF1E293B),
+        iconTheme: const IconThemeData(color: Color(0xFF334155)),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF334155)),
@@ -298,7 +301,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                 children: [
                   // ── 1. 基本資訊卡片（科目、章節、難度） ──
                   _buildSectionCard(
-                    title: '分類與難度',
+                    title: tr('qe_cat_diff'),
                     icon: Icons.category_rounded,
                     iconColor: const Color(0xFF4F46E5),
                     child: Column(
@@ -311,8 +314,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    '學科領域',
+                                  Text(
+                                    tr('qe_subject'),
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
@@ -327,7 +330,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                                     items: widget.allSubjects
                                         .map((s) => DropdownMenuItem(
                                               value: s,
-                                              child: Text(s, style: const TextStyle(fontSize: 14)),
+                                              child: Text(trv(s), style: const TextStyle(fontSize: 14)),
                                             ))
                                         .toList(),
                                     onChanged: (val) {
@@ -349,8 +352,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    '所屬章節',
+                                  Text(
+                                    tr('qe_chapter'),
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
@@ -383,8 +386,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                         const SizedBox(height: 16),
 
                         // 難度選擇 ChoiceChips
-                        const Text(
-                          '試題難度',
+                        Text(
+                          tr('qe_difficulty'),
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -399,7 +402,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                             final chipColor = _getDifficultyColor(d);
 
                             return ChoiceChip(
-                              label: Text(d),
+                              label: Text(trv(d)),
                               selected: isSel,
                               selectedColor: chipColor.withValues(alpha: 0.15),
                               backgroundColor: const Color(0xFFF8FAFC),
@@ -424,15 +427,15 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
 
                   // ── 2. 題目與題型卡片 ──
                   _buildSectionCard(
-                    title: '題目內容',
+                    title: tr('qe_content'),
                     icon: Icons.edit_note_rounded,
                     iconColor: const Color(0xFF0EA5E9),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // 題型切換
-                        const Text(
-                          '試題題型',
+                        Text(
+                          tr('qe_type'),
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -446,7 +449,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                             return Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: ChoiceChip(
-                                label: Text(t),
+                                label: Text(trv(t)),
                                 selected: isSel,
                                 selectedColor: const Color(0xFF0EA5E9).withValues(alpha: 0.15),
                                 backgroundColor: const Color(0xFFF8FAFC),
@@ -471,8 +474,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                         TextFormField(
                           controller: _questionCtrl,
                           decoration: InputDecoration(
-                            labelText: '題目敘述 *',
-                            hintText: '請輸入題目完整敘述...',
+                            labelText: tr('qe_stem'),
+                            hintText: tr('qe_stem_hint'),
                             alignLabelWithHint: true,
                             filled: true,
                             fillColor: const Color(0xFFF8FAFC),
@@ -491,7 +494,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                           ),
                           minLines: 3,
                           maxLines: 6,
-                          validator: (v) => (v == null || v.trim().isEmpty) ? '請輸入題目' : null,
+                          validator: (v) => (v == null || v.trim().isEmpty) ? tr('qe_stem_required') : null,
                         ),
                       ],
                     ),
@@ -500,14 +503,14 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
 
                   // ── 3. 選項設定與正確答案 ──
                   _buildSectionCard(
-                    title: '選項與正確答案',
+                    title: tr('qe_options'),
                     icon: Icons.checklist_rounded,
                     iconColor: const Color(0xFF10B981),
                     trailing: type == '單選題' && _optionCtrls.length < 6
                         ? TextButton.icon(
                             onPressed: _addOption,
                             icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-                            label: const Text('新增選項', style: TextStyle(fontSize: 12.5)),
+                            label: Text(tr('qe_add_option'), style: TextStyle(fontSize: 12.5)),
                             style: TextButton.styleFrom(
                               foregroundColor: const Color(0xFF10B981),
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -518,8 +521,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '請點擊前方圓鈕標記「正確答案」：',
+                        Text(
+                          tr('qe_mark_answer'),
                           style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                         ),
                         const SizedBox(height: 10),
@@ -574,14 +577,14 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                                   child: TextFormField(
                                     controller: _optionCtrls[index],
                                     decoration: InputDecoration(
-                                      hintText: '輸入選項 $label 內容...',
+                                      hintText: tr('qe_option_hint', [label.toString()]),
                                       isDense: true,
                                       border: InputBorder.none,
                                       contentPadding: const EdgeInsets.symmetric(vertical: 8),
                                     ),
                                     validator: (v) {
                                       if (v == null || v.trim().isEmpty) {
-                                        return '請填寫選項 $label';
+                                        return tr('qe_option_required', [label.toString()]);
                                       }
                                       return null;
                                     },
@@ -593,7 +596,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                                   IconButton(
                                     icon: const Icon(Icons.remove_circle_outline_rounded, size: 18),
                                     color: Colors.grey.shade400,
-                                    tooltip: '移除選項',
+                                    tooltip: tr('qe_remove_option'),
                                     onPressed: () => _removeOption(index),
                                     visualDensity: VisualDensity.compact,
                                   ),
@@ -608,7 +611,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
 
                   // ── 4. 解析與其他設定 ──
                   _buildSectionCard(
-                    title: '解析與備註',
+                    title: tr('qe_explanation'),
                     icon: Icons.lightbulb_outline_rounded,
                     iconColor: const Color(0xFFF59E0B),
                     child: Column(
@@ -617,8 +620,8 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                         TextFormField(
                           controller: _explanationCtrl,
                           decoration: InputDecoration(
-                            labelText: '詳細解析（選填）',
-                            hintText: '記錄解題思路、相關觀念或提醒...',
+                            labelText: tr('qe_explanation_label'),
+                            hintText: tr('qe_explanation_hint'),
                             alignLabelWithHint: true,
                             filled: true,
                             fillColor: const Color(0xFFF8FAFC),
@@ -643,12 +646,12 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                         // 加入我的收藏 Switch
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text(
-                            '加入我的收藏',
+                          title: Text(
+                            tr('qe_add_fav'),
                             style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
                           ),
-                          subtitle: const Text(
-                            '標記為星號收藏，方便在首頁或題庫快速檢視',
+                          subtitle: Text(
+                            tr('qe_add_fav_sub'),
                             style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                           ),
                           // ignore: deprecated_member_use
@@ -687,7 +690,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                         )
                       : const Icon(Icons.check_circle_rounded, size: 20),
                   label: Text(
-                    _saving ? '儲存中...' : (widget.initialData == null ? '確認新增題目' : '更新題目內容'),
+                    _saving ? tr('common_saving') : (widget.initialData == null ? tr('qe_confirm_add') : tr('qe_update')),
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(

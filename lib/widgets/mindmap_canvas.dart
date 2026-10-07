@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'mindmap_node.dart';
+import '../services/app_locale_service.dart';
 
 // ============================================================
 // 心智圖全螢幕橫向/直向檢視頁面 (FullscreenMindMapView)
@@ -86,7 +87,7 @@ class _FullscreenMindMapViewState extends State<FullscreenMindMapView> {
       backgroundColor: const Color(0xFFF9F7F5),
       appBar: AppBar(
         title: Text(
-          widget.title,
+          trv(widget.title),
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -97,7 +98,7 @@ class _FullscreenMindMapViewState extends State<FullscreenMindMapView> {
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           onPressed: widget.onClose ?? () => Navigator.of(context).pop(),
-          tooltip: '關閉全螢幕',
+          tooltip: tr('mm_close_full'),
         ),
         actions: [
           IconButton(
@@ -107,7 +108,7 @@ class _FullscreenMindMapViewState extends State<FullscreenMindMapView> {
                   : Icons.stay_current_landscape_rounded,
             ),
             onPressed: _toggleOrientation,
-            tooltip: _isLandscapeForced ? '切換為直向' : '切換為橫向寬螢幕',
+            tooltip: _isLandscapeForced ? tr('mm_portrait') : tr('mm_landscape'),
           ),
           const SizedBox(width: 8),
         ],
@@ -305,14 +306,14 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
           IconButton(
             icon: const Icon(Icons.add_rounded, size: 20),
             onPressed: () => _zoom(1.2),
-            tooltip: '放大',
+            tooltip: tr('mm_zoom_in'),
             color: const Color(0xFF4A148C),
           ),
           Container(height: 1, color: Colors.grey.shade200),
           IconButton(
             icon: const Icon(Icons.remove_rounded, size: 20),
             onPressed: () => _zoom(0.8),
-            tooltip: '縮小',
+            tooltip: tr('mm_zoom_out'),
             color: const Color(0xFF4A148C),
           ),
           Container(height: 1, color: Colors.grey.shade200),
@@ -323,7 +324,7 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
                 _centerView(_lastViewportSize!);
               }
             },
-            tooltip: '回到中心',
+            tooltip: tr('mm_center'),
             color: const Color(0xFF4A148C),
           ),
           if (widget.showRotateButton && widget.onRotate != null) ...[
@@ -331,7 +332,7 @@ class _InteractiveMindMapViewState extends State<InteractiveMindMapView> {
             IconButton(
               icon: const Icon(Icons.screen_rotation_rounded, size: 20),
               onPressed: widget.onRotate,
-              tooltip: '旋轉螢幕 / 橫向檢視',
+              tooltip: tr('mm_rotate'),
               color: const Color(0xFF4A148C),
             ),
           ],
@@ -364,7 +365,7 @@ class MindMapPainter extends CustomPainter {
 
     final tp = TextPainter(
       text: TextSpan(
-        text: node.label.isEmpty ? (isRoot ? '核心主題' : '分支主題') : node.label,
+        text: node.label.isEmpty ? (isRoot ? tr('mm_root') : tr('mm_branch')) : node.label,
         style: TextStyle(
           color: const Color(0xFF2C2523),
           fontSize: fontSize,
@@ -546,7 +547,7 @@ class MindMapPainter extends CustomPainter {
         node.size.width - (node.children.isNotEmpty ? 36.0 : 20.0);
     final tp = TextPainter(
       text: TextSpan(
-        text: node.label.isEmpty ? (isRoot ? '核心主題' : '分支主題') : node.label,
+        text: node.label.isEmpty ? (isRoot ? tr('mm_root') : tr('mm_branch')) : node.label,
         style: TextStyle(
           color: const Color(0xFF2C2523),
           fontSize: isRoot ? 13.5 : 12.0,

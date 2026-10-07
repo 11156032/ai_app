@@ -62,7 +62,7 @@ extension MainScreenSocialTab on _MainScreenState {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '🌐 廣場',
+                              tr('social_plaza'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 15,
@@ -101,7 +101,7 @@ extension MainScreenSocialTab on _MainScreenState {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  '👥 群組',
+                                  tr('social_groups'),
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: _socialMainTab == 1
@@ -326,14 +326,14 @@ extension MainScreenSocialTab on _MainScreenState {
                         Text(
                           _selectedSocialTopicFilter == 'my_followed' &&
                                   _userJoinedTopicIds.isEmpty
-                              ? '尚未關注任何社群主題'
+                              ? tr('social_no_followed')
                               : _selectedSocialTopicFilter == 'my_followed'
-                                  ? '關注的主題目前尚無貼文'
+                                  ? tr('social_empty_followed')
                                   : _selectedSocialTopicFilter != '全部'
-                                      ? '此主題目前尚無貼文'
+                                      ? tr('social_empty_topic')
                                       : _socialFilter != '全部'
-                                          ? '此分類目前沒有貼文'
-                                          : '還沒有任何貼文，快來發表第一篇！',
+                                          ? tr('social_empty_type')
+                                          : tr('social_empty_all'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: isDark ? Colors.white70 : Colors.black87,
@@ -345,11 +345,11 @@ extension MainScreenSocialTab on _MainScreenState {
                         Text(
                           _selectedSocialTopicFilter == 'my_followed' &&
                                   _userJoinedTopicIds.isEmpty
-                              ? '點擊下方探索並關注感興趣的社群，即時掌握夥伴動態 🚀'
+                              ? tr('social_empty_no_follow_sub')
                               : _selectedSocialTopicFilter != '全部' ||
                                       _socialFilter != '全部'
-                                  ? '可嘗試切換其他分類或重設篩選條件'
-                                  : '分享你的學習筆記、問題或心得，與大家一起進步！',
+                                  ? tr('social_empty_filter_sub')
+                                  : tr('social_empty_all_sub'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color:
@@ -364,7 +364,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             onPressed: () =>
                                 _showTopicExploreBottomSheet(context),
                             icon: const Icon(Icons.explore_rounded, size: 16),
-                            label: const Text('立即探索社群主題'),
+                            label: Text(tr('social_explore_topics')),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _currentPrimaryColor,
                               foregroundColor: Colors.white,
@@ -387,7 +387,7 @@ extension MainScreenSocialTab on _MainScreenState {
                               });
                             },
                             icon: const Icon(Icons.refresh_rounded, size: 16),
-                            label: const Text('重設所有篩選'),
+                            label: Text(tr('social_reset_filters')),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: _currentPrimaryColor,
                               side: BorderSide(
@@ -436,21 +436,26 @@ extension MainScreenSocialTab on _MainScreenState {
         child: Row(
           children: [
             _buildGroupSubTabChip(isDark,
-                myGroups.isNotEmpty ? '我的群組 (${myGroups.length})' : '我的群組', 0),
+                myGroups.isNotEmpty ? tr('group_mine_n', [myGroups.length.toString()]) : tr('group_mine'), 0),
             const SizedBox(width: 8),
-            _buildGroupSubTabChip(isDark, '探索群組', 1),
+            _buildGroupSubTabChip(isDark, tr('group_explore'), 1),
             const Spacer(),
-            // 邀請連結加入按鈕
-            TextButton.icon(
-              onPressed: () => _showJoinByLinkDialog(isDark),
-              icon: Icon(Icons.link, size: 16, color: _currentPrimaryColor),
-              label: Text('用連結加入',
-                  style: TextStyle(
+            // 加入群組按鈕（4 碼加入與 QR Code 掃描）
+            ElevatedButton.icon(
+              onPressed: () => _showJoinGroupDialog(isDark),
+              icon: const Icon(Icons.qr_code_scanner_rounded, size: 14),
+              label: Text(tr('group_join_link'),
+                  style: const TextStyle(
                       fontSize: 12,
-                      color: _currentPrimaryColor,
-                      fontWeight: FontWeight.w600)),
-              style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+                      fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _currentPrimaryColor.withValues(alpha: 0.12),
+                foregroundColor: _currentPrimaryColor,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+              ),
             ),
           ],
         ),
@@ -472,7 +477,7 @@ extension MainScreenSocialTab on _MainScreenState {
                   backgroundColor: _currentPrimaryColor,
                   onPressed: () => _showCreateGroupDialog(),
                   icon: const Icon(Icons.add, color: Colors.white, size: 20),
-                  label: const Text('建立群組',
+                  label: Text(tr('group_create'),
                       style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
@@ -522,7 +527,7 @@ extension MainScreenSocialTab on _MainScreenState {
                 size: 48,
                 color: isDark ? Colors.white30 : Colors.grey.shade300),
             const SizedBox(height: 12),
-            Text('登入後才能加入或建立群組',
+            Text(tr('group_login_needed'),
                 style: TextStyle(
                     color: isDark ? Colors.white38 : Colors.grey,
                     fontSize: 15)),
@@ -533,7 +538,7 @@ extension MainScreenSocialTab on _MainScreenState {
                   backgroundColor: _currentPrimaryColor,
                   foregroundColor: Colors.white,
                   shape: const StadiumBorder()),
-              child: const Text('去登入'),
+              child: Text(tr('common_go_login')),
             ),
           ],
         ),
@@ -547,14 +552,14 @@ extension MainScreenSocialTab on _MainScreenState {
           children: [
             const Text('📚', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 12),
-            Text('還沒有加入任何群組',
+            Text(tr('group_none_joined'),
                 style: TextStyle(
                     color: isDark ? Colors.white38 : Colors.grey,
                     fontSize: 15)),
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => _updateState(() => _groupSubTab = 1),
-              child: Text('去探索群組 →',
+              child: Text(tr('group_go_explore'),
                   style: TextStyle(color: _currentPrimaryColor)),
             ),
           ],
@@ -582,14 +587,14 @@ extension MainScreenSocialTab on _MainScreenState {
           children: [
             const Text('🔭', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 12),
-            Text('目前還沒有任何群組',
+            Text(tr('group_none_exist'),
                 style: TextStyle(
                     color: isDark ? Colors.white38 : Colors.grey,
                     fontSize: 15)),
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => _showCreateGroupDialog(),
-              child: Text('建立第一個群組 →',
+              child: Text(tr('group_create_first'),
                   style: TextStyle(color: _currentPrimaryColor)),
             ),
           ],
@@ -620,7 +625,7 @@ extension MainScreenSocialTab on _MainScreenState {
               });
             },
             decoration: InputDecoration(
-              hintText: '搜尋群組名稱、描述或標籤...',
+              hintText: tr('group_search_hint'),
               hintStyle:
                   TextStyle(color: isDark ? Colors.white38 : Colors.grey),
               prefixIcon: Icon(Icons.search,
@@ -641,7 +646,7 @@ extension MainScreenSocialTab on _MainScreenState {
         Expanded(
           child: filteredGroups.isEmpty
               ? Center(
-                  child: Text('找不到符合的群組',
+                  child: Text(tr('group_not_found'),
                       style: TextStyle(
                           color: isDark ? Colors.white38 : Colors.grey,
                           fontSize: 15)),
@@ -667,7 +672,7 @@ extension MainScreenSocialTab on _MainScreenState {
       Map<String, dynamic> g, bool isDark, Color cardBg, Color borderCol,
       {required bool isMember}) {
     final iconEmoji = g['icon_emoji'] as String? ?? '📚';
-    final name = g['name'] as String? ?? '群組';
+    final name = g['name'] as String? ?? tr('group_default_name');
     final desc = g['description'] as String? ?? '';
     final isPrivate = g['type'] == 'private';
     final memberCount = g['member_count'] as int? ?? 0;
@@ -723,7 +728,7 @@ extension MainScreenSocialTab on _MainScreenState {
                           ? Icons.notifications_active_rounded
                           : Icons.notifications_off_rounded,
                       color: _currentPrimaryColor),
-                  title: Text(isMuted ? '開啟群組通知 🔔' : '關閉群組通知 (靜音) 🔕'),
+                  title: Text(isMuted ? tr('group_unmute') : tr('group_mute')),
                   onTap: () async {
                     Navigator.pop(ctx);
                     final newMuted = await DatabaseHelper.instance
@@ -734,7 +739,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                           content:
-                              Text(newMuted ? '🔕 已將群組設定為靜音' : '🔔 已開啟群組通知'),
+                              Text(newMuted ? tr('group_muted_msg') : tr('group_unmuted_msg')),
                           backgroundColor: _currentPrimaryColor,
                         ),
                       );
@@ -747,7 +752,7 @@ extension MainScreenSocialTab on _MainScreenState {
                           ? Icons.mark_chat_read_rounded
                           : Icons.mark_chat_unread_rounded,
                       color: Colors.orange),
-                  title: Text(unreadCount > 0 ? '標示為已讀 ✓' : '標示為未讀 🔴'),
+                  title: Text(unreadCount > 0 ? tr('group_mark_read') : tr('group_mark_unread')),
                   onTap: () async {
                     Navigator.pop(ctx);
                     if (unreadCount > 0) {
@@ -766,7 +771,7 @@ extension MainScreenSocialTab on _MainScreenState {
                   ListTile(
                     leading: const Icon(Icons.delete_forever_rounded,
                         color: Colors.redAccent),
-                    title: const Text('刪除群組',
+                    title: Text(tr('group_delete'),
                         style: TextStyle(
                             color: Colors.redAccent,
                             fontWeight: FontWeight.bold)),
@@ -778,12 +783,12 @@ extension MainScreenSocialTab on _MainScreenState {
                         builder: (dlgCtx) => AlertDialog(
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20)),
-                          title: const Text('確定要刪除群組？'),
-                          content: Text('刪除後「$groupName」內的所有公告與訊息將會被永久清空。'),
+                          title: Text(tr('group_delete_confirm')),
+                          content: Text(tr('group_delete_msg', [groupName.toString()])),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(dlgCtx, false),
-                              child: const Text('取消',
+                              child: Text(tr('btn_cancel'),
                                   style: TextStyle(color: Colors.grey)),
                             ),
                             ElevatedButton(
@@ -794,7 +799,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                     borderRadius: BorderRadius.circular(10)),
                               ),
                               onPressed: () => Navigator.pop(dlgCtx, true),
-                              child: const Text('確定刪除'),
+                              child: Text(tr('common_confirm_delete')),
                             ),
                           ],
                         ),
@@ -806,7 +811,7 @@ extension MainScreenSocialTab on _MainScreenState {
                         if (mounted) {
                           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                             SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                              content: Text('已刪除群組「$groupName」'),
+                              content: Text(tr('group_deleted', [groupName.toString()])),
                               backgroundColor: Colors.redAccent,
                             ),
                           );
@@ -908,7 +913,7 @@ extension MainScreenSocialTab on _MainScreenState {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          isPrivate ? '🔒 私人' : '🌐 公開',
+                          isPrivate ? tr('group_private') : tr('group_public'),
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -939,7 +944,7 @@ extension MainScreenSocialTab on _MainScreenState {
                           color:
                               isDark ? Colors.white38 : Colors.grey.shade500),
                       const SizedBox(width: 4),
-                      Text('$memberCount 位成員',
+                      Text(tr('group_members_n', [memberCount.toString()]),
                           style: TextStyle(
                               fontSize: 12,
                               color: isDark
@@ -973,7 +978,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             border: Border.all(
                                 color: Colors.orange.withValues(alpha: 0.4)),
                           ),
-                          child: Text('⏳ $pendingCount 待審核',
+                          child: Text(tr('group_pending_n', [pendingCount.toString()]),
                               style: const TextStyle(
                                   fontSize: 11,
                                   color: Colors.orange,
@@ -995,8 +1000,8 @@ extension MainScreenSocialTab on _MainScreenState {
                           ),
                           child: Text(
                               isMuted
-                                  ? '🔕 $unreadCount 則新動態'
-                                  : '🔴 $unreadCount 則新動態',
+                                  ? tr('group_new_muted_n', [unreadCount.toString()])
+                                  : tr('group_new_n', [unreadCount.toString()]),
                               style: TextStyle(
                                   fontSize: 11,
                                   color:
@@ -1011,7 +1016,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             color: _currentPrimaryColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text('✓ 已加入',
+                          child: Text(tr('group_joined'),
                               style: TextStyle(
                                   fontSize: 11,
                                   color: _currentPrimaryColor,
@@ -1049,207 +1054,19 @@ extension MainScreenSocialTab on _MainScreenState {
     );
   }
 
-  // ── 透過邀請碼 / 邀請連結加入 ──────────────────────────────────────────
-  void _showJoinByLinkDialog(bool isDark) {
+  // ── 加入群組彈窗（4 碼數字 / QR Code / 邀請連結） ────────────────────────
+  void _showJoinGroupDialog([bool? isDark]) {
     if (widget.currentUser['id'] == 'u4') {
       _showGuestLoginPrompt();
       return;
     }
-    final ctrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? const Color(0xFF242424) : Colors.white,
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: _currentPrimaryColor.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.group_add_rounded,
-                  color: _currentPrimaryColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '加入學習群組',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '請輸入群組邀請碼，或貼上對方分享的邀請連結',
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl,
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-              decoration: InputDecoration(
-                hintText: '請輸入邀請碼...',
-                hintStyle: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
-                ),
-                filled: true,
-                fillColor: isDark
-                    ? Colors.grey.shade900.withValues(alpha: 0.6)
-                    : Colors.grey.shade100,
-                prefixIcon: Icon(Icons.vpn_key_outlined,
-                    size: 19, color: _currentPrimaryColor),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide:
-                      BorderSide(color: _currentPrimaryColor, width: 1.5),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                suffixIcon: IconButton(
-                  tooltip: '一鍵貼上',
-                  icon: Icon(Icons.paste_rounded,
-                      size: 19, color: _currentPrimaryColor),
-                  onPressed: () async {
-                    final data = await Clipboard.getData(Clipboard.kTextPlain);
-                    if (data?.text != null && data!.text!.trim().isNotEmpty) {
-                      ctrl.text = data.text!.trim();
-                    }
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: TextButton.styleFrom(
-              foregroundColor:
-                  isDark ? Colors.grey.shade400 : Colors.grey.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            ),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _currentPrimaryColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () async {
-              final input = ctrl.text.trim();
-              Navigator.pop(ctx);
-              await _joinByLink(input);
-            },
-            child:
-                const Text('加入', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
+      builder: (_) => JoinGroupDialog(
+        currentUser: widget.currentUser,
+        onJoined: _loadData,
       ),
     );
-  }
-
-  Future<void> _joinByLink(String link) async {
-    final input = link.trim();
-    if (input.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text('請輸入邀請碼或貼上邀請連結'),
-              duration: Duration(milliseconds: 1200),
-            ),
-          );
-      }
-      return;
-    }
-
-    String? token;
-    String? type;
-    String? ref;
-
-    try {
-      final uri = Uri.tryParse(input);
-      if (uri != null && uri.hasQuery) {
-        token = uri.queryParameters['token'];
-        type = uri.queryParameters['type'];
-        ref = uri.queryParameters['ref'];
-      }
-    } catch (_) {}
-
-    // 若非完整 URL query 格式，直接使用輸入字串當作邀請碼 token
-    token ??= input;
-
-    try {
-      final group = await DatabaseHelper.instance.getGroupByToken(token);
-      if (group == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-            ..clearSnackBars()
-            ..showSnackBar(
-              const SnackBar(
-                content: Text('找不到對應的群組，邀請碼或連結可能無效'),
-                backgroundColor: Colors.redAccent,
-                duration: Duration(milliseconds: 1200),
-              ),
-            );
-        }
-        return;
-      }
-
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => GroupDetailPage(
-              group: group,
-              currentUser: widget.currentUser,
-              inviteType: type,
-              inviteRefId: ref,
-            ),
-          ),
-        ).then((_) => _loadData());
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text('加入失敗：$e'),
-              duration: const Duration(milliseconds: 1200),
-            ),
-          );
-      }
-    }
   }
 
 
@@ -1263,24 +1080,24 @@ extension MainScreenSocialTab on _MainScreenState {
         orElse: () => <String, dynamic>{},
       );
       if (postWithAuthor.isNotEmpty) {
-        authorName = (postWithAuthor['author'] ?? '用戶').toString();
+        authorName = (postWithAuthor['author'] ?? tr('common_user')).toString();
       } else {
-        authorName = '未知用戶';
+        authorName = tr('common_unknown_user');
       }
     }
 
     final Map<String, String> compactTypeLabels = {
-      '全部': '全部',
-      '📝 學習筆記': '📝 筆記',
-      '💭 心情文章': '💭 心情',
-      '📄 分享資料': '📄 資料',
+      '全部': tr('val_all'),
+      '📝 學習筆記': tr('social_compact_note'),
+      '💭 心情文章': tr('social_compact_mood'),
+      '📄 分享資料': tr('social_compact_doc'),
       '📦 學習 Pack': '📦 Pack',
     };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── 1. iOS 風格精緻分段控制器（貼文類型）──
+        // ── 1. iOS 風格精緻分段控制器（貼文類型 - 單一滑動膠囊背景，徹底杜絕相鄰閃爍）──
         Container(
           margin: const EdgeInsets.fromLTRB(16, 6, 16, 8),
           padding: const EdgeInsets.all(3.5),
@@ -1289,59 +1106,96 @@ extension MainScreenSocialTab on _MainScreenState {
                 _isDarkMode ? const Color(0xFF26262E) : const Color(0xFFECEEF2),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Row(
-            children: kSocialFilterMap.keys.map((fullLabel) {
-              final isSelected = _socialFilter == fullLabel;
-              final displayLabel = compactTypeLabels[fullLabel] ?? fullLabel;
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final filterKeys = kSocialFilterMap.keys.toList();
+              final selectedIndex = filterKeys.indexOf(_socialFilter);
+              final validIndex = selectedIndex >= 0 ? selectedIndex : 0;
+              final double alignmentX = filterKeys.length > 1
+                  ? (2.0 * validIndex / (filterKeys.length - 1)) - 1.0
+                  : 0.0;
 
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => _update(() => _socialFilter = fullLabel),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? (_isDarkMode
-                              ? const Color(0xFF383844)
-                              : Colors.white)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: isSelected
-                          ? [
+              return Stack(
+                children: [
+                  // ── 滑動膠囊背景（單一實體滑動，徹底消除相鄰元件陰影/背景閃爍）──
+                  Positioned.fill(
+                    child: AnimatedAlign(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment(alignmentX, 0.0),
+                      child: FractionallySizedBox(
+                        widthFactor: 1.0 / filterKeys.length,
+                        heightFactor: 1.0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _isDarkMode
+                                ? const Color(0xFF383844)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(
                                     alpha: _isDarkMode ? 0.3 : 0.08),
                                 blurRadius: 4,
                                 offset: const Offset(0, 1.5),
-                              )
-                            ]
-                          : null,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      displayLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected
-                            ? (_isDarkMode
-                                ? Colors.white
-                                : _currentPrimaryColor)
-                            : (_isDarkMode
-                                ? Colors.white54
-                                : Colors.grey.shade600),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+
+                  // ── 選項文字列（點擊時平滑切換，無閃爍）──
+                  Row(
+                    children: filterKeys.map((fullLabel) {
+                      final isSelected = _socialFilter == fullLabel;
+                      final displayLabel =
+                          compactTypeLabels[fullLabel] ?? fullLabel;
+
+                      return Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            if (_socialFilter != fullLabel) {
+                              HapticFeedback.selectionClick();
+                              _update(() => _socialFilter = fullLabel);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 6.5),
+                            alignment: Alignment.center,
+                            child: AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? (_isDarkMode
+                                        ? Colors.white
+                                        : _currentPrimaryColor)
+                                    : (_isDarkMode
+                                        ? Colors.white54
+                                        : Colors.grey.shade600),
+                              ),
+                              child: Text(
+                                displayLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               );
-            }).toList(),
+            },
           ),
         ),
 
@@ -1359,7 +1213,7 @@ extension MainScreenSocialTab on _MainScreenState {
                     avatar: Icon(Icons.star_rounded,
                         size: 14, color: Colors.amber.shade700),
                     label: Text(
-                      '已關注社群 (${_userJoinedTopicIds.length})',
+                      tr('social_followed_n', [_userJoinedTopicIds.length.toString()]),
                       style: TextStyle(
                         fontSize: 11,
                         color: _isDarkMode ? Colors.white : Colors.black87,
@@ -1419,7 +1273,7 @@ extension MainScreenSocialTab on _MainScreenState {
                     avatar: const Icon(Icons.person_rounded,
                         size: 13, color: Colors.white),
                     label: Text(
-                      '$authorName 的貼文',
+                      tr('social_author_posts', [authorName.toString()]),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Colors.white,
@@ -1456,10 +1310,10 @@ extension MainScreenSocialTab on _MainScreenState {
             borderRadius: BorderRadius.circular(15),
             border: Border.all(color: Colors.orange.shade200)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Row(children: [
+          Row(children: [
             Icon(Icons.schedule, color: Colors.orange, size: 20),
             SizedBox(width: 8),
-            Text('待發佈排程',
+            Text(tr('sched_pending'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: Colors.orange))
           ]),
@@ -1479,7 +1333,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 14)),
                   const SizedBox(height: 4),
-                  Text('排定時間: ${sp['scheduled_at']}',
+                  Text(tr('sched_time_n', [(sp['scheduled_at']).toString()]),
                       style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   const SizedBox(height: 8),
                   Row(
@@ -1491,7 +1345,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             minimumSize: const Size(40, 30)),
                         icon: Icon(Icons.edit,
                             size: 16, color: _currentPrimaryColor),
-                        label: Text('編輯',
+                        label: Text(tr('common_edit'),
                             style: TextStyle(
                                 fontSize: 12, color: _currentPrimaryColor)),
                         onPressed: () => _showEditScheduledPostDialog(sp),
@@ -1503,7 +1357,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             minimumSize: const Size(40, 30)),
                         icon: const Icon(Icons.delete_outline,
                             size: 16, color: Colors.redAccent),
-                        label: const Text('刪除',
+                        label: Text(tr('common_delete'),
                             style: TextStyle(
                                 fontSize: 12, color: Colors.redAccent)),
                         onPressed: () => _deleteScheduledPost(sp),
@@ -1515,7 +1369,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             minimumSize: const Size(40, 30)),
                         icon: const Icon(Icons.send,
                             size: 16, color: Colors.orange),
-                        label: const Text('立即發佈',
+                        label: Text(tr('sched_publish_now'),
                             style:
                                 TextStyle(fontSize: 12, color: Colors.orange)),
                         onPressed: () => _publishNow(sp),
@@ -1531,15 +1385,15 @@ extension MainScreenSocialTab on _MainScreenState {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('確認刪除'),
-        content: const Text('確定要刪除這篇排程貼文嗎？此操作無法復原。'),
+        title: Text(tr('delete_account_confirm')),
+        content: Text(tr('sched_delete_msg')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+              child: Text(tr('btn_cancel'))),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('刪除', style: TextStyle(color: Colors.red))),
+              child: Text(tr('common_delete'), style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -1550,7 +1404,7 @@ extension MainScreenSocialTab on _MainScreenState {
       await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已刪除排程貼文')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('sched_deleted'))));
       }
     }
   }
@@ -1569,14 +1423,14 @@ extension MainScreenSocialTab on _MainScreenState {
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('貼文已發佈！')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('sched_published'))));
     }
   }
 
   void _showCreatePostScreen() {
     if (widget.currentUser['id'] == 'u4') {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('訪客無法發佈貼文，請登入完整帳號')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('guest_no_post'))));
       return;
     }
     Navigator.push(
@@ -1709,7 +1563,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                kPostTypeLabel[p['postType']] ?? '',
+                                trv(kPostTypeLabel[p['postType']] ?? ''),
                                 style: TextStyle(
                                   fontSize: 9.5,
                                   color: _currentPrimaryColor,
@@ -1735,7 +1589,7 @@ extension MainScreenSocialTab on _MainScreenState {
                           if ((p['isEdited'] as int? ?? 0) == 1) ...[
                             const SizedBox(width: 6),
                             Text(
-                              '已編輯',
+                              tr('post_edited'),
                               style: TextStyle(
                                 color: isDark
                                     ? Colors.white30
@@ -1761,10 +1615,10 @@ extension MainScreenSocialTab on _MainScreenState {
                       if (val == 'delete') _deletePost(p);
                     },
                     itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'edit', child: Text('編輯貼文')),
-                      const PopupMenuItem(
+                      PopupMenuItem(value: 'edit', child: Text(tr('post_edit_title'))),
+                      PopupMenuItem(
                           value: 'delete',
-                          child: Text('刪除貼文',
+                          child: Text(tr('post_delete_title'),
                               style: TextStyle(color: Colors.red))),
                     ],
                   ),
@@ -1807,7 +1661,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '展開全文',
+                                tr('post_expand'),
                                 style: TextStyle(
                                   color: _currentPrimaryColor,
                                   fontSize: 12.5,
@@ -1843,7 +1697,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '收起全文',
+                                tr('post_collapse'),
                                 style: TextStyle(
                                   color: _currentPrimaryColor,
                                   fontSize: 12.5,
@@ -1955,7 +1809,7 @@ extension MainScreenSocialTab on _MainScreenState {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    kPostTypeLabel[p['postType']] ?? '',
+                    trv(kPostTypeLabel[p['postType']] ?? ''),
                     style: TextStyle(
                       fontSize: 8.5,
                       color: isDark
@@ -1979,11 +1833,11 @@ extension MainScreenSocialTab on _MainScreenState {
                     if (val == 'delete') _deletePost(p);
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('編輯貼文')),
-                    const PopupMenuItem(
+                    PopupMenuItem(value: 'edit', child: Text(tr('post_edit_title'))),
+                    PopupMenuItem(
                         value: 'delete',
                         child:
-                            Text('刪除貼文', style: TextStyle(color: Colors.red))),
+                            Text(tr('post_delete_title'), style: TextStyle(color: Colors.red))),
                   ],
                 ),
                 const SizedBox(width: 4),
@@ -2078,7 +1932,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                             size: 14,
                                             color: _currentPrimaryColor),
                                         const SizedBox(width: 4),
-                                        Text('附加檔案 (點擊展開)',
+                                        Text(tr('post_attachment_expand'),
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 color: _currentPrimaryColor,
@@ -2100,7 +1954,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                             size: 14,
                                             color: _currentPrimaryColor),
                                         const SizedBox(width: 4),
-                                        Text('學習 Pack (點擊展開)',
+                                        Text(tr('post_pack_expand'),
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 color: _currentPrimaryColor,
@@ -2122,7 +1976,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          '展開全文',
+                                          tr('post_expand'),
                                           style: TextStyle(
                                             color: _currentPrimaryColor,
                                             fontSize: 12,
@@ -2172,7 +2026,7 @@ extension MainScreenSocialTab on _MainScreenState {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        '收起內容',
+                                        tr('post_collapse_content'),
                                         style: TextStyle(
                                           color: _currentPrimaryColor,
                                           fontSize: 12,
@@ -2486,7 +2340,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       children: [
                         // 順時針旋轉 90 度按鈕
                         IconButton(
-                          tooltip: '旋轉 90°',
+                          tooltip: tr('img_rotate_90'),
                           onPressed: () {
                             setStateDialog(() {
                               rotationDegrees =
@@ -2503,7 +2357,7 @@ extension MainScreenSocialTab on _MainScreenState {
                         ),
                         // 切換 360 度自由微調滑軌
                         IconButton(
-                          tooltip: '360° 自由角度微調',
+                          tooltip: tr('img_rotate_free'),
                           onPressed: () {
                             setStateDialog(() {
                               showSlider = !showSlider;
@@ -2518,7 +2372,7 @@ extension MainScreenSocialTab on _MainScreenState {
                         // 重置角度按鈕
                         if (rotationDegrees != 0)
                           IconButton(
-                            tooltip: '重置角度',
+                            tooltip: tr('img_rotate_reset'),
                             onPressed: () {
                               setStateDialog(() {
                                 rotationDegrees = 0.0;
@@ -2622,8 +2476,8 @@ extension MainScreenSocialTab on _MainScreenState {
                         Expanded(
                           child: Text(
                             p['author'] != null
-                                ? ' ${p['author']} 的圖片（雙指可放大）'
-                                : ' 圖片預覽（雙指可放大）',
+                                ? tr('img_author_preview', [(p['author']).toString()])
+                                : tr('img_preview'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,
@@ -2739,13 +2593,13 @@ extension MainScreenSocialTab on _MainScreenState {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.white24, width: 0.8),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.zoom_in, color: Colors.white, size: 11),
                       SizedBox(width: 4),
                       Text(
-                        '點擊可查看全圖',
+                        tr('img_tap_full'),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -2764,7 +2618,7 @@ extension MainScreenSocialTab on _MainScreenState {
   }
 
   Widget _buildFileAttachment(Map<String, dynamic> p) {
-    final fileName = p['fileName'] as String? ?? '未命名文件';
+    final fileName = p['fileName'] as String? ?? tr('file_unnamed');
     final isDark = _isDarkMode;
     final primary = _currentPrimaryColor;
 
@@ -2796,7 +2650,7 @@ extension MainScreenSocialTab on _MainScreenState {
                       textAlign: TextAlign.center,
                       maxLines: 2),
                   const SizedBox(height: 8),
-                  Text('文件大小：未知 • 類型：文件',
+                  Text(tr('file_meta_unknown'),
                       style: TextStyle(
                           fontSize: 12,
                           color: isDark ? Colors.white54 : Colors.grey)),
@@ -2804,7 +2658,7 @@ extension MainScreenSocialTab on _MainScreenState {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildFileActionBtn(ctx, Icons.visibility_rounded, '線上預覽',
+                      _buildFileActionBtn(ctx, Icons.visibility_rounded, tr('file_preview_online'),
                           () async {
                         Navigator.pop(ctx);
                         try {
@@ -2822,11 +2676,11 @@ extension MainScreenSocialTab on _MainScreenState {
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                                SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('預覽發生錯誤: $e')));
+                                SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('file_preview_error', [e.toString()]))));
                           }
                         }
                       }),
-                      _buildFileActionBtn(ctx, Icons.download_rounded, '下載檔案',
+                      _buildFileActionBtn(ctx, Icons.download_rounded, tr('file_download'),
                           () async {
                         Navigator.pop(ctx);
                         try {
@@ -2846,7 +2700,7 @@ extension MainScreenSocialTab on _MainScreenState {
                             try {
                               String? result =
                                   await FilePicker.platform.saveFile(
-                                dialogTitle: '請選擇儲存位置',
+                                dialogTitle: tr('file_pick_location'),
                                 fileName: fullName,
                                 type: FileType.any,
                               );
@@ -2886,12 +2740,12 @@ extension MainScreenSocialTab on _MainScreenState {
                             final filePath = savedFile.path;
                             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                               SnackBar(
-                                content: Text('✅ 檔案已成功儲存至：$displayLocation'),
+                                content: Text(tr('file_saved_to', [displayLocation.toString()])),
                                 behavior: SnackBarBehavior.floating,
                                 backgroundColor: Colors.green.shade600,
                                 duration: const Duration(seconds: 6),
                                 action: SnackBarAction(
-                                  label: '開啟檔案',
+                                  label: tr('file_open'),
                                   textColor: Colors.white,
                                   onPressed: () => OpenFilex.open(filePath),
                                 ),
@@ -2899,13 +2753,13 @@ extension MainScreenSocialTab on _MainScreenState {
                             );
                           } else if (mounted && savedFile == null) {
                             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('下載已取消或無法儲存')),
+                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('file_download_cancelled'))),
                             );
                           }
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('下載失敗: $e')),
+                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('file_download_failed', [e.toString()]))),
                             );
                           }
                         }
@@ -2954,7 +2808,7 @@ extension MainScreenSocialTab on _MainScreenState {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                Text('點擊預覽或下載',
+                Text(tr('file_tap_preview'),
                     style: TextStyle(
                         fontSize: 11,
                         color: isDark ? Colors.white54 : Colors.grey.shade600)),
@@ -3048,15 +2902,15 @@ startxref
     try {
       final result = await OpenFilex.open(filePath);
       if (result.type != ResultType.done && context.mounted) {
-        String msg = '無法開啟檔案';
+        String msg = tr('file_cannot_open');
         if (result.type == ResultType.noAppToOpen) {
-          msg = '手機未安裝可開啟此格式的應用程式 (例如 PDF 閱讀器或 Word)';
+          msg = tr('file_no_app');
         } else if (result.type == ResultType.fileNotFound) {
-          msg = '找不到檔案，請嘗試重新下載';
+          msg = tr('file_not_found');
         } else if (result.type == ResultType.permissionDenied) {
-          msg = '缺少存取權限，無法開啟檔案';
+          msg = tr('file_no_permission');
         } else if (result.message.isNotEmpty) {
-          msg = '開啟失敗: ${result.message}';
+          msg = tr('file_open_failed_msg', [result.message.toString()]);
         }
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(
@@ -3071,7 +2925,7 @@ startxref
       if (context.mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(
-            content: Text('開啟檔案失敗: $e'),
+            content: Text(tr('file_open_failed', [e.toString()])),
             duration: const Duration(milliseconds: 1500),
             behavior: SnackBarBehavior.floating,
           ),
@@ -3186,11 +3040,11 @@ startxref
           child: Icon(Icons.lock_outline_rounded,
               color: _currentPrimaryColor, size: 32),
         ),
-        title: const Text('需要登入才能使用',
+        title: Text(tr('login_required_title'),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        content: const Text(
-          '此功能僅限登入的會員使用。\n請先登入或註冊正式帳號，\n即可發文、留言與互動！',
+        content: Text(
+          tr('login_required_msg'),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13.5, color: Colors.black54, height: 1.6),
         ),
@@ -3202,7 +3056,7 @@ startxref
               foregroundColor: Colors.grey,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
-            child: const Text('待會兒再看'),
+            child: Text(tr('login_later')),
           ),
           ElevatedButton(
             onPressed: () {
@@ -3217,7 +3071,7 @@ startxref
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('去登入'),
+            child: Text(tr('common_go_login')),
           ),
         ],
       ),
@@ -3283,7 +3137,7 @@ startxref
     final primary = _currentPrimaryColor;
     final bool isOwnPost = p['userId'] == widget.currentUser['id'];
 
-    String author = (p['author'] as String? ?? '未知用戶').trim();
+    String author = (p['author'] as String? ?? tr('common_unknown_user')).trim();
     String bio =
         (p['authorBio'] as String? ?? p['bio'] as String? ?? '').trim();
     Uint8List? avatarBlob =
@@ -3398,7 +3252,7 @@ startxref
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isOwnPost ? '我的個人名片' : '社群學習夥伴',
+                                  isOwnPost ? tr('card_mine') : tr('card_peer'),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 11,
@@ -3416,7 +3270,7 @@ startxref
                             icon: const Icon(Icons.close_rounded,
                                 color: Colors.white, size: 20),
                             onPressed: () => Navigator.pop(ctx),
-                            tooltip: '關閉',
+                            tooltip: tr('btn_close'),
                           ),
                         ),
                       ],
@@ -3521,7 +3375,7 @@ startxref
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '✨ 這是你本人',
+                          tr('card_this_is_you'),
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
@@ -3555,7 +3409,7 @@ startxref
                                   size: 16, color: primary),
                               const SizedBox(width: 6),
                               Text(
-                                '個人簡介',
+                                tr('profile_bio'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -3570,8 +3424,8 @@ startxref
                             bio.isNotEmpty
                                 ? bio
                                 : (isOwnPost
-                                    ? '你尚未填寫個人簡介，點擊下方立即設定！'
-                                    : '這位學習夥伴很專注，尚未填寫個人簡介 🌱'),
+                                    ? tr('card_bio_empty_own')
+                                    : tr('card_bio_empty_peer')),
                             style: TextStyle(
                               fontSize: 13.5,
                               height: 1.5,
@@ -3655,7 +3509,7 @@ startxref
                             _showEditBioDialog();
                           },
                           icon: const Icon(Icons.edit_note_rounded, size: 18),
-                          label: const Text('編輯我的簡介',
+                          label: Text(tr('card_edit_bio'),
                               style: TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 14)),
                           style: ElevatedButton.styleFrom(
@@ -3684,7 +3538,7 @@ startxref
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text('關閉名片',
+                        child: Text(tr('card_close'),
                             style: TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 13)),
                       ),
@@ -3717,8 +3571,8 @@ startxref
         isDark ? Colors.white10 : _currentPrimaryColor.withValues(alpha: 0.2);
 
     if (sharedType == 'note') {
-      final String title = attached['title'] ?? '無標題筆記';
-      final String category = attached['category'] ?? '未分類';
+      final String title = attached['title'] ?? tr('note_untitled');
+      final String category = attached['category'] ?? tr('val_uncategorized');
       final String rawContent = attached['content'] ?? '';
       final bool hasStrokes = attached['strokes'] != null &&
           attached['strokes'].toString() != '[]' &&
@@ -3736,7 +3590,7 @@ startxref
           .replaceAll(RegExp(r'\n+'), ' ')
           .trim();
       if (cleanExcerpt.isEmpty) {
-        cleanExcerpt = '（點擊卡片即可檢視完整純文字筆記）';
+        cleanExcerpt = tr('note_tap_full');
       }
 
       return GestureDetector(
@@ -3875,7 +3729,7 @@ startxref
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        '純文字筆記',
+                                        tr('note_plain'),
                                         style: TextStyle(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.w500,
@@ -3914,7 +3768,7 @@ startxref
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        '匯入筆記',
+                                        tr('note_import'),
                                         style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.bold,
@@ -3968,7 +3822,7 @@ startxref
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '題目挑戰：$subject',
+                    tr('q_challenge', [subject.toString()]),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
@@ -3983,7 +3837,7 @@ startxref
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '難度: $difficulty',
+                    tr('q_difficulty', [difficulty.toString()]),
                     style: TextStyle(
                         fontSize: 10,
                         color: _currentPrimaryColor,
@@ -4101,7 +3955,7 @@ startxref
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '解析：$explanation',
+                        tr('q_explanation', [explanation.toString()]),
                         style: TextStyle(
                             fontSize: 12,
                             color: isDark
@@ -4128,7 +3982,7 @@ startxref
                     elevation: 1,
                   ),
                   icon: const Icon(Icons.bookmark_add_outlined, size: 15),
-                  label: const Text('收藏至題庫',
+                  label: Text(tr('q_save_to_bank'),
                       style:
                           TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: () => _importSharedQuestion(attached),
@@ -4156,7 +4010,7 @@ startxref
         isDark ? Colors.white10 : _currentPrimaryColor.withValues(alpha: 0.05);
 
     if (sharedType == 'note') {
-      final String title = attached['title'] ?? '無標題筆記';
+      final String title = attached['title'] ?? tr('note_untitled');
       return GestureDetector(
         onTap: () => _showNotePreviewDialog(p),
         child: Container(
@@ -4175,7 +4029,7 @@ startxref
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  '分享筆記: $title',
+                  tr('note_shared_n', [title.toString()]),
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -4191,7 +4045,7 @@ startxref
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 onPressed: () => _importSharedNote(p),
-                child: Text('一鍵匯入',
+                child: Text(tr('common_import_one_tap'),
                     style: TextStyle(
                         fontSize: 11,
                         color: _currentPrimaryColor,
@@ -4222,7 +4076,7 @@ startxref
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                '分享題目: [$subject] $snippet',
+                tr('q_shared_n', [subject.toString(), snippet.toString()]),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -4238,7 +4092,7 @@ startxref
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               onPressed: () => _importSharedQuestion(attached),
-              child: Text('一鍵收藏',
+              child: Text(tr('q_save_one_tap'),
                   style: TextStyle(
                       fontSize: 11,
                       color: _currentPrimaryColor,
@@ -4262,7 +4116,7 @@ startxref
     }
     if (attached == null || attached is! Map) return const SizedBox.shrink();
 
-    final String title = attached['pack_title'] ?? '無標題學習 Pack';
+    final String title = attached['pack_title'] ?? tr('pack_untitled');
     final String desc = attached['pack_description'] ?? '';
     final List events = attached['calendar_events'] ?? [];
     final List papers = attached['user_papers'] ?? [];
@@ -4306,8 +4160,8 @@ startxref
                   color: Colors.orange.shade700,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text(
-                  '學習 Pack',
+                child: Text(
+                  tr('pack_label'),
                   style: TextStyle(
                       fontSize: 10,
                       color: Colors.white,
@@ -4329,9 +4183,9 @@ startxref
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildPackTag('📅 ${events.length} 個排程'),
+              _buildPackTag(tr('pack_events_n', [events.length.toString()])),
               const SizedBox(width: 8),
-              _buildPackTag('📝 ${papers.length} 套試卷'),
+              _buildPackTag(tr('pack_papers_n', [papers.length.toString()])),
             ],
           ),
           const SizedBox(height: 12),
@@ -4340,7 +4194,7 @@ startxref
             child: ElevatedButton.icon(
               onPressed: () => _importLearningPack(attached),
               icon: const Icon(Icons.download_rounded, size: 18),
-              label: const Text('一鍵導入我的日曆行程',
+              label: Text(tr('pack_import_cal'),
                   style: TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange.shade600,
@@ -4381,9 +4235,9 @@ startxref
       initialDate: now,
       firstDate: now.subtract(const Duration(days: 365)),
       lastDate: now.add(const Duration(days: 365 * 5)),
-      helpText: '請選擇計畫的起始日期',
-      cancelText: '取消',
-      confirmText: '開始匯入',
+      helpText: tr('pack_pick_start'),
+      cancelText: tr('btn_cancel'),
+      confirmText: tr('pack_start_import'),
     );
 
     if (startDate == null || !mounted) return;
@@ -4451,14 +4305,14 @@ startxref
       await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('✅ 成功匯入 $importedEvents 個排程與 $importedPapers 套試卷！'),
+          content: Text(tr('pack_imported', [importedEvents.toString(), importedPapers.toString()])),
           backgroundColor: Colors.green,
         ));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('匯入失敗: $e'),
+          content: Text(tr('common_import_failed', [e.toString()])),
           backgroundColor: Colors.red,
         ));
       }
@@ -4470,10 +4324,10 @@ startxref
     final attached = p['attached_data'];
     if (attached == null) return;
     try {
-      final String title = attached['title'] ?? '無標題筆記';
+      final String title = attached['title'] ?? tr('note_untitled');
       final String content = attached['content'] ?? '';
       final String category = attached['category'] ?? '學習';
-      final String authorName = p['author'] ?? '未知用戶';
+      final String authorName = p['author'] ?? tr('common_unknown_user');
       final String authorUserId = p['userId']?.toString() ?? '';
       final int authorAvatarColor = p['authorAvatarColor'] as int? ?? 0;
 
@@ -4509,14 +4363,14 @@ startxref
 
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('🎉 筆記已成功匯入您的筆記本！'),
+          content: Text(tr('note_imported')),
           backgroundColor: _currentPrimaryColor,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('匯入失敗: $e'),
+          content: Text(tr('common_import_failed', [e.toString()])),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -4555,7 +4409,7 @@ startxref
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-            content: Text('🎉 題目已成功收藏至您的題庫！'),
+            content: Text(tr('q_saved')),
             backgroundColor: _currentPrimaryColor,
           ),
         );
@@ -4564,7 +4418,7 @@ startxref
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-            content: Text('收藏失敗: $e'),
+            content: Text(tr('q_save_failed', [e.toString()])),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -4580,12 +4434,12 @@ startxref
     final String rawContent = (attached['content'] as String? ?? '').trim();
     final String pContent = (p['content'] as String? ?? '').trim();
 
-    final String title = rawTitle.isNotEmpty ? rawTitle : '學習筆記';
+    final String title = rawTitle.isNotEmpty ? rawTitle : tr('val_post_note');
     final String content = rawContent.isNotEmpty ? rawContent : pContent;
-    final String category = (attached['category'] ?? '筆記').toString().trim().isNotEmpty
+    final String category = (attached['category'] ?? tr('note_default_cat')).toString().trim().isNotEmpty
         ? attached['category'].toString().trim()
-        : '筆記';
-    final String authorName = (p['author'] ?? '未知用戶').toString();
+        : tr('note_default_cat');
+    final String authorName = (p['author'] ?? tr('common_unknown_user')).toString();
     final String timeStr = (p['time'] ?? '').toString();
 
     // 解析 strokes
@@ -4685,7 +4539,7 @@ startxref
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '•  由 $authorName 分享於 $timeStr',
+                          tr('note_shared_by', [authorName.toString(), timeStr.toString()]),
                           style: TextStyle(
                             fontSize: 12,
                             color:
@@ -4719,7 +4573,7 @@ startxref
                                   ),
                                 ),
                                 child: Text(
-                                  '📝 文字內容',
+                                  tr('note_text_content'),
                                   style: TextStyle(
                                     fontWeight: !showDrawing
                                         ? FontWeight.bold
@@ -4753,7 +4607,7 @@ startxref
                                   ),
                                 ),
                                 child: Text(
-                                  '🎨 手寫塗鴉',
+                                  tr('note_drawing'),
                                   style: TextStyle(
                                     fontWeight: showDrawing
                                         ? FontWeight.bold
@@ -4819,7 +4673,7 @@ startxref
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('關閉',
+                          child: Text(tr('btn_close'),
                               style: TextStyle(
                                   color: Colors.grey,
                                   fontWeight: FontWeight.bold)),
@@ -4836,7 +4690,7 @@ startxref
                                 horizontal: 16, vertical: 8),
                           ),
                           icon: const Icon(Icons.download_rounded, size: 16),
-                          label: const Text('匯入筆記',
+                          label: Text(tr('note_import'),
                               style: TextStyle(
                                   fontSize: 12, fontWeight: FontWeight.bold)),
                           onPressed: () {

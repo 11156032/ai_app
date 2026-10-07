@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../screens/notes_screen.dart';
 import '../../services/ai_diagnosis_service.dart';
+import '../../services/app_locale_service.dart';
 
 class OrganizeNotePickerWidget extends StatefulWidget {
   final Function(String) onSelected;
@@ -38,7 +39,7 @@ class _OrganizeNotePickerWidgetState extends State<OrganizeNotePickerWidget> {
             padding: const EdgeInsets.all(12),
             child: TextField(
               decoration: InputDecoration(
-                  hintText: '搜尋筆記標題...',
+                  hintText: tr('no_search_hint'),
                   prefixIcon: const Icon(Icons.search, size: 20),
                   filled: true,
                   fillColor: Colors.grey.shade100,
@@ -58,7 +59,7 @@ class _OrganizeNotePickerWidgetState extends State<OrganizeNotePickerWidget> {
                     Icon(Icons.note_outlined,
                         size: 36, color: Colors.grey.shade300),
                     const SizedBox(height: 8),
-                    Text(_search.isEmpty ? '您還沒有任何筆記' : '找不到「$_search」相關筆記',
+                    Text(_search.isEmpty ? tr('no_none') : tr('no_not_found', [_search.toString()]),
                         style: const TextStyle(color: Colors.grey)),
                   ],
                 )),
@@ -230,7 +231,7 @@ class OrganizedNoteResultWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 buildChip(
-                    isAi ? 'AI 摘要' : '本地摘要',
+                    isAi ? tr('no_ai_summary') : tr('no_local_summary'),
                     isAi
                         ? Colors.white.withValues(alpha: 0.22)
                         : Colors.orange.withValues(alpha: 0.25),
@@ -263,8 +264,8 @@ class OrganizedNoteResultWidget extends StatelessWidget {
                     Expanded(
                       child: Text(
                         secondsLeft > 0
-                            ? 'AI 額度已達上限，現已切換為本地大綱整理（預計 $secondsLeft 秒後恢復）'
-                            : 'AI 服務繁忙，已暫時切換為本地大綱整理',
+                            ? tr('no_quota_wait', [secondsLeft.toString()])
+                            : tr('no_busy'),
                         style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF5D4037),
@@ -295,7 +296,7 @@ class OrganizedNoteResultWidget extends StatelessWidget {
                           children: [
                             const Text('📌', style: TextStyle(fontSize: 12)),
                             const SizedBox(width: 4),
-                            Text('重點摘要',
+                            Text(tr('vn_tab_summary'),
                                 style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -334,12 +335,12 @@ class OrganizedNoteResultWidget extends StatelessWidget {
                     decoration: BoxDecoration(
                         color: tealAccent.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8)),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('🎯', style: TextStyle(fontSize: 12)),
                         SizedBox(width: 4),
-                        Text('行動建議',
+                        Text(tr('no_actions'),
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -361,7 +362,7 @@ class OrganizedNoteResultWidget extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.add_to_photos, size: 15),
-                    label: const Text('附加至原筆記', style: TextStyle(fontSize: 12)),
+                    label: Text(tr('no_append'), style: TextStyle(fontSize: 12)),
                     style: OutlinedButton.styleFrom(
                         foregroundColor: brown,
                         side: BorderSide(color: lightBrown),
@@ -373,7 +374,7 @@ class OrganizedNoteResultWidget extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.note_add, size: 15),
-                    label: const Text('存為新筆記', style: TextStyle(fontSize: 12)),
+                    label: Text(tr('no_save_new'), style: TextStyle(fontSize: 12)),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: brown,
                         foregroundColor: Colors.white,

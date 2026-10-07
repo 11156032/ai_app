@@ -10,6 +10,7 @@ import 'ai_upload_paper_page.dart';
 import 'ai_analysis_page.dart';
 import 'question_practice_page.dart';
 import 'question_set_detail_page.dart';
+import '../services/app_locale_service.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -50,16 +51,16 @@ class _HomePageState extends State<HomePage> {
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) return '早安 ☀️';
-    if (hour >= 12 && hour < 18) return '午安 🌤️';
-    return '晚安 🌙';
+    if (hour >= 5 && hour < 12) return tr('greet_morning');
+    if (hour >= 12 && hour < 18) return tr('greet_afternoon');
+    return tr('greet_evening');
   }
 
   String get _formattedDate {
     final now = DateTime.now();
-    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final weekdays = [tr('mon'), tr('tue'), tr('wed'), tr('thu'), tr('fri'), tr('sat'), tr('sun')];
     final weekday = weekdays[now.weekday - 1];
-    return '${now.year}年${now.month}月${now.day}日 星期$weekday';
+    return tr('home_date_full', [now.year.toString(), now.month.toString(), now.day.toString(), weekday.toString()]);
   }
 
   Future<void> _loadDashboardData() async {
@@ -142,7 +143,7 @@ class _HomePageState extends State<HomePage> {
       if (rows.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('題庫目前尚無題目，請先新增題目！')),
+          SnackBar(content: Text(tr('home_bank_empty'))),
         );
         return;
       }
@@ -164,7 +165,7 @@ class _HomePageState extends State<HomePage> {
         context,
         MaterialPageRoute(
           builder: (_) => QuestionPracticePage(
-            title: '今日 5 題快速特訓',
+            title: tr('home_daily5'),
             questions: questions,
             currentUser: widget.currentUser,
             saveResult: true,
@@ -197,7 +198,7 @@ class _HomePageState extends State<HomePage> {
     final theme = Theme.of(context);
     final primaryColor = theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
-    final userName = widget.currentUser['display_name'] ?? widget.currentUser['name'] ?? '同學';
+    final userName = widget.currentUser['display_name'] ?? widget.currentUser['name'] ?? tr('home_classmate');
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FA),
@@ -243,7 +244,7 @@ class _HomePageState extends State<HomePage> {
                                     const Text('🔥', style: TextStyle(fontSize: 12)),
                                     const SizedBox(width: 3),
                                     Text(
-                                      '連續 $_streakDays 天',
+                                      tr('home_streak_n', [_streakDays.toString()]),
                                       style: const TextStyle(
                                         color: Colors.orange,
                                         fontSize: 11,
@@ -332,7 +333,7 @@ class _HomePageState extends State<HomePage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '核心功能專區',
+                      tr('home_core'),
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -340,7 +341,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     Text(
-                      '快速探索',
+                      tr('home_explore'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
@@ -360,8 +361,8 @@ class _HomePageState extends State<HomePage> {
                 childAspectRatio: 1.45,
                 children: [
                   _buildFeatureCard(
-                    title: '題庫練習',
-                    subtitle: '分類題目與模擬刷題',
+                    title: tr('home_f_quiz'),
+                    subtitle: tr('home_f_quiz_sub'),
                     icon: Icons.menu_book_rounded,
                     accentColor: const Color(0xFF3B82F6), // 亮藍
                     isDark: isDark,
@@ -383,8 +384,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   _buildFeatureCard(
-                    title: '智能組卷',
-                    subtitle: '自訂考卷與計時模擬',
+                    title: tr('home_f_paper'),
+                    subtitle: tr('home_f_paper_sub'),
                     icon: Icons.assignment_outlined,
                     accentColor: const Color(0xFF10B981), // 翠綠
                     isDark: isDark,
@@ -400,8 +401,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   _buildFeatureCard(
-                    title: 'AI 拍題出題',
-                    subtitle: '相片 / PDF 智慧解析',
+                    title: tr('home_f_snap'),
+                    subtitle: tr('home_f_snap_sub'),
                     icon: Icons.document_scanner_rounded,
                     accentColor: const Color(0xFF8B5CF6), // 紫色
                     badgeText: 'AI',
@@ -420,8 +421,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   _buildFeatureCard(
-                    title: '錯題特訓',
-                    subtitle: '弱點分析與重點重練',
+                    title: tr('home_f_wrong'),
+                    subtitle: tr('home_f_wrong_sub'),
                     icon: Icons.highlight_off_rounded,
                     accentColor: const Color(0xFFEF4444), // 紅色
                     badgeText: _wrongQuestionCount > 0 ? '$_wrongQuestionCount' : null,
@@ -439,8 +440,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   _buildFeatureCard(
-                    title: '學習筆記',
-                    subtitle: '重點整理與手記心得',
+                    title: tr('home_f_notes'),
+                    subtitle: tr('home_f_notes_sub'),
                     icon: Icons.edit_note_rounded,
                     accentColor: const Color(0xFFF59E0B), // 琥珀金
                     isDark: isDark,
@@ -460,8 +461,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   _buildFeatureCard(
-                    title: '學習行事曆',
-                    subtitle: '排程規劃與考試倒數',
+                    title: tr('home_f_cal'),
+                    subtitle: tr('home_f_cal_sub'),
                     icon: Icons.calendar_month_rounded,
                     accentColor: const Color(0xFF06B6D4), // 青藍
                     isDark: isDark,
@@ -472,8 +473,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   _buildFeatureCard(
-                    title: '社群',
-                    subtitle: '學習廣場與討論群組',
+                    title: tr('home_f_social'),
+                    subtitle: tr('home_f_social_sub'),
                     icon: Icons.forum_rounded,
                     accentColor: const Color(0xFFEC4899), // 粉紅
                     isDark: isDark,
@@ -484,8 +485,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   _buildFeatureCard(
-                    title: '能力診斷',
-                    subtitle: '掌握度矩陣與雷達圖',
+                    title: tr('home_f_diag'),
+                    subtitle: tr('home_f_diag_sub'),
                     icon: Icons.insights_rounded,
                     accentColor: primaryColor,
                     isDark: isDark,
@@ -504,7 +505,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '我的精選試卷',
+                        tr('home_my_papers'),
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -518,7 +519,7 @@ class _HomePageState extends State<HomePage> {
                           }
                         },
                         child: Text(
-                          '查看全部 >',
+                          tr('common_view_all'),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -541,7 +542,7 @@ class _HomePageState extends State<HomePage> {
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
                     itemBuilder: (context, index) {
                       final paper = _userPapers[index];
-                      final name = paper['name']?.toString() ?? '未命名試卷';
+                      final name = paper['name']?.toString() ?? tr('paper_unnamed');
                       final count = (paper['question_count'] as num?)?.toInt() ?? 0;
                       final paperId = (paper['id'] as num?)?.toInt();
 
@@ -635,8 +636,8 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        const Text(
-                          '今日學習進度',
+                        Text(
+                          tr('home_today_progress'),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -658,13 +659,13 @@ class _HomePageState extends State<HomePage> {
                             width: 1,
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 14),
                             SizedBox(width: 4),
                             Text(
-                              'AI 診斷分析',
+                              tr('home_ai_diag'),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -684,7 +685,7 @@ class _HomePageState extends State<HomePage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '今日練習目標: $_todayCompletedQuestions / $_dailyTarget 題',
+                      tr('home_daily_target', [_todayCompletedQuestions.toString(), _dailyTarget.toString()]),
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 13,
@@ -729,19 +730,19 @@ class _HomePageState extends State<HomePage> {
                       _buildMetricItem(
                         icon: Icons.timer_outlined,
                         value: '${_todayStudyHours.toStringAsFixed(1)}h',
-                        label: '學習時數',
+                        label: tr('dashboard_study_hours'),
                       ),
                       _buildDivider(),
                       _buildMetricItem(
                         icon: Icons.task_alt_rounded,
-                        value: '$_todayCompletedQuestions 題',
-                        label: '已練題數',
+                        value: tr('home_n_q', [_todayCompletedQuestions.toString()]),
+                        label: tr('home_done_q'),
                       ),
                       _buildDivider(),
                       _buildMetricItem(
                         icon: Icons.stars_rounded,
                         value: '$_todayAccuracy%',
-                        label: '平均正確率',
+                        label: tr('home_avg_acc'),
                       ),
                     ],
                   ),
@@ -844,7 +845,7 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     children: [
                       Text(
-                        '今日 5 題快速特訓',
+                        tr('home_daily5'),
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
@@ -871,7 +872,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '精選跨單元試題，快速檢測今日記憶',
+                    tr('home_daily5_sub'),
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -1057,7 +1058,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const Spacer(),
                 Text(
-                  '$questionCount 題',
+                  tr('home_q_count', [questionCount.toString()]),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -1079,7 +1080,7 @@ class _HomePageState extends State<HomePage> {
             Row(
               children: [
                 Text(
-                  '開始練習',
+                  tr('home_start_practice'),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,

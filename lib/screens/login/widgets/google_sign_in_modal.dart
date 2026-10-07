@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../database/database_helper.dart';
+import '../../../services/app_locale_service.dart';
 
 // ── Google 專屬模擬登入視窗組件 ──────────────────────────────────────────────────
 
@@ -135,17 +136,17 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('移除帳號？'),
-        content: Text('這會將「$name ($email)」從此裝置的登入清單中移除。\n\n您在此APP所有資料仍會妥善保留。'),
+        title: Text(tr('gsi_remove_title')),
+        content: Text(tr('gsi_remove_msg', [name.toString(), email.toString()])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child:
-                const Text('確認移除', style: TextStyle(color: Colors.redAccent)),
+                Text(tr('gsi_confirm_remove'), style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -228,7 +229,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
         const GoogleSpinner(),
         const SizedBox(height: 24),
         Text(
-          '正在透過 Google 安全驗證...',
+          tr('gsi_verifying'),
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -247,8 +248,8 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
       children: [
         _buildGoogleLogoText(),
         const SizedBox(height: 16),
-        const Text(
-          '選取帳號',
+        Text(
+          tr('gsi_pick_account'),
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
@@ -256,8 +257,8 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          '以繼續前往 YeBang 家教',
+        Text(
+          tr('gsi_continue_to'),
           style: TextStyle(
             fontSize: 13.5,
             color: Color(0xFF5F6368),
@@ -326,7 +327,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
           InkWell(
             onTap: () => setState(() => _isAddingAccount = true),
             borderRadius: BorderRadius.circular(8),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
               child: Row(
                 children: [
@@ -334,7 +335,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
                       size: 20, color: Color(0xFF1A73E8)),
                   SizedBox(width: 14),
                   Text(
-                    '使用其他帳號',
+                    tr('gsi_other_account'),
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w600,
@@ -349,7 +350,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
           InkWell(
             onTap: () => setState(() => _isRemovingMode = true),
             borderRadius: BorderRadius.circular(8),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
               child: Row(
                 children: [
@@ -357,7 +358,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
                       size: 20, color: Color(0xFF5F6368)),
                   SizedBox(width: 14),
                   Text(
-                    '移除帳號',
+                    tr('gsi_remove_account'),
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w600,
@@ -372,7 +373,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
           InkWell(
             onTap: () => setState(() => _isRemovingMode = false),
             borderRadius: BorderRadius.circular(8),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -381,7 +382,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
                       size: 20, color: Color(0xFF1A73E8)),
                   SizedBox(width: 8),
                   Text(
-                    '完成',
+                    tr('common_done'),
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w600,
@@ -394,8 +395,8 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
           ),
         ],
         const SizedBox(height: 16),
-        const Text(
-          '若要繼續，Google 會將您的姓名、電子郵件地址和個人資料相片與 YeBang 家教共用。請務必詳閱 YeBang 家教的服務條款和隱私權政策。',
+        Text(
+          tr('gsi_disclaimer'),
           textAlign: TextAlign.start,
           style: TextStyle(
             fontSize: 11,
@@ -416,8 +417,8 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
         children: [
           _buildGoogleLogoText(),
           const SizedBox(height: 16),
-          const Text(
-            '新增 Google 帳號',
+          Text(
+            tr('gsi_add_account'),
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
@@ -429,7 +430,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
-              labelText: '電子郵件地址 (Google 帳號)',
+              labelText: tr('gsi_email_label'),
               hintText: 'user@gmail.com',
               labelStyle: const TextStyle(fontSize: 14),
               border:
@@ -443,9 +444,9 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             ),
             validator: (val) {
-              if (val == null || val.trim().isEmpty) return '請輸入電子郵件';
+              if (val == null || val.trim().isEmpty) return tr('gsi_need_email');
               final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-              if (!emailRegex.hasMatch(val.trim())) return '電子郵件格式不正確';
+              if (!emailRegex.hasMatch(val.trim())) return tr('gsi_bad_email');
               return null;
             },
           ),
@@ -453,8 +454,8 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
           TextFormField(
             controller: _nameCtrl,
             decoration: InputDecoration(
-              labelText: '您的姓名',
-              hintText: '如：小明',
+              labelText: tr('gsi_name'),
+              hintText: tr('gsi_name_hint'),
               labelStyle: const TextStyle(fontSize: 14),
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -467,7 +468,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             ),
             validator: (val) {
-              if (val == null || val.trim().isEmpty) return '請輸入姓名';
+              if (val == null || val.trim().isEmpty) return tr('gsi_need_name');
               return null;
             },
           ),
@@ -477,7 +478,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
             children: [
               TextButton(
                 onPressed: () => setState(() => _isAddingAccount = false),
-                child: const Text('返回',
+                child: Text(tr('common_back'),
                     style: TextStyle(
                         color: Color(0xFF1A73E8), fontWeight: FontWeight.bold)),
               ),
@@ -496,7 +497,7 @@ class _GoogleSignInModalState extends State<GoogleSignInModal> {
                         _emailCtrl.text.trim(), _nameCtrl.text.trim());
                   }
                 },
-                child: const Text('下一步',
+                child: Text(tr('login_next'),
                     style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],

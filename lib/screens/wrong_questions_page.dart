@@ -5,6 +5,7 @@ import '../database/database_helper.dart';
 import '../services/notebook_helper.dart';
 import '../widgets/tour_overlay.dart';
 import 'question_practice_page.dart';
+import '../services/app_locale_service.dart';
 
 class WrongQuestionsPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -139,8 +140,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   Future<void> _deleteSelected() async {
     if (_selected.isEmpty) return;
 
-    final title = _currentMode == 0 ? '刪除選取' : '取消收藏選取';
-    final content = _currentMode == 0 ? '確定要從錯題本移除選取項目嗎？' : '確定要取消收藏選取的項目嗎？';
+    final title = _currentMode == 0 ? tr('wq_delete_sel') : tr('wq_unfav_sel');
+    final content = _currentMode == 0 ? tr('wq_delete_sel_msg') : tr('wq_unfav_sel_msg');
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -150,10 +151,10 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+              child: Text(tr('btn_cancel'))),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('確定')),
+              child: Text(tr('confirm'))),
         ],
       ),
     );
@@ -172,12 +173,12 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       await loadWrongQuestions();
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(_currentMode == 0 ? '已從錯題本移除' : '已取消收藏')));
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(_currentMode == 0 ? tr('wq_removed') : tr('post_unbookmarked'))));
     } catch (e) {
       debugPrint('操作失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('操作失敗')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_op_failed'))));
     }
   }
 
@@ -199,7 +200,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
 
       if (qids.isEmpty) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('選取項目無題目')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_sel_no_q'))));
         return;
       }
       final db = await DatabaseHelper.instance.database;
@@ -229,7 +230,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
             builder: (_) => QuestionPracticePage(
                 questions: mapped,
                 currentUser: widget.currentUser,
-                title: _currentMode == 0 ? '錯題本練習' : '收藏練習')),
+                title: _currentMode == 0 ? tr('wq_practice_wrong') : tr('wq_practice_fav'))),
       ).then((_) {
         if (mounted) {
           loadWrongQuestions();
@@ -239,7 +240,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       debugPrint('啟動練習失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('無法啟動練習')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_cannot_start'))));
     }
   }
 
@@ -248,22 +249,22 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.edit_note_rounded, color: Colors.orange, size: 28),
             SizedBox(width: 12),
-            Text('批次新增筆記',
+            Text(tr('wq_batch_note'),
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
-        content: const Text(
-          '批次筆記功能開發中！\n未來版本將支援一鍵備份同步您的學習筆記，並能批次為精選錯題加入解題心得！',
+        content: Text(
+          tr('wq_batch_note_wip'),
           style: TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('期待！',
+            child: Text(tr('wq_cant_wait'),
                 style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
@@ -302,7 +303,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       final selectedPaper = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('選擇要加入的自訂題本'),
+          title: Text(tr('wq_pick_paper')),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -312,7 +313,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                 if (index == 0) {
                   return ListTile(
                     leading: const Icon(Icons.add, color: Colors.blue),
-                    title: const Text('建立新題本並加入',
+                    title: Text(tr('wq_new_paper_add'),
                         style: TextStyle(
                             color: Colors.blue, fontWeight: FontWeight.bold)),
                     onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
@@ -322,7 +323,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                 return ListTile(
                   leading: const Icon(Icons.assignment_rounded,
                       color: Colors.orange),
-                  title: Text(p['name'] ?? '未命名題本'),
+                  title: Text(p['name'] ?? tr('wq_paper_unnamed')),
                   onTap: () => Navigator.pop(ctx, p),
                 );
               },
@@ -331,7 +332,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text(tr('btn_cancel')),
             ),
           ],
         ),
@@ -342,16 +343,16 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       if (selectedPaper['action'] == 'create_new') {
         if (!mounted) return;
         final newNameController = TextEditingController();
-        final defaultName = '新題本 ${papers.length + 1}';
+        final defaultName = tr('wq_new_paper_n', [(papers.length + 1).toString()]);
 
         final newPaperName = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('建立新題本'),
+            title: Text(tr('wq_new_paper')),
             content: TextField(
               controller: newNameController,
               decoration: InputDecoration(
-                labelText: '題本名稱',
+                labelText: tr('wq_paper_name'),
                 hintText: defaultName,
               ),
               autofocus: true,
@@ -359,14 +360,14 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('取消'),
+                child: Text(tr('btn_cancel')),
               ),
               ElevatedButton(
                 onPressed: () {
                   final text = newNameController.text.trim();
                   Navigator.pop(ctx, text.isEmpty ? defaultName : text);
                 },
-                child: const Text('確定'),
+                child: Text(tr('confirm')),
               ),
             ],
           ),
@@ -382,14 +383,14 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已建立並成功加入「$newPaperName」')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_created_added', [newPaperName.toString()]))),
         );
         _exitSelectionMode();
         return;
       }
 
       final paperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
-      final paperName = selectedPaper['name'] ?? '未命名題本';
+      final paperName = selectedPaper['name'] ?? tr('wq_paper_unnamed');
 
       final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
       final int originalCount = ids.length;
@@ -402,11 +403,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       if (!mounted) return;
       if (addedCount == 0) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('選取的題目已存在於「$paperName」中')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_already_in', [paperName.toString()]))),
         );
       } else {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已成功加入 $addedCount 題至「$paperName」！')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_added_n', [addedCount.toString(), paperName.toString()]))),
         );
       }
       _exitSelectionMode();
@@ -414,7 +415,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       debugPrint('批次加到題本失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('加入失敗，請稍後再試')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_add_failed'))),
       );
     }
   }
@@ -520,9 +521,9 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   // }
 
   Future<void> clearAll() async {
-    final title = _currentMode == 0 ? '清空錯題本' : '清空收藏';
+    final title = _currentMode == 0 ? tr('wq_clear_wrong') : tr('wq_clear_fav');
     final content =
-        _currentMode == 0 ? '確定要清空所有錯題本記錄？此動作無法還原。' : '確定要清空所有收藏？此動作無法還原。';
+        _currentMode == 0 ? tr('wq_clear_wrong_msg') : tr('wq_clear_fav_msg');
 
     final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
@@ -533,11 +534,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('確定'),
+            child: Text(tr('confirm')),
           ),
         ],
       ),
@@ -557,10 +558,10 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       }
       await loadWrongQuestions();
       messenger..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(_currentMode == 0 ? '錯題本已清空' : '已清空所有收藏')));
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(_currentMode == 0 ? tr('wq_cleared_wrong') : tr('wq_cleared_fav'))));
     } catch (e) {
       debugPrint('清空失敗: $e');
-      messenger..hideCurrentSnackBar()..showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('清空失敗')));
+      messenger..hideCurrentSnackBar()..showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_clear_failed'))));
     }
   }
 
@@ -591,7 +592,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              isWrongMode ? '太棒了！' : '收藏庫空空如也',
+              isWrongMode ? tr('wq_great') : tr('wq_fav_empty'),
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -602,9 +603,9 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
             Text(
               _selectedSubject == '全部'
                   ? (isWrongMode
-                      ? '目前沒有任何錯題記錄，請繼續保持優良表現！'
-                      : '目前還沒有收藏題目，快去題庫挑選你感興趣的題目吧！')
-                  : '目前在「$_selectedSubject」下沒有${isWrongMode ? '錯題' : '收藏記錄'}。',
+                      ? tr('wq_no_wrong')
+                      : tr('wq_no_fav'))
+                  : tr('wq_none_in_subject', [trv(_selectedSubject), isWrongMode ? tr('wq_word_wrong') : tr('wq_word_fav')]),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -647,7 +648,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '已選取 ${_selected.length} 項',
+                        tr('wq_selected_n', [_selected.length.toString()]),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -673,7 +674,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                           });
                         },
                         child: Text(
-                          '全選',
+                          tr('wq_select_all'),
                           style: TextStyle(
                             color: cs.primary,
                             fontWeight: FontWeight.bold,
@@ -700,7 +701,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                             return Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: ChoiceChip(
-                                label: Text(subject),
+                                label: Text(trv(subject)),
                                 selected: isSelected,
                                 selectedColor: cs.primary,
                                 backgroundColor: cs.surfaceContainerHighest
@@ -904,10 +905,10 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                 messenger..hideCurrentSnackBar()..showSnackBar(
                                                   SnackBar(
                                                     content:
-                                                        const Text('已取消收藏'),
+                                                        Text(tr('post_unbookmarked')),
                                                     duration: const Duration(milliseconds: 1500),
                                                     action: SnackBarAction(
-                                                      label: '復原',
+                                                      label: tr('wq_restore'),
                                                       textColor: Colors.amber,
                                                       onPressed: () async {
                                                         try {
@@ -931,8 +932,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                 );
                                               } else {
                                                 messenger..hideCurrentSnackBar()..showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text('已加入收藏'),
+                                                  SnackBar(
+                                                    content: Text(tr('wq_faved')),
                                                     duration: Duration(
                                                         milliseconds: 1000),
                                                   ),
@@ -950,7 +951,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                     // Question Text
                                     Text(
                                       questionText.isEmpty
-                                          ? '（載入中或找不到題目資料，ID: $qid）'
+                                          ? tr('wq_loading_q', [qid.toString()])
                                           : questionText,
                                       style: const TextStyle(
                                           fontWeight: FontWeight.bold,
@@ -1069,7 +1070,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                '解析：${r['explanation']}',
+                                                tr('q_explanation_r', [(r['explanation']).toString()]),
                                                 style: TextStyle(
                                                     fontSize: 12,
                                                     color:
@@ -1109,7 +1110,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                '筆記：$note',
+                                                tr('wq_note_n', [note.toString()]),
                                                 style: TextStyle(
                                                     fontSize: 12,
                                                     color: cs.primary,
@@ -1131,7 +1132,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                       children: [
                                         // Add to notebook
                                         IconButton(
-                                          tooltip: '加入筆記本',
+                                          tooltip: tr('wq_add_notebook'),
                                           icon: Icon(Icons.note_add_outlined,
                                               color: cs.primary
                                                   .withValues(alpha: 0.8),
@@ -1156,8 +1157,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                         // Delete single (or Unfavorite)
                                         IconButton(
                                           tooltip: _currentMode == 0
-                                              ? '移除錯題'
-                                              : '取消收藏',
+                                              ? tr('wq_remove_wrong')
+                                              : tr('wq_unfav'),
                                           onPressed: () async {
                                             final messenger =
                                                 ScaffoldMessenger.of(context);
@@ -1169,7 +1170,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                 messenger..hideCurrentSnackBar()..showSnackBar(
                                                     SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                                         content:
-                                                            Text('已從錯題本移除')));
+                                                            Text(tr('wq_removed'))));
                                                 await loadWrongQuestions();
                                               } else {
                                                 final db = await DatabaseHelper
@@ -1189,10 +1190,10 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                 messenger..hideCurrentSnackBar()..showSnackBar(
                                                   SnackBar(
                                                     content:
-                                                        const Text('已取消收藏'),
+                                                        Text(tr('post_unbookmarked')),
                                                     duration: const Duration(milliseconds: 1500),
                                                     action: SnackBarAction(
-                                                      label: '復原',
+                                                      label: tr('wq_restore'),
                                                       textColor: Colors.amber,
                                                       onPressed: () async {
                                                         try {
@@ -1256,21 +1257,21 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                     child: Row(
                       children: [
                         IconButton(
-                          tooltip: _currentMode == 0 ? '從錯題本移除選取' : '取消收藏選取',
+                          tooltip: _currentMode == 0 ? tr('wq_remove_sel_wrong') : tr('wq_unfav_sel'),
                           icon: const Icon(Icons.delete_outline_rounded,
                               color: Colors.redAccent),
                           onPressed: _deleteSelected,
                         ),
                         const SizedBox(width: 4),
                         IconButton(
-                          tooltip: '批次新增筆記',
+                          tooltip: tr('wq_batch_note'),
                           icon:
                               Icon(Icons.note_alt_outlined, color: cs.primary),
                           onPressed: _batchAddNotes,
                         ),
                         const SizedBox(width: 4),
                         IconButton(
-                          tooltip: '批次加到自訂題本',
+                          tooltip: tr('wq_batch_to_paper'),
                           icon: const Icon(Icons.create_new_folder_outlined,
                               color: Colors.orange),
                           onPressed: _batchAddToPaper,
@@ -1281,7 +1282,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                             onPressed: _startPracticeSelected,
                             icon: const Icon(Icons.play_arrow_rounded),
                             label: Text(
-                              _currentMode == 0 ? '複習選取' : '練習選取',
+                              _currentMode == 0 ? tr('wq_review_sel') : tr('wq_practice_sel'),
                               style:
                                   const TextStyle(fontWeight: FontWeight.bold),
                             ),
@@ -1316,11 +1317,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                       questions: displayList,
                       title: _currentMode == 0
                           ? (_selectedSubject == '全部'
-                              ? '全錯題複習'
-                              : '錯題複習 ($_selectedSubject)')
+                              ? tr('wq_review_all_wrong')
+                              : tr('wq_review_wrong_subj', [_selectedSubject.toString()]))
                           : (_selectedSubject == '全部'
-                              ? '全收藏練習'
-                              : '收藏練習 ($_selectedSubject)'),
+                              ? tr('wq_practice_all_fav')
+                              : tr('wq_practice_fav_subj', [_selectedSubject.toString()])),
                       currentUser: widget.currentUser,
                     ),
                   ),
@@ -1333,8 +1334,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
               icon: const Icon(Icons.play_arrow_rounded, size: 24),
               label: Text(
                 _selectedSubject == '全部'
-                    ? '開始練習全部 (${displayList.length} 題)'
-                    : '練習「$_selectedSubject」(${displayList.length} 題)',
+                    ? tr('wq_start_all_n', [displayList.length.toString()])
+                    : tr('wq_start_subj_n', [_selectedSubject.toString(), displayList.length.toString()]),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             )
@@ -1357,7 +1358,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
       backgroundColor: const Color(0xFFFAF8F6),
       appBar: _isSelectionMode
           ? AppBar(
-              title: Text('已選取 ${_selected.length} 項'),
+              title: Text(tr('wq_selected_n', [_selected.length.toString()])),
               backgroundColor: cs.secondaryContainer,
               foregroundColor: cs.onSecondaryContainer,
               leading: IconButton(
@@ -1381,7 +1382,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                     });
                   },
                   child: Text(
-                    '全選',
+                    tr('wq_select_all'),
                     style: TextStyle(
                       color: cs.primary,
                       fontWeight: FontWeight.bold,
@@ -1391,7 +1392,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
               ],
             )
           : AppBar(
-              title: Text(_currentMode == 0 ? '錯題本' : '我的收藏'),
+              title: Text(_currentMode == 0 ? tr('wq_title_wrong') : tr('wq_title_fav')),
               backgroundColor: cs.primary,
               foregroundColor: cs.onPrimary,
             ),
@@ -1411,11 +1412,11 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                           questions: displayList,
                           title: _currentMode == 0
                               ? (_selectedSubject == '全部'
-                                  ? '全錯題複習'
-                                  : '錯題複習 ($_selectedSubject)')
+                                  ? tr('wq_review_all_wrong')
+                                  : tr('wq_review_wrong_subj', [_selectedSubject.toString()]))
                               : (_selectedSubject == '全部'
-                                  ? '全收藏練習'
-                                  : '收藏練習 ($_selectedSubject)'),
+                                  ? tr('wq_practice_all_fav')
+                                  : tr('wq_practice_fav_subj', [_selectedSubject.toString()])),
                           currentUser: widget.currentUser,
                         ),
                       ),
@@ -1428,8 +1429,8 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                   icon: const Icon(Icons.play_arrow_rounded, size: 24),
                   label: Text(
                     _selectedSubject == '全部'
-                        ? '開始練習全部 (${displayList.length} 題)'
-                        : '練習「$_selectedSubject」(${displayList.length} 題)',
+                        ? tr('wq_start_all_n', [displayList.length.toString()])
+                        : tr('wq_start_subj_n', [_selectedSubject.toString(), displayList.length.toString()]),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 )

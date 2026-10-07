@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/app_config_service.dart';
+import '../services/app_locale_service.dart';
 
 class MaintenanceScreen extends StatefulWidget {
   final String? message;
@@ -56,7 +57,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('⚠️ 系統目前仍在維護中，請稍候再試！'),
+            content: Text(tr('maint_still_down')),
             behavior: SnackBarBehavior.floating,
             backgroundColor: const Color(0xFF334155),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -81,8 +82,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
             final displayMsg = widget.message?.isNotEmpty == true
                 ? widget.message!
                 : (dynamicMsg.isNotEmpty
-                    ? dynamicMsg
-                    : '伺服器目前正在進行例行升級與維護，預計稍後恢復，感謝您的耐心等待！');
+                    ? trv(dynamicMsg)
+                    : tr('maint_default_msg'));
 
             return Center(
               child: SingleChildScrollView(
@@ -149,7 +150,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '系統例行維護升級中',
+                            tr('maint_title'),
                             style: TextStyle(
                               color: Colors.orange.shade900,
                               fontSize: 13,
@@ -162,8 +163,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
                     const SizedBox(height: 16),
 
                     // 主標題
-                    const Text(
-                      '服務維護通知',
+                    Text(
+                      tr('maint_notice'),
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w900,
@@ -197,8 +198,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
                               Icon(Icons.info_outline_rounded,
                                   color: Colors.blueGrey.shade700, size: 20),
                               const SizedBox(width: 8),
-                              const Text(
-                                '維護詳細說明',
+                              Text(
+                                tr('maint_detail'),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -245,13 +246,13 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
                                   color: Colors.white,
                                 ),
                               )
-                            : const Row(
+                            : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.refresh_rounded, size: 20),
                                   SizedBox(width: 8),
                                   Text(
-                                    '重新檢查連線狀態',
+                                    tr('maint_recheck'),
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
@@ -264,7 +265,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
                     const SizedBox(height: 16),
 
                     Text(
-                      '感謝您的體諒與支持，我們將盡快恢復完整服務！',
+                      tr('maint_thanks'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/app_locale_service.dart';
 
 // ======================================================================
 // AI 代理人對話內嵌互動卡片元件
@@ -124,10 +125,10 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                       children: [
                         Text(
                           isCompleted
-                              ? '貼文已發佈'
+                              ? tr('card_post_done')
                               : isCancelled
-                                  ? '已取消發佈'
-                                  : '發文草稿',
+                                  ? tr('card_post_cancelled')
+                                  : tr('card_draft'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -136,10 +137,10 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                         ),
                         Text(
                           isCompleted
-                              ? '貼文已成功發佈至社群'
+                              ? tr('card_post_done_sub')
                               : isCancelled
-                                  ? '此草稿已取消'
-                                  : '可在下方編輯後一鍵發佈',
+                                  ? tr('card_draft_cancelled')
+                                  : tr('card_draft_sub'),
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
@@ -159,8 +160,8 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 類型選擇膠囊
-                    const Text(
-                      '貼文類型',
+                    Text(
+                      tr('post_type_label'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -201,7 +202,7 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                                 Text(icon, style: const TextStyle(fontSize: 14)),
                                 const SizedBox(width: 5),
                                 Text(
-                                  label,
+                                  trv(label),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: isSelected
@@ -220,8 +221,8 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                     ),
                     const SizedBox(height: 14),
                     // 內容輸入區
-                    const Text(
-                      '貼文內容',
+                    Text(
+                      tr('sched_post_content'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -245,7 +246,7 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                           height: 1.5,
                         ),
                         decoration: InputDecoration(
-                          hintText: '輸入你想分享的內容...',
+                          hintText: tr('card_content_hint'),
                           hintStyle: TextStyle(
                             color: Colors.grey.shade400,
                             fontSize: 13,
@@ -275,12 +276,12 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.close_rounded, size: 15),
                           SizedBox(width: 4),
-                          Text('取消', style: TextStyle(fontSize: 13)),
+                          Text(tr('btn_cancel'), style: TextStyle(fontSize: 13)),
                         ],
                       ),
                     ),
@@ -296,12 +297,12 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                             borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => widget.onOpenFullEditor(_buildPayload()),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.open_in_new_rounded, size: 14),
                           SizedBox(width: 5),
-                          Text('完整發佈頁',
+                          Text(tr('card_full_page'),
                               style: TextStyle(fontSize: 12.5)),
                         ],
                       ),
@@ -323,7 +324,7 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                           ScaffoldMessenger.of(context).hideCurrentSnackBar();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: const Text('請先輸入貼文內容'),
+                              content: Text(tr('card_need_content')),
                               duration: const Duration(milliseconds: 1500),
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
@@ -334,12 +335,12 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                         }
                         widget.onQuickPublish(_buildPayload());
                       },
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.send_rounded, size: 14),
                           SizedBox(width: 5),
-                          Text('一鍵發佈', style: TextStyle(fontSize: 12.5)),
+                          Text(tr('card_publish'), style: TextStyle(fontSize: 12.5)),
                         ],
                       ),
                     ),
@@ -382,7 +383,7 @@ class _AIDraftPostCardState extends State<AIDraftPostCard> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        isCompleted ? '已發佈' : '已取消',
+                        isCompleted ? tr('card_published') : tr('card_cancelled'),
                         style: TextStyle(
                           fontSize: 12,
                           color:
@@ -438,48 +439,48 @@ class AISmartLaunchCard extends StatelessWidget {
       case 'schedule_form':
         return _DialogMeta(
           icon: Icons.calendar_today_rounded,
-          title: '新增行程',
-          subtitle: '已為您預填行程資訊，一鍵開啟行程表單',
+          title: tr('agent_btn_add_event'),
+          subtitle: tr('card_event_sub'),
           color: const Color(0xFF42A5F5),
           gradient: [const Color(0xFF1565C0), const Color(0xFF42A5F5)],
         );
       case 'todo_form':
         return _DialogMeta(
           icon: Icons.check_circle_outline_rounded,
-          title: '新增待辦',
-          subtitle: '已為您預填待辦事項，一鍵開啟編輯',
+          title: tr('agent_btn_add_todo'),
+          subtitle: tr('card_todo_sub'),
           color: const Color(0xFF66BB6A),
           gradient: [const Color(0xFF2E7D32), const Color(0xFF66BB6A)],
         );
       case 'create_post_page':
         return _DialogMeta(
           icon: Icons.dynamic_feed_rounded,
-          title: '發佈社群貼文',
-          subtitle: '前往完整發佈頁面，帶入 AI 草稿',
+          title: tr('agent_post'),
+          subtitle: tr('card_post_sub'),
           color: const Color(0xFFFF7043),
           gradient: [const Color(0xFFE64A19), const Color(0xFFFF7043)],
         );
       case 'profile_edit':
         return _DialogMeta(
           icon: Icons.person_rounded,
-          title: '修改個人檔案',
-          subtitle: '一鍵開啟個人資料編輯',
+          title: tr('panel_edit_profile'),
+          subtitle: tr('card_profile_sub'),
           color: const Color(0xFF7E57C2),
           gradient: [const Color(0xFF4527A0), const Color(0xFF7E57C2)],
         );
       case 'quiz_jump':
         return _DialogMeta(
           icon: Icons.quiz_rounded,
-          title: '題庫測驗',
-          subtitle: '前往題庫頁面開始練習',
+          title: tr('nav_quiz_full'),
+          subtitle: tr('card_quiz_sub'),
           color: const Color(0xFF26A69A),
           gradient: [const Color(0xFF00695C), const Color(0xFF26A69A)],
         );
       default:
         return _DialogMeta(
           icon: Icons.touch_app_rounded,
-          title: '智慧操作',
-          subtitle: '一鍵開啟相關功能',
+          title: tr('card_smart_action'),
+          subtitle: tr('card_smart_action_sub'),
           color: const Color(0xFF78909C),
           gradient: [const Color(0xFF455A64), const Color(0xFF78909C)],
         );
@@ -545,7 +546,7 @@ class AISmartLaunchCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isCompleted ? '${meta.title} — 已完成' : meta.title,
+                          isCompleted ? tr('card_done_title', [meta.title.toString()]) : meta.title,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -553,7 +554,7 @@ class AISmartLaunchCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          isCompleted ? '已成功開啟並完成操作' : meta.subtitle,
+                          isCompleted ? tr('card_done_sub') : meta.subtitle,
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
@@ -572,8 +573,8 @@ class AISmartLaunchCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'AI 偵測參數',
+                    Text(
+                      tr('card_ai_params'),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -615,12 +616,12 @@ class AISmartLaunchCard extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.close_rounded, size: 15),
                           SizedBox(width: 4),
-                          Text('取消', style: TextStyle(fontSize: 13)),
+                          Text(tr('btn_cancel'), style: TextStyle(fontSize: 13)),
                         ],
                       ),
                     ),
@@ -641,7 +642,7 @@ class AISmartLaunchCard extends StatelessWidget {
                         children: [
                           Icon(meta.icon, size: 15),
                           const SizedBox(width: 6),
-                          const Text('一鍵開啟',
+                          Text(tr('card_open'),
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold)),
@@ -660,13 +661,13 @@ class AISmartLaunchCard extends StatelessWidget {
 
   List<Widget> _buildParamRows() {
     final labelMap = {
-      'title': '標題',
-      'date': '日期',
-      'startTime': '開始時間',
-      'endTime': '結束時間',
-      'content': '內容',
-      'type': '類型',
-      'subject': '科目',
+      'title': tr('card_f_title'),
+      'date': tr('slot_date'),
+      'startTime': tr('panel_start_time'),
+      'endTime': tr('panel_end_time'),
+      'content': tr('common_content'),
+      'type': tr('fb_type'),
+      'subject': tr('card_f_subject'),
     };
     return prefillData.entries
         .where((e) => e.value != null && e.value.toString().isNotEmpty)

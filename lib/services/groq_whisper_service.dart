@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'app_locale_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -183,12 +184,12 @@ class GroqWhisperService {
     await Future.delayed(const Duration(milliseconds: 200));
 
     if (audioPath == null || audioPath.isEmpty) {
-      throw Exception('未取得音訊錄音檔案，請確認已說話並重新錄音 🎙️');
+      throw Exception(tr('stt_no_audio'));
     }
 
     final audioFile = File(audioPath);
     if (!await audioFile.exists() || audioFile.lengthSync() < 200) {
-      throw Exception('錄音時間過短（建議說話 1 秒以上），請點擊麥克風說話 🎙️');
+      throw Exception(tr('stt_too_short'));
     }
 
     try {
@@ -233,7 +234,7 @@ class GroqWhisperService {
       debugPrint('GroqWhisperService transcribeAudioFile error: $e');
     }
 
-    throw Exception('語音辨識服務暫時無法連線，請確認網路連線或直接在此輸入文字 📝');
+    throw Exception(tr('stt_offline'));
   }
 
   /// 清理 Whisper 辨識結果（過濾幻覺字串、去重複循環、口語贅字與轉為繁體中文）

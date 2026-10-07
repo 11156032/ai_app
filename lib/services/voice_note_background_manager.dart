@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'voice_note_service.dart';
 import 'push_notification_service.dart';
 import '../screens/notes_screen.dart';
+import 'app_locale_service.dart';
 
 /// 語音筆記背景整理任務資訊
 class VoiceNoteBackgroundTask {
@@ -82,7 +83,7 @@ class VoiceNoteBackgroundManager extends ChangeNotifier {
     );
     _isGenerating = true;
     _progress = 0.1;
-    _stageText = '語意解析與提煉中...';
+    _stageText = tr('vb_stage');
     _lastErrorMessage = null;
     notifyListeners();
 
@@ -96,7 +97,7 @@ class VoiceNoteBackgroundManager extends ChangeNotifier {
 
       _isGenerating = false;
       _progress = 1.0;
-      _stageText = '整理完成';
+      _stageText = tr('vb_done');
       _lastCompletedResult = result;
       _completedTime = DateTime.now();
 
@@ -119,7 +120,7 @@ class VoiceNoteBackgroundManager extends ChangeNotifier {
         final newNote = Note(
           id: 'note_${DateTime.now().millisecondsSinceEpoch}',
           userId: userId,
-          title: result.title.isEmpty ? '語音速記筆記' : result.title,
+          title: result.title.isEmpty ? tr('notes_voice_default_title') : result.title,
           content: result.markdownContent,
           category: effectiveCategory,
           strokes: [],
@@ -133,8 +134,8 @@ class VoiceNoteBackgroundManager extends ChangeNotifier {
 
       // 發送系統本地推播通知 (鎖定螢幕/背景時亦會彈出)
       await PushNotificationService().showLocalNotification(
-        title: '✨ AI 語音筆記整理完成！',
-        body: '「${result.title}」已為您提煉精華摘要與心智圖，點擊立即查看！',
+        title: tr('vb_notif_title'),
+        body: tr('vb_notif_body', [result.title.toString()]),
         payload: _lastCreatedNote?.id ?? 'voice_note_done',
       );
 
@@ -148,8 +149,8 @@ class VoiceNoteBackgroundManager extends ChangeNotifier {
       notifyListeners();
 
       await PushNotificationService().showLocalNotification(
-        title: '⚠️ AI 語音筆記整理遭遇問題',
-        body: '連線逾時或異常，您的逐字稿已安全暫存，可隨時重新嘗試。',
+        title: tr('vb_fail_title'),
+        body: tr('vb_fail_body'),
       );
     }
   }

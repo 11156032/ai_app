@@ -11,6 +11,7 @@ import '../services/voice_note_service.dart';
 import '../services/voice_note_background_manager.dart';
 import 'mindmap_node.dart';
 import 'mindmap_canvas.dart';
+import '../services/app_locale_service.dart';
 
 // ============================================================
 // 語音速記整理面板 (VoiceNoteSheet)
@@ -108,20 +109,20 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   Timer? _tipTimer;
   int _generatingElapsedMs = 0;
 
-  static const List<(String, String)> _kGeneratingStages = [
-    ('語意解析', '分析語音轉文字稿脈絡並智能去除口語贅字'),
-    ('結構提煉', '梳理核心論點、概念層級與重點大綱'),
-    ('心智圖譜', '構建視覺化心智圖樹狀階層與關聯節點'),
-    ('行動歸納', '提取可執行待辦清單與核心結論摘要'),
-    ('排版渲染', '整合 Markdown 美化排版與全功能成果'),
+  static List<(String, String)> get _kGeneratingStages => [
+    (tr('vn_stage1'), tr('vn_stage1_d')),
+    (tr('vn_stage2'), tr('vn_stage2_d')),
+    (tr('vn_stage3'), tr('vn_stage3_d')),
+    (tr('vn_stage4'), tr('vn_stage4_d')),
+    (tr('vn_stage5'), tr('vn_stage5_d')),
   ];
 
-  static const List<String> _kAiTips = [
-    '正在剔除「嗯、然後」等口語贅字與停頓詞...',
-    '正在辨識核心考點、專有名詞與知識結構...',
-    '正在為您生成可縮放探索的階層心智圖節點...',
-    '正在梳理關鍵待辦事項與行動時間表...',
-    '正在套用最佳莫蘭迪視覺化 Markdown 排版...',
+  static List<String> get _kAiTips => [
+    tr('vn_tip1'),
+    tr('vn_tip2'),
+    tr('vn_tip3'),
+    tr('vn_tip4'),
+    tr('vn_tip5'),
   ];
 
   // ──────────────────────────────────────────
@@ -297,8 +298,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         _isPaused = false;
       });
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        const SnackBar(
-          content: Text('無法啟動麥克風錄音，請確認已授予麥克風權限 🎙️'),
+        SnackBar(
+          content: Text(tr('vn_mic_failed')),
           backgroundColor: Color(0xFFE53935),
           behavior: SnackBarBehavior.floating,
           duration: Duration(milliseconds: 1500),
@@ -339,7 +340,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       _isRecording = false;
       _isPaused = false;
       _isTranscribing = true;
-      _transcribingStatusMsg = 'Gladia 上傳與多語言辨識中... 🎙️';
+      _transcribingStatusMsg = tr('vn_gladia_uploading');
       _soundLevel = 0.0;
       _aiErrorMsg = null;
     });
@@ -386,8 +387,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           ..showSnackBar(
             SnackBar(
               content: Text(result?.isDiarized == true
-                  ? '✨ 語音轉錄完成！已分離說話者與時間戳'
-                  : '✨ 語音轉文字完成！已填入文字稿'),
+                  ? tr('vn_done_diarized')
+                  : tr('vn_done_plain')),
               duration: const Duration(milliseconds: 1800),
               behavior: SnackBarBehavior.floating,
               backgroundColor: const Color(0xFF2E7D32),
@@ -407,7 +408,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         ..clearSnackBars()
         ..showSnackBar(
           SnackBar(
-            content: Text('語音轉錄提示：$cleanMsg'),
+            content: Text(tr('vn_hint_msg', [cleanMsg.toString()])),
             backgroundColor: const Color(0xFFD32F2F),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(milliseconds: 1500),
@@ -442,8 +443,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('🗑️ 已清空語音轉文字稿文字'),
+        SnackBar(
+          content: Text(tr('vn_cleared')),
           duration: Duration(milliseconds: 1200),
           behavior: SnackBarBehavior.floating,
         ),
@@ -525,15 +526,15 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              '✍️ 全螢幕逐字稿舒適校對',
+                            Text(
+                              tr('vn_fullscreen_proof'),
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
-                              '共 $count 字 · 可直接滾動修改錯字、同音字或專有名詞',
+                              tr('vn_char_count_hint', [count.toString()]),
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: isDark
@@ -549,7 +550,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                           Navigator.pop(modalCtx, tempController.text);
                         },
                         icon: const Icon(Icons.check_rounded, size: 18),
-                        label: const Text('完成校對',
+                        label: Text(tr('vn_proof_done'),
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF4A148C),
@@ -573,7 +574,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   child: Row(
                     children: [
                       Text(
-                        '💡 提示：點擊任何段落即可即時鍵盤打字修正',
+                        tr('vn_proof_tip'),
                         style: TextStyle(
                           fontSize: 11.5,
                           color: Colors.grey.shade600,
@@ -586,14 +587,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                           Clipboard.setData(
                               ClipboardData(text: tempController.text));
                           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                            const SnackBar(
-                              content: Text('📋 已複製逐字稿至剪貼簿'),
+                            SnackBar(
+                              content: Text(tr('vn_copied_transcript')),
                               duration: Duration(milliseconds: 1000),
                             ),
                           );
                         },
                         icon: const Icon(Icons.copy_rounded, size: 14),
-                        label: const Text('複製', style: TextStyle(fontSize: 12)),
+                        label: Text(tr('vn_copy'), style: TextStyle(fontSize: 12)),
                         style: TextButton.styleFrom(
                           foregroundColor: const Color(0xFF4A148C),
                           padding: const EdgeInsets.symmetric(
@@ -609,7 +610,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         },
                         icon:
                             const Icon(Icons.delete_outline_rounded, size: 14),
-                        label: const Text('清空', style: TextStyle(fontSize: 12)),
+                        label: Text(tr('common_clear'), style: TextStyle(fontSize: 12)),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red.shade700,
                           padding: const EdgeInsets.symmetric(
@@ -652,9 +653,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                               : const Color(0xFF2C2523),
                           fontWeight: FontWeight.w400,
                         ),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: '請在此輸入或校對語音逐字稿內容...',
+                          hintText: tr('vn_transcript_hint'),
                         ),
                         onChanged: (val) {
                           setModalState(() {});
@@ -702,12 +703,12 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
       SnackBar(
-        content: const Row(
+        content: Row(
           children: [
             Icon(Icons.cloud_sync_rounded, color: Colors.white, size: 20),
             SizedBox(width: 8),
             Expanded(
-              child: Text('🤖 AI 正在背景為您提煉整理筆記，完成後會主動發送通知提醒您！'),
+              child: Text(tr('vn_bg_processing')),
             ),
           ],
         ),
@@ -738,24 +739,24 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         builder: (ctx) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.mic_off_rounded, color: Colors.red, size: 22),
               SizedBox(width: 8),
-              Text('正在錄音中',
+              Text(tr('vn_recording'),
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             ],
           ),
-          content: const Text('目前正在錄製語音，若現在離開將會放棄本次錄音內容，確定要離開嗎？'),
+          content: Text(tr('vn_leave_recording')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('繼續錄音'),
+              child: Text(tr('vn_continue_rec')),
             ),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('放棄並離開'),
+              child: Text(tr('vn_discard_leave')),
             ),
           ],
         ),
@@ -773,35 +774,35 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         builder: (ctx) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.auto_awesome_rounded,
                   color: Color(0xFF7B1FA2), size: 22),
               SizedBox(width: 8),
-              Text('AI 正在整理中',
+              Text(tr('vn_ai_working'),
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             ],
           ),
-          content: const Text(
-            'AI 正在為您提煉精華摘要與心智圖。\n您可以選擇【轉至背景整理】先做其他事，整理完成後將發送通知提醒您！',
+          content: Text(
+            tr('vn_ai_working_msg'),
             style: TextStyle(fontSize: 13.5, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'cancel'),
               child:
-                  Text('放棄整理', style: TextStyle(color: Colors.red.shade700)),
+                  Text(tr('vn_abort_ai'), style: TextStyle(color: Colors.red.shade700)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'wait'),
-              child: const Text('前景等待'),
+              child: Text(tr('vn_wait_fg')),
             ),
             FilledButton.icon(
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF4A148C)),
               onPressed: () => Navigator.pop(ctx, 'background'),
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: const Text('轉至背景整理 (推薦)'),
+              label: Text(tr('vn_to_bg')),
             ),
           ],
         ),
@@ -827,27 +828,27 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       builder: (ctx) => AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.save_as_outlined,
                 color: Color(0xFF4A148C), size: 22),
             SizedBox(width: 8),
-            Text('離開語音速記？',
+            Text(tr('vn_leave_title'),
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           ],
         ),
         content:
-            const Text('目前的語音逐字稿已自動為您暫存為草稿，下次開啟時可一鍵還原，確定要先離開嗎？'),
+            Text(tr('vn_leave_msg')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('繼續編輯'),
+            child: Text(tr('vn_keep_editing')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF4A148C)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('暫存並離開'),
+            child: Text(tr('vn_save_leave')),
           ),
         ],
       ),
@@ -866,8 +867,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('🎙️ 錄音已轉為逐字稿！請先瀏覽或修改文字，確認無誤後再次點擊開始 AI 整理 ✨'),
+          SnackBar(
+            content: Text(tr('vn_review_first')),
             behavior: SnackBarBehavior.floating,
             backgroundColor: Color(0xFF4A148C),
             duration: Duration(milliseconds: 1500),
@@ -880,7 +881,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     if (rawText.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請先錄音或輸入文字內容再進行 AI 整理 🎙️')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('vn_need_content'))),
         );
       }
       return;
@@ -1000,7 +1001,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       _tipTimer?.cancel();
       if (!mounted) return;
       setState(() {
-        _aiErrorMsg = '整理遭遇問題，已為您套用離線版型：$e';
+        _aiErrorMsg = tr('vn_offline_fallback', [e.toString()]);
         _step = _SheetStep.recording;
         _starController.stop();
         _starController.reset();
@@ -1022,7 +1023,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     if (result.keyPoints != null && result.keyPoints!.isNotEmpty) {
       return MindMapNode(
         id: 'root',
-        label: result.title.isNotEmpty ? result.title : '主題筆記',
+        label: result.title.isNotEmpty ? result.title : tr('vn_topic_note'),
         color: const Color(0xFF4A148C),
         children: result.keyPoints!.asMap().entries.map((entry) {
           return MindMapNode(
@@ -1035,12 +1036,12 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     } else {
       return MindMapNode(
         id: 'root',
-        label: result.title.isNotEmpty ? result.title : '主題筆記',
+        label: result.title.isNotEmpty ? result.title : tr('vn_topic_note'),
         color: const Color(0xFF4A148C),
         children: [
           MindMapNode(
             id: 'node_summary',
-            label: result.summary ?? '核心內容重點',
+            label: result.summary ?? tr('vn_core_points'),
             color: const Color(0xFF3F51B5),
           ),
         ],
@@ -1080,7 +1081,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     if (rawText.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('無文字內容可儲存 📝')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('vn_nothing_to_save'))),
         );
       }
       return;
@@ -1110,7 +1111,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
   void _applyNote() async {
     _syncActionItemsToMarkdown();
     final title = _titleEditController.text.trim().isEmpty
-        ? _result?.title ?? '語音速記筆記'
+        ? _result?.title ?? tr('notes_voice_default_title')
         : _titleEditController.text.trim();
     final content = _contentEditController.text.trim().isEmpty
         ? (_result?.markdownContent ?? _transcriptController.text)
@@ -1215,18 +1216,18 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
 
     if (_step == _SheetStep.recording) {
       if (hasContent && !isBusyRecording) {
-        title = '✍️ 步驟 2：校對逐字稿與選擇風格';
-        subtitle = '可點擊下方文字框或「放大校對」修改錯字';
+        title = tr('vn_step2');
+        subtitle = tr('vn_step2_sub');
       } else {
-        title = '🎙️ 步驟 1：高品質語音收錄';
-        subtitle = '說完後點擊轉為文字進行校對';
+        title = tr('vn_step1');
+        subtitle = tr('vn_step1_sub');
       }
     } else if (_step == _SheetStep.generating) {
-      title = '🤖 步驟 3：AI 智慧整理中...';
-      subtitle = '正在根據校對後的文字提煉結構化筆記';
+      title = tr('vn_step3_busy');
+      subtitle = tr('vn_step3_busy_sub');
     } else {
-      title = '📝 步驟 3：整理成果預覽';
-      subtitle = '檢視結構化摘要、心智圖與待辦行動';
+      title = tr('vn_step3');
+      subtitle = tr('vn_step3_sub');
     }
 
     return Padding(
@@ -1281,7 +1282,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 nav.pop();
               }
             },
-            tooltip: '關閉',
+            tooltip: tr('btn_close'),
           ),
         ],
       ),
@@ -1330,9 +1331,9 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               const Icon(Icons.history_edu_rounded,
                   size: 20, color: Color(0xFF4A148C)),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  '發現上次未完成的語音逐字稿草稿',
+                  tr('vn_draft_found'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -1363,7 +1364,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           if (_pendingDraftTime != null) ...[
             const SizedBox(height: 4),
             Text(
-              '暫存時間：${DateTime.tryParse(_pendingDraftTime!)?.toLocal().toString().substring(0, 16) ?? _pendingDraftTime}',
+              tr('vn_draft_time', [(DateTime.tryParse(_pendingDraftTime!)?.toLocal().toString().substring(0, 16) ?? _pendingDraftTime).toString()]),
               style: TextStyle(
                 fontSize: 10.5,
                 color: Colors.purple.shade700.withValues(alpha: 0.8),
@@ -1383,7 +1384,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text('捨棄', style: TextStyle(fontSize: 12)),
+                child: Text(tr('agent_discard'), style: TextStyle(fontSize: 12)),
               ),
               const SizedBox(width: 8),
               FilledButton.icon(
@@ -1398,15 +1399,15 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     );
                   });
                   ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                    const SnackBar(
-                      content: Text('✨ 已成功還原上次語音逐字稿草稿！'),
+                    SnackBar(
+                      content: Text(tr('vn_draft_restored')),
                       duration: Duration(milliseconds: 1500),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
                 },
                 icon: const Icon(Icons.restore_rounded, size: 14),
-                label: const Text('一鍵還原草稿',
+                label: Text(tr('vn_restore_draft'),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF4A148C),
@@ -1513,14 +1514,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     const SizedBox(width: 6),
                     Text(
                       _isTranscribing
-                          ? (_transcribingStatusMsg ?? 'Gladia 說話者分離與辨識中... 🎙️')
+                          ? (_transcribingStatusMsg ?? tr('vn_gladia_diarizing'))
                           : _isRecording
-                              ? '高音質收錄中 (無遺漏) · ${_formatDuration(_recordDuration)}'
+                              ? tr('vn_status_rec', [(_formatDuration(_recordDuration)).toString()])
                               : _isPaused
-                                  ? '錄音已暫停 · ${_formatDuration(_recordDuration)} (點擊繼續)'
+                                  ? tr('vn_status_paused', [(_formatDuration(_recordDuration)).toString()])
                                   : hasContent
-                                      ? '轉錄已完成 · 共 $charCount 字'
-                                      : '點擊下方麥克風開始錄音',
+                                      ? tr('vn_status_done', [charCount.toString()])
+                                      : tr('vn_status_idle'),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1555,7 +1556,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         foregroundColor: Colors.grey.shade800,
                         padding: const EdgeInsets.all(12),
                       ),
-                      tooltip: '取消本次錄音',
+                      tooltip: tr('vn_cancel_rec'),
                     ),
                     const SizedBox(width: 14),
                   ] else if (hasContent) ...[
@@ -1567,7 +1568,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                         foregroundColor: Colors.red.shade700,
                         padding: const EdgeInsets.all(12),
                       ),
-                      tooltip: '清空逐字稿文字',
+                      tooltip: tr('vn_clear_transcript'),
                     ),
                     const SizedBox(width: 14),
                   ],
@@ -1575,14 +1576,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   // 核心主按鈕（錄音中為暫停；暫停中為繼續；非錄音中為開始/追加錄音）
                   Tooltip(
                     message: _isTranscribing
-                        ? '轉錄處理中...'
+                        ? tr('vn_transcribing')
                         : _isRecording
-                            ? '暫停錄音'
+                            ? tr('vn_pause_rec')
                             : _isPaused
-                                ? '繼續錄音'
+                                ? tr('vn_continue_rec')
                                 : hasContent
-                                    ? '追加錄音'
-                                    : '開始錄音',
+                                    ? tr('vn_append_rec')
+                                    : tr('vn_start_rec'),
                     child: GestureDetector(
                       onTap: _isTranscribing
                           ? null
@@ -1648,7 +1649,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     ElevatedButton.icon(
                       onPressed: _isTranscribing ? null : _stopAndTranscribe,
                       icon: const Icon(Icons.bolt_rounded, size: 20),
-                      label: const Text('轉為文字',
+                      label: Text(tr('vn_to_text'),
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4A148C),
@@ -1666,14 +1667,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               const SizedBox(height: 6),
               Text(
                 _isTranscribing
-                    ? '⚡ AI 語音辨識中...'
+                    ? tr('vn_ai_recognizing')
                     : _isRecording
-                        ? '點擊暫停 · 點擊右側「轉為文字」完成'
+                        ? tr('vn_hint_rec')
                         : _isPaused
-                            ? '已暫停，點擊麥克風繼續錄音 · 點擊右側「轉為文字」'
+                            ? tr('vn_hint_paused')
                             : hasContent
-                                ? '轉錄已完成，點擊可追加錄音'
-                                : '點擊開始錄音（零斷字・全音質收錄）',
+                                ? tr('vn_hint_done')
+                                : tr('vn_hint_idle'),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
@@ -1704,7 +1705,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '語音已轉錄！請先瀏覽或點擊右側「放大校對」修正同音錯字，確認無誤後點擊開始 AI 整理。',
+                    tr('vn_transcribed_review'),
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.4,
@@ -1733,7 +1734,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  hasContent ? '語音逐字稿' : '語音轉文字稿內容',
+                  hasContent ? tr('vn_transcript') : tr('vn_transcript_content'),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -1747,7 +1748,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '$charCount 字',
+                    tr('vn_chars_n', [charCount.toString()]),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const SizedBox(width: 6),
@@ -1767,14 +1768,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                                 .withValues(alpha: 0.25),
                             width: 0.9),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.open_in_full_rounded,
                               size: 12, color: Color(0xFF4A148C)),
                           SizedBox(width: 3),
                           Text(
-                            '放大校對',
+                            tr('vn_zoom_proof'),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -1792,8 +1793,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                       ScaffoldMessenger.of(context)
                         ..clearSnackBars()
                         ..showSnackBar(
-                          const SnackBar(
-                            content: Text('📋 已複製逐字稿文字至剪貼簿'),
+                          SnackBar(
+                            content: Text(tr('vn_copied_transcript2')),
                             duration: Duration(milliseconds: 1000),
                             behavior: SnackBarBehavior.floating,
                           ),
@@ -1816,7 +1817,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                               size: 12, color: Colors.grey.shade700),
                           const SizedBox(width: 3),
                           Text(
-                            '複製',
+                            tr('vn_copy'),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -1847,7 +1848,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                               size: 12, color: Colors.red.shade700),
                           const SizedBox(width: 3),
                           Text(
-                            '清空',
+                            tr('common_clear'),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -1907,7 +1908,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                       const SizedBox(height: 10),
                       Text(
                         _transcribingStatusMsg ??
-                            '⚡ AI 正在將語音轉為文字...\n（自動生成標點與段落）',
+                            tr('vn_converting'),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 13,
@@ -1939,7 +1940,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                             border: InputBorder.none,
-                            hintText: '輸入或編輯語音內容...',
+                            hintText: tr('vn_edit_hint'),
                             hintStyle: TextStyle(
                               fontSize: 13,
                               color: Colors.grey.shade400,
@@ -1977,7 +1978,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '點擊上方麥克風重新說話即可再次轉錄',
+                                  tr('vn_retalk'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade500,
@@ -2003,8 +2004,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                               const SizedBox(height: 6),
                               Text(
                                 isBusyRecording
-                                    ? '正在高品質收錄音訊中...\n說完後點擊「轉為文字」即可瞬間轉錄！'
-                                    : '尚未收錄語音\n點擊上方麥克風開始說話',
+                                    ? tr('vn_busy_hint')
+                                    : tr('vn_empty_hint'),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 12.5,
@@ -2027,8 +2028,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             const Icon(Icons.auto_awesome_rounded,
                 size: 16, color: Color(0xFF4A148C)),
             const SizedBox(width: 6),
-            const Text(
-              '選擇 AI 整理風格',
+            Text(
+              tr('vn_pick_style'),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -2042,8 +2043,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 color: const Color(0xFF4A148C).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text(
-                '5 大整理風格',
+              child: Text(
+                tr('vn_five_styles'),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -2097,7 +2098,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                             style: const TextStyle(fontSize: 13)),
                         const SizedBox(width: 5),
                         Text(
-                          '${VoiceNoteDetailLevel.concise.label}速讀',
+                          tr('vn_concise_n', [VoiceNoteDetailLevel.concise.label.toString()]),
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
@@ -2143,7 +2144,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                             style: const TextStyle(fontSize: 13)),
                         const SizedBox(width: 5),
                         Text(
-                          '${VoiceNoteDetailLevel.detailed.label}深度',
+                          tr('vn_detailed_n', [VoiceNoteDetailLevel.detailed.label.toString()]),
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
@@ -2297,7 +2298,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                       style: const TextStyle(fontSize: 15)),
                   const SizedBox(width: 6),
                   Text(
-                    '「${_selectedStyle.label}」產出規格：',
+                    tr('vn_style_spec', [_selectedStyle.label.toString()]),
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
@@ -2313,7 +2314,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '預設歸類：${_selectedStyle.suggestedCategory}',
+                      tr('vn_default_cat', [trv(_selectedStyle.suggestedCategory)]),
                       style: const TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
@@ -2394,7 +2395,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               OutlinedButton.icon(
                 onPressed: _saveRawTranscript,
                 icon: const Icon(Icons.save_outlined, size: 16),
-                label: const Text('直接存', style: TextStyle(fontSize: 13)),
+                label: Text(tr('vn_save_direct'), style: TextStyle(fontSize: 13)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF5D4037),
                   side: const BorderSide(color: Color(0xFF8D6E63)),
@@ -2419,10 +2420,10 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 icon: const Icon(Icons.auto_awesome_rounded, size: 18),
                 label: Text(
                   isBusyRecording
-                      ? '結束錄音並轉為逐字稿 ✍️'
+                      ? tr('vn_end_rec')
                       : hasContent
-                          ? '確認文字無誤 ➔ 開始 AI 整理 (${_selectedStyle.emoji} ${_selectedStyle.label})'
-                          : '請先錄入語音內容',
+                          ? tr('vn_start_ai', [_selectedStyle.emoji.toString(), _selectedStyle.label.toString()])
+                          : tr('vn_need_record'),
                   style: const TextStyle(
                       fontSize: 14.5, fontWeight: FontWeight.bold),
                 ),
@@ -2572,8 +2573,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                'AI 智慧整理中',
+              Text(
+                tr('vn_ai_organizing'),
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -2633,7 +2634,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                             size: 14, color: Color(0xFF7B1FA2)),
                         const SizedBox(width: 4),
                         Text(
-                          '已處理 ${(_generatingElapsedMs / 1000).toStringAsFixed(1)}s',
+                          tr('vn_elapsed', [((_generatingElapsedMs / 1000).toStringAsFixed(1)).toString()]),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade700,
@@ -2777,7 +2778,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                       ),
                       // 右側狀態標籤
                       if (isDone)
-                        const Text('✓ 完成',
+                        Text(tr('vn_done_mark'),
                             style: TextStyle(
                                 fontSize: 10.5,
                                 color: Color(0xFF2E7D32),
@@ -2791,7 +2792,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                                 const Color(0xFF7B1FA2).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text('處理中...',
+                          child: Text(tr('vn_processing'),
                               style: TextStyle(
                                   fontSize: 10,
                                   color: Color(0xFF7B1FA2),
@@ -2843,8 +2844,8 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           OutlinedButton.icon(
             onPressed: _runInBackgroundTask,
             icon: const Icon(Icons.open_in_new_rounded, size: 17),
-            label: const Text(
-              '🚀 轉至背景整理（先做其他事）',
+            label: Text(
+              tr('vn_to_bg2'),
               style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
@@ -2864,7 +2865,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           ),
           const SizedBox(height: 6),
           Text(
-            '💡 AI 將在背景繼續提煉整理，完成後會主動發送推播通知提醒您',
+            tr('vn_bg_note'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
@@ -2918,7 +2919,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    _result!.isAiGenerated ? 'AI 智慧整理完成' : '離線版型整理',
+                    _result!.isAiGenerated ? tr('vn_ai_done') : tr('vn_offline_done'),
                     style: TextStyle(
                       fontSize: 11.5,
                       color: _result!.isAiGenerated
@@ -2949,7 +2950,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             color: Color(0xFF3E2723),
           ),
           decoration: InputDecoration(
-            hintText: '輸入筆記標題...',
+            hintText: tr('vn_title_hint'),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -2971,7 +2972,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
           children: categories.map((cat) {
             final isSelected = _editableCategory == cat;
             return ChoiceChip(
-              label: Text(cat),
+              label: Text(trv(cat)),
               selected: isSelected,
               selectedColor: const Color(0xFF4A148C).withValues(alpha: 0.15),
               backgroundColor: const Color(0xFFF5F2EF),
@@ -3048,14 +3049,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             unselectedLabelStyle:
                 const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
             dividerColor: Colors.transparent,
-            tabs: const [
+            tabs: [
               Tab(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.article_outlined, size: 16),
                     SizedBox(width: 4),
-                    Text('筆記內容'),
+                    Text(tr('vn_tab_content')),
                   ],
                 ),
               ),
@@ -3065,7 +3066,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   children: [
                     Icon(Icons.hub_outlined, size: 15),
                     SizedBox(width: 4),
-                    Text('心智圖'),
+                    Text(tr('notes_mindmap')),
                   ],
                 ),
               ),
@@ -3075,7 +3076,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   children: [
                     Icon(Icons.auto_awesome_outlined, size: 15),
                     SizedBox(width: 4),
-                    Text('重點摘要'),
+                    Text(tr('vn_tab_summary')),
                   ],
                 ),
               ),
@@ -3104,7 +3105,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
               child: OutlinedButton.icon(
                 onPressed: () => setState(() => _step = _SheetStep.recording),
                 icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('重錄/換風格'),
+                label: Text(tr('vn_redo')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF5D4037),
                   side: const BorderSide(color: Color(0xFF8D6E63)),
@@ -3122,7 +3123,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                 onPressed: _applyNote,
                 icon: const Icon(Icons.check_rounded, size: 18),
                 label: Text(
-                  widget.existingContent != null ? '插入至筆記' : '建立此筆記',
+                  widget.existingContent != null ? tr('vn_insert') : tr('vn_create'),
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.bold),
                 ),
@@ -3189,13 +3190,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.lightbulb_outline_rounded,
                         size: 16, color: Color(0xFF673AB7)),
                     SizedBox(width: 6),
                     Text(
-                      '核心情境摘要',
+                      tr('vn_summary_title'),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -3228,7 +3229,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   size: 16, color: Color(0xFF5D4037)),
               const SizedBox(width: 6),
               Text(
-                '重點提煉 (${_result!.keyPoints!.length})',
+                tr('vn_key_points_n', [(_result!.keyPoints!.length).toString()]),
                 style: const TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.bold,
@@ -3295,7 +3296,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                   size: 16, color: Color(0xFF2E7D32)),
               const SizedBox(width: 6),
               Text(
-                '待辦行動 (${_editableActionItems.where((a) => a.isCompleted).length}/${_editableActionItems.length})',
+                tr('vn_actions_n', [(_editableActionItems.where((a) => a.isCompleted).length).toString(), _editableActionItems.length.toString()]),
                 style: const TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.bold,
@@ -3309,20 +3310,20 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     final check = a.isCompleted ? '[x]' : '[ ]';
                     final owner = a.owner != '未指定' ? ' (${a.owner})' : '';
                     final due = a.dueDate != '無' && a.dueDate != '待定'
-                        ? ' [期限: ${a.dueDate}]'
+                        ? tr('vn_due', [a.dueDate.toString()])
                         : '';
                     return '- $check ${a.task}$owner$due';
                   }).join('\n');
                   Clipboard.setData(ClipboardData(text: text));
                   ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                    const SnackBar(
-                      content: Text('📋 已複製待辦清單至剪貼簿'),
+                    SnackBar(
+                      content: Text(tr('vn_copied_todos')),
                       duration: Duration(milliseconds: 1500),
                     ),
                   );
                 },
                 borderRadius: BorderRadius.circular(8),
-                child: const Padding(
+                child: Padding(
                   padding:
                       EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   child: Row(
@@ -3332,7 +3333,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                           size: 13, color: Color(0xFF2E7D32)),
                       SizedBox(width: 4),
                       Text(
-                        '一鍵複製',
+                        tr('vn_copy_all'),
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.bold,
@@ -3453,7 +3454,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             Icon(Icons.hub_outlined, size: 40, color: Colors.grey.shade400),
             const SizedBox(height: 8),
             Text(
-              '尚未生成心智圖',
+              tr('vn_no_mindmap'),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
           ],
@@ -3473,7 +3474,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
                     size: 14, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
                 Text(
-                  '支援雙指縮放與拖曳移動',
+                  tr('notes_mindmap_gesture'),
                   style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                 ),
               ],
@@ -3481,7 +3482,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             TextButton.icon(
               onPressed: _openFullscreenMindmap,
               icon: const Icon(Icons.fullscreen_rounded, size: 16),
-              label: const Text('全螢幕畫布', style: TextStyle(fontSize: 12)),
+              label: Text(tr('vn_fullscreen'), style: TextStyle(fontSize: 12)),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF4A148C),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -3517,7 +3518,7 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
       root: _mindmapRootNode!,
       title: _titleEditController.text.isNotEmpty
           ? _titleEditController.text
-          : '心智圖全螢幕檢視',
+          : tr('notes_mindmap_fullscreen'),
     );
   }
 
@@ -3535,13 +3536,13 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.article_outlined,
                     size: 16, color: Color(0xFF4A148C)),
                 SizedBox(width: 6),
                 Text(
-                  '完整整理成果',
+                  tr('vn_full_result'),
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
@@ -3553,14 +3554,14 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
             IconButton(
               icon: const Icon(Icons.copy_rounded,
                   size: 18, color: Color(0xFF5D4037)),
-              tooltip: '複製筆記內容',
+              tooltip: tr('vn_copy_note'),
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: cleanContent));
                 ScaffoldMessenger.of(context)
                   ..clearSnackBars()
                   ..showSnackBar(
-                    const SnackBar(
-                      content: Text('📋 已複製筆記內容至剪貼簿'),
+                    SnackBar(
+                      content: Text(tr('vn_copied_note')),
                       duration: Duration(milliseconds: 1200),
                       behavior: SnackBarBehavior.floating,
                     ),

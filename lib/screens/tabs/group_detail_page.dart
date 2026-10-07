@@ -17,6 +17,7 @@ import '../main_screen.dart';
 import '../create_post_page.dart';
 import '../notes_screen.dart';
 import 'group_invite_page.dart';
+import '../../services/app_locale_service.dart';
 
 /// 群組詳細頁（動態牆 + 成員）
 class GroupDetailPage extends StatefulWidget {
@@ -134,8 +135,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           final u = await db
               .query('users', where: 'id = ?', whereArgs: [p['user_id']]);
           final author = u.isNotEmpty
-              ? u.first['display_name'] as String? ?? '未知用戶'
-              : '未知用戶';
+              ? u.first['display_name'] as String? ?? tr('common_unknown_user')
+              : tr('common_unknown_user');
           final likes = await db.query('post_likes',
               where: 'post_id = ? AND user_id = ?',
               whereArgs: [p['id'], _currentUserId]);
@@ -241,7 +242,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-            content: Text(_requiresApproval ? '已送出申請，等待管理員審核' : '🎉 成功加入群組！'),
+            content: Text(_requiresApproval ? tr('gd_requested') : tr('gd_joined')),
             backgroundColor: Theme.of(context).primaryColor,
           ),
         );
@@ -250,7 +251,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       if (mounted) {
         setState(() => _isJoining = false);
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('操作失敗：$e')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('gd_op_failed', [e.toString()]))),
         );
       }
     }
@@ -261,12 +262,12 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('離開群組？'),
-        content: Text('確定要離開「${_group['name']}」嗎？之後可以再次申請加入。'),
+        title: Text(tr('gd_leave_q')),
+        content: Text(tr('gd_leave_msg', [(_group['name']).toString()])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -275,7 +276,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10))),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('離開'),
+            child: Text(tr('gd_leave')),
           ),
         ],
       ),
@@ -287,21 +288,21 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   }
 
   Future<void> _kickMember(Map<String, dynamic> m) async {
-    final name = m['display_name'] as String? ?? '此成員';
+    final name = m['display_name'] as String? ?? tr('gd_this_member');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.person_remove_rounded, color: Colors.redAccent),
           SizedBox(width: 8),
-          Text('剔除成員', style: TextStyle(fontSize: 18)),
+          Text(tr('gd_kick'), style: TextStyle(fontSize: 18)),
         ]),
-        content: Text('確定要將「$name」移出群組嗎？'),
+        content: Text(tr('gd_kick_msg', [name.toString()])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -311,7 +312,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('剔除'),
+            child: Text(tr('gd_kick_btn')),
           ),
         ],
       ),
@@ -323,7 +324,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     if (mounted) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('已將 $name 移出群組'),
+          content: Text(tr('gd_kicked', [name.toString()])),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -331,21 +332,21 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   }
 
   Future<void> _deleteGroup() async {
-    final groupName = _group['name'] as String? ?? '群組';
+    final groupName = _group['name'] as String? ?? tr('group_default_name');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
           SizedBox(width: 8),
-          Text('刪除群組', style: TextStyle(fontSize: 18)),
+          Text(tr('group_delete'), style: TextStyle(fontSize: 18)),
         ]),
-        content: Text('⚠️ 確定要刪除群組「$groupName」嗎？\n此動作將會刪除所有群組貼文與成員紀錄，且無法復原。'),
+        content: Text(tr('gd_delete_msg', [groupName.toString()])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -355,7 +356,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('確定刪除'),
+            child: Text(tr('common_confirm_delete')),
           ),
         ],
       ),
@@ -366,7 +367,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       Navigator.pop(context);
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('已刪除群組「$groupName」'),
+          content: Text(tr('group_deleted', [groupName.toString()])),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -380,7 +381,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     if (mounted) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text(newMuted ? '🔕 已將群組設定為靜音' : '🔔 已開啟群組通知'),
+          content: Text(newMuted ? tr('group_muted_msg') : tr('group_unmuted_msg')),
           backgroundColor: Theme.of(context).primaryColor,
         ),
       );
@@ -394,7 +395,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       Navigator.pop(context);
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('🔴 已標示為未讀'),
+          content: Text(tr('gd_marked_unread')),
           backgroundColor: Theme.of(context).primaryColor,
         ),
       );
@@ -410,7 +411,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content:
-              Text(approved ? '✅ 已同意 ${member['display_name']} 加入' : '已拒絕申請'),
+              Text(approved ? tr('gd_approved', [(member['display_name']).toString()]) : tr('gd_rejected')),
           backgroundColor:
               approved ? Theme.of(context).primaryColor : Colors.grey,
         ),
@@ -420,7 +421,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
 
   void _showGuestPrompt() {
     ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請先登入才能加入群組')),
+      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('gd_login_needed'))),
     );
   }
 
@@ -441,7 +442,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final groupName = _group['name'] as String? ?? '群組';
+    final groupName = _group['name'] as String? ?? tr('group_default_name');
     final iconEmoji = _group['icon_emoji'] as String? ?? '📚';
     final desc = _group['description'] as String? ?? '';
     final memberCount = _group['member_count'] as int? ?? 0;
@@ -510,9 +511,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                       ],
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.link_rounded, size: 20),
+                      icon: const Icon(Icons.qr_code_2_rounded, size: 20),
                       color: isDark ? Colors.white : const Color(0xFF3E2723),
-                      tooltip: '邀請連結管理',
+                      tooltip: tr('gd_invite_mgmt'),
                       padding: EdgeInsets.zero,
                       onPressed: () {
                         Navigator.push(
@@ -524,7 +525,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                               isOwnerOrAdmin: _isOwnerOrAdmin,
                             ),
                           ),
-                        );
+                        ).then((_) => _loadData());
                       },
                     ),
                   ),
@@ -583,44 +584,44 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                     color: Theme.of(context).primaryColor,
                                     size: 18),
                                 const SizedBox(width: 8),
-                                Text(isMuted ? '開啟群組通知 🔔' : '關閉群組通知 (靜音) 🔕'),
+                                Text(isMuted ? tr('group_unmute') : tr('group_mute')),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'unread',
                             child: Row(
                               children: [
                                 Icon(Icons.mark_chat_unread_rounded,
                                     color: Colors.orange, size: 18),
                                 SizedBox(width: 8),
-                                Text('標示為未讀'),
+                                Text(tr('gd_mark_unread')),
                               ],
                             ),
                           ),
                         ],
                         if (_isMember && !_isOwner)
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'leave',
                             child: Row(
                               children: [
                                 Icon(Icons.exit_to_app_rounded,
                                     color: Colors.redAccent, size: 18),
                                 SizedBox(width: 8),
-                                Text('離開群組',
+                                Text(tr('gd_leave_group'),
                                     style: TextStyle(color: Colors.redAccent)),
                               ],
                             ),
                           ),
                         if (_isOwner)
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'delete',
                             child: Row(
                               children: [
                                 Icon(Icons.delete_forever_rounded,
                                     color: Colors.redAccent, size: 18),
                                 SizedBox(width: 8),
-                                Text('刪除群組',
+                                Text(tr('group_delete'),
                                     style: TextStyle(
                                         color: Colors.redAccent,
                                         fontWeight: FontWeight.bold)),
@@ -707,7 +708,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                               BorderRadius.circular(8),
                                         ),
                                         child: Text(
-                                          _isPrivate ? '🔒 私人' : '🌐 公開',
+                                          _isPrivate ? tr('group_private') : tr('group_public'),
                                           style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
@@ -720,7 +721,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '$memberCount 位成員',
+                                    tr('group_members_n', [memberCount.toString()]),
                                     style: TextStyle(
                                         fontSize: 12.5,
                                         color: isDark
@@ -786,12 +787,12 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   labelStyle: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 13.5),
                   tabs: [
-                    const Tab(text: '動態'),
+                    Tab(text: tr('gd_tab_feed')),
                     Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('成員'),
+                          Text(tr('gd_members')),
                           if (_isOwnerOrAdmin && pendingCount > 0) ...[
                             const SizedBox(width: 5),
                             Container(
@@ -868,7 +869,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 style: const TextStyle(fontSize: 48)),
             const SizedBox(height: 12),
             Text(
-              '還沒有任何貼文',
+              tr('gd_no_posts'),
               style: TextStyle(
                   fontSize: 15, color: isDark ? Colors.white54 : Colors.grey),
             ),
@@ -876,7 +877,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               const SizedBox(height: 8),
               TextButton(
                 onPressed: _openCreatePost,
-                child: Text('發表第一篇貼文',
+                child: Text(tr('gd_first_post'),
                     style: TextStyle(color: Theme.of(context).primaryColor)),
               ),
             ],
@@ -936,7 +937,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '🔔 有 $pendingCount 位成員申請加入群組！',
+                  tr('gd_pending_n', [pendingCount.toString()]),
                   style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
@@ -945,7 +946,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                           : const Color(0xFF8D4200)),
                 ),
                 Text(
-                  '點擊「立即審核」移至成員頁面處理',
+                  tr('gd_pending_hint'),
                   style: TextStyle(
                       fontSize: 11.5,
                       color: isDark ? Colors.white60 : const Color(0xFFA0522D)),
@@ -967,7 +968,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('立即審核',
+            child: Text(tr('gd_review_now'),
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -1020,7 +1021,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '私人群組',
+                  tr('gd_private_group'),
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1028,7 +1029,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _requiresApproval ? '申請加入經管理員審核後，即可查看群組動態' : '加入群組後，即可查看群組動態',
+                  _requiresApproval ? tr('gd_private_hint_approval') : tr('gd_private_hint'),
                   style: TextStyle(
                       fontSize: 13,
                       color: isDark ? Colors.white54 : Colors.grey.shade600),
@@ -1042,7 +1043,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                       color: Colors.orange.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SizedBox(
@@ -1052,7 +1053,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                               color: Colors.orange, strokeWidth: 2),
                         ),
                         SizedBox(width: 8),
-                        Text('申請審核中...',
+                        Text(tr('gd_pending'),
                             style: TextStyle(
                                 color: Colors.orange,
                                 fontWeight: FontWeight.bold,
@@ -1086,7 +1087,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                 ? Icons.lock_open_rounded
                                 : Icons.group_add_rounded,
                             size: 18),
-                    label: Text(_requiresApproval ? '申請加入' : '加入群組',
+                    label: Text(_requiresApproval ? tr('gd_apply') : tr('gd_join'),
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.bold)),
                   ),
@@ -1121,7 +1122,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       debugPrint('Error picking image in GroupDetailPage: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('選取圖片失敗：$e')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('gd_img_pick_failed', [e.toString()]))),
         );
       }
     }
@@ -1168,7 +1169,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('發送失敗：$e')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('gd_send_failed', [e.toString()]))),
         );
       }
     } finally {
@@ -1210,7 +1211,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '正在回覆 ${_replyingPost!['author']}：${_replyingPost!['content']}',
+                      tr('gd_replying', [(_replyingPost!['author']).toString(), (_replyingPost!['content']).toString()]),
                       style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).primaryColor,
@@ -1282,7 +1283,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '已選取 1 張圖片，可輸入訊息或直接點擊送出',
+                      tr('gd_img_selected'),
                       style: TextStyle(
                         fontSize: 12.5,
                         color: isDark ? Colors.white70 : Colors.grey.shade700,
@@ -1316,7 +1317,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   color: _selectedImageBytes != null
                       ? Theme.of(context).primaryColor
                       : (isDark ? Colors.white70 : Colors.grey.shade600),
-                  tooltip: '傳送圖片',
+                  tooltip: tr('gd_send_image'),
                   onPressed: _pickChatImage,
                 ),
                 Expanded(
@@ -1336,8 +1337,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                       scrollPadding: const EdgeInsets.only(bottom: 120),
                       decoration: InputDecoration(
                         hintText: _selectedImageBytes != null
-                            ? '輸入圖片說明（選填）...'
-                            : '輸入訊息...',
+                            ? tr('gd_caption_hint')
+                            : tr('gd_msg_hint'),
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding:
@@ -1397,7 +1398,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   }
 
   void _replyToPost(Map<String, dynamic> post) {
-    final authorName = post['author'] ?? '未知';
+    final authorName = post['author'] ?? tr('common_unknown');
     setState(() {
       _replyingPost = post;
       _chatController.text = '@$authorName ';
@@ -1427,7 +1428,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           if (!isMe) ...[
             GestureDetector(
               onTap: () => _showMemberProfileDialog(
-                name: p['author'] ?? '未知',
+                name: p['author'] ?? tr('common_unknown'),
                 avatarBlob: p['authorAvatarBlob'] as Uint8List?,
                 avatarColor: (p['authorAvatarColor'] as int?) ??
                     getAvatarColorIdx(p['author'] ?? ''),
@@ -1456,7 +1457,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 4),
                     child: Text(
-                      p['author'] ?? '未知',
+                      p['author'] ?? tr('common_unknown'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? Colors.white54 : Colors.grey.shade600,
@@ -1523,7 +1524,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              replyTo['author'] ?? '未知',
+                                              replyTo['author'] ?? tr('common_unknown'),
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
@@ -1649,7 +1650,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                               onTap: () => _openImagePreview(
                                 imageBlob: mediaBlob,
                                 imageSrc: mediaSrc,
-                                author: p['author']?.toString() ?? '成員',
+                                author: p['author']?.toString() ?? tr('gd_members'),
                                 time: p['time']?.toString() ?? '',
                               ),
                               child: Stack(
@@ -1685,7 +1686,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                             .withValues(alpha: 0.65),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
-                                      child: const Row(
+                                      child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
@@ -1695,7 +1696,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                           ),
                                           SizedBox(width: 3),
                                           Text(
-                                            '檢視大圖',
+                                            tr('gd_view_image'),
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 10,
@@ -1764,7 +1765,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                     ? Colors.white38
                                     : Colors.grey.shade400),
                             const SizedBox(width: 4),
-                            Text('回覆',
+                            Text(tr('qd_reply'),
                                 style: TextStyle(
                                     fontSize: 11,
                                     color: isDark
@@ -1803,7 +1804,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               leading: IconButton(
                 icon: const Icon(Icons.close_rounded,
                     color: Colors.white, size: 26),
-                tooltip: '關閉',
+                tooltip: tr('btn_close'),
                 onPressed: () => Navigator.of(context).pop(),
               ),
               title: Column(
@@ -1831,7 +1832,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               actions: [
                 IconButton(
                   icon: const Icon(Icons.download_rounded, color: Colors.white),
-                  tooltip: '下載原圖',
+                  tooltip: tr('gd_download_original'),
                   onPressed: () => _downloadImage(
                     imageBlob: imageBlob,
                     imageSrc: imageSrc,
@@ -1866,7 +1867,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         imageSrc: imageSrc,
                       ),
                       icon: const Icon(Icons.download_rounded, size: 18),
-                      label: const Text('儲存 / 下載原圖'),
+                      label: Text(tr('gd_save_download')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).primaryColor,
                         foregroundColor: Colors.white,
@@ -1911,14 +1912,14 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             ),
           );
         },
-        errorBuilder: (context, error, stackTrace) => const Center(
+        errorBuilder: (context, error, stackTrace) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.broken_image_rounded,
                   color: Colors.white54, size: 48),
               SizedBox(height: 8),
-              Text('圖片載入失敗', style: TextStyle(color: Colors.white54)),
+              Text(tr('gd_img_load_failed'), style: TextStyle(color: Colors.white54)),
             ],
           ),
         ),
@@ -1963,7 +1964,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       if (bytes == null || bytes.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('無法讀取圖片內容')),
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('gd_img_read_failed'))),
           );
         }
         return;
@@ -1976,7 +1977,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       if (!kIsWeb &&
           (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
         savedPath = await FilePicker.platform.saveFile(
-          dialogTitle: '儲存圖片',
+          dialogTitle: tr('gd_save_image'),
           fileName: fileName,
           type: FileType.image,
         );
@@ -2005,7 +2006,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '圖片已儲存：$savedPath',
+                    tr('gd_img_saved', [savedPath.toString()]),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2015,7 +2016,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             backgroundColor: const Color(0xFF2E7D32),
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
-              label: '開啟',
+              label: tr('gd_open'),
               textColor: Colors.amberAccent,
               onPressed: () {
                 OpenFilex.open(savedPath!);
@@ -2028,7 +2029,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-            content: Text('下載失敗：$e'),
+            content: Text(tr('file_download_failed2', [e.toString()])),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -2061,7 +2062,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   // ── 群組內學習筆記卡片預覽與一鍵匯入 ──────────────────────────
   Widget _buildSharedNoteCardInChat(Map<String, dynamic> attached, bool isMe,
       bool isDark, Map<String, dynamic> post) {
-    final String title = attached['title'] ?? '無標題筆記';
+    final String title = attached['title'] ?? tr('note_untitled');
     final String content = attached['content'] ?? '';
     final String category = attached['category'] ?? '學習';
     final bool hasStrokes = attached['strokes'] != null &&
@@ -2118,7 +2119,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '學習筆記分享',
+                  tr('gd_note_share'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -2166,7 +2167,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             // 內容摘要
             Text(
               content.isEmpty
-                  ? '（空白筆記內容）'
+                  ? tr('gd_note_empty')
                   : content.replaceAll('#', '').replaceAll('**', '').trim(),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
@@ -2202,7 +2203,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                   ? Colors.white
                                   : const Color(0xFF4A148C)),
                           const SizedBox(width: 2),
-                          Text('心智圖',
+                          Text(tr('notes_mindmap'),
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.bold,
@@ -2225,7 +2226,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                       ),
                       const SizedBox(width: 3),
                       Text(
-                        '手繪',
+                        tr('gd_handwritten'),
                         style: TextStyle(
                           fontSize: 10.5,
                           color: isMe
@@ -2253,12 +2254,12 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         borderRadius: BorderRadius.circular(12)),
                     visualDensity: VisualDensity.compact,
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.visibility_rounded, size: 13),
                       SizedBox(width: 3),
-                      Text('預覽',
+                      Text(tr('gd_preview'),
                           style: TextStyle(
                               fontSize: 11, fontWeight: FontWeight.bold)),
                     ],
@@ -2268,7 +2269,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                 ElevatedButton.icon(
                   onPressed: () => _importSharedNote(post),
                   icon: const Icon(Icons.download_rounded, size: 13),
-                  label: const Text('匯入',
+                  label: Text(tr('gd_import'),
                       style:
                           TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
@@ -2297,12 +2298,12 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     final String rawTitle = attached['title'] as String? ?? '';
     final String rawContent = attached['content'] as String? ?? '';
     final String pContent = p['content'] as String? ?? '';
-    final String title = rawTitle.isNotEmpty ? rawTitle : '無標題筆記';
+    final String title = rawTitle.isNotEmpty ? rawTitle : tr('note_untitled');
     final String content = rawContent.isNotEmpty ? rawContent : pContent;
     final String category = (attached['category'] as String? ?? '').isNotEmpty
         ? (attached['category'] as String)
         : '學習';
-    final String authorName = p['author'] as String? ?? '未知用戶';
+    final String authorName = p['author'] as String? ?? tr('common_unknown_user');
     final String timeStr = p['time'] as String? ??
         (p['created_at']?.toString().split('T').first ?? '');
 
@@ -2427,7 +2428,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '•  由 $authorName 分享${timeStr.isNotEmpty ? ' 於 $timeStr' : ''}',
+                            tr('gd_shared_by', [authorName.toString(), (timeStr.isNotEmpty ? tr('gd_shared_at', [timeStr.toString()]) : '').toString()]),
                             style: TextStyle(
                               fontSize: 11.5,
                               color: isDark
@@ -2480,7 +2481,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                         : null,
                                   ),
                                   child: Text(
-                                    '📝 文字紀錄',
+                                    tr('gd_text_record'),
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: selectedTab == 0
@@ -2525,7 +2526,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                           : null,
                                     ),
                                     child: Text(
-                                      '🎨 手寫塗鴉',
+                                      tr('note_drawing'),
                                       style: TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: selectedTab == 1
@@ -2570,7 +2571,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                           : null,
                                     ),
                                     child: Text(
-                                      '🧠 心智圖',
+                                      tr('gd_mindmap_tag'),
                                       style: TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: selectedTab == 2
@@ -2629,7 +2630,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                             icon: const Icon(
                                                 Icons.fullscreen_rounded,
                                                 size: 16),
-                                            label: const Text('全螢幕',
+                                            label: Text(tr('tour_fullscreen'),
                                                 style: TextStyle(fontSize: 11)),
                                             style: TextButton.styleFrom(
                                               backgroundColor: Colors.white
@@ -2680,7 +2681,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('關閉',
+                          child: Text(tr('btn_close'),
                               style: TextStyle(
                                   color: Colors.grey,
                                   fontWeight: FontWeight.bold)),
@@ -2697,7 +2698,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                 horizontal: 16, vertical: 10),
                           ),
                           icon: const Icon(Icons.download_rounded, size: 17),
-                          label: const Text('匯入至我的筆記本',
+                          label: Text(tr('gd_import_to_notebook'),
                               style: TextStyle(
                                   fontSize: 13, fontWeight: FontWeight.bold)),
                           onPressed: () {
@@ -2727,10 +2728,10 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               ? jsonDecode(attached) as Map<String, dynamic>
               : {});
 
-      final String title = attachedData['title'] ?? '無標題筆記';
+      final String title = attachedData['title'] ?? tr('note_untitled');
       final String content = attachedData['content'] ?? '';
       final String category = attachedData['category'] ?? '學習';
-      final String authorName = p['author'] ?? '未知用戶';
+      final String authorName = p['author'] ?? tr('common_unknown_user');
       final String authorUserId = p['userId']?.toString() ?? '';
       final int authorAvatarColor = (p['authorAvatarColor'] as int?) ?? 0;
 
@@ -2779,11 +2780,11 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
               Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
               SizedBox(width: 8),
-              Expanded(child: Text('🎉 筆記已成功匯入至您的筆記本！')),
+              Expanded(child: Text(tr('gd_note_imported'))),
             ],
           ),
           backgroundColor: Theme.of(context).primaryColor,
@@ -2797,7 +2798,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(
-          content: Text('匯入失敗: $e'),
+          content: Text(tr('common_import_failed', [e.toString()])),
           backgroundColor: Colors.redAccent,
           duration: const Duration(milliseconds: 1400),
           behavior: SnackBarBehavior.floating,
@@ -2821,12 +2822,12 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
       children: [
         if (pending.isNotEmpty && _isOwnerOrAdmin) ...[
-          _sectionHeader('待審核申請', pending.length, isDark),
+          _sectionHeader(tr('gd_pending_section'), pending.length, isDark),
           const SizedBox(height: 8),
           ...pending.map((m) => _buildPendingCard(m, isDark)),
           const SizedBox(height: 16),
         ],
-        _sectionHeader('成員', active.length, isDark),
+        _sectionHeader(tr('gd_members'), active.length, isDark),
         const SizedBox(height: 8),
         ...active.map((m) => _buildMemberCard(m, isDark)),
       ],
@@ -2862,7 +2863,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   }
 
   Widget _buildMemberCard(Map<String, dynamic> m, bool isDark) {
-    final name = m['display_name'] as String? ?? '未知用戶';
+    final name = m['display_name'] as String? ?? tr('common_unknown_user');
     final role = m['role'] as String? ?? 'member';
     final targetUserId = m['user_id'].toString();
     final bool canKick =
@@ -2913,7 +2914,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             IconButton(
               icon: const Icon(Icons.person_remove_outlined,
                   color: Colors.redAccent, size: 20),
-              tooltip: '剔除成員',
+              tooltip: tr('gd_kick'),
               onPressed: () => _kickMember(m),
             ),
           ],
@@ -2923,7 +2924,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   }
 
   Widget _buildPendingCard(Map<String, dynamic> m, bool isDark) {
-    final name = m['display_name'] as String? ?? '未知用戶';
+    final name = m['display_name'] as String? ?? tr('common_unknown_user');
     final cardBg =
         isDark ? Colors.orange.withValues(alpha: 0.08) : Colors.orange.shade50;
 
@@ -2955,7 +2956,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: isDark ? Colors.white : Colors.black87)),
-                const Text('⏳ 申請中',
+                Text(tr('gd_applying'),
                     style: TextStyle(fontSize: 11, color: Colors.orange)),
               ],
             ),
@@ -2965,13 +2966,13 @@ class _GroupDetailPageState extends State<GroupDetailPage>
               IconButton(
                 icon: const Icon(Icons.check_circle,
                     color: Color(0xFF4CAF50), size: 26),
-                tooltip: '同意',
+                tooltip: tr('gd_approve'),
                 onPressed: () => _approveRequest(m, true),
               ),
               IconButton(
                 icon:
                     const Icon(Icons.cancel, color: Colors.redAccent, size: 26),
-                tooltip: '拒絕',
+                tooltip: tr('gd_reject'),
                 onPressed: () => _approveRequest(m, false),
               ),
             ],
@@ -2989,7 +2990,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           color: const Color(0xFFFFCC80).withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text('👑 創建者',
+        child: Text(tr('gd_creator'),
             style: TextStyle(
                 fontSize: 11,
                 color: Color(0xFFB8860B),
@@ -3002,7 +3003,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
           color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text('⚙️ 管理員',
+        child: Text(tr('gd_admin'),
             style: TextStyle(
                 fontSize: 11,
                 color: Theme.of(context).primaryColor,
@@ -3032,7 +3033,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                   : Icons.group_add_rounded,
               color: Colors.white),
       label: Text(
-        _requiresApproval ? '申請加入' : '加入群組',
+        _requiresApproval ? tr('gd_apply') : tr('gd_join'),
         style: const TextStyle(
             fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
       ),
@@ -3114,7 +3115,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                     size: 13, color: Colors.white),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isMe ? '我的群組身分' : '群組成員名片',
+                                  isMe ? tr('gd_my_identity') : tr('gd_member_card'),
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 11,
@@ -3205,7 +3206,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                                   size: 15, color: primary),
                               const SizedBox(width: 6),
                               Text(
-                                '個人簡介',
+                                tr('profile_bio'),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
@@ -3218,7 +3219,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                           Text(
                             effectiveBio.isNotEmpty
                                 ? effectiveBio
-                                : '這位成員很專注，尚未填寫個人簡介 🌱',
+                                : tr('gd_bio_empty'),
                             style: TextStyle(
                               fontSize: 13,
                               height: 1.45,
@@ -3247,7 +3248,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text('關閉',
+                        child: Text(tr('btn_close'),
                             style: TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 13)),
                       ),

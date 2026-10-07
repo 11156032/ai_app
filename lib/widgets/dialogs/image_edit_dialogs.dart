@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../utils/image_enhancer.dart';
+import '../../services/app_locale_service.dart';
 
 // ─── 個人頭像裁切範圍選擇器對話框 ──────────────────────────────────────
 class AvatarCropDialog extends StatefulWidget {
@@ -29,13 +30,13 @@ class _AvatarCropDialogState extends State<AvatarCropDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              '調整頭像可視範圍',
+            Text(
+              tr('img_avatar_range'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
-            const Text(
-              '拖曳滑桿或調整縮放與位置，確定最佳發布預覽範圍',
+            Text(
+              tr('img_avatar_range_sub'),
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 16),
@@ -80,7 +81,7 @@ class _AvatarCropDialogState extends State<AvatarCropDialog> {
             // 水平位置控制
             Row(
               children: [
-                const Text('左右',
+                Text(tr('img_horizontal'),
                     style: TextStyle(fontSize: 11, color: Colors.grey)),
                 Expanded(
                   child: Slider(
@@ -95,7 +96,7 @@ class _AvatarCropDialogState extends State<AvatarCropDialog> {
             // 垂直位置控制
             Row(
               children: [
-                const Text('上下',
+                Text(tr('img_vertical'),
                     style: TextStyle(fontSize: 11, color: Colors.grey)),
                 Expanded(
                   child: Slider(
@@ -113,7 +114,7 @@ class _AvatarCropDialogState extends State<AvatarCropDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, null),
-                  child: const Text('取消'),
+                  child: Text(tr('btn_cancel')),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
@@ -124,7 +125,7 @@ class _AvatarCropDialogState extends State<AvatarCropDialog> {
                           height: 14,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Text('套用頭像範圍'),
+                      : Text(tr('img_apply_avatar')),
                 ),
               ],
             ),
@@ -241,17 +242,17 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
 
     final items = [
       DetectItem(
-          '銳利度', report.sharpnessScore, report.isBlurry ? '偵測到模糊' : '清晰'),
+          tr('img_sharpness'), report.sharpnessScore, report.isBlurry ? tr('img_blurry') : tr('img_clear')),
       DetectItem(
-          '亮度',
+          tr('img_brightness'),
           report.brightnessScore,
           report.isDark
-              ? '偵測到偏暗'
+              ? tr('img_dark')
               : report.isOverExposed
-                  ? '偵測到過曝'
-                  : '正常'),
+                  ? tr('img_overexposed')
+                  : tr('img_normal')),
       DetectItem(
-          '對比度', report.contrastScore, report.isLowContrast ? '偵測到低對比' : '正常'),
+          tr('img_contrast'), report.contrastScore, report.isLowContrast ? tr('img_low_contrast') : tr('img_normal')),
     ];
 
     for (int i = 0; i < items.length; i++) {
@@ -314,10 +315,10 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
               const SizedBox(width: 8),
               Text(
                 _phase == _ScanPhase.scanning
-                    ? 'AI 畫質掃描中...'
+                    ? tr('img_scanning_ai')
                     : _phase == _ScanPhase.repairing
-                        ? 'AI 自動修復中...'
-                        : '✨ 修復完成',
+                        ? tr('img_repairing_ai')
+                        : tr('img_repaired_done'),
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 17,
@@ -453,10 +454,10 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                           const SizedBox(width: 6),
                           Text(
                             _phase == _ScanPhase.scanning
-                                ? '掃描中...'
+                                ? tr('img_scanning')
                                 : _phase == _ScanPhase.repairing
-                                    ? '修復中...'
-                                    : '已修復',
+                                    ? tr('img_repairing')
+                                    : tr('img_repaired'),
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 11),
                           ),
@@ -489,7 +490,7 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('保留原圖'),
+                    child: Text(tr('img_keep_original')),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -510,12 +511,12 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.auto_fix_high, size: 16),
                         SizedBox(width: 6),
-                        Text('套用 AI 修復',
+                        Text(tr('img_apply_ai'),
                             style: TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
@@ -531,7 +532,7 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
   }
 
   Widget _buildDetectRow(DetectItem item) {
-    final hasIssue = item.desc != '清晰' && item.desc != '正常';
+    final hasIssue = item.desc != tr('img_clear') && item.desc != tr('img_normal');
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -584,7 +585,7 @@ class _ImageQualityEnhanceSheetState extends State<ImageQualityEnhanceSheet>
         children: [
           const Icon(Icons.stars_rounded, color: Color(0xFF7C6AFF), size: 20),
           const SizedBox(width: 10),
-          const Text('修復後品質評分',
+          Text(tr('img_score_after'),
               style: TextStyle(color: Colors.white70, fontSize: 13)),
           const Spacer(),
           Text('$score / 100',
@@ -655,7 +656,7 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                     color: Theme.of(context).primaryColor, size: 22),
                 const SizedBox(width: 8),
                 Text(
-                  '調整社群視圖顯示焦點',
+                  tr('img_focus_title'),
                   style: TextStyle(
                       color: isDark ? Colors.white : Colors.black87,
                       fontSize: 17,
@@ -671,7 +672,7 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
             ),
             const SizedBox(height: 6),
             Text(
-              '可放大縮小預覽框，並手動拖曳對齊方位，決定最佳展示焦點',
+              tr('img_focus_sub'),
               style: TextStyle(
                   color: isDark ? Colors.white60 : Colors.grey.shade600,
                   fontSize: 12),
@@ -727,13 +728,13 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                               color: Colors.black.withValues(alpha: 0.65),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.touch_app,
                                     color: Colors.white70, size: 14),
                                 SizedBox(width: 4),
-                                Text('按住滑動微調，雙指可縮放預覽',
+                                Text(tr('img_focus_hint'),
                                     style: TextStyle(
                                         color: Colors.white, fontSize: 11)),
                               ],
@@ -761,7 +762,7 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('取消'),
+                    child: Text(tr('btn_cancel')),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -777,7 +778,7 @@ class _ImageFocalPointDialogState extends State<ImageFocalPointDialog> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('套用顯示焦點',
+                    child: Text(tr('img_apply_focus'),
                         style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),

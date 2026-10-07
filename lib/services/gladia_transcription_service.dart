@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'ai_diagnosis_service.dart';
 import 'voice_recognition_service.dart';
+import 'app_locale_service.dart';
 
 /// 單句說話者轉錄分段
 class GladiaUtterance {
@@ -42,7 +43,7 @@ class GladiaUtterance {
   }
 
   /// 說話者顯示名稱 (例如 "說話者 1")
-  String get speakerDisplayName => '說話者 ${speaker + 1}';
+  String get speakerDisplayName => tr('gl_speaker_n', [(speaker + 1).toString()]);
 
   Map<String, dynamic> toJson() => {
         'speaker': speaker,
@@ -136,6 +137,30 @@ class GladiaTranscriptionService {
       'https://ai-app-proxy.adenlee36.workers.dev/gladia';
   static const String _kGladiaDirectBaseUrl = 'https://api.gladia.io/v2';
 
+  /// 語音辨識主要語言，跟隨 App 介面語言
+  static String _sttLanguage() {
+    switch (AppLocaleService.currentLanguage) {
+      case AppLocaleService.ja:
+        return 'ja';
+      case AppLocaleService.ko:
+        return 'ko';
+      default:
+        return 'zh';
+    }
+  }
+
+  /// Whisper 轉錄提示詞（以目標語言撰寫，引導輸出正確文字系統）
+  static String _whisperPrompt() {
+    switch (AppLocaleService.currentLanguage) {
+      case AppLocaleService.ja:
+        return '以下は日本語の音声メモです。句読点、固有名詞、英単語を正確に書き起こしてください。';
+      case AppLocaleService.ko:
+        return '다음은 한국어 음성 메모입니다. 문장부호, 고유명사, 영어 단어를 정확하게 받아써 주세요.';
+      default:
+        return '以下為繁體中文語音筆記內容，請保留完整標點符號、專有名詞與中英夾雜精準拼寫。';
+    }
+  }
+
   // 讀取 App 訪問 Cloudflare Worker 的金鑰通行證
   static String get _kAppClientSecret {
     try {
@@ -191,7 +216,7 @@ class GladiaTranscriptionService {
     void Function(String statusMessage)? onProgressStatus,
   }) async {
     if (!await audioFile.exists() || audioFile.lengthSync() < 200) {
-      throw Exception('未取得有效音訊資料，請靠近麥克風說話 🎙️');
+      throw Exception(tr('stt_no_valid_audio'));
     }
 
     final List<String> errorLogs = [];
@@ -200,10 +225,10 @@ class GladiaTranscriptionService {
     // 順位 1：Cloudflare 中繼站 Gladia V2 旗艦轉錄 (不暴露 API Key，含說話者分離)
     // ----------------------------------------------------
     try {
-      onProgressStatus?.call('安全傳送音訊至 Cloudflare 旗艦中繼站... ☁️');
+      onProgressStatus?.call(tr('gl_uploading'));
       final audioUrl = await _uploadAudioViaRelay(audioFile);
 
-      onProgressStatus?.call('Gladia 說話者分離與多語言辨識中... 🎙️');
+      onProgressStatus?.call(tr('gl_diarizing'));
       final jobId = await _createTranscriptionJobViaRelay(audioUrl);
 
       final result = await _pollTranscriptionResultViaRelay(
@@ -217,11 +242,11 @@ class GladiaTranscriptionService {
         return result;
       } else {
         debugPrint('GladiaTranscriptionService: Cloudflare Gladia 回傳空白文字，啟用備援...');
-        errorLogs.add('Gladia 未偵測到人聲內容（請錄製 3 秒以上語音）');
+        errorLogs.add(tr('gl_no_voice'));
       }
     } catch (e) {
       debugPrint('GladiaTranscriptionService Cloudflare 中繼異常: $e，嘗試切換備援...');
-      errorLogs.add('Cloudflare 中繼: ${e.toString().replaceAll('Exception:', '').trim()}');
+      errorLogs.add(tr('gl_relay_err', [(e.toString().replaceAll('Exception:', '').trim()).toString()]));
     }
 
     // ----------------------------------------------------
@@ -230,7 +255,7 @@ class GladiaTranscriptionService {
     final gladiaKey = _kGladiaApiKey;
     if (gladiaKey.isNotEmpty) {
       try {
-        onProgressStatus?.call('切換直連 Gladia 旗艦引擎... ☁️');
+        onProgressStatus?.call(tr('gl_direct'));
         final audioUrl = await _uploadAudioDirect(audioFile, gladiaKey);
         final resultUrl = await _createTranscriptionJobDirect(audioUrl, gladiaKey);
         final result = await _pollTranscriptionResultDirect(
@@ -244,11 +269,11 @@ class GladiaTranscriptionService {
           debugPrint('GladiaTranscriptionService: Gladia 直連轉錄成功 (${text.length} 字)');
           return result;
         } else {
-          errorLogs.add('Gladia 直連無字詞產出');
+          errorLogs.add(tr('gl_direct_empty'));
         }
       } catch (e) {
         debugPrint('GladiaTranscriptionService Gladia 直連異常: $e');
-        errorLogs.add('Gladia 直連: ${e.toString().replaceAll('Exception:', '').trim()}');
+        errorLogs.add(tr('gl_direct_err', [(e.toString().replaceAll('Exception:', '').trim()).toString()]));
       }
     }
 
@@ -258,7 +283,7 @@ class GladiaTranscriptionService {
     final groqKey = _kGroqApiKey;
     if (groqKey.isNotEmpty) {
       try {
-        onProgressStatus?.call('啟動 Groq Whisper 極速語音引擎... ⚡');
+        onProgressStatus?.call(tr('gl_groq'));
         final groqResult = await _transcribeWithGroqWhisper(audioFile);
         final text = groqResult.fullTranscript.trim();
         if (text.isNotEmpty) {
@@ -277,7 +302,7 @@ class GladiaTranscriptionService {
     final geminiKey = _kGeminiApiKey;
     if (geminiKey.isNotEmpty) {
       try {
-        onProgressStatus?.call('啟動 Gemini 2.5 高階語音多模態辨識... ⚡');
+        onProgressStatus?.call(tr('gl_gemini'));
         final geminiResult = await _transcribeWithGemini25(audioFile);
         final text = geminiResult.fullTranscript.trim();
         if (text.isNotEmpty) {
@@ -291,8 +316,8 @@ class GladiaTranscriptionService {
     }
 
     // 若所有引擎均無法識別出內容，附帶具體錯誤原因
-    final details = errorLogs.isNotEmpty ? '（${errorLogs.first}）' : '，請錄製 3 秒以上清晰說話內容';
-    throw Exception('未能從音訊中識別出清晰人聲語音$details 🎙️');
+    final details = errorLogs.isNotEmpty ? tr('gl_err_details', [errorLogs.first.toString()]) : tr('gl_err_hint');
+    throw Exception(tr('gl_no_speech', [details]));
   }
 
   /// 1. 透過 Cloudflare 中繼站上傳音訊檔案
@@ -346,7 +371,7 @@ class GladiaTranscriptionService {
       },
       'language_config': {
         'code_switching': true,
-        'languages': ['zh', 'en'],
+        'languages': [_sttLanguage(), 'en'],
       },
     });
 
@@ -410,7 +435,7 @@ class GladiaTranscriptionService {
             throw Exception('Gladia 轉錄處理失敗: ${data['error']}');
           } else {
             if (attempt % 3 == 0) {
-              onProgressStatus?.call('Gladia 正在辨識說話者與字詞中 (${attempt}s)...');
+              onProgressStatus?.call(tr('gl_polling', [attempt.toString()]));
             }
           }
         }
@@ -473,7 +498,7 @@ class GladiaTranscriptionService {
       },
       'language_config': {
         'code_switching': true,
-        'languages': ['zh', 'en'],
+        'languages': [_sttLanguage(), 'en'],
       },
     });
 
@@ -536,7 +561,7 @@ class GladiaTranscriptionService {
             throw Exception('Gladia 轉錄處理失敗: ${data['error']}');
           } else {
             if (attempt % 3 == 0) {
-              onProgressStatus?.call('Gladia 正在辨識說話者與字詞中 (${attempt}s)...');
+              onProgressStatus?.call(tr('gl_polling', [attempt.toString()]));
             }
           }
         }
@@ -604,8 +629,8 @@ class GladiaTranscriptionService {
       ..fields['model'] = 'whisper-large-v3-turbo'
       ..fields['response_format'] = 'json'
       ..fields['temperature'] = '0.0'
-      ..fields['language'] = 'zh'
-      ..fields['prompt'] = '以下為繁體中文語音筆記內容，請保留完整標點符號、專有名詞與中英夾雜精準拼寫。';
+      ..fields['language'] = _sttLanguage()
+      ..fields['prompt'] = _whisperPrompt();
 
     final filename = audioFile.path.split(RegExp(r'[\\/]')).last;
     final ext = filename.split('.').last.toLowerCase();
@@ -666,8 +691,8 @@ class GladiaTranscriptionService {
       apiKey: apiKey,
     );
 
-    const prompt = '''
-請將這段錄音精確轉錄為繁體中文（台灣習慣用語）與英文中英混雜的逐字稿。
+    final prompt = '''
+請將這段錄音精確轉錄為逐字稿，保留說話者使用的原始語言（中英夾雜時英文單字正確拼寫）${AppLocaleService.currentLanguage == AppLocaleService.zhTW ? '，中文請使用繁體中文（台灣習慣用語）' : ''}。
 要求：
 1. 自動識別不同的說話者（例如：說話者 1、說話者 2）。
 2. 每段話前標註時間或說話者，例如：[說話者 1]: 內容...

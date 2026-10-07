@@ -7,6 +7,7 @@ import 'dart:async';
 import '../services/ai_diagnosis_service.dart';
 import '../services/voice_recognition_service.dart';
 import 'ai_action_cards.dart';
+import '../services/app_locale_service.dart';
 
 class AIAssistantPanel extends StatefulWidget {
   final List<Map<String, dynamic>> chatLogs;
@@ -172,7 +173,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const SizedBox(width: 40),
-                  Text('代理人助理',
+                  Text(tr('agent_title'),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).primaryColor,
@@ -180,7 +181,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   IconButton(
                     icon: const Icon(Icons.cleaning_services_outlined,
                         size: 20, color: Colors.grey),
-                    tooltip: '開啟新對話',
+                    tooltip: tr('agent_new_chat'),
                     onPressed: widget.onClearChat,
                   )
                 ],
@@ -246,12 +247,14 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                             widget.onQuickPublishPost!(data);
                           }
                         },
-                        onOpenFullEditor: (data) {
-                          setModalState(() {
-                            msg['cardState'] = 'completed';
-                          });
+                        onOpenFullEditor: (data) async {
                           if (widget.onNavigateToPage != null) {
-                            widget.onNavigateToPage!('create_post_page', data);
+                            final res = await widget.onNavigateToPage!('create_post_page', data);
+                            if (res == true) {
+                              setModalState(() {
+                                msg['cardState'] = 'completed';
+                              });
+                            }
                           }
                         },
                         onCancel: () {
@@ -263,7 +266,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                               'widgetType': 'action_result_card',
                               'resultType': 'cancelled',
                               'actionType': 'create_post',
-                              'summary': '已取消發佈貼文。',
+                              'summary': tr('agent_post_cancelled'),
                             });
                           });
                           widget.onScrollToBottom();
@@ -286,7 +289,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                               'widgetType': 'action_result_card',
                               'resultType': 'success',
                               'actionType': msg['targetDialog'],
-                              'summary': '已為您開啟操作介面！',
+                              'summary': tr('agent_opened_ui'),
                             });
                           });
                           widget.onScrollToBottom();
@@ -305,7 +308,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                               'widgetType': 'action_result_card',
                               'resultType': 'cancelled',
                               'actionType': msg['targetDialog'],
-                              'summary': '已取消此操作。',
+                              'summary': tr('agent_op_cancelled'),
                             });
                           });
                           widget.onScrollToBottom();
@@ -338,53 +341,53 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
 
   Widget _buildHelpOptions(StateSetter setModalState) {
     final options = [
-      {'i': Icons.forum, 'l': '社群討論', 'v': '社群', 'c': Colors.blue},
-      {'i': Icons.history_edu, 'l': '查看社群動態', 'v': '社群動態', 'c': Colors.orange},
+      {'i': Icons.forum, 'l': tr('panel_social_discuss'), 'v': '社群', 'c': Colors.blue},
+      {'i': Icons.history_edu, 'l': tr('panel_view_feed'), 'v': '社群動態', 'c': Colors.orange},
       {
         'i': Icons.add_circle_outline,
-        'l': '新增行程或待辦',
+        'l': tr('agent_add_sched'),
         'v': '新增',
         'c': Colors.blueAccent
       },
       {
         'i': Icons.edit_note_outlined,
-        'l': '修改行程或待辦',
+        'l': tr('agent_edit_sched'),
         'v': '修改',
         'c': Colors.orangeAccent
       },
       {
         'i': Icons.dynamic_feed_outlined,
-        'l': '發佈社群貼文',
+        'l': tr('agent_post'),
         'v': '發佈貼文',
         'c': Colors.deepOrange
       },
       {
         'i': Icons.question_answer_outlined,
-        'l': '回覆社群留言',
+        'l': tr('agent_reply'),
         'v': '回覆哪些留言',
         'c': Colors.green
       },
       {
         'i': Icons.manage_accounts_outlined,
-        'l': '修改個人檔案',
+        'l': tr('panel_edit_profile'),
         'v': '個人檔案',
         'c': Colors.purple
       },
       {
         'i': Icons.palette_outlined,
-        'l': '切換佈景主題',
+        'l': tr('agent_switch_theme'),
         'v': '切換主題',
         'c': Colors.pink
       },
       {
         'i': Icons.menu_book_outlined,
-        'l': '跳轉題庫測驗',
+        'l': tr('agent_goto_quiz'),
         'v': '題庫',
         'c': Colors.teal
       },
       {
         'i': Icons.note_alt_outlined,
-        'l': '筆記本管理',
+        'l': tr('agent_notebook_mgmt'),
         'v': '筆記本管理',
         'c': Colors.brown
       },
@@ -478,7 +481,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 const Icon(Icons.touch_app, color: Colors.white, size: 20),
                 const SizedBox(width: 10),
                 Text(
-                  '點擊執行：「${msg['suggestionLabel']}」',
+                  tr('panel_tap_run', [trv((msg['suggestionLabel'] ?? '').toString())]),
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -498,7 +501,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         alignment: Alignment.centerLeft,
         child: ElevatedButton.icon(
           icon: const Icon(Icons.calendar_today, size: 18),
-          label: const Text('選擇日期與時間'),
+          label: Text(tr('panel_pick_datetime')),
           style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Theme.of(context).primaryColor,
@@ -511,7 +514,6 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               initialDate: DateTime.now(),
               firstDate: DateTime.now(),
               lastDate: DateTime(2030),
-              locale: const Locale('zh', 'TW'),
             );
             if (date != null && mounted) {
               TimeOfDay? time = await showTimePicker(
@@ -645,16 +647,16 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       child: Row(children: [
         styleBtn(
             icon: '🌸',
-            label: '淺色系',
-            sub: '清淡、輕盈、活潑',
+            label: tr('agent_light_palette'),
+            sub: tr('panel_light_sub'),
             grad: const [Color(0xFFFFCCDA), Color(0xFFBBE1FF)],
             value: '淺色系',
             preview: lightPreview),
         const SizedBox(width: 12),
         styleBtn(
             icon: '🌲',
-            label: '深色系',
-            sub: '沉穩、質感、低調',
+            label: tr('agent_dark_palette'),
+            sub: tr('panel_dark_sub'),
             grad: const [Color(0xFF1A2A3A), Color(0xFF2E4A3E)],
             value: '深色系',
             preview: darkPreview,
@@ -750,7 +752,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               child: Icon(Icons.palette, color: selectedColor, size: 18),
             ),
             const SizedBox(width: 10),
-            Text(isLight ? '🌸 淺色系 色盤' : '🌲 深色系 色盤',
+            Text(isLight ? tr('palette_light') : tr('palette_dark'),
                 style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -758,7 +760,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           ]),
           const SizedBox(height: 14),
           // 精選色磚
-          const Text('精選配色',
+          Text(tr('palette_featured'),
               style: TextStyle(
                   fontSize: 11,
                   color: Colors.grey,
@@ -804,7 +806,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             const Expanded(child: Divider()),
             Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text('自訂顏色',
+                child: Text(tr('palette_custom'),
                     style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade500,
@@ -899,13 +901,13 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF4E342E))),
-                  Text(isCustom ? '自訂顏色' : '精選配色',
+                  Text(isCustom ? tr('palette_custom') : tr('palette_featured'),
                       style:
                           TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 ])),
             ElevatedButton.icon(
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('確認'),
+              label: Text(tr('btn_confirm')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: selectedColor,
                 foregroundColor:
@@ -944,7 +946,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
 
     String fmt2(int v) => v.toString().padLeft(2, '0');
     String dateLabel(DateTime d) {
-      const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+      final weekdays = [tr('mon'), tr('tue'), tr('wed'), tr('thu'), tr('fri'), tr('sat'), tr('sun')];
       final wd = weekdays[d.weekday - 1];
       return '${d.month}/${d.day}（$wd）';
     }
@@ -1013,8 +1015,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       color: Theme.of(context).primaryColor, size: 18),
                 ),
                 const SizedBox(width: 10),
-                const Text(
-                  '選擇日期與時段',
+                Text(
+                  tr('slot_pick_title'),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -1026,7 +1028,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             const SizedBox(height: 14),
 
             // ── 日期滾輪 ───────────────────────────────────────────────
-            const Text('日期',
+            Text(tr('slot_date'),
                 style: TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 4),
             Stack(
@@ -1067,7 +1069,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                                 color: Color(0xFF66BB6A),
                                 shape: BoxShape.circle)),
                         const SizedBox(width: 6),
-                        const Text('開始時間',
+                        Text(tr('panel_start_time'),
                             style: TextStyle(fontSize: 12, color: Colors.grey)),
                       ]),
                       const SizedBox(height: 6),
@@ -1139,7 +1141,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                                 color: Color(0xFFEF5350),
                                 shape: BoxShape.circle)),
                         const SizedBox(width: 6),
-                        const Text('結束時間',
+                        Text(tr('panel_end_time'),
                             style: TextStyle(fontSize: 12, color: Colors.grey)),
                       ]),
                       const SizedBox(height: 6),
@@ -1189,7 +1191,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.check_circle_outline, size: 18),
-                label: const Text('確認時段'),
+                label: Text(tr('slot_confirm')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
@@ -1239,7 +1241,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               .map((c) => ActionChip(
                     avatar:
                         CircleAvatar(backgroundColor: c['color'], radius: 8),
-                    label: Text(c['name']),
+                    label: Text(trv(c['name'] as String)),
                     backgroundColor: Colors.white,
                     onPressed: () {
                       widget.onHandleSubmit(
@@ -1255,28 +1257,28 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       {
         'label': '一般',
         'icon': '💬',
-        'desc': '日常分享',
+        'desc': tr('panel_type_daily'),
         'color': const Color(0xFF78909C),
         'bg': const Color(0xFFECEFF1),
       },
       {
         'label': '學習筆記',
         'icon': '📝',
-        'desc': '記錄成長',
+        'desc': tr('panel_type_growth'),
         'color': const Color(0xFF43A047),
         'bg': const Color(0xFFE8F5E9),
       },
       {
         'label': '心情文章',
         'icon': '💭',
-        'desc': '抒發心情',
+        'desc': tr('panel_type_mood'),
         'color': const Color(0xFF7E57C2),
         'bg': const Color(0xFFEDE7F6),
       },
       {
         'label': '分享資料',
         'icon': '📄',
-        'desc': '資源共享',
+        'desc': tr('panel_type_resource'),
         'color': const Color(0xFF1E88E5),
         'bg': const Color(0xFFE3F2FD),
       },
@@ -1294,14 +1296,14 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFFFE082)),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.touch_app_outlined,
                     size: 15, color: Color(0xFFF9A825)),
                 SizedBox(width: 6),
                 Text(
-                  '請點選下方貼文類型來繼續 👇',
+                  tr('agent_post_type_hint'),
                   style: TextStyle(
                     fontSize: 12,
                     color: Color(0xFFF57F17),
@@ -1344,7 +1346,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(t['label'] as String,
+                          Text(trv(t['label'] as String),
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
@@ -1378,17 +1380,17 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [
+          Row(children: [
             Icon(Icons.assignment_turned_in_outlined,
                 color: Colors.green, size: 20),
             SizedBox(width: 8),
-            Text('確認發佈內容', style: TextStyle(fontWeight: FontWeight.bold))
+            Text(tr('panel_confirm_post'), style: TextStyle(fontWeight: FontWeight.bold))
           ]),
           const SizedBox(height: 10),
-          Text('📝 內容：${data['content']}',
+          Text(tr('panel_content_n', [(data['content']).toString()]),
               maxLines: 2, overflow: TextOverflow.ellipsis),
-          Text('🏷️ 類型：${data['type']}'),
-          Text('⏰ 時間：${data['time']}'),
+          Text(tr('panel_type_n', [(data['type']).toString()])),
+          Text(tr('agent_time_fmt', [(data['time']).toString()])),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -1397,14 +1399,14 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                   onPressed: () => widget.onHandleSubmit(
                       '取消發佈', _modalController, setModalState),
                   child:
-                      const Text('取消', style: TextStyle(color: Colors.grey))),
+                      Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey))),
               ElevatedButton(
                   style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white),
                   onPressed: () => widget.onHandleSubmit(
                       '確認發佈', _modalController, setModalState),
-                  child: const Text('確認發佈'))
+                  child: Text(tr('val_cmd_confirm_publish')))
             ],
           )
         ],
@@ -1418,7 +1420,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
         alignment: Alignment.centerLeft,
         child: OutlinedButton.icon(
           icon: const Icon(Icons.skip_next, size: 18),
-          label: const Text('跳過此步驟'),
+          label: Text(tr('panel_skip_step')),
           style: OutlinedButton.styleFrom(
               foregroundColor: Colors.grey,
               side: const BorderSide(color: Colors.grey),
@@ -1476,7 +1478,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
             : [],
       ),
       child: _buildRichTextContent(
-        msg['text'] as String? ?? '',
+        isAI ? msg['text'] as String? ?? '' : trv(msg['text'] as String? ?? ''),
         isAI: isAI,
         isDark: isDark,
         primaryColor: Theme.of(context).primaryColor,
@@ -1490,12 +1492,12 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
           Clipboard.setData(ClipboardData(text: msg['text'] ?? ''));
           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
             SnackBar(
-              content: const Row(
+              content: Row(
                 children: [
                   Icon(Icons.check_circle_outline_rounded,
                       color: Colors.white, size: 20),
                   SizedBox(width: 8),
-                  Text('已複製代理人回覆內容'),
+                  Text(tr('agent_copied_reply')),
                 ],
               ),
               duration: const Duration(milliseconds: 1500),
@@ -1675,7 +1677,7 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '🎙️ 正在即時語音轉文字... 請說話',
+                    tr('agent_voice_live'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -1694,14 +1696,14 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                       color: Colors.deepOrangeAccent.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.stop_rounded,
                             size: 14, color: Colors.deepOrangeAccent),
                         SizedBox(width: 4),
                         Text(
-                          '完成',
+                          tr('common_done'),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -1788,8 +1790,8 @@ class _AIAssistantPanelState extends State<AIAssistantPanel> {
                     textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
                       hintText: _isVoiceListening
-                          ? '正在聆聽語音中，請說話...'
-                          : '請輸入您的問題或指令...',
+                          ? tr('agent_listening_hint')
+                          : tr('agent_input_hint'),
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -1886,11 +1888,11 @@ class _AiLoadingTipWidgetState extends State<_AiLoadingTipWidget> {
   int _secondsLeft = 0;
 
   final List<String> _tips = [
-    'AI 整理能幫您快速抓出筆記的核心重點！',
-    '整理完後，您可以將摘要直接附加到原筆記中！',
-    '有條理的筆記有助於大腦更深層地建立知識連結喔！',
-    '利用 AI 摘要後，搭配題目測驗，學習效果會更好！',
-    '每隔段時間重新檢視筆記，是克服遺忘曲線的最佳方法！',
+    tr('panel_tip1'),
+    tr('panel_tip2'),
+    tr('panel_tip3'),
+    tr('panel_tip4'),
+    tr('panel_tip5'),
   ];
 
   @override
@@ -1939,7 +1941,7 @@ class _AiLoadingTipWidgetState extends State<_AiLoadingTipWidget> {
     final bool isRateLimited = _secondsLeft > 0;
     final String icon = isRateLimited ? '⏳' : '💡';
     final String text = isRateLimited
-        ? 'AI 目前繁忙，預計於 $_secondsLeft 秒後恢復。將暫以本地算法大綱整理...'
+        ? tr('panel_ai_busy', [_secondsLeft.toString()])
         : _currentTip;
 
     final Color bgColor =
@@ -2037,9 +2039,9 @@ class _NoteSummaryLoadingBubbleState extends State<_NoteSummaryLoadingBubble> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Flexible(
+                Flexible(
                   child: Text(
-                    '代理人正在為您整理筆記...',
+                    tr('panel_organizing'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF4E342E),

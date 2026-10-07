@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/mascot_tip_service.dart';
 import 'common_widgets.dart';
+import '../services/app_locale_service.dart';
 
 /// 伴學精靈吉祥物元件（預設極簡跑馬燈膠囊型態）
 ///
@@ -248,7 +249,7 @@ class _MascotCompanionState extends State<MascotCompanion>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '葉棒小語',
+                    tr('mascot_tip_title'),
                     style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w700,

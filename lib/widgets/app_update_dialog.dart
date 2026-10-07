@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/app_locale_service.dart';
 
 class AppUpdateDialog extends StatelessWidget {
   final bool isForceUpdate;
@@ -45,7 +46,7 @@ class AppUpdateDialog extends StatelessWidget {
     if (updateUrl.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('⚠️ 尚未設定更新下載網址，請稍候重試或聯絡客服。'),
+          content: Text(tr('update_no_url')),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -125,7 +126,7 @@ class AppUpdateDialog extends StatelessWidget {
 
               // 標題
               Text(
-                isForceUpdate ? '必須更新版本' : '發現全新版本',
+                isForceUpdate ? tr('update_force_title') : tr('update_new_title'),
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -165,8 +166,8 @@ class AppUpdateDialog extends StatelessWidget {
                 child: Text(
                   customMessage ??
                       (isForceUpdate
-                          ? '為了確保您的帳號安全與核心 AI 伴學功能正常運作，本版本已不再支援，請立即更新至最新版本！'
-                          : '最新版本帶來了更流暢的學習體驗與全新功能優化，建議您立即更新體驗！'),
+                          ? tr('update_force_desc')
+                          : tr('update_new_desc')),
                   style: const TextStyle(
                     fontSize: 13.5,
                     color: Color(0xFF334155),
@@ -194,8 +195,8 @@ class AppUpdateDialog extends StatelessWidget {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text(
-                          '稍後再說',
+                        child: Text(
+                          tr('update_later'),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -219,7 +220,7 @@ class AppUpdateDialog extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        isForceUpdate ? '立即下載更新' : '前往更新',
+                        isForceUpdate ? tr('update_download_now') : tr('update_go'),
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,

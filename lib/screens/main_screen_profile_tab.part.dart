@@ -151,7 +151,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               Row(
                                 children: [
                                   Text(
-                                    '社群主題中心',
+                                    tr('topic_center'),
                                     style: TextStyle(
                                       fontSize: 17,
                                       fontWeight: FontWeight.bold,
@@ -167,7 +167,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
-                                      '已關注 ${_userJoinedTopicIds.length}',
+                                      tr('topic_followed_n', [_userJoinedTopicIds.length.toString()]),
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -179,7 +179,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '關注感興趣的學科與社群主題，掌握同儕精選筆記與最新討論',
+                                tr('topic_center_desc'),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: isDark
@@ -217,7 +217,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                   size: 16, color: Colors.amber.shade600),
                               const SizedBox(width: 5),
                               Text(
-                                '我關注的社群 (${_userJoinedTopicIds.length})',
+                                tr('topic_my_followed_n', [_userJoinedTopicIds.length.toString()]),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
@@ -234,7 +234,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               final topicId =
                                   normalizeCommunityTopicId(rawTopicId);
                               final topic = getCommunityTopicById(topicId);
-                              final name = topic?.name ?? '💡 社群主題';
+                              final name = topic?.name ?? tr('topic_default_name');
                               final color = topic?.color ?? primary;
                               return Container(
                                 padding: const EdgeInsets.symmetric(
@@ -302,7 +302,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                     : Colors.grey.shade600),
                             const SizedBox(width: 6),
                             Text(
-                              '探索所有主題 (${kCommunityTopics.length})',
+                              tr('topic_explore_all_n', [kCommunityTopics.length.toString()]),
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -388,7 +388,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                                             6),
                                                   ),
                                                   child: Text(
-                                                    '已關注',
+                                                    tr('topic_following'),
                                                     style: TextStyle(
                                                       fontSize: 10,
                                                       fontWeight:
@@ -459,7 +459,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                             ),
                                             const SizedBox(width: 3),
                                             Text(
-                                              isJoined ? '已關注' : '關注',
+                                              isJoined ? tr('topic_following') : tr('topic_follow'),
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
@@ -489,7 +489,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                                 : Colors.grey.shade500),
                                         const SizedBox(width: 3),
                                         Text(
-                                          '${_getTopicMemberCount(topic.id)} 夥伴',
+                                          tr('topic_members_n', [(_getTopicMemberCount(topic.id)).toString()]),
                                           style: TextStyle(
                                             fontSize: 11,
                                             color: isDark
@@ -505,7 +505,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                                 : Colors.grey.shade500),
                                         const SizedBox(width: 3),
                                         Text(
-                                          '${_getTopicPostCount(topic.id)} 貼文',
+                                          tr('topic_posts_n', [(_getTopicPostCount(topic.id)).toString()]),
                                           style: TextStyle(
                                             fontSize: 11,
                                             color: isDark
@@ -529,7 +529,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                         child: Row(
                                           children: [
                                             Text(
-                                              '瀏覽此主題貼文',
+                                              tr('topic_browse_posts'),
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
@@ -619,7 +619,7 @@ extension MainScreenProfileTab on _MainScreenState {
                       children: [
                         Flexible(
                           child: Text(
-                            tierInfo.name,
+                            trv(tierInfo.name),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15.5,
@@ -635,7 +635,7 @@ extension MainScreenProfileTab on _MainScreenState {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '點數：$points Pts · ${tierInfo.name == '普通會員' ? '享原價' : '享 ${(tierInfo.discountRate * 10).toStringAsFixed(0)} 折'}',
+                      tr('profile_points_line', [points.toString(), tierInfo.name == '普通會員' ? tr('tier_original_price') : tr('tier_discount', [(tierInfo.discountRate * 10).toStringAsFixed(0), ((1 - tierInfo.discountRate) * 100).round().toString()])]),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11.5,
@@ -667,7 +667,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
-                child: const Text('會員中心', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                child: Text(tr('membership_center'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
               ),
             ],
           ),
@@ -769,7 +769,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           children: [
                             Flexible(
                               child: Text(
-                                _displayName ?? '學習者',
+                                _displayName ?? tr('profile_learner'),
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
@@ -836,7 +836,7 @@ extension MainScreenProfileTab on _MainScreenState {
                       children: [
                         Expanded(
                           child: Text(
-                            hasBio ? _userBio! : '點擊設定個人簡介或學習目標...',
+                            hasBio ? _userBio! : tr('profile_bio_tap'),
                             style: TextStyle(
                               fontSize: 12.5,
                               color: hasBio
@@ -890,7 +890,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '$_totalQuestionsAnswered 題測驗',
+                            tr('profile_quiz_n', [_totalQuestionsAnswered.toString()]),
                             style: TextStyle(
                               color: primary,
                               fontSize: 11,
@@ -917,7 +917,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           ),
                           const SizedBox(width: 3),
                           Text(
-                            '$_streakDays 天連勝',
+                            tr('profile_streak_n', [_streakDays.toString()]),
                             style: const TextStyle(
                               color: Color(0xFFC2410C),
                               fontSize: 11,
@@ -989,8 +989,8 @@ extension MainScreenProfileTab on _MainScreenState {
                       const Icon(Icons.auto_awesome,
                           color: Colors.white, size: 14),
                       const SizedBox(width: 4),
-                      const Text(
-                        'AI 分析',
+                      Text(
+                        tr('profile_ai_analysis'),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -1016,7 +1016,7 @@ extension MainScreenProfileTab on _MainScreenState {
                       'dashboard_completed_questions', _appLanguage),
                   '$_todayCompletedQuestions ${AppLocaleService.tr('unit_questions', _appLanguage)}'),
               _buildDashboardItem(
-                  Icons.local_fire_department, '連續天數', '$_streakDays 天'),
+                  Icons.local_fire_department, tr('profile_streak_label'), tr('profile_days_n', [_streakDays.toString()])),
             ],
           ),
         ],
@@ -1101,7 +1101,7 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.person_outline,
             label: AppLocaleService.tr('profile_nickname', _appLanguage),
-            value: _displayName ?? '未設定',
+            value: _displayName ?? tr('profile_not_set'),
             onTap: _showEditNicknameDialog,
           ),
           const Divider(height: 24),
@@ -1129,8 +1129,8 @@ extension MainScreenProfileTab on _MainScreenState {
             icon: isGoogle
                 ? Icons.verified_user_outlined
                 : Icons.lock_outline_rounded,
-            label: '登入方式',
-            value: isGoogle ? 'Google 帳號' : '一般帳號',
+            label: tr('profile_login_method'),
+            value: isGoogle ? tr('profile_google_account') : tr('profile_normal_account'),
           ),
         ],
       ),
@@ -1208,7 +1208,7 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.dark_mode_outlined,
             label: AppLocaleService.tr('settings_dark_mode', _appLanguage),
-            subtitle: _isDarkMode ? '深色夜間模式' : '明亮日間模式',
+            subtitle: _isDarkMode ? tr('dark_mode_on') : tr('dark_mode_off'),
             value: _isDarkMode,
             onChanged: (val) async {
               _update(() => _isDarkMode = val);
@@ -1274,7 +1274,7 @@ extension MainScreenProfileTab on _MainScreenState {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _showFloatingNavBar ? '已啟用 5 格實體導覽列' : '收合於側邊抽屜選單',
+                      _showFloatingNavBar ? tr('navbar_on') : tr('navbar_off'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? Colors.white54 : Colors.grey.shade600,
@@ -1354,7 +1354,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               ),
                               const SizedBox(height: 1),
                               Text(
-                                '調整底欄與側欄功能順序',
+                                tr('navbar_order_sub'),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: isDark
@@ -1376,7 +1376,7 @@ extension MainScreenProfileTab on _MainScreenState {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '自訂排版',
+                                tr('navbar_custom'),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.bold,
@@ -1412,7 +1412,7 @@ extension MainScreenProfileTab on _MainScreenState {
             context: context,
             icon: Icons.notifications_active_outlined,
             label: AppLocaleService.tr('settings_notifications', _appLanguage),
-            subtitle: _pushNotificationsEnabled ? '已開啟每日複習與動態推播' : '已關閉即時通知',
+            subtitle: _pushNotificationsEnabled ? tr('push_on') : tr('push_off'),
             value: _pushNotificationsEnabled,
             onChanged: (val) async {
               _update(() => _pushNotificationsEnabled = val);
@@ -3320,18 +3320,18 @@ extension MainScreenProfileTab on _MainScreenState {
     String getItemDesc(String key) {
       switch (key) {
         case 'home':
-          return '今日進度與捷徑';
+          return tr('navitem_home');
         case 'calendar':
-          return '行事曆與排程';
+          return tr('navitem_calendar');
         case 'quiz':
-          return '題庫測驗與錯題';
+          return tr('navitem_quiz');
         case 'social':
-          return '討論群組與社群';
+          return tr('navitem_social');
         case 'social_feed':
         case 'activity':
-          return '動態牆與貼文';
+          return tr('navitem_activity');
         case 'notes':
-          return '語音與心智圖筆記';
+          return tr('navitem_notes');
         default:
           return '';
       }
@@ -3429,7 +3429,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '點選任兩項即可互換位置',
+                                  tr('navbar_swap_hint'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: isDark
@@ -3493,7 +3493,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                           size: 14, color: primaryColor),
                                       const SizedBox(width: 6),
                                       Text(
-                                        '底欄預覽',
+                                        tr('navbar_preview'),
                                         style: TextStyle(
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.bold,
@@ -3514,7 +3514,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      '即時預覽',
+                                      tr('navbar_live_preview'),
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -3552,7 +3552,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       child: _buildPreviewPill(
                                         icon: _getNavBarItemIcon(tempOrder[0]),
                                         name: _getNavBarItemName(tempOrder[0]),
-                                        badge: '第1格',
+                                        badge: tr('navbar_slot_1'),
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: true,
@@ -3564,7 +3564,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       child: _buildPreviewPill(
                                         icon: _getNavBarItemIcon(tempOrder[1]),
                                         name: _getNavBarItemName(tempOrder[1]),
-                                        badge: '第2格',
+                                        badge: tr('navbar_slot_2'),
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: true,
@@ -3575,8 +3575,8 @@ extension MainScreenProfileTab on _MainScreenState {
                                     Expanded(
                                       child: _buildPreviewPill(
                                         icon: Icons.auto_awesome_rounded,
-                                        name: 'AI特助',
-                                        badge: '固定',
+                                        name: tr('navbar_ai_assistant'),
+                                        badge: tr('navbar_fixed'),
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: false,
@@ -3588,7 +3588,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       child: _buildPreviewPill(
                                         icon: _getNavBarItemIcon(tempOrder[2]),
                                         name: _getNavBarItemName(tempOrder[2]),
-                                        badge: '第4格',
+                                        badge: tr('navbar_slot_4'),
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: true,
@@ -3599,8 +3599,8 @@ extension MainScreenProfileTab on _MainScreenState {
                                     Expanded(
                                       child: _buildPreviewPill(
                                         icon: Icons.person_rounded,
-                                        name: '個人',
-                                        badge: '固定',
+                                        name: tr('navbar_personal'),
+                                        badge: tr('navbar_fixed'),
                                         isDark: isDark,
                                         primaryColor: primaryColor,
                                         isCustom: false,
@@ -3622,7 +3622,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 size: 16, color: primaryColor),
                             const SizedBox(width: 6),
                             Text(
-                              '底欄項目',
+                              tr('navbar_items'),
                               style: TextStyle(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.bold,
@@ -3641,7 +3641,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                selectedForSwap != null ? '已選取 · 點目標對調' : '點選項目互換',
+                                selectedForSwap != null ? tr('navbar_selected_swap') : tr('navbar_tap_swap'),
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -3654,8 +3654,8 @@ extension MainScreenProfileTab on _MainScreenState {
                         const SizedBox(height: 3),
                         Text(
                           selectedForSwap != null
-                              ? '👉 已選取【${_getNavBarItemName(tempOrder[selectedForSwap!])}】，請點選欲對調的項目'
-                              : '點選任兩項可互換順序或移至側欄',
+                              ? tr('navbar_selected_item', [(_getNavBarItemName(tempOrder[selectedForSwap!])).toString()])
+                              : tr('navbar_swap_desc'),
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: selectedForSwap != null ? FontWeight.bold : FontWeight.normal,
@@ -3676,7 +3676,7 @@ extension MainScreenProfileTab on _MainScreenState {
                           final name = _getNavBarItemName(itemKey);
                           final desc = getItemDesc(itemKey);
                           final slotLabel =
-                              '第 ${index == 2 ? 4 : index + 1} 格';
+                              tr('navbar_slot_n', [(index == 2 ? 4 : index + 1).toString()]);
 
                           return _buildSwapItemCard(
                             itemKey: itemKey,
@@ -3736,7 +3736,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                           : const Color(0xFFE65100)),
                                   const SizedBox(width: 6),
                                   Text(
-                                    '側欄備用項目',
+                                    tr('navbar_drawer_items'),
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -3757,7 +3757,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      '側欄收納',
+                                      tr('navbar_drawer_store'),
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -3771,7 +3771,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '不常使用的功能可收納於側欄，點擊隨時換回底欄',
+                                tr('navbar_drawer_desc'),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: isDark
@@ -3790,7 +3790,7 @@ extension MainScreenProfileTab on _MainScreenState {
                                 final icon = _getNavBarItemIcon(itemKey);
                                 final name = _getNavBarItemName(itemKey);
                                 final desc = getItemDesc(itemKey);
-                                final slotLabel = '側欄備用 ${dIndex + 1}';
+                                final slotLabel = tr('navbar_drawer_slot_n', [(dIndex + 1).toString()]);
 
                                 return _buildSwapItemCard(
                                   itemKey: itemKey,
@@ -3908,8 +3908,8 @@ extension MainScreenProfileTab on _MainScreenState {
                             });
                             await _updatePersonalization();
                           },
-                          child: const Text(
-                            '儲存套用',
+                          child: Text(
+                            tr('navbar_save_apply'),
                             style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,
@@ -4140,10 +4140,10 @@ extension MainScreenProfileTab on _MainScreenState {
                       const SizedBox(width: 3),
                       Text(
                         isSelected
-                            ? '已選'
+                            ? tr('navbar_chip_selected')
                             : (hasOtherSelected
-                                ? '對調'
-                                : (isDrawer ? '移入底欄' : '互換')),
+                                ? tr('navbar_chip_swap')
+                                : (isDrawer ? tr('navbar_chip_to_bar') : tr('navbar_chip_exchange'))),
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
@@ -4276,7 +4276,7 @@ extension MainScreenProfileTab on _MainScreenState {
                     showCheckmark: false,
                     selected: isSel,
                     label: Text(
-                      cat,
+                      trv(cat),
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
@@ -4363,8 +4363,8 @@ extension MainScreenProfileTab on _MainScreenState {
             _buildProfileTile(
               context: context,
               icon: Icons.developer_mode_rounded,
-              label: '開發者中心 / App 架構助手',
-              value: '架構圖、資料流、問答與診斷',
+              label: tr('dev_center_label'),
+              value: tr('dev_center_value'),
               onTap: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const DeveloperCenterScreen())),
             ),
@@ -4398,7 +4398,7 @@ extension MainScreenProfileTab on _MainScreenState {
               context: context,
               icon: Icons.verified_outlined,
               label: AppLocaleService.tr('app_version', _appLanguage),
-              value: '$_appVersion  ·  最新發布',
+              value: tr('app_version_latest', [_appVersion.toString()]),
               onTap: _showVersionInfoDialog,
             ),
           ],
@@ -4425,7 +4425,7 @@ extension MainScreenProfileTab on _MainScreenState {
             children: [
               Icon(Icons.headset_mic_outlined, color: _currentPrimaryColor),
               const SizedBox(width: 10),
-              const Text('客服與意見回饋',
+              Text(tr('feedback_and_help'),
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -4434,7 +4434,7 @@ extension MainScreenProfileTab on _MainScreenState {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('類型',
+                Text(tr('fb_type'),
                     style: TextStyle(
                         fontSize: 13,
                         color: _isDarkMode
@@ -4449,7 +4449,7 @@ extension MainScreenProfileTab on _MainScreenState {
                         selectedType,
                         'bug',
                         Icons.bug_report_outlined,
-                        '回報 Bug',
+                        tr('fb_bug'),
                         (v) => selectedType = v),
                     const SizedBox(width: 8),
                     _buildTypeChip(
@@ -4458,12 +4458,12 @@ extension MainScreenProfileTab on _MainScreenState {
                         selectedType,
                         'feature',
                         Icons.lightbulb_outline,
-                        '功能建議',
+                        tr('fb_feature'),
                         (v) => selectedType = v),
                   ],
                 ),
                 const SizedBox(height: 16),
-                Text('主旨',
+                Text(tr('fb_subject'),
                     style: TextStyle(
                         fontSize: 13,
                         color: _isDarkMode
@@ -4475,7 +4475,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   style: TextStyle(
                       color: _isDarkMode ? Colors.white : Colors.black87),
                   decoration: InputDecoration(
-                    hintText: '請簡述主旨…',
+                    hintText: tr('fb_subject_hint'),
                     hintStyle: const TextStyle(color: Colors.grey),
                     filled: true,
                     fillColor: _isDarkMode
@@ -4489,7 +4489,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text('詳細描述',
+                Text(tr('fb_detail'),
                     style: TextStyle(
                         fontSize: 13,
                         color: _isDarkMode
@@ -4502,7 +4502,7 @@ extension MainScreenProfileTab on _MainScreenState {
                   style: TextStyle(
                       color: _isDarkMode ? Colors.white : Colors.black87),
                   decoration: InputDecoration(
-                    hintText: '請詳細說明問題或建議的功能…',
+                    hintText: tr('fb_detail_hint'),
                     hintStyle: const TextStyle(color: Colors.grey),
                     filled: true,
                     fillColor: _isDarkMode
@@ -4519,7 +4519,7 @@ extension MainScreenProfileTab on _MainScreenState {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('附加圖片 (最多 3 張)',
+                    Text(tr('fb_attach'),
                         style: TextStyle(
                             fontSize: 13,
                             color: _isDarkMode
@@ -4542,7 +4542,7 @@ extension MainScreenProfileTab on _MainScreenState {
                               }
                             },
                       icon: const Icon(Icons.add_photo_alternate, size: 16),
-                      label: const Text('選擇圖片'),
+                      label: Text(tr('fb_pick_image')),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         minimumSize: Size.zero,
@@ -4607,7 +4607,7 @@ extension MainScreenProfileTab on _MainScreenState {
           actions: [
             TextButton(
               onPressed: isSending ? null : () => Navigator.pop(ctx),
-              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+              child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -4623,8 +4623,8 @@ extension MainScreenProfileTab on _MainScreenState {
                       final body = bodyCtrl.text.trim();
                       if (subject.isEmpty) {
                         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                          const SnackBar(
-                            content: Text('請填寫主旨'),
+                          SnackBar(
+                            content: Text(tr('fb_need_subject')),
                             duration: Duration(milliseconds: 1500),
                           ),
                         );
@@ -4643,8 +4643,8 @@ extension MainScreenProfileTab on _MainScreenState {
                           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                             SnackBar(
                               content: Text(ok
-                                  ? '已送出，感謝您的回饋！我們會盡快處理。'
-                                  : '發送失敗，請稍後再試或確認網路連線。'),
+                                  ? tr('fb_sent')
+                                  : tr('fb_failed')),
                               backgroundColor:
                                   ok ? _currentPrimaryColor : Colors.redAccent,
                               duration: const Duration(milliseconds: 1500),
@@ -4667,7 +4667,7 @@ extension MainScreenProfileTab on _MainScreenState {
                       height: 16,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('送出'),
+                  : Text(tr('fb_send')),
             ),
           ],
         ),
@@ -5032,9 +5032,9 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
           setState(() {
             _showLoading = false;
             if (_buffer.isEmpty) {
-              _buffer.write('【連線異常】\n無法連線至 AI 伺服器，請稍後再試。');
+              _buffer.write(tr('rm_conn_err'));
             } else {
-              _buffer.write('\n\n(分析中斷，請重試)');
+              _buffer.write(tr('rm_interrupted'));
             }
           });
         }
@@ -5044,11 +5044,11 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
           if (_buffer.isEmpty) {
             setState(() {
               _showLoading = false;
-              _buffer.write('【系統提示】\n未獲得任何分析結果，請稍後再試。');
+              _buffer.write(tr('rm_no_result'));
             });
           } else {
             final content = _buffer.toString();
-            if (!content.contains('【連線異常】') && !content.contains('【系統提示】')) {
+            if (!content.contains(tr('rm_conn_err')) && !content.contains(tr('rm_no_result'))) {
               // 自動持久化儲存至 SQLite，退出後仍可隨時重新閱覽
               DatabaseHelper.instance.saveRemedialMaterial(
                   widget.userId, widget.subjectName, content);
@@ -5219,7 +5219,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '弱項盲點診斷',
+                    tr('remedial_weak_title'),
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.bold,
@@ -5277,7 +5277,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '觀念補強與解題技巧',
+                    tr('remedial_concept_title'),
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.bold,
@@ -5356,7 +5356,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'AI 專屬學習建議 (${widget.subjectName})',
+                      tr('remedial_title_n', [widget.subjectName.toString()]),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -5367,7 +5367,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                   if (!_showLoading)
                     IconButton(
                       icon: const Icon(Icons.refresh_rounded, size: 20),
-                      tooltip: '重新生成學習建議',
+                      tooltip: tr('remedial_regen'),
                       onPressed: () => _startGenerating(isRegenerate: true),
                     ),
                   IconButton(
@@ -5415,7 +5415,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'AI 正在為您深度分析盲點... ${(value * 100).toInt()}%',
+                                    tr('remedial_progress', [((value * 100).toInt()).toString()]),
                                     style: TextStyle(
                                       color: widget.isDark
                                           ? Colors.white70
@@ -5558,10 +5558,10 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
             Icon(Icons.quiz_outlined,
                 size: 40, color: widget.primaryColor.withValues(alpha: 0.4)),
             const SizedBox(height: 10),
-            const Text('今日尚未完成任何測驗',
+            Text(tr('today_no_quiz'),
                 style: TextStyle(color: Colors.grey, fontSize: 13)),
             const SizedBox(height: 4),
-            const Text('完成測驗後將顯示今日概況',
+            Text(tr('today_no_quiz_sub'),
                 style: TextStyle(color: Colors.grey, fontSize: 11)),
           ],
         ),
@@ -5587,8 +5587,8 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
               Expanded(
                 child: _buildSummaryChip(
                   icon: Icons.quiz_rounded,
-                  label: '總題數',
-                  value: '$totalQ 題',
+                  label: tr('today_total_q'),
+                  value: tr('today_n_q', [totalQ.toString()]),
                   color: widget.primaryColor,
                   bg: cardBg,
                   textColor: textColor,
@@ -5598,8 +5598,8 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
               Expanded(
                 child: _buildSummaryChip(
                   icon: Icons.check_circle_rounded,
-                  label: '答對',
-                  value: '$totalC 題',
+                  label: tr('today_correct'),
+                  value: tr('today_n_c', [totalC.toString()]),
                   color: Colors.green.shade600,
                   bg: cardBg,
                   textColor: textColor,
@@ -5609,8 +5609,8 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
               Expanded(
                 child: _buildSummaryChip(
                   icon: Icons.cancel_rounded,
-                  label: '答錯',
-                  value: '$totalW 題',
+                  label: tr('today_wrong'),
+                  value: tr('today_n_w', [totalW.toString()]),
                   color: Colors.red.shade400,
                   bg: cardBg,
                   textColor: textColor,
@@ -5622,7 +5622,7 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           // ── 整體正確率條
           Row(
             children: [
-              Text('整體正確率',
+              Text(tr('today_accuracy'),
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
               const SizedBox(width: 8),
               Expanded(
@@ -5829,7 +5829,7 @@ class _LearningProgressCardState extends State<_LearningProgressCard> {
           if (_currentIndex == 0)
             Center(
               child: Text(
-                '💡 今日各科測驗詳情',
+                tr('today_subject_detail'),
                 style: TextStyle(
                     color: widget.isDarkMode
                         ? Colors.grey.shade400
@@ -7072,27 +7072,27 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '最新發布',
-      'version': 'v1.8.2',
+      'version': 'v1.8.5',
       'date': '2026-09-21',
       'isPinned': true,
       'icon': Icons.auto_awesome_rounded,
-      'title': 'Gemini 試卷識別・開發者中心・群組傳圖與操作體驗全方位升級',
-      'summary': '串接 Gemini API 強化試卷解析、新增開發者中心架構導覽、支援群組圖片發送與全站介面流暢度優化。',
+      'title': tr('ann_t1'),
+      'summary': tr('ann_s1'),
       'highlights': [
         {
           'icon': Icons.document_scanner_rounded,
-          'title': 'Gemini 試卷與題庫辨識',
-          'desc': '全面整合 Gemini 視覺與 OCR 模型，大幅提高 PDF 題目自動解析與組卷辨識精準度。',
+          'title': tr('ann_h1a'),
+          'desc': tr('ann_d1a'),
         },
         {
           'icon': Icons.developer_mode_rounded,
-          'title': '新增開發者中心架構導覽',
-          'desc': '提供專案三層目錄結構、資料流脈絡、儲存架構與智慧架構問答 FAQ。',
+          'title': tr('ann_h1b'),
+          'desc': tr('ann_d1b'),
         },
         {
           'icon': Icons.photo_library_rounded,
-          'title': '群組圖片傳送與介面精修',
-          'desc': '群組對話支援照片選取與縮圖預覽發送，全面優化導覽列按鍵對比度與版面排版。',
+          'title': tr('ann_h1c'),
+          'desc': tr('ann_d1c'),
         },
       ],
     },
@@ -7102,23 +7102,23 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
       'date': '2026-09-18',
       'isPinned': false,
       'icon': Icons.auto_awesome_rounded,
-      'title': 'AI 5 大專用筆記風格・代理人助理體驗全面升級',
-      'summary': '升級 5 大專用筆記整理風格與精簡/深度雙向微調膠囊，優化代理人助理對話排版與精巧藥丸選單。',
+      'title': tr('ann_t2'),
+      'summary': tr('ann_s2'),
       'highlights': [
         {
           'icon': Icons.psychology_alt_rounded,
-          'title': 'AI 5 大專用筆記風格',
-          'desc': '支援課堂研討、商務會議、速讀摘要、架構心智圖、靈感隨筆，搭載康乃爾分層、TL;DR、Mermaid 與一鍵複製待辦。',
+          'title': tr('ann_h2a'),
+          'desc': tr('ann_d2a'),
         },
         {
           'icon': Icons.tune_rounded,
-          'title': '雙向細緻度微調膠囊',
-          'desc': '提供「⚡ 精簡速讀」與「📚 詳盡深度」二段式切換，智慧適配短音訊與長演講筆記。',
+          'title': tr('ann_h2b'),
+          'desc': tr('ann_d2b'),
         },
         {
           'icon': Icons.smart_toy_rounded,
-          'title': '代理人助理體驗升級',
-          'desc': '修正導覽列問答意圖誤判、對話文字調大提升閱讀體驗，協助事項重構為精巧藥丸按鈕群。',
+          'title': tr('ann_h2c'),
+          'desc': tr('ann_d2c'),
         },
       ],
     },
@@ -7128,28 +7128,28 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
       'date': '2026-09-18',
       'isPinned': false,
       'icon': Icons.rocket_launch_rounded,
-      'title': 'Gladia V2 旗艦轉錄・特助精粹化・社群面向智慧歸戶',
-      'summary': '全面升級 Gladia V2 語音說話者分離轉錄、代理人助理 50~100 字精準回覆，並將引導面向全面歸戶至標準 9 大社群。',
+      'title': tr('ann_t3'),
+      'summary': tr('ann_s3'),
       'highlights': [
         {
           'icon': Icons.graphic_eq_rounded,
-          'title': 'Gladia V2 轉錄升級',
-          'desc': '完整串接 Gladia V2 多語言與說話者分離轉錄，支援 2 秒極速非同步處理與 Gemini 雙重備援。',
+          'title': tr('ann_h3a'),
+          'desc': tr('ann_d3a'),
         },
         {
           'icon': Icons.psychology_rounded,
-          'title': '代理人助理精粹化',
-          'desc': '回覆字數嚴格控制在 50~100 字以內，杜絕重複舊回答並強化學科破題與功能指引。',
+          'title': tr('ann_h3b'),
+          'desc': tr('ann_d3b'),
         },
         {
           'icon': Icons.record_voice_over_outlined,
-          'title': '語音輸入深度去重',
-          'desc': '優化即時語音辨識定稿同步與重複句型過濾，徹底解決錄音文字重複問題。',
+          'title': tr('ann_h3c'),
+          'desc': tr('ann_d3c'),
         },
         {
           'icon': Icons.groups_rounded,
-          'title': '社群面向智慧歸戶',
-          'desc': '歡迎頁細分面向自動映射至 9 大社群主題，淨化選單與關注列表。',
+          'title': tr('ann_h3d'),
+          'desc': tr('ann_d3d'),
         },
       ],
     },
@@ -7159,28 +7159,28 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
       'date': '2026-09-13',
       'isPinned': false,
       'icon': Icons.graphic_eq_rounded,
-      'title': 'AI 語音速記與互動心智圖上線',
-      'summary': '全新語音筆記核心，支援長錄音、智慧過濾口語贅字，並可自動轉為互動式心智圖與結構化待辦清單。',
+      'title': tr('ann_t4'),
+      'summary': tr('ann_s4'),
       'highlights': [
         {
           'icon': Icons.hub_outlined,
-          'title': '互動心智圖畫布',
-          'desc': 'AI 自動將重點梳理為樹狀心智圖，支援手勢縮放、節點展開與全螢幕檢視。',
+          'title': tr('ann_h4a'),
+          'desc': tr('ann_d4a'),
         },
         {
           'icon': Icons.view_carousel_outlined,
-          'title': '三分頁成果預覽',
-          'desc': '提供結構摘要、心智圖與 Markdown 預覽，支援待辦清單勾選與即時同步。',
+          'title': tr('ann_h4b'),
+          'desc': tr('ann_d4b'),
         },
         {
           'icon': Icons.record_voice_over_outlined,
-          'title': '語音辨識升級',
-          'desc': '停頓容忍提高至 15 秒避免換氣中斷，智慧去贅字引擎自動過濾口語詞。',
+          'title': tr('ann_h4c'),
+          'desc': tr('ann_d4c'),
         },
         {
           'icon': Icons.fit_screen_outlined,
-          'title': '介面與字體適配',
-          'desc': '操作按鈕適配系統手勢安全區，全域字體支援個人化等比縮放。',
+          'title': tr('ann_h4d'),
+          'desc': tr('ann_d4d'),
         },
       ],
     },
@@ -7190,23 +7190,23 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
       'date': '2026-09-12',
       'isPinned': false,
       'icon': Icons.auto_awesome_rounded,
-      'title': '伴學精靈即時引導・會員專屬體系・日記 AI 點評',
-      'summary': '引進全方位伴學精靈浮動引導、VIP 會員進階特權體系與學習日記智慧 AI 回饋。',
+      'title': tr('ann_t5'),
+      'summary': tr('ann_s5'),
       'highlights': [
         {
           'icon': Icons.smart_toy_rounded,
-          'title': '伴學精靈互動',
-          'desc': '隨身懸浮伴學小助手，提供即時題意解析、步驟提示與學習激勵。',
+          'title': tr('ann_h5a'),
+          'desc': tr('ann_d5a'),
         },
         {
           'icon': Icons.workspace_premium_rounded,
-          'title': 'VIP 專屬體系',
-          'desc': '解鎖無限次高階 AI 模型推理、極速語音轉錄與個人化專屬主題。',
+          'title': tr('ann_h5b'),
+          'desc': tr('ann_d5b'),
         },
         {
           'icon': Icons.auto_stories_rounded,
-          'title': '學習日記 AI 點評',
-          'desc': '每日記錄學習心得，AI 自動梳理復盤建議並給予定向鼓勵。',
+          'title': tr('ann_h5c'),
+          'desc': tr('ann_d5c'),
         },
       ],
     },
@@ -7216,18 +7216,18 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
       'date': '2026-09-10',
       'isPinned': false,
       'icon': Icons.smart_toy_outlined,
-      'title': 'AI 多引擎中繼升級與智能線上客服',
-      'summary': '升級 Cloudflare 雲端中繼站架構，整合多模型備援並提供 24 小時線上智能諮詢。',
+      'title': tr('ann_t6'),
+      'summary': tr('ann_s6'),
       'highlights': [
         {
           'icon': Icons.support_agent_rounded,
-          'title': '智能線上客服',
-          'desc': '提供精選常見問題解答與 24H AI 客服專員即時對答。',
+          'title': tr('ann_h6a'),
+          'desc': tr('ann_d6a'),
         },
         {
           'icon': Icons.alt_route_rounded,
-          'title': '多模型智慧路由',
-          'desc': '當單一模型負載較高時自動平滑切換備援引擎，確保服務穩定。',
+          'title': tr('ann_h6b'),
+          'desc': tr('ann_d6b'),
         },
       ],
     },
@@ -7237,18 +7237,18 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
       'date': '2026-09-08',
       'isPinned': false,
       'icon': Icons.library_books_rounded,
-      'title': '各學科題庫擴充與掌握度矩陣圖',
-      'summary': '新增國高中精選章節題庫，並推出可視化掌握度矩陣圖以精準分析個人盲點。',
+      'title': tr('ann_t7'),
+      'summary': tr('ann_s7'),
       'highlights': [
         {
           'icon': Icons.grid_on_rounded,
-          'title': '知識掌握度矩陣',
-          'desc': '分析本週各學科掌握度，一鍵結合 AI 生成弱項補強內容。',
+          'title': tr('ann_h7a'),
+          'desc': tr('ann_d7a'),
         },
         {
           'icon': Icons.share_rounded,
-          'title': '學習 Pack 分享',
-          'desc': '支援錯題、考卷與手寫筆記一鍵打包發布與匯入。',
+          'title': tr('ann_h7b'),
+          'desc': tr('ann_d7b'),
         },
       ],
     },
@@ -7258,23 +7258,23 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
       'date': '2026-09-01',
       'isPinned': false,
       'icon': Icons.dashboard_customize_rounded,
-      'title': '個人化自訂導覽列・語音筆記初版與主題配色',
-      'summary': '支援自由排列底部導覽列項目、初版語音速記功能與沉浸式深淺色主題自訂。',
+      'title': tr('ann_t8'),
+      'summary': tr('ann_s8'),
       'highlights': [
         {
           'icon': Icons.view_sidebar_rounded,
-          'title': '自訂導覽列',
-          'desc': '可依個人學習習慣自由拖曳、隱藏或新增底部導覽列常用功能。',
+          'title': tr('ann_h8a'),
+          'desc': tr('ann_d8a'),
         },
         {
           'icon': Icons.mic_external_on_rounded,
-          'title': '語音速記筆記',
-          'desc': '隨時錄下課堂或會議重點，支援離線暫存與基本文字轉換。',
+          'title': tr('ann_h8b'),
+          'desc': tr('ann_d8b'),
         },
         {
           'icon': Icons.palette_rounded,
-          'title': '多款質感主題',
-          'desc': '提供深邃夜間模式與多種品牌主色調，打造舒適護眼的專屬體驗。',
+          'title': tr('ann_h8c'),
+          'desc': tr('ann_d8c'),
         },
       ],
     },
@@ -7349,7 +7349,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '系統公告與更新日誌',
+                            tr('announcements_label'),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -7360,7 +7360,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '掌握最新功能、題庫發布與版本動態',
+                            tr('ann_header_sub'),
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark
@@ -7405,7 +7405,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
                         color: isSel ? Colors.white : tagColor,
                       ),
                       label: Text(
-                        tag,
+                        trv(tag),
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: isSel ? FontWeight.w600 : FontWeight.w500,
@@ -7546,7 +7546,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            item['tag'] as String,
+                                            trv(item['tag'] as String),
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600,
@@ -7588,7 +7588,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
                                             ),
                                             const SizedBox(width: 2),
                                             Text(
-                                              '置頂',
+                                              tr('ann_pinned'),
                                               style: TextStyle(
                                                 fontSize: 10.5,
                                                 fontWeight: FontWeight.w600,
@@ -7695,8 +7695,8 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
                                       children: [
                                         Text(
                                           isExpanded
-                                              ? '收起改動詳情'
-                                              : '查看 ${highlights.length} 項改動詳情',
+                                              ? tr('ann_collapse')
+                                              : tr('ann_expand_n', [highlights.length.toString()]),
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -7903,7 +7903,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                           Row(
                             children: [
                               Text(
-                                isTerms ? '服務條款' : '隱私權政策',
+                                isTerms ? tr('terms_label') : tr('privacy_label'),
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
@@ -7922,7 +7922,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.8.2',
+                                  'v1.8.5',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -7934,7 +7934,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            isTerms ? '保障您的法定權益與平台使用規範' : '透明公開的資料最小化與本機加密承諾',
+                            isTerms ? tr('legal_terms_sub') : tr('legal_privacy_sub'),
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark
@@ -7973,7 +7973,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                   children: [
                     Expanded(
                       child: _buildTabButton(
-                        label: '服務條款',
+                        label: tr('terms_label'),
                         icon: Icons.gavel_rounded,
                         isSelected: isTerms,
                         activeColor: const Color(0xFFD97706),
@@ -7983,7 +7983,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                     ),
                     Expanded(
                       child: _buildTabButton(
-                        label: '隱私權政策',
+                        label: tr('privacy_label'),
                         icon: Icons.security_rounded,
                         isSelected: !isTerms,
                         activeColor: const Color(0xFF0D9488),
@@ -8046,7 +8046,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                       : Colors.grey.shade500),
                               const SizedBox(width: 6),
                               Text(
-                                '版本：v1.8.2  |  修訂發布日期：2026 年 9 月 29 日',
+                                tr('legal_version'),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,
@@ -8059,7 +8059,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '如對本${isTerms ? '服務條款' : '隱私權政策'}有任何問題或建議，歡迎隨時透過線上客服或意見回饋表單與團隊聯繫。',
+                            tr('legal_contact', [(isTerms ? tr('terms_label') : tr('privacy_label')).toString()]),
                             style: TextStyle(
                               fontSize: 11,
                               height: 1.4,
@@ -8114,7 +8114,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                       icon: const Icon(Icons.check_circle_outline_rounded,
                           size: 18),
                       label: Text(
-                        '我已完整閱讀並了解${isTerms ? '服務條款' : '隱私權政策'}',
+                        tr('legal_read_ack', [(isTerms ? tr('terms_label') : tr('privacy_label')).toString()]),
                         style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.bold,
@@ -8196,45 +8196,45 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
         ? [
             (
               icon: Icons.school_rounded,
-              title: '全方位學習功能',
-              desc: '題庫、AI 語音速記、心智圖、診斷與行事曆'
+              title: tr('legal_sum_features'),
+              desc: tr('legal_sum_features_d')
             ),
             (
               icon: Icons.lock_outline_rounded,
-              title: '帳號與資安保護',
-              desc: '密碼妥善保管，嚴禁濫用與未經授權共用'
+              title: tr('legal_sum_account'),
+              desc: tr('legal_sum_account_d')
             ),
             (
               icon: Icons.psychology_rounded,
-              title: 'AI 輔助教育定位',
-              desc: '生成內容供學習參考，請保持獨立思辨'
+              title: tr('legal_sum_ai'),
+              desc: tr('legal_sum_ai_d')
             ),
             (
               icon: Icons.copyright_rounded,
-              title: '著作與智慧財產權',
-              desc: '原創筆記歸本人，系統資料庫受法律保護'
+              title: tr('legal_sum_ip'),
+              desc: tr('legal_sum_ip_d')
             ),
           ]
         : [
             (
               icon: Icons.storage_rounded,
-              title: '本機優先架構',
-              desc: '筆記、錯題與行程主要加密儲存本機 SQLite'
+              title: tr('legal_sum_local'),
+              desc: tr('legal_sum_local_d')
             ),
             (
               icon: Icons.block_rounded,
-              title: '100% 絕不出售',
-              desc: '嚴格承諾絕不販售、出租個人資料給第三方'
+              title: tr('legal_sum_nosell'),
+              desc: tr('legal_sum_nosell_d')
             ),
             (
               icon: Icons.mic_none_rounded,
-              title: '語音當次推理',
-              desc: '僅主動錄音時傳輸文字轉換，不常駐背景錄音'
+              title: tr('legal_sum_voice'),
+              desc: tr('legal_sum_voice_d')
             ),
             (
               icon: Icons.manage_accounts_rounded,
-              title: '完整個資自主權',
-              desc: '隨時可查閱、更正、匯出或申請註銷清除'
+              title: tr('legal_sum_rights'),
+              desc: tr('legal_sum_rights_d')
             ),
           ];
 
@@ -8255,7 +8255,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
               Icon(Icons.auto_awesome_rounded, size: 16, color: themeColor),
               const SizedBox(width: 6),
               Text(
-                isTerms ? '條款重點導讀（30 秒懶人包）' : '隱私承諾摘要（30 秒懶人包）',
+                isTerms ? tr('legal_terms_tldr') : tr('legal_privacy_tldr'),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -8312,59 +8312,59 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
     final sections = [
       (
         num: '01',
-        title: '接受條款與法定資格',
+        title: tr('terms_t1'),
         icon: Icons.verified_user_outlined,
         content:
-            '您存取、下載或使用「YeBang 家教」應用程式（以下簡稱「本服務」）即表示您已詳細閱讀、理解並同意受本服務條款及相關政策規範約束。\n・未成年人保護：若您為限制行為能力人（如未成年人），應由法定代理人或監護人閱讀、瞭解並同意本條款後方可使用。\n・若您不同意本條款之任何內容，請立即停止使用並解除安裝本服務。',
+            tr('terms_c1'),
       ),
       (
         num: '02',
-        title: '服務範疇與多元功能說明',
+        title: tr('terms_t2'),
         icon: Icons.school_outlined,
         content:
-            '本服務為綜合性智慧教育與學習輔助平台，提供以下功能模組：\n・題庫測驗與錯題本：國高中各學科單元測驗、歷屆試卷、AI 步驟深度詳解與自動收錄錯題複習。\n・AI 語音速記與互動心智圖：支援長錄音即時轉文字、去贅字引擎、6 大整理風格（課堂重點、會議摘要、結構大綱、代辦結論、精華摘要、日常隨筆）與樹狀心智圖畫布。\n・學科能力診斷與補強：知識掌握度矩陣圖、能力雷達圖與一鍵客製化弱項補強教材生成。\n・雙模筆記與學習 Pack：支援 Markdown 筆記、手寫塗鴉畫布與一鍵打包分享匯入。\n・智慧行事曆與客服：自然語言意圖排程、讀書計畫管理、待辦清單、推播提醒與 24H 智慧線上客服。',
+            tr('terms_c2'),
       ),
       (
         num: '03',
-        title: '帳號管理與資訊安全責任',
+        title: tr('terms_t3'),
         icon: Icons.lock_outlined,
         content:
-            '・帳號憑證保管：您有責任妥善保管您的帳號憑證（包括 Email、密碼或 Google 授權憑據），並對該帳號下發生的所有活動負完全責任。\n・禁止共享帳號：請勿將帳號出借、轉讓或與他人共用。\n・異常通報義務：如發現帳號遭未授權存取或有資安疑慮，請立即透過「客服與意見回饋」通知我們協助處理。',
+            tr('terms_c3'),
       ),
       (
         num: '04',
-        title: '使用者行為規範與禁止事項',
+        title: tr('terms_t4'),
         icon: Icons.shield_outlined,
         content:
-            '您同意正當、合法使用本服務，並承諾絕不從事以下違規行為：\n・散佈違法、侵權、騷擾、仇恨、誹謗、暴力、不雅或侵犯他人隱私之內容。\n・傳播惡意程式碼、破解逆向工程、爬蟲大量抓取或利用自動化工具濫用系統與 AI 運算資源。\n・違規處理：開發團隊保留隨時移除違規內容、限制部分功能或終止違規帳號之權利。',
+            tr('terms_c4'),
       ),
       (
         num: '05',
-        title: '智慧財產權歸屬與授權',
+        title: tr('terms_t5'),
         icon: Icons.copyright_outlined,
         content:
-            '・平台權益：本應用程式之軟體架構、程式碼、圖示設計、演算法、題庫資料庫及品牌商標均受中華民國著作權法與智慧財產權法律保護，所有權歸開發團隊所有。\n・使用者原創內容：您於社群或筆記創作之原創內容，其著作權仍歸屬於您本人；您同意授予本服務於正常提供服務範疇內為呈現之非獨家、免費使用授權。',
+            tr('terms_c5'),
       ),
       (
         num: '06',
-        title: 'AI 生成內容與語音輔助定位聲明',
+        title: tr('terms_t6'),
         icon: Icons.psychology_outlined,
         content:
-            '【教育輔助重要聲明】\n本服務整合之 AI 代理人、語音轉文字速記、題庫步驟詳解、能力診斷分析、弱項補強教材及客服對答等功能，係基於尖端生成式 AI 模型提供之「學習輔助參考資料」，不構成官方考試標準唯一答案或法律/醫療等專業保證。使用者於正式測驗或重大決策時，應保持獨立思辨與查證。',
+            tr('terms_c6'),
       ),
       (
         num: '07',
-        title: '免責聲明與責任限制',
+        title: tr('terms_t7'),
         icon: Icons.rule_folder_outlined,
         content:
-            '本服務係依「現況」及「現有技術水準」提供，不附帶任何明示或默示之保證。在法律允許的最大範圍內，我們不對因不可抗力因素、電信網路中斷或使用者操作不當所致之任何間接、附帶或衍生損害承擔賠償責任。',
+            tr('terms_c7'),
       ),
       (
         num: '08',
-        title: '條款修訂與準據法管轄',
+        title: tr('terms_t8'),
         icon: Icons.gavel_outlined,
         content:
-            '我們保留隨時修訂本條款之權利，修訂後之條款將於 App 內公告並即時生效。\n本條款之解釋、效力及爭議解決，均依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。',
+            tr('terms_c8'),
       ),
     ];
 
@@ -8384,45 +8384,45 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
     final sections = [
       (
         num: '01',
-        title: '蒐集的資料類型（最小化原則）',
+        title: tr('privacy_t1'),
         icon: Icons.folder_shared_outlined,
         content:
-            '我們嚴格遵循個人資料保護法之最小化蒐集原則，僅蒐集提供服務所必需之資料：\n・帳號資訊：使用者名稱、暱稱、電子郵件地址、頭像及個人簡介（或 Google 登入授權傳輸之基礎識別資料）。\n・學習歷程與筆記：測驗分數、正確率、錯題本、手寫塗鴉軌跡、Markdown 筆記、心智圖與行事曆待辦。\n・即時語音資料：僅於您主動點擊麥克風錄音時串流傳送至系統語音辨識服務轉換文字；我們絕不在背景偷錄，亦不於伺服器持久保存原始錄音檔案。\n・社群互動資料：您主動發布之學習心得貼文、筆記分享與討論留言。\n・裝置與系統偏好：作業系統版本、深淺色主題、主題主色調、字體大小與多國語言偏好。',
+            tr('privacy_c1'),
       ),
       (
         num: '02',
-        title: '資料使用目的與【絕不出售承諾】',
+        title: tr('privacy_t2'),
         icon: Icons.handshake_outlined,
         content:
-            '我們蒐集之資料僅用於以下合法正當目的：\n・提供、維護並持續改善各項學習、測驗、語音速記、筆記與診斷功能。\n・計算知識掌握度矩陣圖與能力雷達圖，為您生成客製化 AI 弱項補強教材與學習建議。\n・發送重要帳號安全警示或行事曆排程推播提醒。\n【絕不出售承諾】我們嚴格承諾絕不販售、出租或出借您的個人資料給任何第三方，亦不將資料用於未經授權之商業廣告推銷。',
+            tr('privacy_c2'),
       ),
       (
         num: '03',
-        title: '本機優先 (Local-First) 與傳輸加密',
+        title: tr('privacy_t3'),
         icon: Icons.storage_outlined,
         content:
-            '・本機優先架構：您的個人筆記、錯題本、測驗歷程與行事曆主要加密儲存於您本機裝置的 SQLite 資料庫中。\n・端到端傳輸加密：部分涉及雲端處理之功能（如 AI 診斷分析、Cloudflare 安全中繼、客服意見回饋等），所有網路傳輸均採用標準 HTTPS / TLS 1.3 傳輸層加密，確保資料傳輸過程中不被截取或竄改。',
+            tr('privacy_c3'),
       ),
       (
         num: '04',
-        title: '第三方服務供應商安全說明',
+        title: tr('privacy_t4'),
         icon: Icons.cloud_sync_outlined,
         content:
-            '為提供頂級運算體驗，本服務整合了以下符合國際隱私標準之第三方服務：\n・Google 登入：用於快速、安全的帳號身分驗證。\n・Google Gemini AI：提供深度學科解析、診斷分析與弱項補強生成。\n・Groq AI：提供高吞吐、低延遲的極速推理支援。\n・Speech-to-Text 語音服務：提供即時語音轉文字功能。\n・OpenRouter & Cloudflare Relay：提供備援通道與安全代理中繼。\n傳輸至第三方服務之文字與音訊僅用於當次即時推理，不包含個人敏感身分憑證。',
+            tr('privacy_c4'),
       ),
       (
         num: '05',
-        title: '使用者個人資料自主權利（個資法完整保障）',
+        title: tr('privacy_t5'),
         icon: Icons.manage_accounts_outlined,
         content:
-            '依個人資料保護法，您享有以下完整自主權利：\n・查詢與閱覽：可於「個人檔案」及各功能模組隨時查閱儲存之資料。\n・更正與補充：隨時修改暱稱、頭像、個人簡介、密碼、筆記與行事曆。\n・刪除權（被遺忘權）：可於帳號設定申請註銷帳號，系統將清除伺服器端與關聯之所有個人資料；訪客模式亦可在登出時一鍵清空本機暫存。',
+            tr('privacy_c5'),
       ),
       (
         num: '06',
-        title: '政策修訂與專屬聯絡窗口',
+        title: tr('privacy_t6'),
         icon: Icons.support_agent_outlined,
         content:
-            '我們可能因法令變更或功能擴充而不定期修訂本隱私權政策，修訂後將於 App 內即時公告生效。\n若對本政策有任何疑問或需行使個資權利，歡迎透過「常見問題與 24H 線上客服」或「客服與意見回饋」與我們聯繫。',
+            tr('privacy_c6'),
       ),
     ];
 
@@ -8566,51 +8566,51 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
   int _currentNewsPage = 0;
   Timer? _autoScrollTimer;
 
-  static const List<Map<String, dynamic>> _newsItems = [
+  static List<Map<String, dynamic>> get _newsItems => [
     {
-      'icon': Icons.psychology_rounded,
+      'icon': Icons.document_scanner_rounded,
       'accentColor': Color(0xFF8B5CF6),
       'gradient': [Color(0xFF7C3AED), Color(0xFF9333EA)],
-      'category': 'AI 推理架構',
-      'title': '多模型智能中繼',
-      'badge': '0.3s 極速',
-      'desc': '智慧動態負載均衡 Gemini 2.5、Groq、Qwen 等頂級模型',
+      'category': tr('about_cat_1'),
+      'title': tr('about_title_1'),
+      'badge': tr('about_badge_1'),
+      'desc': tr('about_desc_1'),
     },
     {
-      'icon': Icons.storage_rounded,
+      'icon': Icons.developer_mode_rounded,
       'accentColor': Color(0xFF0EA5E9),
       'gradient': [Color(0xFF0284C7), Color(0xFF06B6D4)],
-      'category': '資料儲存架構',
-      'title': '本機 SQLite 加密',
-      'badge': '軍規保護',
-      'desc': '學習歷程、題庫紀錄與筆記本地離線保存，隱私零洩漏',
+      'category': tr('about_cat_2'),
+      'title': tr('about_title_2'),
+      'badge': tr('about_badge_2'),
+      'desc': tr('about_desc_2'),
     },
     {
-      'icon': Icons.shield_rounded,
-      'accentColor': Color(0xFF10B981),
-      'gradient': [Color(0xFF059669), Color(0xFF10B981)],
-      'category': '雲端傳輸安全',
-      'title': 'TLS 1.3 端到端',
-      'badge': '全程加密',
-      'desc': 'Cloudflare 全球邊緣節點加速，全鏈路防篡改保護',
+      'icon': Icons.psychology_alt_rounded,
+      'accentColor': Color(0xFFEC4899),
+      'gradient': [Color(0xFFDB2777), Color(0xFFF43F5E)],
+      'category': tr('about_cat_3'),
+      'title': tr('about_title_3'),
+      'badge': tr('about_badge_3'),
+      'desc': tr('about_desc_3'),
     },
     {
-      'icon': Icons.mic_rounded,
+      'icon': Icons.graphic_eq_rounded,
       'accentColor': Color(0xFFF59E0B),
       'gradient': [Color(0xFFD97706), Color(0xFFF59E0B)],
-      'category': '語音辨識核心',
-      'title': '去贅字 & 6大風格',
-      'badge': '高精辨識',
-      'desc': '停頓容忍至 15s，一鍵自動轉化互動心智圖與條列筆記',
+      'category': tr('about_cat_4'),
+      'title': tr('about_title_4'),
+      'badge': tr('about_badge_4'),
+      'desc': tr('about_desc_4'),
     },
     {
       'icon': Icons.hub_rounded,
-      'accentColor': Color(0xFFEC4899),
-      'gradient': [Color(0xFFDB2777), Color(0xFFF43F5E)],
-      'category': '社群共學生態',
-      'title': '9 大社群主題 Pack',
-      'badge': '全新升級',
-      'desc': '歡迎引導自選主題，跨學科學習資源一鍵匯入交流',
+      'accentColor': Color(0xFF10B981),
+      'gradient': [Color(0xFF059669), Color(0xFF10B981)],
+      'category': tr('about_cat_5'),
+      'title': tr('about_title_5'),
+      'badge': tr('about_badge_5'),
+      'desc': tr('about_desc_5'),
     },
   ];
 
@@ -8657,7 +8657,7 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
     if (mounted) {
       setState(() {
         _isCheckingUpdate = false;
-        _checkResultMsg = '目前已是最新版本 (${widget.appVersion}) 🎉';
+        _checkResultMsg = tr('version_up_to_date', [widget.appVersion.toString()]);
       });
     }
   }
@@ -8704,7 +8704,7 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '版本 ${widget.appVersion}',
+                    tr('version_n', [widget.appVersion.toString()]),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -8719,8 +8719,8 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
                       color: const Color(0xFF10B981),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Text(
-                      '最新版',
+                    child: Text(
+                      tr('version_latest_badge'),
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.bold,
@@ -8733,7 +8733,7 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
             ),
             const SizedBox(height: 3),
             Text(
-              '發布日期：2026 年 9 月 13 日',
+              tr('version_release_date'),
               style: TextStyle(
                 fontSize: 11,
                 color: isDark ? Colors.white38 : Colors.grey.shade500,
@@ -8779,7 +8779,7 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '最新消息與核心規格推播',
+                        tr('version_news'),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -8937,7 +8937,7 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
                           )
                         : const Icon(Icons.refresh_rounded, size: 16),
                     label: Text(
-                      _isCheckingUpdate ? '檢查中...' : '檢查更新',
+                      _isCheckingUpdate ? tr('version_checking') : tr('version_check'),
                       style: const TextStyle(
                           fontSize: 12.5, fontWeight: FontWeight.bold),
                     ),
@@ -8957,8 +8957,8 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
                     ),
                     onPressed: widget.onOpenAnnouncements,
                     icon: const Icon(Icons.article_outlined, size: 16),
-                    label: const Text(
-                      '更新日誌',
+                    label: Text(
+                      tr('version_changelog'),
                       style: TextStyle(
                           fontSize: 12.5, fontWeight: FontWeight.bold),
                     ),
@@ -8975,7 +8975,7 @@ class _VersionInfoDialogState extends State<_VersionInfoDialog> {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               onPressed: () => Navigator.pop(context),
-              child: const Text('關閉', style: TextStyle(fontSize: 12)),
+              child: Text(tr('btn_close'), style: TextStyle(fontSize: 12)),
             ),
           ],
         ),

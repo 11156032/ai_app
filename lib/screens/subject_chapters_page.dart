@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'question_set_detail_page.dart';
+import '../services/app_locale_service.dart';
 
 class SubjectChaptersPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -97,7 +98,7 @@ class _SubjectChaptersPageState extends State<SubjectChaptersPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.subject} (章節列表)'),
+        title: Text(tr('chapters_title', [widget.subject.toString()])),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
       ),
@@ -109,7 +110,7 @@ class _SubjectChaptersPageState extends State<SubjectChaptersPage> {
                   Icon(Icons.folder_open,
                       size: 64, color: cs.primary.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
-                  Text('這個科目目前沒有章節',
+                  Text(tr('chapters_empty'),
                       style:
                           TextStyle(color: cs.onSurfaceVariant, fontSize: 16)),
                 ],

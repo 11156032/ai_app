@@ -9,6 +9,7 @@ import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/dialogs/image_edit_dialogs.dart';
 import 'create_learning_pack_dialog.dart';
+import '../services/app_locale_service.dart';
 
 // --- 貼文發佈頁面 ---
 class CreatePostPage extends StatefulWidget {
@@ -45,13 +46,13 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool _isLoadingUserAvatar = true;
 
   // 熱門標籤清單
-  static const List<String> _popularTags = [
-    '學習打卡',
-    '會考衝刺',
-    '解題求助',
-    '筆記分享',
-    '讀書心得',
-    '每日一句',
+  static List<String> get _popularTags => [
+    tr('cp_tag_checkin'),
+    tr('cp_tag_exam'),
+    tr('cp_tag_help'),
+    tr('cp_tag_notes'),
+    tr('cp_tag_review'),
+    tr('cp_tag_quote'),
   ];
 
   @override
@@ -73,7 +74,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _postType = 'mood';
       } else if (t == '分享資料' || t == 'doc') {
         _postType = 'doc';
-      } else if (t == '學習 Pack' || t == 'learning_pack') {
+      } else if (t == tr('pack_label') || t == 'learning_pack') {
         _postType = 'learning_pack';
       } else {
         _postType = null;
@@ -154,7 +155,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         type: type,
         allowedExtensions: (type == FileType.custom) ? allowedExtensions : null,
         withData: true,
-        dialogTitle: labelHint != null ? '選擇 $labelHint' : '選擇檔案',
+        dialogTitle: labelHint != null ? tr('cp_pick_n', [labelHint.toString()]) : tr('cp_pick_file'),
       );
       if (result != null && mounted) {
         final file = result.files.single;
@@ -169,7 +170,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(
                 content:
-                    Text('格式不符！請選擇 ${allowedExtensions.join(", ")} 格式的檔案'),
+                    Text(tr('cp_bad_format', [(allowedExtensions.join(", ")).toString()])),
                 duration: const Duration(milliseconds: 1500),
                 behavior: SnackBarBehavior.floating,
               ),
@@ -184,7 +185,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         });
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(
-            content: Text('已附加${labelHint ?? '檔案'}：${file.name}'),
+            content: Text(tr('cp_attached', [(labelHint ?? tr('cp_file')).toString(), file.name.toString()])),
             duration: const Duration(milliseconds: 1500),
             behavior: SnackBarBehavior.floating,
             shape:
@@ -195,8 +196,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          const SnackBar(
-            content: Text('選取檔案失敗，請再試一次'),
+          SnackBar(
+            content: Text(tr('cp_pick_failed')),
             duration: Duration(milliseconds: 1500),
             behavior: SnackBarBehavior.floating,
           ),
@@ -213,7 +214,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
       initialDate: _scheduledAt ?? now,
       firstDate: now,
       lastDate: DateTime(2030),
-      locale: const Locale('zh', 'TW'),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -279,7 +279,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '已打包：${result['pack_title'] ?? '學習 Pack'}',
+                  tr('cp_packed', [(result['pack_title'] ?? tr('pack_label')).toString()]),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -319,8 +319,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
     if (!hasContent && !hasImage && !hasFile && !hasPack) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        const SnackBar(
-          content: Text('請輸入貼文內容或附加媒體資料！'),
+        SnackBar(
+          content: Text(tr('cp_need_content')),
           duration: Duration(milliseconds: 1500),
           behavior: SnackBarBehavior.floating,
         ),
@@ -373,7 +373,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       }
 
       widget.onPosted();
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, true);
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(
           content: Row(
@@ -383,7 +383,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  _scheduledAt != null ? '⏰ 已設定排程，將於指定時間發佈！' : '🎉 貼文發佈成功！',
+                  _scheduledAt != null ? tr('cp_scheduled') : tr('cp_published'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -406,7 +406,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(
-            content: Text('發佈失敗: $e'),
+            content: Text(tr('cp_failed', [e.toString()])),
             duration: const Duration(milliseconds: 2000),
             behavior: SnackBarBehavior.floating,
           ),
@@ -421,17 +421,17 @@ class _CreatePostPageState extends State<CreatePostPage> {
     final primaryColor = theme.primaryColor;
     final String displayName = widget.currentUser['display_name'] ??
         widget.currentUser['username'] ??
-        '我';
+        tr('cp_me');
 
     final String hintText = _postType == 'note'
-        ? '記錄今天的學習筆記、考試重點或讀書摘要...'
+        ? tr('cp_hint_note')
         : _postType == 'mood'
-            ? '分享今天的心情、讀書體會或給同學一句打氣的話...'
+            ? tr('cp_hint_mood')
             : _postType == 'doc'
-                ? '介紹你分享的這份學習資料，重點是什麼呢？'
+                ? tr('cp_hint_doc')
                 : _postType == 'learning_pack'
-                    ? '為你的學習 Pack 寫點介紹，讓大家了解這份排程與試卷的特色！'
-                    : '有什麼想和大家分享的嗎？可以加上 #標籤 讓更多人看到！';
+                    ? tr('cp_hint_pack')
+                    : tr('cp_hint_default');
 
     final bool canSubmit = _contentController.text.trim().isNotEmpty ||
         _selectedImageX != null ||
@@ -442,12 +442,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
       backgroundColor: const Color(0xFFF9FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1E293B),
+        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
         elevation: 0.5,
         shadowColor: Colors.black12,
         surfaceTintColor: Colors.transparent,
         leading: TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消',
+          child: Text(tr('btn_cancel'),
               maxLines: 1,
               style: TextStyle(
                   color: Colors.black54,
@@ -456,7 +458,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         ),
         leadingWidth: 70,
         title: Text(
-          widget.groupId != null ? '發表群組貼文' : '發表新貼文',
+          widget.groupId != null ? tr('cp_title_group') : tr('cp_title_new'),
           style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -482,7 +484,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                             : Icons.send_rounded,
                         size: 16),
                 label: Text(
-                  _scheduledAt != null ? '排程發佈' : '發佈',
+                  _scheduledAt != null ? tr('cp_schedule_publish') : tr('cp_publish'),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 14),
                 ),
@@ -537,7 +539,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '由 AI 特助預填草稿，您可自由修改後發佈',
+                              tr('cp_ai_prefilled'),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: primaryColor,
@@ -633,8 +635,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                                         const SizedBox(width: 3),
                                         Text(
                                           widget.groupId != null
-                                              ? '群組專屬貼文'
-                                              : '探索廣場公開',
+                                              ? tr('cp_group_only')
+                                              : tr('cp_public'),
                                           style: TextStyle(
                                             fontSize: 10.5,
                                             fontWeight: FontWeight.w600,
@@ -689,8 +691,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   const SizedBox(height: 16),
 
                   // ── 分類標籤區 (清晰簡潔的分類選擇器) ──
-                  const Text(
-                    '選擇貼文類別',
+                  Text(
+                    tr('cp_pick_type'),
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
@@ -705,7 +707,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       children: [
                         _buildTypeSegmentChip(
                           icon: Icons.edit_note_rounded,
-                          label: '學習筆記',
+                          label: tr('val_post_note'),
                           type: 'note',
                           activeColor: const Color(0xFF10B981),
                           activeBgColor: const Color(0xFFECFDF5),
@@ -713,7 +715,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         const SizedBox(width: 8),
                         _buildTypeSegmentChip(
                           icon: Icons.chat_bubble_outline_rounded,
-                          label: '心情交流',
+                          label: tr('cp_type_mood'),
                           type: 'mood',
                           activeColor: const Color(0xFF8B5CF6),
                           activeBgColor: const Color(0xFFF5F3FF),
@@ -721,7 +723,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         const SizedBox(width: 8),
                         _buildTypeSegmentChip(
                           icon: Icons.folder_open_rounded,
-                          label: '學習資料',
+                          label: tr('cp_type_doc'),
                           type: 'doc',
                           activeColor: const Color(0xFF3B82F6),
                           activeBgColor: const Color(0xFFEFF6FF),
@@ -729,7 +731,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         const SizedBox(width: 8),
                         _buildTypeSegmentChip(
                           icon: Icons.inventory_2_rounded,
-                          label: '學習 Pack',
+                          label: tr('pack_label'),
                           type: 'learning_pack',
                           activeColor: const Color(0xFFF59E0B),
                           activeBgColor: const Color(0xFFFFFBEB),
@@ -793,8 +795,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       const Icon(Icons.tag_rounded,
                           size: 15, color: Color(0xFF94A3B8)),
                       const SizedBox(width: 4),
-                      const Text(
-                        '熱門標籤：',
+                      Text(
+                        tr('cp_hot_tags'),
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -896,7 +898,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     // 附加圖片按鈕
                     _buildModernToolBtn(
                       icon: Icons.photo_library_rounded,
-                      label: '照片',
+                      label: tr('cp_photo'),
                       active: _selectedImageX != null,
                       color: const Color(0xFF10B981),
                       onTap: _isSubmitting ? null : _pickImage,
@@ -906,20 +908,20 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     // 附加文件按鈕
                     _buildModernToolBtn(
                       icon: Icons.attach_file_rounded,
-                      label: '文件',
+                      label: tr('cp_document'),
                       active: _selectedFileName != null,
                       color: const Color(0xFF3B82F6),
                       onTap: _isSubmitting
                           ? null
                           : () => _pickFileWithType(
-                              type: FileType.any, labelHint: '檔案'),
+                              type: FileType.any, labelHint: tr('cp_file')),
                     ),
                     const SizedBox(width: 6),
 
                     // 學習 Pack 打包按鈕
                     _buildModernToolBtn(
                       icon: Icons.inventory_2_rounded,
-                      label: '學習Pack',
+                      label: tr('cp_pack_short'),
                       active: _learningPackData != null,
                       color: const Color(0xFFF59E0B),
                       onTap: _isSubmitting ? null : _openLearningPackModal,
@@ -929,7 +931,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     // 定時排程按鈕
                     _buildModernToolBtn(
                       icon: Icons.alarm_rounded,
-                      label: _scheduledAt != null ? '已排程' : '定時',
+                      label: _scheduledAt != null ? tr('cp_scheduled_short') : tr('cp_timer'),
                       active: _scheduledAt != null,
                       color: const Color(0xFFEA580C),
                       onTap: _isSubmitting ? null : _pickScheduleTime,
@@ -940,7 +942,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     // 清除全部或字數指示
                     if (_contentController.text.isNotEmpty)
                       Text(
-                        '${_contentController.text.length} 字',
+                        tr('cp_chars_n', [_contentController.text.length.toString()]),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey.shade400),
                       ),
@@ -1055,12 +1057,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '打包學習 Pack (排程 + 試卷)',
+                      tr('cp_pack_create'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1069,7 +1071,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      '點擊自訂你要分享給同學的學習排程與題庫試卷',
+                      tr('cp_pack_create_sub'),
                       style: TextStyle(
                         fontSize: 12,
                         color: Color(0xFFB45309),
@@ -1084,11 +1086,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   color: const Color(0xFFF59E0B),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '設定',
+                      tr('cp_settings'),
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -1105,7 +1107,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       );
     }
 
-    final title = _learningPackData!['pack_title'] as String? ?? '學習 Pack';
+    final title = _learningPackData!['pack_title'] as String? ?? tr('pack_label');
     final desc = _learningPackData!['pack_description'] as String? ?? '';
     final events = (_learningPackData!['calendar_events'] as List?)?.length ?? 0;
     final papers = (_learningPackData!['user_papers'] as List?)?.length ?? 0;
@@ -1157,7 +1159,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    title.isNotEmpty ? title : '已打包 Learning Pack',
+                    title.isNotEmpty ? title : tr('cp_pack_packed'),
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -1171,8 +1173,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   onPressed: _openLearningPackModal,
                   icon: const Icon(Icons.edit_rounded,
                       size: 13, color: Color(0xFFD97706)),
-                  label: const Text(
-                    '編輯',
+                  label: Text(
+                    tr('common_edit'),
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -1224,14 +1226,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   children: [
                     _buildPackStatBadge(
                       icon: Icons.event_note_rounded,
-                      label: '$events 個排程',
+                      label: tr('cp_events_n', [events.toString()]),
                       color: const Color(0xFF2563EB),
                       bgColor: const Color(0xFFEFF6FF),
                     ),
                     const SizedBox(width: 8),
                     _buildPackStatBadge(
                       icon: Icons.quiz_rounded,
-                      label: '$papers 套試卷',
+                      label: tr('cp_papers_n', [papers.toString()]),
                       color: const Color(0xFF059669),
                       bgColor: const Color(0xFFECFDF5),
                     ),
@@ -1341,14 +1343,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   border: Border.all(
                       color: const Color(0xFF7C6AFF).withValues(alpha: 0.8)),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.center_focus_strong_rounded,
                         color: Color(0xFF9D8EFF), size: 14),
                     SizedBox(width: 5),
                     Text(
-                      '🎯 調整縮圖顯示焦點',
+                      tr('cp_focus'),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -1418,8 +1420,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  '已附加檔案',
+                Text(
+                  tr('cp_attached_file'),
                   style: TextStyle(fontSize: 11, color: Color(0xFF3B82F6)),
                 ),
               ],
@@ -1465,8 +1467,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '定時排程發佈',
+                Text(
+                  tr('cp_schedule_title'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -1475,7 +1477,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${_scheduledAt!.year}年${_scheduledAt!.month}月${_scheduledAt!.day}日 ${DateFormat('HH:mm').format(_scheduledAt!)}',
+                  tr('date_ymd_hm', [(_scheduledAt!.year).toString(), (_scheduledAt!.month).toString(), (_scheduledAt!.day).toString(), (DateFormat('HH:mm').format(_scheduledAt!)).toString()]),
                   style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
@@ -1487,7 +1489,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ),
           TextButton(
             onPressed: _pickScheduleTime,
-            child: const Text('修改',
+            child: Text(tr('val_cmd_modify'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,

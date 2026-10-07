@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../screens/notes_screen.dart';
+import 'app_locale_service.dart';
 
 class NotebookHelper {
   /// Parses options safely from the question map
@@ -44,11 +45,11 @@ class NotebookHelper {
           child: const Icon(Icons.construction_rounded,
               color: Color(0xFFFF9800), size: 32),
         ),
-        title: const Text('功能開發中',
+        title: Text(tr('nb_wip_title'),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        content: const Text(
-          '題目與筆記本的同步整合功能目前正於系統後端開發中，敬請期待！',
+        content: Text(
+          tr('nb_wip_msg'),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13.5, color: Colors.black54, height: 1.6),
         ),
@@ -62,7 +63,7 @@ class NotebookHelper {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('確定'),
+              child: Text(tr('confirm')),
             ),
           )
         ],
@@ -95,11 +96,11 @@ class NotebookHelper {
             child: const Icon(Icons.lock_outline_rounded,
                 color: Color(0xFFFF9800), size: 32),
           ),
-          title: const Text('訪客限制',
+          title: Text(tr('nb_guest_title'),
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-          content: const Text(
-            '訪客帳戶無法使用筆記本功能，請先登入！',
+          content: Text(
+            tr('nb_guest_msg'),
             textAlign: TextAlign.center,
             style:
                 TextStyle(fontSize: 13.5, color: Colors.black54, height: 1.6),
@@ -114,7 +115,7 @@ class NotebookHelper {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('確定'),
+                child: Text(tr('confirm')),
               ),
             )
           ],
@@ -148,7 +149,7 @@ class NotebookHelper {
     final String explanation = (question['explanation'] ?? '').toString();
 
     // Default note title
-    final titleController = TextEditingController(text: '題目筆記 - $subject');
+    final titleController = TextEditingController(text: tr('nb_note_title_default', [subject.toString()]));
     final commentController = TextEditingController();
 
     if (!context.mounted) return;
@@ -167,7 +168,7 @@ class NotebookHelper {
                 children: [
                   Icon(Icons.edit_note_rounded, color: cs.primary, size: 28),
                   const SizedBox(width: 8),
-                  const Text('加入我的筆記本',
+                  Text(tr('nb_add_to_notebook'),
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 ],
@@ -178,7 +179,7 @@ class NotebookHelper {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Category dropdown
-                    const Text('選擇分類',
+                    Text(tr('nb_pick_cat'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -212,7 +213,7 @@ class NotebookHelper {
                     const SizedBox(height: 16),
 
                     // Note Title
-                    const Text('筆記標題',
+                    Text(tr('nb_note_title'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -221,7 +222,7 @@ class NotebookHelper {
                     TextField(
                       controller: titleController,
                       decoration: InputDecoration(
-                        hintText: '輸入筆記標題...',
+                        hintText: tr('vn_title_hint'),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(
@@ -233,7 +234,7 @@ class NotebookHelper {
                     const SizedBox(height: 16),
 
                     // Custom comment
-                    const Text('我的心得與筆記 (選填)',
+                    Text(tr('nb_my_note'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -244,7 +245,7 @@ class NotebookHelper {
                       minLines: 3,
                       maxLines: 6,
                       decoration: InputDecoration(
-                        hintText: '在此寫下關於這題的想法、重點或錯誤原因...',
+                        hintText: tr('nb_my_note_hint'),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(
@@ -271,19 +272,19 @@ class NotebookHelper {
                   onPressed: () {
                     final String titleText = titleController.text.trim();
                     final String finalTitle =
-                        titleText.isEmpty ? '題目筆記 - $subject' : titleText;
+                        titleText.isEmpty ? tr('nb_note_title_default', [subject.toString()]) : titleText;
                     final String userComment = commentController.text.trim();
 
                     // Generate beautiful markdown content
                     final buffer = StringBuffer();
-                    buffer.writeln('# 題目筆記：$subject');
+                    buffer.writeln(tr('nb_h_title', [subject.toString()]));
                     buffer.writeln();
-                    buffer.writeln('### 📝 題目問題');
+                    buffer.writeln(tr('nb_h_question'));
                     buffer.writeln(qText);
                     buffer.writeln();
 
                     if (options.isNotEmpty) {
-                      buffer.writeln('### 🔍 選擇選項');
+                      buffer.writeln(tr('nb_h_options'));
                       for (int i = 0; i < options.length; i++) {
                         final char = String.fromCharCode(65 + i);
                         buffer.writeln('- **$char.** ${options[i]}');
@@ -295,19 +296,19 @@ class NotebookHelper {
                         (ansIdx >= 0 && ansIdx < options.length)
                             ? String.fromCharCode(65 + ansIdx)
                             : 'A';
-                    buffer.writeln('### 💡 正確答案');
-                    buffer.writeln('**正確解答為：[$correctChar]**');
+                    buffer.writeln(tr('nb_h_answer'));
+                    buffer.writeln(tr('nb_answer_is', [correctChar.toString()]));
                     buffer.writeln();
 
                     if (explanation.isNotEmpty) {
-                      buffer.writeln('### 📖 題目解析');
+                      buffer.writeln(tr('nb_h_explanation'));
                       buffer.writeln(explanation);
                       buffer.writeln();
                     }
 
                     if (userComment.isNotEmpty) {
                       buffer.writeln('---');
-                      buffer.writeln('### ✍️ 我的筆記與心得');
+                      buffer.writeln(tr('nb_h_mynote'));
                       buffer.writeln(userComment);
                     }
 
@@ -333,7 +334,7 @@ class NotebookHelper {
                             const Icon(Icons.check_circle_rounded,
                                 color: Colors.white),
                             const SizedBox(width: 8),
-                            Text('已將題目成功加入筆記本「$selectedCategory」！'),
+                            Text(tr('nb_added', [selectedCategory.toString()])),
                           ],
                         ),
                         backgroundColor: Theme.of(context).primaryColor,
@@ -343,7 +344,7 @@ class NotebookHelper {
                       ),
                     );
                   },
-                  child: const Text('確定加入'),
+                  child: Text(tr('nb_confirm_add')),
                 ),
               ],
             );

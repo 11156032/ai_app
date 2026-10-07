@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/membership_service.dart';
+import '../services/app_locale_service.dart';
 
 /// 贊助廣告極美彈出視窗 (Pop-up Template Dialog with Horizontal Swipe PageView)
 class AdPopupDialog extends StatefulWidget {
@@ -45,10 +46,10 @@ class _AdPopupDialogState extends State<AdPopupDialog> {
   final List<Map<String, dynamic>> _templateAds = [
     {
       'id': 1,
-      'badge': '✨ 焦點推播 • AI 家教',
-      'title': '🎓 YeBang AI 智慧解題與診斷',
-      'content': '專為學生量身打造！自動分析學習盲點、語音速記轉文字與互動心智圖，讓學習事半功倍！',
-      'sponsor': 'YeBang AI 學習庫',
+      'badge': tr('ad1_badge'),
+      'title': tr('ad1_title'),
+      'content': tr('ad1_content'),
+      'sponsor': tr('ad1_sponsor'),
       'icon': Icons.auto_awesome_rounded,
       'link_url': 'https://example.com',
       'gradient': const LinearGradient(
@@ -60,10 +61,10 @@ class _AdPopupDialogState extends State<AdPopupDialog> {
     },
     {
       'id': 2,
-      'badge': '💎 尊榮特權 • VIP 專屬',
-      'title': '⚡ 升級黃金/鑽石 VIP 享免廣告',
-      'content': '升級高等級 VIP 會員，立即享有全站免除廣告彈出、每日登入高額贈點與 AI 詢問折扣優惠！',
-      'sponsor': '會員中心',
+      'badge': tr('ad2_badge'),
+      'title': tr('ad2_title'),
+      'content': tr('ad2_content'),
+      'sponsor': tr('membership_center'),
       'icon': Icons.workspace_premium_rounded,
       'link_url': 'https://example.com',
       'gradient': const LinearGradient(
@@ -75,10 +76,10 @@ class _AdPopupDialogState extends State<AdPopupDialog> {
     },
     {
       'id': 3,
-      'badge': '🔥 熱門推薦 • 筆記社群',
-      'title': '🚀 高分學霸筆記包一鍵匯入',
-      'content': '探索同儕與考霸分享的精華筆記，支援一鍵打包匯入與個人化 AI 重點摘要！',
-      'sponsor': '學習社群',
+      'badge': tr('ad3_badge'),
+      'title': tr('ad3_title'),
+      'content': tr('ad3_content'),
+      'sponsor': tr('ad3_sponsor'),
       'icon': Icons.explore_rounded,
       'link_url': 'https://example.com',
       'gradient': const LinearGradient(
@@ -219,8 +220,8 @@ class _AdPopupDialogState extends State<AdPopupDialog> {
                               child: ElevatedButton.icon(
                                 icon: const Icon(Icons.arrow_forward_rounded,
                                     size: 16),
-                                label: const Text(
-                                  '了解詳情',
+                                label: Text(
+                                  tr('ad_learn_more'),
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14),

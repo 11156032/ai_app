@@ -5,6 +5,7 @@ import 'login/widgets/login_brand_logo.dart';
 import 'login/widgets/login_flow_background.dart';
 import 'login/widgets/login_success_overlay.dart';
 import 'login/widgets/google_sign_in_modal.dart';
+import '../services/app_locale_service.dart';
 
 // ── 別名相容定義 ─────────────────────────────────────────────────────────────
 typedef _BrandMark = LoginBrandMark;
@@ -77,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showSuccessOverlay(Map<String, dynamic> userMap) {
     setState(() => _isSuccess = true);
     final displayName =
-        (userMap['display_name'] ?? userMap['username'] ?? '您').toString();
+        (userMap['display_name'] ?? userMap['username'] ?? tr('ana_you')).toString();
     _overlayEntry = OverlayEntry(
       builder: (_) => Material(
         color: Colors.transparent,
@@ -132,17 +133,17 @@ class _LoginScreenState extends State<LoginScreen> {
     final bool? emailExists = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('忘記密碼'),
+        title: Text(tr('login_forgot_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('請輸入您註冊時使用的電子信箱，以進行密碼重設。'),
+            Text(tr('login_forgot_desc')),
             const SizedBox(height: 14),
             TextField(
               controller: emailResetCtrl,
               keyboardType: TextInputType.emailAddress,
-              decoration: _inputDeco('電子信箱',
+              decoration: _inputDeco(tr('login_email'),
                   suffix: const Icon(Icons.email_outlined,
                       color: Color(0xFFBCAAA4))),
             ),
@@ -151,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -164,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
               final email = emailResetCtrl.text.trim();
               if (email.isEmpty || email == '@gmail.com') {
                 ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請輸入有效的信箱')),
+                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('login_invalid_email'))),
                 );
                 return;
               }
@@ -178,12 +179,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   showDialog(
                     context: ctx,
                     builder: (c) => AlertDialog(
-                      title: const Text('提示'),
-                      content: const Text('找不到此信箱對應的帳號，請確認信箱是否輸入正確。'),
+                      title: Text(tr('login_hint')),
+                      content: Text(tr('login_email_not_found')),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(c),
-                          child: const Text('確定'),
+                          child: Text(tr('confirm')),
                         ),
                       ],
                     ),
@@ -196,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 debugPrint('查詢帳號失敗: $e');
               }
             },
-            child: const Text('下一步'),
+            child: Text(tr('login_next')),
           ),
         ],
       ),
@@ -216,17 +217,17 @@ class _LoginScreenState extends State<LoginScreen> {
         barrierDismissible: false,
         builder: (ctx) => StatefulBuilder(builder: (context, setState) {
           return AlertDialog(
-            title: const Text('重設新密碼'),
+            title: Text(tr('login_reset_title')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('帳號驗證成功！請輸入您的新密碼。'),
+                Text(tr('login_reset_desc')),
                 const SizedBox(height: 14),
                 TextField(
                   controller: newPasswordCtrl,
                   obscureText: obscureNew,
                   decoration: _inputDeco(
-                    '新密碼',
+                    tr('pwd_new_label'),
                     suffix: IconButton(
                       icon: Icon(
                         obscureNew
@@ -243,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: confirmPasswordCtrl,
                   obscureText: obscureConfirm,
                   decoration: _inputDeco(
-                    '確認新密碼',
+                    tr('pwd_confirm_new'),
                     suffix: IconButton(
                       icon: Icon(
                         obscureConfirm
@@ -261,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('取消', style: TextStyle(color: Colors.grey)),
+                child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -276,13 +277,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   if (newPass.isEmpty || confPass.isEmpty) {
                     ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('欄位不可為空')),
+                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('login_field_empty'))),
                     );
                     return;
                   }
                   if (newPass != confPass) {
                     ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('兩次輸入密碼不同')),
+                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('login_pwd_mismatch'))),
                     );
                     return;
                   }
@@ -301,12 +302,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     showDialog(
                       context: context,
                       builder: (c) => AlertDialog(
-                        title: const Text('重設成功'),
-                        content: const Text('您的密碼已成功更新！請使用新密碼進行登入。'),
+                        title: Text(tr('login_reset_ok_title')),
+                        content: Text(tr('login_reset_ok')),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(c),
-                            child: const Text('確定'),
+                            child: Text(tr('confirm')),
                           ),
                         ],
                       ),
@@ -315,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     debugPrint('更新密碼失敗: $e');
                   }
                 },
-                child: const Text('完成重設'),
+                child: Text(tr('login_reset_done')),
               ),
             ],
           );
@@ -330,7 +331,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required String title,
     required IconData icon,
   }) {
-    final isTerms = title == '服務條款';
+    final isTerms = title == tr('terms_label');
     final themeColor =
         isTerms ? const Color(0xFFD97706) : const Color(0xFF0D9488);
 
@@ -379,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'v1.8.1',
+                          'v1.8.5',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
@@ -391,7 +392,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isTerms ? '法定權益與平台使用規範' : '本機優先加密與個資保護承諾',
+                    isTerms ? tr('login_terms_sub') : tr('login_privacy_sub'),
                     style: TextStyle(
                       fontSize: 11.5,
                       color: Colors.grey.shade600,
@@ -411,55 +412,55 @@ class _LoginScreenState extends State<LoginScreen> {
               children: isTerms
                   ? [
                       _buildInlineSection(
-                        '1. 接受條款與服務範疇',
-                        '您使用「YeBang 家教」即代表您已閱讀並同意受本條款約束。本服務提供題庫測驗、AI 步驟詳解、AI 語音速記（5 大整理風格）、互動心智圖、學科能力診斷、弱項補強教材、智慧筆記（Markdown與 AI 摘要）、智慧行事曆排程與 24H 線上客服等多元功能。',
+                        tr('lt_t1'),
+                        tr('lt_c1'),
                         themeColor,
                       ),
                       _buildInlineSection(
-                        '2. 帳號責任與資安保護',
-                        '您有責任妥善保管帳號憑證（Email、密碼或 Google 授權），並對帳號下發生的所有活動負完全責任。禁止共用或轉讓帳號；如發現遭未經授權使用，請立即通知我們。',
+                        tr('lt_t2'),
+                        tr('lt_c2'),
                         themeColor,
                       ),
                       _buildInlineSection(
-                        '3. 行為規範與智慧財產權',
-                        '嚴禁散佈違法、侵權、騷擾或不當內容；嚴禁傳播惡意程式碼、爬蟲抓取或以自動化工具濫用系統與 AI 資源。本軟體所有設計、程式碼與題庫資料庫均受著作權法保護；個人筆記著作權歸屬本人。',
+                        tr('lt_t3'),
+                        tr('lt_c3'),
                         themeColor,
                       ),
                       _buildInlineSection(
-                        '4. AI 生成內容與語音輔助聲明',
-                        'AI 智慧特助、語音辨識、詳解與診斷由尖端模型（含 Gemini、Groq、Speech-to-Text 等）提供支援，其回覆內容為「學習輔助參考資料」，不構成考試唯一標準或專業法律保證。',
+                        tr('lt_t4'),
+                        tr('lt_c4'),
                         themeColor,
                       ),
                       _buildInlineSection(
-                        '5. 免責聲明與管轄法院',
-                        '本服務依現狀提供。條款依中華民國法律為準據法，並以台灣台北地方法院為第一審管轄法院。版本：v1.8.0（修訂發布：2026 年 9 月 23 日）。',
+                        tr('lt_t5'),
+                        tr('lt_c5'),
                         themeColor,
                       ),
                     ]
                   : [
                       _buildInlineSection(
-                        '1. 蒐集的資料類型（最小化原則）',
-                        '帳號資訊（姓名、Email、頭像）、學習歷程（測驗紀錄、正確率、錯題本、文字筆記、心智圖、行事曆待辦）、即時語音輸入串流（僅主動點擊錄音時轉換，不持久保存錄音）及系統偏好（深淺色、主題色、語系）。',
+                        tr('lp_t1'),
+                        tr('lp_c1'),
                         themeColor,
                       ),
                       _buildInlineSection(
-                        '2. 資料使用目的與【絕不出售承諾】',
-                        '僅用於提供功能、運算能力掌握度矩陣並生成客製化學習建議。【嚴格承諾絕不販售、出租或出借個人資料給任何第三方】。',
+                        tr('lp_t2'),
+                        tr('lp_c2'),
                         themeColor,
                       ),
                       _buildInlineSection(
-                        '3. 本機優先儲存與傳輸安全',
-                        '學習歷程與筆記主要加密儲存於本機 SQLite 資料庫中；雲端功能傳輸全面採用標準 HTTPS / TLS 1.3 傳輸層加密。',
+                        tr('lp_t3'),
+                        tr('lp_c3'),
                         themeColor,
                       ),
                       _buildInlineSection(
-                        '4. 使用者完整個資自主權利',
-                        '您可隨時查詢、修改個人資料，或申請註銷刪除帳號（或訪客一鍵清除本機暫存），徹底清除關聯資料。',
+                        tr('lp_t4'),
+                        tr('lp_c4'),
                         themeColor,
                       ),
                       _buildInlineSection(
-                        '5. 第三方服務安全規範',
-                        '整合 Google 登入、Google Gemini AI、Groq AI、Speech-to-Text 及 Cloudflare 中繼站等服務，資料僅供當次推理使用。版本：v1.8.0（修訂發布：2026 年 9 月 23 日）。',
+                        tr('lp_t5'),
+                        tr('lp_c5'),
                         themeColor,
                       ),
                     ],
@@ -478,8 +479,8 @@ class _LoginScreenState extends State<LoginScreen> {
               elevation: 0,
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              '我已完整閱讀並了解',
+            child: Text(
+              tr('login_read_ack'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
             ),
           ),
@@ -533,7 +534,7 @@ class _LoginScreenState extends State<LoginScreen> {
           inputEmail == '@gmail.com' ||
           inputPassword.isEmpty) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('信箱與密碼不得為空')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('login_need_email_pwd'))));
         return;
       }
     } else {
@@ -542,19 +543,19 @@ class _LoginScreenState extends State<LoginScreen> {
           inputEmail == '@gmail.com' ||
           inputPassword.isEmpty) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('所有欄位皆不得為空')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('login_need_all'))));
         return;
       }
       if (inputPassword != inputConfirm) {
         showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-                  title: const Text('提示'),
-                  content: const Text('兩次輸入的密碼不相同，請重新確認！'),
+                  title: Text(tr('login_hint')),
+                  content: Text(tr('login_pwd_mismatch2')),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text('確定'))
+                        child: Text(tr('confirm')))
                   ],
                 ));
         return;
@@ -562,7 +563,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!_agreedToTerms) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), 
-            content: Text('請先閱讀並勾選同意「服務條款」與「隱私權政策」才能完成註冊。'),
+            content: Text(tr('login_need_agree')),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -587,15 +588,15 @@ class _LoginScreenState extends State<LoginScreen> {
             final shouldRestore = await showDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: const Text('帳號復原提示'),
-                content: const Text('您的帳號已排程刪除。是否要取消刪除並復原帳號？'),
+                title: Text(tr('login_restore_title')),
+                content: Text(tr('login_restore_msg')),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('取消')),
+                      child: Text(tr('btn_cancel'))),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('確認復原')),
+                      child: Text(tr('login_restore_confirm'))),
                 ],
               ),
             );
@@ -619,24 +620,24 @@ class _LoginScreenState extends State<LoginScreen> {
             showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                      title: const Text('密碼錯誤'),
-                      content: const Text('您輸入的密碼不正確，請重新輸入。'),
+                      title: Text(tr('login_wrong_pwd_title')),
+                      content: Text(tr('login_wrong_pwd')),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('確定'))
+                            child: Text(tr('confirm')))
                       ],
                     ));
           } else {
             showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                      title: const Text('找不到帳號'),
-                      content: const Text('此信箱尚未註冊，請先建立新帳號再登入。'),
+                      title: Text(tr('login_no_account_title')),
+                      content: Text(tr('login_no_account')),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('確定'))
+                            child: Text(tr('confirm')))
                       ],
                     ));
           }
@@ -654,12 +655,12 @@ class _LoginScreenState extends State<LoginScreen> {
             showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                      title: const Text('註冊失敗'),
-                      content: const Text('此帳號名稱或信箱已被使用，請換一個試試。'),
+                      title: Text(tr('login_signup_failed')),
+                      content: Text(tr('login_taken')),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('確定'))
+                            child: Text(tr('confirm')))
                       ],
                     ));
             return;
@@ -672,6 +673,7 @@ class _LoginScreenState extends State<LoginScreen> {
             'email': inputEmail,
             'hashed_password': inputPassword,
             'display_name': inputUsername,
+            'language': AppLocaleService.currentLanguage,
           });
           _passwordCtrl.clear();
           _confirmPasswordCtrl.clear();
@@ -679,33 +681,33 @@ class _LoginScreenState extends State<LoginScreen> {
           showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                    title: const Text('註冊成功'),
-                    content: const Text('帳號建立完成！請使用帳號密碼登入。'),
+                    title: Text(tr('login_signup_ok_title')),
+                    content: Text(tr('login_signup_ok')),
                     actions: [
                       TextButton(
                           onPressed: () {
                             Navigator.pop(ctx);
                             setState(() => isLogin = true);
                           },
-                          child: const Text('前往登入'))
+                          child: Text(tr('login_go_login')))
                     ],
                   ));
         } catch (e) {
           if (!mounted) return;
-          String errorMsg = '發生未知的錯誤，請稍後再試。';
+          String errorMsg = tr('login_unknown_err');
           if (!e.toString().contains('UNIQUE constraint failed')) {
-            errorMsg += '\n錯誤詳情：$e';
+            errorMsg += tr('login_err_detail', [e.toString()]);
           }
 
           showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                    title: const Text('註冊失敗'),
+                    title: Text(tr('login_signup_failed')),
                     content: Text(errorMsg),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('確定'))
+                          child: Text(tr('confirm')))
                     ],
                   ));
         }
@@ -764,15 +766,15 @@ class _LoginScreenState extends State<LoginScreen> {
           final shouldRestore = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('帳號復原提示'),
-              content: const Text('您的帳號已排程刪除。是否要取消刪除並復原帳號？'),
+              title: Text(tr('login_restore_title')),
+              content: Text(tr('login_restore_msg')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('取消')),
+                    child: Text(tr('btn_cancel'))),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('確認復原')),
+                    child: Text(tr('login_restore_confirm'))),
               ],
             ),
           );
@@ -810,6 +812,7 @@ class _LoginScreenState extends State<LoginScreen> {
               displayName.trim().isNotEmpty ? displayName : uniqueUsername,
           'is_google': 1,
           'is_email_verified': 1,
+          'language': AppLocaleService.currentLanguage,
         };
         await db.insert('users', newUserData);
         userMap = newUserData;
@@ -822,7 +825,7 @@ class _LoginScreenState extends State<LoginScreen> {
       debugPrint('Google 登入失敗: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('Google 登入失敗：$e')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('login_google_failed', [e.toString()]))),
         );
       }
     }
@@ -874,7 +877,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           // 標題
                           Text(
-                            isLogin ? 'YeBang 家教' : '建立新帳號',
+                            isLogin ? 'YeBang 家教' : tr('login_create_account'),
                             style: const TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w700,
@@ -884,7 +887,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            isLogin ? '請輸入您的信箱與密碼' : '填寫資料以完成註冊',
+                            isLogin ? tr('login_enter_cred') : tr('login_fill_signup'),
                             style: TextStyle(
                                 fontSize: 13.5, color: Color(0xFF8D6E63)),
                           ),
@@ -904,7 +907,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       const TextSelection.collapsed(offset: 0);
                                 }
                               },
-                              decoration: _inputDeco('信箱',
+                              decoration: _inputDeco(tr('login_email_short'),
                                   suffix: const Icon(Icons.email_outlined,
                                       color: Color(0xFFBCAAA4))),
                             ),
@@ -918,7 +921,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: TextField(
                                 controller: _usernameCtrl,
                                 focusNode: _usernameFocusNode,
-                                decoration: _inputDeco('帳號名稱',
+                                decoration: _inputDeco(tr('login_username'),
                                     suffix: const Icon(
                                         Icons.person_outline_rounded,
                                         color: Color(0xFFBCAAA4))),
@@ -934,7 +937,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               controller: _passwordCtrl,
                               focusNode: _passwordFocusNode,
                               obscureText: _obscurePassword,
-                              decoration: _inputDeco('密碼',
+                              decoration: _inputDeco(tr('login_password'),
                                   suffix: IconButton(
                                     icon: Icon(
                                       _obscurePassword
@@ -959,7 +962,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: Text(
-                                  '忘記密碼？',
+                                  tr('login_forgot_link'),
                                   style: TextStyle(
                                     color: Color(0xFF8D6E63),
                                     fontSize: 13,
@@ -981,7 +984,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 controller: _confirmPasswordCtrl,
                                 focusNode: _confirmPasswordFocusNode,
                                 obscureText: _obscureConfirm,
-                                decoration: _inputDeco('確認密碼',
+                                decoration: _inputDeco(tr('login_confirm_pwd'),
                                     suffix: IconButton(
                                       icon: Icon(
                                         _obscureConfirm
@@ -1025,16 +1028,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                       crossAxisAlignment:
                                           WrapCrossAlignment.center,
                                       children: [
-                                        Text('我已閱讀並同意本應用程式的 ',
+                                        Text(tr('login_agree_prefix'),
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.grey.shade600)),
                                         GestureDetector(
                                           onTap: () => _showInlineDialog(
                                               context: context,
-                                              title: '服務條款',
+                                              title: tr('terms_label'),
                                               icon: Icons.gavel_outlined),
-                                          child: Text('服務條款',
+                                          child: Text(tr('terms_label'),
                                               style: TextStyle(
                                                   fontSize: 12,
                                                   color: Color(0xFF8D6E63),
@@ -1042,16 +1045,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                                   decoration: TextDecoration
                                                       .underline)),
                                         ),
-                                        Text(' 與 ',
+                                        Text(tr('login_and'),
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.grey.shade600)),
                                         GestureDetector(
                                           onTap: () => _showInlineDialog(
                                               context: context,
-                                              title: '隱私權政策',
+                                              title: tr('privacy_label'),
                                               icon: Icons.privacy_tip_outlined),
-                                          child: Text('隱私權政策',
+                                          child: Text(tr('privacy_label'),
                                               style: TextStyle(
                                                   fontSize: 12,
                                                   color: Color(0xFF8D6E63),
@@ -1101,7 +1104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               onPressed: _submit,
                               child: Text(
-                                isLogin ? '登入' : '註冊',
+                                isLogin ? tr('btn_login') : tr('btn_signup'),
                                 style: const TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.w600),
                               ),
@@ -1120,7 +1123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               }
                             }),
                             child: Text(
-                              isLogin ? '還沒有帳號？點此註冊' : '已有帳號？點此登入',
+                              isLogin ? tr('login_to_signup') : tr('login_to_login'),
                               style: TextStyle(
                                   color: Color(0xFF8D6E63),
                                   fontWeight: FontWeight.w600,
@@ -1152,8 +1155,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   const SizedBox(width: 12),
                                   Text(
                                     isLogin
-                                        ? '使用 Google 帳號登入'
-                                        : '使用 Google 帳號註冊',
+                                        ? tr('login_google_signin')
+                                        : tr('login_google_signup'),
                                     style: const TextStyle(
                                       color: Color(0xFF3C4043),
                                       fontSize: 14.5,
@@ -1168,14 +1171,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 12),
 
                           // 分隔線
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.symmetric(vertical: 4),
                             child: Row(children: [
                               Expanded(
                                   child: Divider(color: Color(0xFFE5DCD3))),
                               Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: Text('或',
+                                child: Text(tr('login_or'),
                                     style: TextStyle(
                                         color: Color(0xFFBCAAA4),
                                         fontSize: 12)),
@@ -1204,8 +1207,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               icon: const Icon(Icons.person_outline_rounded,
                                   color: Color(0xFF8D6E63), size: 20),
-                              label: const Text(
-                                '以訪客身份直接登入',
+                              label: Text(
+                                tr('login_guest'),
                                 style: TextStyle(
                                     color: Color(0xFF8D6E63),
                                     fontWeight: FontWeight.w600,

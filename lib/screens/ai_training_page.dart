@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/ai_diagnosis_service.dart';
+import '../services/app_locale_service.dart';
 
 class AiTrainingPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -24,7 +25,7 @@ class _AiTrainingPageState extends State<AiTrainingPage>
     with SingleTickerProviderStateMixin {
   // ── State ──────────────────────────────────────────────────────────
   bool _isLoading = true;
-  String _loadingStatus = 'AI 正在為您規劃今日特訓...';
+  String _loadingStatus = tr('tr_loading_plan');
   List<_TrainingQuestion> _questions = [];
   int _currentIndex = 0;
   int _selectedOption = -1;
@@ -71,7 +72,8 @@ class _AiTrainingPageState extends State<AiTrainingPage>
             .join('，');
 
     final prompt = '''
-你是一位出題老師。請為以下學生出 5 道繁體中文選擇題，重點科目：$focus。
+你是一位出題老師。請為以下學生出 5 道選擇題，重點科目：$focus。
+${AppLocaleService.getAiLanguageInstruction()}
 學生數據：$statsInfo
 
 題目要求：
@@ -93,7 +95,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
 ''';
 
     try {
-      setState(() => _loadingStatus = 'AI 正在生成專屬題目，請稍候...');
+      setState(() => _loadingStatus = tr('tr_generating'));
       final buffer = StringBuffer();
       await for (final chunk
           in AiDiagnosisService.generateOpenRouterGuideStream(
@@ -154,7 +156,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
           if (ans < 0) ans = 0;
         } catch (_) {}
         return _TrainingQuestion(
-          question: q['text'] as String? ?? '題目載入失敗',
+          question: q['text'] as String? ?? tr('tr_q_load_failed'),
           options:
               opts.isNotEmpty ? opts : ['A. 選項A', 'B. 選項B', 'C. 選項C', 'D. 選項D'],
           answer: ans,
@@ -166,7 +168,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
         setState(() {
           _questions = fallback;
           _isLoading = false;
-          _loadingStatus = '已載入題庫題目';
+          _loadingStatus = tr('tr_loaded_bank');
         });
         _slideCtrl.forward();
       }
@@ -174,7 +176,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _loadingStatus = '載入失敗，請稍後再試';
+          _loadingStatus = tr('tr_load_failed');
         });
       }
     }
@@ -213,14 +215,14 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
 
     final pct = (_correctCount / _questions.length * 100).round();
     final prompt =
-        '學生在「${widget.weakestSubject.isNotEmpty ? widget.weakestSubject : "綜合"}」專題特訓中答對 $_correctCount/${_questions.length} 題（$pct 分）。請用1~2句繁體中文給予具體鼓勵與學習建議。';
+        '學生在「${widget.weakestSubject.isNotEmpty ? widget.weakestSubject : "綜合"}」專題特訓中答對 $_correctCount/${_questions.length} 題（$pct 分）。請用1~2句給予具體鼓勵與學習建議。${AppLocaleService.getAiLanguageInstruction()}';
     try {
       final buffer = StringBuffer();
       await for (final chunk
           in AiDiagnosisService.generateOpenRouterGuideStream(
         userInput: prompt,
         history: const [],
-        customSystemPrompt: '你是鼓勵學生的老師，用1~2句繁體中文給予鼓勵與建議。',
+        customSystemPrompt: '你是鼓勵學生的老師，用1~2句給予鼓勵與建議。${AppLocaleService.getAiLanguageInstruction()}',
       )) {
         buffer.write(chunk.text);
       }
@@ -243,9 +245,9 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
   }
 
   String _defaultFeedback(int pct) {
-    if (pct >= 80) return '太棒了！本次特訓表現優異，繼續保持這樣的學習節奏！';
-    if (pct >= 60) return '不錯的表現！建議針對答錯的題目再複習一次，會進步更快！';
-    return '加油！每一次練習都是進步的基石，建議再複習相關概念後重新挑戰！';
+    if (pct >= 80) return tr('tr_great');
+    if (pct >= 60) return tr('tr_good');
+    return tr('tr_keep_going');
   }
 
   // ── Build ────────────────────────────────────────────────────────────
@@ -263,8 +265,8 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
         elevation: 0,
         title: Text(
           widget.weakestSubject.isNotEmpty
-              ? '${widget.weakestSubject} 專屬特訓'
-              : '今日專屬特訓',
+              ? tr('tr_subject_title', [widget.weakestSubject.toString()])
+              : tr('tr_today_title'),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
@@ -307,8 +309,8 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
 
   Widget _buildQuizView(bool isDark) {
     if (_questions.isEmpty) {
-      return const Center(
-        child: Text('無法載入題目，請稍後再試', style: TextStyle(color: Colors.grey)),
+      return Center(
+        child: Text(tr('tr_cannot_load'), style: TextStyle(color: Colors.grey)),
       );
     }
 
@@ -328,10 +330,10 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('第 ${_currentIndex + 1} / ${_questions.length} 題',
+                  Text(tr('tr_progress', [(_currentIndex + 1).toString(), _questions.length.toString()]),
                       style:
                           const TextStyle(color: Colors.white70, fontSize: 13)),
-                  Text('✓ $_correctCount 題正確',
+                  Text(tr('tr_correct_n', [_correctCount.toString()]),
                       style:
                           const TextStyle(color: Colors.white70, fontSize: 13)),
                 ],
@@ -501,8 +503,8 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
                         ),
                         child: Text(
                           _currentIndex < _questions.length - 1
-                              ? '下一題 →'
-                              : '查看結果 🎉',
+                              ? tr('tr_next')
+                              : tr('tr_result'),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -563,16 +565,16 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
                         color: scoreColor,
                         fontSize: 36,
                         fontWeight: FontWeight.bold)),
-                Text('分', style: TextStyle(color: scoreColor, fontSize: 14)),
+                Text(tr('tr_pts'), style: TextStyle(color: scoreColor, fontSize: 14)),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          Text('特訓完成！',
+          Text(tr('tr_done'),
               style: TextStyle(
                   color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text('答對 $_correctCount / ${_questions.length} 題',
+          Text(tr('tr_correct_frac', [_correctCount.toString(), _questions.length.toString()]),
               style: const TextStyle(color: Colors.grey, fontSize: 16)),
           const SizedBox(height: 24),
           // AI feedback card
@@ -592,12 +594,12 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.auto_awesome,
                         color: Color(0xFF6D5448), size: 18),
                     SizedBox(width: 8),
-                    Text('AI 老師的話',
+                    Text(tr('tr_ai_words'),
                         style: TextStyle(
                             color: Color(0xFF6D5448),
                             fontSize: 15,
@@ -633,7 +635,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
                         borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('返回',
+                  child: Text(tr('common_back'),
                       style: TextStyle(
                           color: Color(0xFF6D5448),
                           fontWeight: FontWeight.bold)),
@@ -660,7 +662,7 @@ answer 為正確選項的 index（0=A, 1=B, 2=C, 3=D）。
                         borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('再來一輪',
+                  child: Text(tr('tr_again'),
                       style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold)),
                 ),

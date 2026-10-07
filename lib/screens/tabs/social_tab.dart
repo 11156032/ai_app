@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/app_locale_service.dart';
 
 class SocialTab extends StatelessWidget {
   final List<Map<String, dynamic>> socialPosts;
@@ -77,7 +78,7 @@ class SocialTab extends StatelessWidget {
                       : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(label,
+                child: Text(trv(label),
                     style: TextStyle(
                         fontSize: 13,
                         color: isSelected ? Colors.white : Colors.grey.shade700,

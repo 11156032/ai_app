@@ -6,6 +6,7 @@ import 'wrong_questions_page.dart';
 import 'subject_chapters_page.dart';
 import 'question_edit_page.dart';
 import 'ai_upload_paper_page.dart';
+import '../services/app_locale_service.dart';
 
 class QuestionListPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -119,16 +120,16 @@ class _QuestionListPageState extends State<QuestionListPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('刪除題本'),
-        content: const Text('確定要刪除這份自訂題本嗎？裡面的題目仍會保存在您的題庫中。'),
+        title: Text(tr('ql_delete_paper')),
+        content: Text(tr('ql_delete_paper_msg')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('確認刪除',
+            child: Text(tr('delete_account_confirm'),
                 style: TextStyle(
                     color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
@@ -143,11 +144,11 @@ class _QuestionListPageState extends State<QuestionListPage> {
       await _loadData();
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已刪除題本')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('ql_deleted'))));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('刪除失敗')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('ql_delete_failed'))));
     }
   }
 
@@ -156,23 +157,23 @@ class _QuestionListPageState extends State<QuestionListPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.cloud_upload_rounded, color: Colors.orange, size: 28),
             SizedBox(width: 12),
-            Text('雲端分享功能',
+            Text(tr('ql_cloud_share'),
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
-        content: const Text(
-          '社群題本分享功能開發中！\n未來版本將支援一鍵將您的精選題本分享給同儕或群組同學共同練習！',
+        content: Text(
+          tr('ql_cloud_share_wip'),
           style: TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child:
-                const Text('好的', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(tr('common_ok'), style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -211,7 +212,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '建立新內容',
+                  tr('ql_create_new'),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -229,9 +230,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     child: const Icon(Icons.auto_awesome_rounded,
                         color: Colors.purple, size: 24),
                   ),
-                  title: const Text('AI 智慧拍考卷匯入',
+                  title: Text(tr('ql_ai_import'),
                       style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('上傳 PDF 或照片，AI 自動辨識並建立題本'),
+                  subtitle: Text(tr('ql_ai_import_sub')),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
                   onTap: () async {
@@ -262,9 +263,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     child: Icon(Icons.edit_note_rounded,
                         color: cs.primary, size: 24),
                   ),
-                  title: const Text('手動新增題目',
+                  title: Text(tr('ql_manual_add'),
                       style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('撰寫全新題目、選項與解析'),
+                  subtitle: Text(tr('ql_manual_add_sub')),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
                   onTap: () async {
@@ -295,9 +296,9 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     child: const Icon(Icons.library_add_rounded,
                         color: Colors.orange, size: 24),
                   ),
-                  title: const Text('從題庫挑選組卷',
+                  title: Text(tr('ql_from_bank'),
                       style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('從現有題目中自由勾選組合題本'),
+                  subtitle: Text(tr('ql_from_bank_sub')),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
                   onTap: () async {
@@ -412,7 +413,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
   Widget _buildHeader(ColorScheme cs) {
     final displayName = widget.currentUser['display_name'] ??
         widget.currentUser['username'] ??
-        '學習者';
+        tr('profile_learner');
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -424,7 +425,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '你好，$displayName 👋',
+                  tr('ql_hello', [displayName.toString()]),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -436,7 +437,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '共收錄 $_totalQuestionCount 題 · 隨測隨用',
+                  tr('ql_total_n', [_totalQuestionCount.toString()]),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -467,7 +468,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               }
             },
             icon: const Icon(Icons.auto_awesome_rounded, size: 15),
-            label: const Text('AI 拍考卷',
+            label: Text(tr('pb_ai_snap'),
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
             style: ElevatedButton.styleFrom(
               backgroundColor: cs.primary,
@@ -488,8 +489,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '快速複習',
+        Text(
+          tr('ql_quick_review'),
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -502,8 +503,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
             // 錯題複習
             Expanded(
               child: _buildReviewCard(
-                title: '錯題複習',
-                count: '$_wrongQuestionCount 題',
+                title: tr('ql_wrong_review'),
+                count: tr('ql_n', [_wrongQuestionCount.toString()]),
                 icon: Icons.flash_on_rounded,
                 iconColor: cs.primary,
                 iconBgColor: Colors.white,
@@ -515,7 +516,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => Scaffold(
-                        appBar: AppBar(title: const Text('錯題本複習')),
+                        appBar: AppBar(title: Text(tr('ql_wrong_book_review'))),
                         body: WrongQuestionsPage(
                           currentUser: widget.currentUser,
                           embed: true,
@@ -531,8 +532,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
             // 精選收藏
             Expanded(
               child: _buildReviewCard(
-                title: '精選收藏',
-                count: '$_favoriteQuestionCount 題',
+                title: tr('ql_fav'),
+                count: tr('ql_fav_n', [_favoriteQuestionCount.toString()]),
                 icon: Icons.star_rounded,
                 iconColor: cs.primary,
                 iconBgColor: Colors.white,
@@ -544,7 +545,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => Scaffold(
-                        appBar: AppBar(title: const Text('精選收藏題目')),
+                        appBar: AppBar(title: Text(tr('ql_fav_title'))),
                         body: WrongQuestionsPage(
                           currentUser: widget.currentUser,
                           embed: true,
@@ -651,8 +652,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
             Expanded(
               child: Row(
                 children: [
-                  const Text(
-                    '我的題本',
+                  Text(
+                    tr('ql_my_papers'),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -681,7 +682,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
             TextButton.icon(
               onPressed: () => _showCreateOptionsBottomSheet(context, cs),
               icon: Icon(Icons.add_rounded, size: 15, color: cs.primary),
-              label: Text('新增題本',
+              label: Text(tr('ql_new_paper'),
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
@@ -710,8 +711,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 Icon(Icons.assignment_outlined,
                     size: 36, color: Colors.grey.shade300),
                 const SizedBox(height: 8),
-                const Text(
-                  '尚未建立任何題本',
+                Text(
+                  tr('ql_no_papers'),
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -719,7 +720,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '拍考卷或自訂題目，一鍵生成專屬題本！',
+                  tr('ql_no_papers_sub'),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
               ],
@@ -766,15 +767,15 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         child: Icon(Icons.app_registration_rounded,
                             color: cs.primary, size: 20),
                       ),
-                      title: const Text(
-                        '自訂題目總庫',
+                      title: Text(
+                        tr('ql_custom_bank'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14.5,
                             color: Color(0xFF111827)),
                       ),
                       subtitle: Text(
-                        '所有自建題目精選',
+                        tr('ql_custom_bank_sub'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey.shade500),
                       ),
@@ -789,7 +790,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              '$_customQuestionCount 題',
+                              tr('ql_custom_n', [_customQuestionCount.toString()]),
                               style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.bold,
@@ -807,7 +808,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                           MaterialPageRoute(
                             builder: (_) => QuestionSetDetailPage(
                               currentUser: widget.currentUser,
-                              title: '自訂題目總庫',
+                              title: tr('ql_custom_bank'),
                               isCustomOnly: true,
                               allSubjects: widget.allSubjects,
                               subjectChapters: widget.subjectChapters,
@@ -821,7 +822,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   final pIndex = _customQuestionCount > 0 ? index - 1 : index;
                   final paper = _userPapers[pIndex];
                   final pid = int.tryParse(paper['id'].toString()) ?? 0;
-                  final name = paper['name'] ?? '未命名題本';
+                  final name = paper['name'] ?? tr('wq_paper_unnamed');
                   final dateStr =
                       (paper['created_at'] ?? '').toString().split(' ')[0];
 
@@ -847,7 +848,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      dateStr.isNotEmpty ? '建立於 $dateStr' : '專屬練習題本',
+                      dateStr.isNotEmpty ? tr('ql_created_at', [dateStr.toString()]) : tr('ql_exclusive'),
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey.shade500),
                     ),
@@ -879,13 +880,13 @@ class _QuestionListPageState extends State<QuestionListPage> {
                             }
                           },
                           itemBuilder: (context) => [
-                            const PopupMenuItem(
-                                value: 'edit', child: Text('編輯題本')),
-                            const PopupMenuItem(
-                                value: 'publish', child: Text('分享至社群')),
-                            const PopupMenuItem(
+                            PopupMenuItem(
+                                value: 'edit', child: Text(tr('ql_edit_paper'))),
+                            PopupMenuItem(
+                                value: 'publish', child: Text(tr('ql_share_social'))),
+                            PopupMenuItem(
                                 value: 'delete',
-                                child: Text('刪除題本',
+                                child: Text(tr('ql_delete_paper'),
                                     style: TextStyle(color: Colors.redAccent))),
                           ],
                         ),
@@ -909,8 +910,8 @@ class _QuestionListPageState extends State<QuestionListPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '學科分類',
+        Text(
+          tr('ql_subjects'),
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -927,7 +928,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: const Center(child: Text('目前尚無科目題庫')),
+            child: Center(child: Text(tr('ql_no_subjects'))),
           )
         else
           Container(
@@ -975,7 +976,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       child: Icon(icon, color: color, size: 20),
                     ),
                     title: Text(
-                      subject,
+                      trv(subject),
                       style: const TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.bold,
@@ -983,7 +984,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                       ),
                     ),
                     subtitle: Text(
-                      '按單元循序漸進練習',
+                      tr('ql_by_unit'),
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey.shade500),
                     ),
@@ -998,7 +999,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            '$count 題',
+                            tr('ql_count_n', [count.toString()]),
                             style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.bold,

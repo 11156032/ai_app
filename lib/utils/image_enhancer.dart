@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import '../services/app_locale_service.dart';
 
 /// 圖片品質分析報告
 class ImageQualityReport {
@@ -28,10 +29,10 @@ class ImageQualityReport {
 
   List<String> get issues {
     final list = <String>[];
-    if (isBlurry) list.add('模糊');
-    if (isDark) list.add('偏暗');
-    if (isOverExposed) list.add('過曝');
-    if (isLowContrast) list.add('低對比');
+    if (isBlurry) list.add(tr('img_issue_blurry'));
+    if (isDark) list.add(tr('img_issue_dark'));
+    if (isOverExposed) list.add(tr('img_issue_overexposed'));
+    if (isLowContrast) list.add(tr('img_issue_low_contrast'));
     return list;
   }
 }

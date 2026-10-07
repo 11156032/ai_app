@@ -9,6 +9,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../database/database_helper.dart';
 import 'question_set_detail_page.dart';
+import '../services/app_locale_service.dart';
 
 enum UploadState { initial, analyzing, preview }
 
@@ -83,10 +84,10 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   // Loading Steps Simulation
   int _currentStep = 0;
   final List<String> _loadingSteps = [
-    '正在連接題庫 AI 解析引擎...',
-    '正在深度解析試卷題目、題幹與圖文條件...',
-    'AI 正在提取與結構化選項、標準答案與解題步驟...',
-    '正在整理試卷預覽與題目驗證，請稍候...'
+    tr('up_step1'),
+    tr('up_step2'),
+    tr('up_step3'),
+    tr('up_step4')
   ];
 
   @override
@@ -283,7 +284,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         _startAiRecognition();
       }
     } catch (e) {
-      _showErrorSnackBar('選取 PDF 失敗: $e');
+      _showErrorSnackBar(tr('up_pick_pdf_failed', [e.toString()]));
     }
   }
 
@@ -317,7 +318,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         _startAiRecognition();
       }
     } catch (e) {
-      _showErrorSnackBar('選取圖片失敗: $e');
+      _showErrorSnackBar(tr('image_pick_failed_e', [e.toString()]));
     }
   }
 
@@ -346,7 +347,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                   ),
                 ),
                 Text(
-                  '選擇考卷相片來源',
+                  tr('up_photo_source'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -363,9 +364,9 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     ),
                     child: Icon(Icons.camera_alt_rounded, color: cs.primary),
                   ),
-                  title: const Text('拍照辨識',
+                  title: Text(tr('up_camera'),
                       style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('即時拍攝實體考卷或試題講義',
+                  subtitle: Text(tr('up_camera_sub'),
                       style: TextStyle(fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -381,9 +382,9 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                     ),
                     child: Icon(Icons.photo_library_rounded, color: cs.primary),
                   ),
-                  title: const Text('相簿選取',
+                  title: Text(tr('up_gallery'),
                       style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('從手機相簿選取已保存的考卷照片',
+                  subtitle: Text(tr('up_gallery_sub'),
                       style: TextStyle(fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -404,7 +405,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   Future<void> _startAiTopicGeneration() async {
     final chapter = _topicChapterCtrl.text.trim().isNotEmpty
         ? _topicChapterCtrl.text.trim()
-        : '核心觀念測驗';
+        : tr('up_core_quiz');
     final subject = _selectedTopicSubject;
     final count = _topicQuestionCount;
     final diff = _topicDifficulty;
@@ -452,7 +453,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
 【重要品質與字數規範】
 1. 嚴格字數限制：每題題幹 30~80 字內、每個選項 25 字內、解析 30~60 字內，觀念解析精簡扼要，一兩句話說明核心關鍵即可，切勿拖泥帶水。
-2. 繁體中文：全部內容（題目、選項、單元、詳解）必須為臺灣正體繁體中文。
+2. 輸出語言：${AppLocaleService.getAiLanguageInstruction()}（題目、選項、單元、詳解皆適用；JSON 欄位名稱保持英文不變）
 3. 選項純文字：選項陣列中的文字請去除 A. B. C. D. 或 (A) (B) 等前綴標籤。
 4. 嚴禁 LaTeX 原始指令：嚴禁出現 \\frac, \\times, \\pm 等反斜線語法，請使用標準文字符號（例如 (a/b), ×, ±, √(x), x^2, +, -, *, /, =）。
 5. 嚴禁出現 <think> 思考標籤或對話開場白。
@@ -522,7 +523,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       setState(() {
         _state = UploadState.initial;
       });
-      _showErrorDialog('AI 命題失敗', e.toString());
+      _showErrorDialog(tr('up_gen_failed'), e.toString());
     }
   }
 
@@ -535,13 +536,13 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       try {
         _fileBytes = await File(_selectedFilePath!).readAsBytes();
       } catch (e) {
-        _showErrorSnackBar('讀取檔案失敗: $e');
+        _showErrorSnackBar(tr('up_read_failed', [e.toString()]));
         return;
       }
     }
 
     if (_fileBytes == null) {
-      _showErrorSnackBar('檔案載入錯誤，請重新選取');
+      _showErrorSnackBar(tr('up_load_error'));
       return;
     }
 
@@ -577,7 +578,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 1. 若試卷中無提供答案，請由 AI 親自為每道題目深度推導演算出正確答案（填入 options 的 0-based 索引 "0", "1", "2" 或 "3"），並在 explanation 中提供詳盡清晰的步驟與觀念詳解！
 2. 若試卷已有答案，請核對並採納該答案，並補齊詳解步驟。
 3. 選項文字請去除 A. B. C. D. 等前綴標籤，保持純淨文字。
-4. 全部內容必須使用臺灣正體繁體中文。
+4. 題目與選項請保留考卷原文語言；explanation 詳解的輸出語言：${AppLocaleService.getAiLanguageInstruction()}
 
 【考卷文字內容】
 $pdfExtractedText
@@ -652,7 +653,7 @@ $pdfExtractedText
 【重要辨識、無答案自動推導與品質準則】
 1. 忠實辨識原題：請精確辨識考卷中的真實題目文字、題幹條件、數值、選項與題意。
 2. 【無答案試卷自動演算解題】：若試卷無附帶答案，請 AI 親自深度演算推導出正確答案（填入 options 的 0-based 索引 "0", "1", "2" 或 "3"），並在 explanation 中提供完整計算與推導步驟！
-3. 繁體中文：所有題目、選項與詳解全部使用臺灣正體繁體中文。
+3. 語言：題目與選項請保留考卷原文語言；explanation 詳解的輸出語言：${AppLocaleService.getAiLanguageInstruction()}
 4. 選項純淨化：選項陣列中的文字請移除 A. B. C. D. 或 ① ② ③ ④ 等標籤。
 5. 答案索引：answer 欄位必須為 options 陣列的 0-based 索引字串（"0", "1", "2" 或 "3"）。
 
@@ -800,7 +801,7 @@ $pdfExtractedText
       setState(() {
         _state = UploadState.initial;
       });
-      _showErrorDialog('辨識失敗', e.toString().replaceAll('Exception: ', ''));
+      _showErrorDialog(tr('up_recog_failed'), e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -943,7 +944,7 @@ $pdfExtractedText
 
     if (paperName.contains('無法辨識') || qList.isEmpty) {
       throw Exception(
-          '未能從上傳的文件/相片中辨識出有效的考卷題目。請確保上傳的試卷清晰無反光、文字清楚端正，且確實包含考卷題目內容。');
+          tr('up_no_valid_q'));
     }
 
     List<Map<String, dynamic>> questions = [];
@@ -962,7 +963,7 @@ $pdfExtractedText
 
       // 若選項不足 4 個，適當補齊以符合單選題架構
       while (options.length < 4) {
-        options.add('以上皆非');
+        options.add(tr('up_none_above'));
       }
 
       questions.add({
@@ -994,15 +995,15 @@ $pdfExtractedText
     final String chapter = _chapterCtrl.text.trim();
 
     if (paperName.isEmpty) {
-      _showErrorSnackBar('題本名稱不能為空');
+      _showErrorSnackBar(tr('up_need_name'));
       return;
     }
     if (subject.isEmpty) {
-      _showErrorSnackBar('學科不能為空');
+      _showErrorSnackBar(tr('up_need_subject'));
       return;
     }
     if (_questions.isEmpty) {
-      _showErrorSnackBar('題目列表不能為空，請至少包含一題');
+      _showErrorSnackBar(tr('up_need_q'));
       return;
     }
 
@@ -1075,7 +1076,7 @@ $pdfExtractedText
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-            content: Text('成功建立題本「$paperName」！包含 ${_questions.length} 題。'),
+            content: Text(tr('up_created', [paperName.toString(), _questions.length.toString()])),
             backgroundColor: Colors.green,
           ),
         );
@@ -1104,7 +1105,7 @@ $pdfExtractedText
       if (mounted) {
         Navigator.pop(context);
       }
-      _showErrorSnackBar('儲存題本失敗: $e');
+      _showErrorSnackBar(tr('up_save_failed', [e.toString()]));
     }
   }
 
@@ -1134,7 +1135,7 @@ $pdfExtractedText
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('確定'),
+            child: Text(tr('confirm')),
           )
         ],
       ),
@@ -1147,9 +1148,11 @@ $pdfExtractedText
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI 智慧匯入題本',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(tr('up_title'),
+            style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface)),
         backgroundColor: Colors.transparent,
+        foregroundColor: cs.onSurface,
+        iconTheme: IconThemeData(color: cs.onSurface),
         elevation: 0,
         flexibleSpace: Container(
           decoration: BoxDecoration(
@@ -1231,7 +1234,7 @@ $pdfExtractedText
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '考卷文件辨識',
+                            tr('up_tab_doc'),
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: _activeTab == 0
@@ -1278,7 +1281,7 @@ $pdfExtractedText
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '智慧主題命題',
+                            tr('up_tab_topic'),
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: _activeTab == 1
@@ -1321,11 +1324,11 @@ $pdfExtractedText
                     Icon(Icons.image_search_rounded,
                         size: 44, color: cs.primary),
                     const SizedBox(height: 10),
-                    const Text('拍照或上傳考卷相片',
+                    Text(tr('up_photo_title'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 4),
-                    Text('支援相機即時拍照、相簿選取（PNG, JPG, WebP）',
+                    Text(tr('up_photo_sub'),
                         style: TextStyle(
                             fontSize: 11.5, color: cs.onSurfaceVariant)),
                   ],
@@ -1354,11 +1357,11 @@ $pdfExtractedText
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('上傳 PDF 考卷檔案',
+                        Text(tr('up_pdf_title'),
                             style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 14.5)),
                         const SizedBox(height: 2),
-                        Text('適合掃描版或電子試卷文件',
+                        Text(tr('up_pdf_sub'),
                             style: TextStyle(
                                 fontSize: 11, color: cs.onSurfaceVariant)),
                       ],
@@ -1381,7 +1384,7 @@ $pdfExtractedText
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '小叮嚀：相片請保持光線充足且文字清晰，AI 將自動辨識題目並生成詳解！',
+                      tr('up_tip'),
                       style: TextStyle(
                           fontSize: 11.5,
                           color: cs.onSurfaceVariant,
@@ -1404,7 +1407,7 @@ $pdfExtractedText
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('1. 選擇考試學科',
+                  Text(tr('up_s1'),
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -1432,7 +1435,7 @@ $pdfExtractedText
                                 : ['數學', '英文', '國文', '理化', '歷史', '地理', '資訊管理'])
                             .map((sub) => DropdownMenuItem(
                                   value: sub,
-                                  child: Text(sub,
+                                  child: Text(trv(sub),
                                       style: const TextStyle(fontSize: 14)),
                                 ))
                             .toList(),
@@ -1446,7 +1449,7 @@ $pdfExtractedText
                   ),
                   const SizedBox(height: 16),
 
-                  Text('2. 單元或考科主題',
+                  Text(tr('up_s2'),
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -1456,7 +1459,7 @@ $pdfExtractedText
                     controller: _topicChapterCtrl,
                     style: const TextStyle(fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: '例如：空間幾何、牛頓運動定律、一元二次方程式…',
+                      hintText: tr('up_s2_hint'),
                       hintStyle: TextStyle(
                           fontSize: 12.5,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
@@ -1480,7 +1483,7 @@ $pdfExtractedText
 
                   // 3. 命題數量
                   Text(
-                    '3. 命題數量',
+                    tr('up_s3'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -1490,18 +1493,18 @@ $pdfExtractedText
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      _buildCountOption(cs, 3, '3 題'),
+                      _buildCountOption(cs, 3, tr('up_3q')),
                       const SizedBox(width: 8),
-                      _buildCountOption(cs, 5, '5 題'),
+                      _buildCountOption(cs, 5, tr('up_5q')),
                       const SizedBox(width: 8),
-                      _buildCountOption(cs, 10, '10 題'),
+                      _buildCountOption(cs, 10, tr('up_10q')),
                     ],
                   ),
                   const SizedBox(height: 16),
 
                   // 4. 難易度
                   Text(
-                    '4. 難易度設定',
+                    tr('up_s4'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -1511,11 +1514,11 @@ $pdfExtractedText
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      _buildDifficultyOption(cs, '基礎', '🌱 基礎'),
+                      _buildDifficultyOption(cs, '基礎', tr('up_diff_basic')),
                       const SizedBox(width: 8),
-                      _buildDifficultyOption(cs, '中等', '⚡ 中等'),
+                      _buildDifficultyOption(cs, '中等', tr('up_diff_mid')),
                       const SizedBox(width: 8),
-                      _buildDifficultyOption(cs, '進階', '🔥 進階'),
+                      _buildDifficultyOption(cs, '進階', tr('up_diff_adv')),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -1524,7 +1527,7 @@ $pdfExtractedText
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.bolt_rounded, size: 20),
-                      label: const Text('開始 AI 智慧命題生成題本',
+                      label: Text(tr('up_generate'),
                           style: TextStyle(
                               fontSize: 15, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
@@ -1681,7 +1684,7 @@ $pdfExtractedText
             ),
             const SizedBox(height: 40),
             Text(
-              'AI 正在辨識您的檔案',
+              tr('up_recognizing'),
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1689,7 +1692,7 @@ $pdfExtractedText
             ),
             const SizedBox(height: 8),
             Text(
-              '這通常需要 5-15 秒，請勿關閉此畫面',
+              tr('up_recognizing_sub'),
               style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 32),
@@ -1773,7 +1776,7 @@ $pdfExtractedText
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _selectedFileName ?? '已載入檔案',
+                  _selectedFileName ?? tr('up_file_loaded'),
                   style: TextStyle(
                       fontSize: 13,
                       color: cs.onSurfaceVariant,
@@ -1793,7 +1796,7 @@ $pdfExtractedText
                   });
                 },
                 icon: const Icon(Icons.refresh_rounded, size: 14),
-                label: const Text('重新上傳', style: TextStyle(fontSize: 12)),
+                label: Text(tr('up_reupload'), style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
@@ -1821,12 +1824,12 @@ $pdfExtractedText
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(Icons.assignment_ind_rounded,
                               color: Colors.blue, size: 20),
                           SizedBox(width: 8),
-                          Text('題本與科目設定',
+                          Text(tr('up_settings'),
                               style: TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 15)),
                         ],
@@ -1835,7 +1838,7 @@ $pdfExtractedText
                       TextField(
                         controller: _paperNameCtrl,
                         decoration: InputDecoration(
-                          labelText: '題本名稱',
+                          labelText: tr('wq_paper_name'),
                           prefixIcon: const Icon(Icons.assignment_rounded),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -1850,7 +1853,7 @@ $pdfExtractedText
                             child: TextField(
                               controller: _subjectCtrl,
                               decoration: InputDecoration(
-                                labelText: '學科分類',
+                                labelText: tr('ql_subjects'),
                                 prefixIcon: const Icon(Icons.school_rounded),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12)),
@@ -1864,7 +1867,7 @@ $pdfExtractedText
                             child: TextField(
                               controller: _chapterCtrl,
                               decoration: InputDecoration(
-                                labelText: '單元名稱',
+                                labelText: tr('up_unit_name'),
                                 prefixIcon: const Icon(Icons.tag_rounded),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12)),
@@ -1886,7 +1889,7 @@ $pdfExtractedText
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'AI 提取題目預覽 (${_questions.length} 題)',
+                    tr('up_preview_n', [_questions.length.toString()]),
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1905,7 +1908,7 @@ $pdfExtractedText
                       });
                     },
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('新增一題', style: TextStyle(fontSize: 13)),
+                    label: Text(tr('up_add_q'), style: TextStyle(fontSize: 13)),
                   ),
                 ],
               ),
@@ -1944,12 +1947,12 @@ $pdfExtractedText
                     showDialog(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('放棄辨識'),
-                        content: const Text('確定要放棄目前辨識出來的題目並返回上傳畫面嗎？'),
+                        title: Text(tr('up_discard')),
+                        content: Text(tr('up_discard_msg')),
                         actions: [
                           TextButton(
                               onPressed: () => Navigator.pop(ctx),
-                              child: const Text('取消')),
+                              child: Text(tr('btn_cancel'))),
                           TextButton(
                             onPressed: () {
                               Navigator.pop(ctx);
@@ -1958,7 +1961,7 @@ $pdfExtractedText
                                 _questions.clear();
                               });
                             },
-                            child: const Text('確認放棄',
+                            child: Text(tr('up_confirm_discard'),
                                 style: TextStyle(color: Colors.red)),
                           ),
                         ],
@@ -1970,7 +1973,7 @@ $pdfExtractedText
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('放棄'),
+                  child: Text(tr('up_discard_btn')),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1986,7 +1989,7 @@ $pdfExtractedText
                         borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  child: const Text('確認建立題本',
+                  child: Text(tr('up_confirm_create'),
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
@@ -2028,7 +2031,7 @@ $pdfExtractedText
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '第 ${qIndex + 1} 題',
+                    tr('qs_q_n', [(qIndex + 1).toString()]),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: cs.primary,
@@ -2040,16 +2043,16 @@ $pdfExtractedText
                     // Difficulty Selector
                     DropdownButton<String>(
                       value: q['difficulty'],
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                             value: 'easy',
-                            child: Text('簡單', style: TextStyle(fontSize: 12))),
+                            child: Text(tr('up_easy'), style: TextStyle(fontSize: 12))),
                         DropdownMenuItem(
                             value: 'medium',
-                            child: Text('中等', style: TextStyle(fontSize: 12))),
+                            child: Text(tr('up_mid'), style: TextStyle(fontSize: 12))),
                         DropdownMenuItem(
                             value: 'hard',
-                            child: Text('困難', style: TextStyle(fontSize: 12))),
+                            child: Text(tr('up_hard'), style: TextStyle(fontSize: 12))),
                       ],
                       onChanged: (val) {
                         if (val != null) {
@@ -2068,7 +2071,7 @@ $pdfExtractedText
                           _questions.removeAt(qIndex);
                         });
                       },
-                      tooltip: '刪除此題',
+                      tooltip: tr('up_delete_q'),
                     ),
                   ],
                 )
@@ -2077,7 +2080,7 @@ $pdfExtractedText
             const SizedBox(height: 12),
 
             // Question Text Input
-            const Text('題目描述',
+            Text(tr('up_q_desc'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -2087,7 +2090,7 @@ $pdfExtractedText
               initialValue: q['text'],
               maxLines: null,
               decoration: InputDecoration(
-                hintText: '請輸入題目敘述',
+                hintText: tr('up_q_desc_hint'),
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding:
@@ -2100,7 +2103,7 @@ $pdfExtractedText
             const SizedBox(height: 16),
 
             // Options list
-            const Text('選項與正解 (點擊選取正確答案)',
+            Text(tr('up_options'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -2148,7 +2151,7 @@ $pdfExtractedText
                       child: TextFormField(
                         initialValue: options[oIdx],
                         decoration: InputDecoration(
-                          hintText: '選項 $char',
+                          hintText: tr('up_option_n', [char.toString()]),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(
@@ -2173,7 +2176,7 @@ $pdfExtractedText
             const SizedBox(height: 12),
 
             // Explanation Input
-            const Text('題目解析',
+            Text(tr('up_explanation'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -2183,7 +2186,7 @@ $pdfExtractedText
               initialValue: q['explanation'],
               maxLines: null,
               decoration: InputDecoration(
-                hintText: '請輸入題目詳細解析（選填）',
+                hintText: tr('up_explanation_hint'),
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding:

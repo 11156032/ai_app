@@ -208,7 +208,7 @@ class VoiceRecognitionService {
       );
       if (!ok) {
         _shouldKeepListening = false;
-        onError?.call('裝置不支援語音辨識或未授予麥克風權限');
+        onError?.call(tr('stt_unsupported'));
         return false;
       }
     }
@@ -316,7 +316,7 @@ class VoiceRecognitionService {
       if (_shouldKeepListening) {
         _scheduleAutoRestart(300);
       } else {
-        _onErrorCallback?.call('無法啟動語音辨識: $e');
+        _onErrorCallback?.call(tr('stt_start_failed', [e.toString()]));
       }
       return false;
     }

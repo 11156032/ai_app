@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import '../../services/ai_diagnosis_service.dart';
+import '../../services/app_locale_service.dart';
 
 // ── AI 提示與整理進度元件 ──────────────────────────────────────────────
 class AiLoadingTipWidget extends StatefulWidget {
@@ -17,11 +18,11 @@ class _AiLoadingTipWidgetState extends State<AiLoadingTipWidget> {
   int _secondsLeft = 0;
 
   final List<String> _tips = [
-    'AI 整理能幫您快速抓出筆記的核心重點！',
-    '整理完後，您可以將摘要直接附加到原筆記中！',
-    '有條理的筆記有助於大腦更深層地建立知識連結喔！',
-    '利用 AI 摘要後，搭配題目測驗，學習效果會更好！',
-    '每隔段時間重新檢視筆記，是克服遺忘曲線的最佳方法！',
+    tr('panel_tip1'),
+    tr('panel_tip2'),
+    tr('panel_tip3'),
+    tr('panel_tip4'),
+    tr('panel_tip5'),
   ];
 
   @override
@@ -69,7 +70,7 @@ class _AiLoadingTipWidgetState extends State<AiLoadingTipWidget> {
     final bool isRateLimited = _secondsLeft > 0;
     final String icon = isRateLimited ? '⏳' : '💡';
     final String text = isRateLimited
-        ? 'AI 目前繁忙，預計於 $_secondsLeft 秒後恢復。將暫以本地算法大綱整理...'
+        ? tr('panel_ai_busy', [_secondsLeft.toString()])
         : _currentTip;
 
     final Color bgColor =
@@ -152,16 +153,16 @@ class _DiagnosisLoadingProgressState extends State<DiagnosisLoadingProgress> {
     String loadingText = '';
     switch (step) {
       case 1:
-        loadingText = '資料彙整中... (1/4)';
+        loadingText = tr('load_step1');
         break;
       case 2:
-        loadingText = '分析答錯概念... (2/4)';
+        loadingText = tr('load_step2');
         break;
       case 3:
-        loadingText = '深度診斷運算中... (3/4)';
+        loadingText = tr('load_step3');
         break;
       case 4:
-        loadingText = '生成個人化建議... (4/4)';
+        loadingText = tr('load_step4');
         break;
     }
 
@@ -241,7 +242,7 @@ class _DiagnosisLoadingProgressState extends State<DiagnosisLoadingProgress> {
               ),
               const SizedBox(height: 28),
               Text(
-                '系統正在為您量身打造專屬報告，請稍候...',
+                tr('load_report'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
@@ -317,9 +318,9 @@ class _NoteSummaryLoadingBubbleState extends State<NoteSummaryLoadingBubble> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Flexible(
+                Flexible(
                   child: Text(
-                    '代理人正在為您整理筆記...',
+                    tr('panel_organizing'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF4E342E),

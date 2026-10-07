@@ -32,6 +32,7 @@ import '../widgets/mascot_companion.dart';
 import '../widgets/tutorial_video_player.dart';
 import 'tabs/group_detail_page.dart';
 import 'tabs/create_group_dialog.dart';
+import 'tabs/join_group_dialog.dart';
 import 'about_us_screen.dart';
 import 'developer/developer_center_screen.dart';
 import 'membership_center_screen.dart';
@@ -195,8 +196,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _weeklyMatrixData = []; // 知識掌握度矩陣資料
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
-  String _latestQuizScore = '暫無測驗紀錄';
-  String _appVersion = 'v1.8.2';
+  String _latestQuizScore = tr('main_no_quiz_record');
+  String _appVersion = 'v1.8.5';
   String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
@@ -283,7 +284,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     {
       'isAI': true,
       'text':
-          '哈囉👋 我是你的專屬代理人！很高興為您服務。😊\n\n我可以協助您管理行程、發佈貼文、回覆留言以及調整個人化設定。您可以隨時輸入「幫助」或點擊下方功能來了解更多！',
+          tr('main_agent_greeting'),
       'isCard': false
     },
     {'isAI': true, 'text': '', 'isCard': false, 'widgetType': 'help_options'}
@@ -298,9 +299,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     setState(() {
       if (isJoined) {
-        if (_userJoinedTopicIds.length > 1) {
-          _userJoinedTopicIds.remove(normId);
-        }
+        _userJoinedTopicIds.remove(normId);
         final currentCount = _topicMemberCounts[normId] ?? 1;
         _topicMemberCounts[normId] = (currentCount > 0) ? currentCount - 1 : 0;
       } else {
@@ -347,7 +346,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      isJoined ? '已取消關注「$topicName」主題' : '🎉 已成功關注「$topicName」主題！',
+                      isJoined ? tr('main_topic_unfollowed', [topicName.toString()]) : tr('main_topic_followed', [topicName.toString()]),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 13),
                     ),
@@ -514,22 +513,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           }
 
           // 更新社群主題偏好並寫入資料庫
-          if (selectedTopicIds.isNotEmpty) {
-            final normalized = normalizeCommunityTopicIds(selectedTopicIds);
-            setState(() {
-              _userJoinedTopicIds = normalized;
-            });
-            try {
-              final db = await DatabaseHelper.instance.database;
-              await db.update(
-                'users',
-                {'tags': jsonEncode(normalized)},
-                where: 'id = ?',
-                whereArgs: [widget.currentUser['id']],
-              );
-            } catch (e) {
-              debugPrint('歡迎導覽儲存主題偏好失敗: $e');
-            }
+          final normalized = normalizeCommunityTopicIds(selectedTopicIds);
+          setState(() {
+            _userJoinedTopicIds = normalized;
+          });
+          try {
+            final db = await DatabaseHelper.instance.database;
+            await db.update(
+              'users',
+              {'tags': jsonEncode(normalized)},
+              where: 'id = ?',
+              whereArgs: [widget.currentUser['id']],
+            );
+          } catch (e) {
+            debugPrint('歡迎導覽儲存主題偏好失敗: $e');
           }
 
           // 接著啟動互動引導 Tour（傳入 preferences 實現客製化步驟排序）
@@ -800,7 +797,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         final u =
             await db.query('users', where: 'id = ?', whereArgs: [p['user_id']]);
         final String author =
-            u.isNotEmpty ? u.first['display_name'] as String : '未知用戶';
+            u.isNotEmpty ? u.first['display_name'] as String : tr('common_unknown_user');
         // 作者頭像（emoji 預設索引 或 自訂圖片）
         final int authorAvatarColor =
             u.isNotEmpty ? ((u.first['avatar_color'] as int?) ?? 0) : 0;
@@ -915,7 +912,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     where: 'id = ?',
                     whereArgs: [p['id']]);
                 postData['scheduled_at'] = null;
-                postData['time'] = '剛剛';
+                postData['time'] = tr('time_just_now');
               }
             }
           }
@@ -1080,12 +1077,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         ORDER BY timestamp DESC LIMIT 1
       ''', [currentUserId]);
 
-      String latestQuizScore = '暫無測驗紀錄';
+      String latestQuizScore = tr('main_no_quiz_record');
       if (latestQuizRows.isNotEmpty) {
         final correct = (latestQuizRows.first['correct'] as num).toInt();
         final total = (latestQuizRows.first['total'] as num).toInt();
         final pct = total > 0 ? ((correct / total) * 100).round() : 0;
-        latestQuizScore = '最近一次：$correct/$total 題（$pct 分）';
+        latestQuizScore = tr('main_latest_quiz', [correct.toString(), total.toString(), pct.toString()]);
       }
 
       // 6.5 知識掌握度矩陣資料（本週測驗單筆紀錄）
@@ -1253,7 +1250,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             if (rawTags != null && rawTags is String && rawTags.isNotEmpty) {
               try {
                 final decoded = jsonDecode(rawTags);
-                if (decoded is List && decoded.isNotEmpty) {
+                if (decoded is List) {
                   _userJoinedTopicIds =
                       normalizeCommunityTopicIds(decoded.map((e) => e.toString()));
                 }
@@ -1389,40 +1386,40 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     switch (featureKey) {
       case 'social':
         if (pain.contains('no_peers') || mode == 'peer') {
-          return '你希望找到學伴一起進步 — 社群動態讓你看到同學學習足跡，互相打氣！';
+          return tr('onb_peer');
         }
         if (goal == 'skill') {
-          return '技能提升路上，社群裡有許多同好分享實戰心得，讓你事半功倍！';
+          return tr('onb_skill');
         }
         return null;
 
       case 'ai_schedule':
         if (pain.contains('no_plan') || pain.contains('time_manage')) {
-          return '你說時間不夠用 — AI 排程可以幫你自動拆解讀書計畫，一句話搞定行程！';
+          return tr('onb_no_time');
         }
         if (goal == 'exam') {
-          return '備考期間，讓 AI 幫你排好每日讀書行程，不再手忙腳亂！';
+          return tr('onb_exam_sched');
         }
         if (mode == 'structured') {
-          return '你偏好有系統的學習 — AI 行事曆正好能幫你規劃有條理的讀書進度！';
+          return tr('onb_structured');
         }
         return null;
 
       case 'question_bank':
         if (pain.contains('stuck_questions') || pain.contains('weak_points')) {
-          return '你遇到不會的題目卡關 — 錯題系統會自動收錄，讓你精準複習弱點！';
+          return tr('onb_stuck');
         }
         if (goal == 'exam') {
-          return '衝刺考試的最佳武器！系統整理所有錯題，幫你在考前清零弱點！';
+          return tr('onb_exam_wrong');
         }
         return null;
 
       case 'notes':
         if (pain.contains('scattered_notes') || pain.contains('forget')) {
-          return '你說筆記散亂很難複習 — 語音轉心智圖功能讓你一句話生成結構化筆記！';
+          return tr('onb_messy_notes');
         }
         if (mode == 'audio') {
-          return '你喜歡聲音學習 — 錄音即可自動轉為有說話者時間軸的完整逐字稿！';
+          return tr('onb_audio');
         }
         return null;
 
@@ -1441,14 +1438,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // Block A：🌐 社群動態（固定 1 步）
     final socialBlock = [
       TourStep(
-        featureTitle: '🌐 社群動態',
+        featureTitle: tr('tour_feat_social'),
         featureIndex: 0,
         stepInFeature: 1,
         totalInFeature: 1,
         targetPageIndex: 2,
         targetKey: null,
-        title: '探索社群頁面',
-        description: '在這裡你可以與同學交流學習進度，互相鼓勵、分享讀書心得！',
+        title: tr('tour_explore_social'),
+        description: tr('tour_explore_social_desc'),
         recommendReason: _resolveRecommendReason(
             featureKey: 'social', prefs: prefs),
         onEnter: () {
@@ -1464,19 +1461,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // Block B：📅 AI 排程與導覽教學（3 步）
     final aiScheduleBlock = [
       TourStep(
-        featureTitle: '📅 AI 排程與導覽',
+        featureTitle: tr('tour_feat_ai_sched'),
         featureIndex: 1,
         stepInFeature: 1,
         totalInFeature: 3,
         targetPageIndex: 0,
         targetKey: null,
-        title: '漢堡選單：系統功能導覽',
+        title: tr('tour_drawer_title'),
         description:
-            '側邊欄已為你展開！可快速切換核心功能：\n\n'
-            '📅 日曆首頁 ➜ AI 排程、待辦與進度\n'
-            '📚 題庫筆記 ➜ 刷題練習、錯題與筆記\n'
-            '💬 社群交流 ➜ 學科討論與動態分享\n'
-            '👤 個人中心 ➜ 偏好設定與 AI 助手',
+            tr('tour_drawer_desc'),
         recommendReason: _resolveRecommendReason(
             featureKey: 'ai_schedule', prefs: prefs),
         onEnter: () {
@@ -1499,17 +1492,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         },
       ),
       TourStep(
-        featureTitle: '📅 AI 排程與導覽',
+        featureTitle: tr('tour_feat_ai_sched'),
         featureIndex: 1,
         stepInFeature: 2,
         totalInFeature: 3,
         targetPageIndex: 0,
         targetKey: _tourAiChatBarKey,
-        title: 'AI 行事曆小幫手',
+        title: tr('tour_ai_cal_title'),
         description:
-            '點擊下方對話列，輸入「明天下午三點複習數學」，AI 就會自動為你建立行程！',
+            tr('tour_ai_cal_desc'),
         skipForGuest: true,
-        guestNote: '🔒 此功能需要正式帳號才能使用。',
+        guestNote: tr('tour_guest_note'),
         onEnter: () {
           if (_scaffoldKey.currentState?.isDrawerOpen == true) {
             Navigator.of(context).maybePop();
@@ -1524,15 +1517,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         },
       ),
       TourStep(
-        featureTitle: '📅 AI 排程與導覽',
+        featureTitle: tr('tour_feat_ai_sched'),
         featureIndex: 1,
         stepInFeature: 3,
         totalInFeature: 3,
         targetPageIndex: 4,
         targetKey: TourKeys.bottomNavSettingKey,
-        title: '個人化：開啟與自訂底部導覽列 🚀',
+        title: tr('tour_navbar_title'),
         description:
-            '在「個人檔案 ➜ 設定與安全 ➜ 個人化設定」中，你可以自由開啟「顯示底部導覽列」，並能自訂常用按鈕順序與中央 AI 智慧助理快捷鍵！',
+            tr('tour_navbar_desc'),
         onEnter: () {
           if (_scaffoldKey.currentState?.isDrawerOpen == true) {
             Navigator.of(context).maybePop();
@@ -1576,14 +1569,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // Block C：📝 錯題考卷（1 步）
     final questionBankBlock = [
       TourStep(
-        featureTitle: '📝 錯題考卷',
+        featureTitle: tr('tour_feat_wrong'),
         featureIndex: 2,
         stepInFeature: 1,
         totalInFeature: 1,
         targetPageIndex: 1,
         targetKey: null,
-        title: '進入題庫系統',
-        description: '這裡有豐富題庫、自定題卷、錯題本與收藏功能，是你的核心練習場！',
+        title: tr('tour_quiz_title'),
+        description: tr('tour_quiz_desc'),
         recommendReason: _resolveRecommendReason(
             featureKey: 'question_bank', prefs: prefs),
         onEnter: () {
@@ -1602,17 +1595,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // Block D：📒 智慧筆記（包含語音轉心智圖即時互動演示）
     final notesBlock = [
       TourStep(
-        featureTitle: '📒 智慧筆記',
+        featureTitle: tr('tour_feat_notes'),
         featureIndex: 3,
         stepInFeature: 1,
         totalInFeature: 1,
         targetPageIndex: 5,
         targetKey: null,
-        title: '語音轉心智圖筆記',
+        title: tr('tour_voice_title'),
         description:
-            '在筆記頁面，你可以錄音後自動生成含說話者與時間戳的逐字稿，再一鍵轉換為結構化心智圖！下方提供即時互動展示：',
+            tr('tour_voice_desc'),
         skipForGuest: true,
-        guestNote: '🔒 此功能需要正式帳號才能使用。',
+        guestNote: tr('tour_guest_note'),
         recommendReason: _resolveRecommendReason(
             featureKey: 'notes', prefs: prefs),
         customPreviewBuilder: (_) => const VoiceToMindMapTourDemo(),
@@ -1763,7 +1756,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (index == 5 && widget.currentUser['id'] == 'u4') {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('⚠️ 訪客帳戶無法使用筆記本功能，請註冊/登入正式帳號以開啟功能！'),
+          content: Text(tr('guest_no_notes')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1772,7 +1765,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (index == 0 && widget.currentUser['id'] == 'u4') {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('⚠️ 訪客帳戶無法使用日曆功能，請註冊/登入正式帳號以開啟功能！'),
+          content: Text(tr('guest_no_calendar')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1941,17 +1934,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         builder: (ctx, setDialogState) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
+          title: Row(children: [
             Icon(Icons.edit_calendar, color: Colors.orange),
             SizedBox(width: 8),
-            Text('編輯排程貼文', style: TextStyle(fontSize: 18)),
+            Text(tr('sched_post_edit_title'), style: TextStyle(fontSize: 18)),
           ]),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('貼文內容',
+                Text(tr('sched_post_content'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 6),
@@ -1959,14 +1952,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   controller: contentController,
                   maxLines: 4,
                   decoration: InputDecoration(
-                    hintText: '輸入貼文內容',
+                    hintText: tr('sched_post_content_hint'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.all(12),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('排定發佈時間',
+                Text(tr('sched_post_time'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 6),
@@ -1978,7 +1971,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       initialDate: now,
                       firstDate: now,
                       lastDate: DateTime(2030),
-                      locale: const Locale('zh', 'TW'),
                     );
                     if (date != null) {
                       if (!ctx.mounted) return;
@@ -2015,7 +2007,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             size: 18, color: Colors.orange),
                         const SizedBox(width: 8),
                         Text(
-                          currentTime.isEmpty ? '點擊選擇時間' : currentTime,
+                          currentTime.isEmpty ? tr('sched_post_pick_time') : currentTime,
                           style: TextStyle(
                               fontSize: 14,
                               color: currentTime.isEmpty
@@ -2032,7 +2024,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('取消'),
+              child: Text(tr('btn_cancel')),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -2045,7 +2037,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 final newContent = contentController.text.trim();
                 if (newContent.isEmpty) {
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('貼文內容不能為空')));
+                      .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('sched_post_empty'))));
                   return;
                 }
                 final db = await DatabaseHelper.instance.database;
@@ -2068,10 +2060,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 await _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('✅ 排程貼文已更新')));
+                      .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('sched_post_updated'))));
                 }
               },
-              child: const Text('儲存'),
+              child: Text(tr('btn_save')),
             ),
           ],
         ),
@@ -2112,7 +2104,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       messenger?.hideCurrentSnackBar();
       messenger?..hideCurrentSnackBar()..showSnackBar(
         SnackBar(
-          content: Text(isScheduled ? '代理人已為您完成貼文排程！' : '貼文已立即發佈！'),
+          content: Text(isScheduled ? tr('post_scheduled_by_agent') : tr('post_published_now')),
           duration: const Duration(milliseconds: 1500),
           behavior: SnackBarBehavior.floating,
         ),
@@ -2174,7 +2166,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         );
         if (mounted) {
           ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已取消收藏')),
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('post_unbookmarked'))),
           );
         }
       } else {
@@ -2184,7 +2176,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         });
         if (mounted) {
           ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已收藏貼文')),
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('post_bookmarked'))),
           );
         }
       }
@@ -2193,7 +2185,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       debugPrint('收藏操作失敗: $e');
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('操作失敗，請稍後再試')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('common_op_failed'))),
         );
       }
     }
@@ -2231,7 +2223,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       });
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('已新增行程：$title'),
+          content: Text(tr('cal_event_added', [title.toString()])),
           backgroundColor: Theme.of(context).primaryColor,
         ),
       );
@@ -2239,7 +2231,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       debugPrint('新增行程失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('新增行程失敗，請稍後再試')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('cal_event_add_failed'))),
       );
     }
   }
@@ -2275,7 +2267,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _loadData();
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已更新行程：$title')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('cal_event_updated', [title.toString()]))),
       );
     } catch (e) {
       debugPrint('更新行程失敗: $e');
@@ -2290,7 +2282,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _loadData();
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('行程已刪除')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('cal_event_deleted'))),
       );
     } catch (e) {
       debugPrint('刪除行程失敗: $e');
@@ -2320,7 +2312,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('已新增待辦：$title'),
+          content: Text(tr('cal_todo_added', [title.toString()])),
           backgroundColor: Theme.of(context).primaryColor,
         ),
       );
@@ -2328,7 +2320,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       debugPrint('新增待辦失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('新增待辦失敗，請稍後再試')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('cal_todo_add_failed'))),
       );
     }
   }
@@ -2341,7 +2333,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-            content: Text('待辦事項已刪除'), backgroundColor: Colors.redAccent),
+            content: Text(tr('cal_todo_deleted')), backgroundColor: Colors.redAccent),
       );
     } catch (e) {
       debugPrint('刪除待辦失敗: $e');
@@ -2356,7 +2348,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _loadData();
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已更新待辦事項為「$newText」')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('cal_todo_updated', [newText.toString()]))),
       );
     } catch (e) {
       debugPrint('更新待辦失敗: $e');
@@ -2389,7 +2381,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         if (!mounted) return;
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-            content: Text('日記已刪除'),
+            content: Text(tr('cal_diary_deleted')),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -2410,7 +2402,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           userId: userId,
           actionType: 'diary_advice',
           basePoints: 1,
-          description: '日記 AI 回饋分析',
+          description: tr('diary_ai_feedback_desc'),
         );
       }
     } on InsufficientPointsException catch (_) {
@@ -2444,11 +2436,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           userId: userId,
           actionType: 'diary_advice',
           amount: deductedPoints,
-          reason: '生成 AI 回饋失敗退回',
+          reason: tr('diary_ai_refund_reason'),
         );
         if (mounted) {
           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('AI 生成失敗，已自動退回扣除點數')),
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('ai_failed_refunded'))),
           );
         }
       }
@@ -2502,7 +2494,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 children: [
                   Icon(Icons.auto_awesome, color: primaryColor),
                   const SizedBox(width: 8),
-                  const Text('規劃空閒時間'),
+                  Text(tr('free_plan_title')),
                 ],
               ),
               content: SingleChildScrollView(
@@ -2511,14 +2503,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '空閒時段：$timeRange\n(上限 ${maxMinutes ~/ 60} 小時 ${maxMinutes % 60} 分鐘)',
+                      tr('free_plan_range', [timeRange.toString(), (maxMinutes ~/ 60).toString(), (maxMinutes % 60).toString()]),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 16),
-                    const Text('選擇要做的事：',
+                    Text(tr('free_plan_choose'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
@@ -2537,9 +2529,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   child: Text(todo['title'] ?? '',
                                       overflow: TextOverflow.ellipsis),
                                 )),
-                        const DropdownMenuItem<String>(
+                        DropdownMenuItem<String>(
                           value: 'custom',
-                          child: Text('自訂行程名稱...'),
+                          child: Text(tr('free_plan_custom')),
                         ),
                       ],
                       onChanged: (val) {
@@ -2556,14 +2548,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       },
                     ),
                     const SizedBox(height: 12),
-                    const Text('行程名稱：',
+                    Text(tr('free_plan_name'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: customTitleCtrl,
-                      decoration: const InputDecoration(
-                        hintText: '請輸入行程名稱',
+                      decoration: InputDecoration(
+                        hintText: tr('free_plan_name_hint'),
                         border: OutlineInputBorder(),
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2573,7 +2565,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       },
                     ),
                     const SizedBox(height: 16),
-                    const Text('規劃執行時間：',
+                    Text(tr('free_plan_duration'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
@@ -2582,8 +2574,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             initialValue: selectedHours,
-                            decoration: const InputDecoration(
-                              labelText: '小時',
+                            decoration: InputDecoration(
+                              labelText: tr('unit_hour'),
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 8),
@@ -2592,7 +2584,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               (maxMinutes / 60).floor() + 1,
                               (index) => DropdownMenuItem<int>(
                                 value: index,
-                                child: Text('$index 小時'),
+                                child: Text(tr('unit_hour_n', [index.toString()])),
                               ),
                             ).toList(),
                             onChanged: (val) {
@@ -2608,8 +2600,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             initialValue: selectedMinutes,
-                            decoration: const InputDecoration(
-                              labelText: '分鐘',
+                            decoration: InputDecoration(
+                              labelText: tr('unit_minute'),
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 8),
@@ -2618,7 +2610,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               60,
                               (index) => DropdownMenuItem<int>(
                                 value: index,
-                                child: Text('$index 分鐘'),
+                                child: Text(tr('unit_minute_n', [index.toString()])),
                               ),
                             ).toList(),
                             onChanged: (val) {
@@ -2636,8 +2628,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       const SizedBox(height: 8),
                       Text(
                         totalSelectedMinutes == 0
-                            ? '❌ 執行時間必須大於 0 分鐘'
-                            : '❌ 已超出此空閒時段上限 ($maxMinutes 分鐘)',
+                            ? tr('free_plan_zero')
+                            : tr('free_plan_over', [maxMinutes.toString()]),
                         style: const TextStyle(
                             color: Colors.redAccent, fontSize: 12),
                       ),
@@ -2658,8 +2650,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               }
                             },
                           ),
-                          const Expanded(
-                            child: Text('同時將此待辦事項標記為已完成'),
+                          Expanded(
+                            child: Text(tr('free_plan_mark_done')),
                           ),
                         ],
                       ),
@@ -2670,7 +2662,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('取消'),
+                  child: Text(tr('btn_cancel')),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -2695,7 +2687,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               );
                             }
                           : null,
-                  child: const Text('確認規劃'),
+                  child: Text(tr('free_plan_confirm')),
                 ),
               ],
             );
@@ -2759,7 +2751,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
           content: Text(
-              '已將「$title」規劃至行程中 ($startPart ~ ${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')})'),
+              tr('free_plan_done', [title.toString(), startPart.toString(), (endHour.toString().padLeft(2, '0')).toString(), (endMin.toString().padLeft(2, '0')).toString()])),
           backgroundColor: Theme.of(context).primaryColor,
         ),
       );
@@ -2767,7 +2759,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       debugPrint('規劃行程失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('規劃行程失敗，請稍後再試')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('free_plan_failed'))),
       );
     }
   }
@@ -2778,7 +2770,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-                title: const Text('跳轉至特定年月份'),
+                title: Text(tr('cal_jump_month')),
                 content: StatefulBuilder(builder: (context, setDialogState) {
                   return Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -2787,7 +2779,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           value: selectedYear,
                           items: List.generate(20, (index) => 2020 + index)
                               .map((y) => DropdownMenuItem(
-                                  value: y, child: Text('$y年')))
+                                  value: y, child: Text(tr('date_year_n', [y.toString()]))))
                               .toList(),
                           onChanged: (v) =>
                               setDialogState(() => selectedYear = v!),
@@ -2797,7 +2789,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           value: selectedMonth,
                           items: List.generate(12, (index) => 1 + index)
                               .map((m) => DropdownMenuItem(
-                                  value: m, child: Text('$m月')))
+                                  value: m, child: Text(tr('date_month_n', [m.toString()]))))
                               .toList(),
                           onChanged: (v) =>
                               setDialogState(() => selectedMonth = v!),
@@ -2806,7 +2798,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 }),
                 actions: [
                   TextButton(
-                      onPressed: () => Navigator.pop(ctx), child: Text('取消')),
+                      onPressed: () => Navigator.pop(ctx), child: Text(tr('btn_cancel'))),
                   ElevatedButton(
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).primaryColor,
@@ -2821,7 +2813,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut);
                       },
-                      child: const Text('確定'))
+                      child: Text(tr('confirm')))
                 ]));
   }
 
@@ -2841,11 +2833,11 @@ void _showLogoutDialog() {
     showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-                title: Text('系統提示'),
-                content: Text('確定要登出並切換至其他帳號嗎？'),
+                title: Text(tr('common_system_notice')),
+                content: Text(tr('logout_confirm_msg')),
                 actions: [
                   TextButton(
-                      onPressed: () => Navigator.pop(ctx), child: Text('取消')),
+                      onPressed: () => Navigator.pop(ctx), child: Text(tr('btn_cancel'))),
                   ElevatedButton(
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).primaryColor,
@@ -2854,7 +2846,7 @@ void _showLogoutDialog() {
                         Navigator.pop(ctx);
                         widget.onLogout();
                       },
-                      child: const Text('確定登出'))
+                      child: Text(tr('logout_confirm_btn')))
                 ]));
   }
 
@@ -2963,7 +2955,7 @@ void _showLogoutDialog() {
                               padding: EdgeInsets.zero,
                               icon: const Icon(Icons.menu),
                               onPressed: () => Scaffold.of(ctx).openDrawer(),
-                              tooltip: '開啟選單',
+                              tooltip: tr('main_open_menu'),
                             ),
                           ),
                         ),
@@ -2982,7 +2974,7 @@ void _showLogoutDialog() {
                               child:
                                   Row(mainAxisSize: MainAxisSize.min, children: [
                                 Text(
-                                    "${_calendarMonth.year}年 ${_calendarMonth.month}月",
+                                    tr('cal_year_month', [_calendarMonth.year.toString(), _calendarMonth.month.toString()]),
                                     style: TextStyle(
                                         fontSize: 16,
                                         color: _isDarkMode
@@ -3042,7 +3034,7 @@ void _showLogoutDialog() {
                                       color: Colors.amber, size: 16),
                                   const SizedBox(width: 4),
                                   Text(
-                                    '$_userPoints 點',
+                                    tr('points_n', [_userPoints.toString()]),
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -3063,7 +3055,7 @@ void _showLogoutDialog() {
                                       ? Colors.white
                                       : Colors.black87),
                               onPressed: _returnToToday,
-                              tooltip: '回到今日'),
+                              tooltip: tr('cal_back_today')),
                         IconButton(
                             icon: Icon(Icons.logout_rounded,
                                 color: _isDarkMode
@@ -3370,7 +3362,7 @@ void _showLogoutDialog() {
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  '全部社群動態',
+                                                  tr('social_all_feed'),
                                                   style: TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: (isCommunityActive &&
@@ -3427,7 +3419,7 @@ void _showLogoutDialog() {
                                                 color: Colors.amber.shade700),
                                             const SizedBox(width: 5),
                                             Text(
-                                              '我的關注社群',
+                                              tr('social_my_followed'),
                                               style: TextStyle(
                                                 color: _isDarkMode
                                                     ? Colors.white
@@ -3453,7 +3445,7 @@ void _showLogoutDialog() {
                                             child: Row(
                                               children: [
                                                 Text(
-                                                  '探索',
+                                                  tr('social_explore'),
                                                   style: TextStyle(
                                                     fontSize: 11.5,
                                                     fontWeight: FontWeight.bold,
@@ -3497,7 +3489,7 @@ void _showLogoutDialog() {
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                '尚未關注任何社群主題',
+                                                tr('social_no_followed'),
                                                 style: TextStyle(
                                                   fontSize: 11,
                                                   color: _isDarkMode
@@ -3513,7 +3505,7 @@ void _showLogoutDialog() {
                                                     context);
                                               },
                                               child: Text(
-                                                '去探索',
+                                                tr('social_go_explore'),
                                                 style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.bold,
@@ -3541,7 +3533,7 @@ void _showLogoutDialog() {
                                           final topic =
                                               getCommunityTopicById(topicId);
                                           final title =
-                                              topic?.title ?? '社群主題';
+                                              topic?.title ?? tr('social_topic_default');
                                           final emoji = topic?.emoji ?? '🏷️';
                                           final color =
                                               topic?.color ?? primaryColor;
@@ -3616,7 +3608,7 @@ void _showLogoutDialog() {
                                                       ),
                                                     ),
                                                     Text(
-                                                      '$memberCount 夥伴',
+                                                      tr('social_member_n', [memberCount.toString()]),
                                                       style: TextStyle(
                                                         fontSize: 10.5,
                                                         color: _isDarkMode
@@ -3769,7 +3761,7 @@ void _showLogoutDialog() {
                               3: AppLocaleService.tr('nav_social_feed', _appLanguage),
                               4: AppLocaleService.tr('nav_profile', _appLanguage),
                               5: AppLocaleService.tr('nav_notes', _appLanguage),
-                              6: '首頁',
+                              6: tr('nav_home'),
                             };
                             _changePage(tabIndex, titles[tabIndex] ?? '首頁');
                           },
@@ -4276,7 +4268,7 @@ void _showLogoutDialog() {
                         children: [
                           const SizedBox(width: 40),
                           Text(
-                            '代理人助理',
+                            tr('agent_title'),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).primaryColor,
@@ -4286,14 +4278,14 @@ void _showLogoutDialog() {
                           IconButton(
                             icon: const Icon(Icons.cleaning_services_outlined,
                                 size: 20, color: Colors.grey),
-                            tooltip: '開啟新對話',
+                            tooltip: tr('agent_new_chat'),
                             onPressed: () {
                               setModalState(() {
                                 chatLogs = [
                                   {
                                     'isAI': true,
                                     'text':
-                                        '好的，已為您重啟對話！😊\n我是您的代理人，請問今天有什麼我可以幫您的嗎？',
+                                        tr('agent_restarted'),
                                     'isCard': false
                                   },
                                   {
@@ -4335,7 +4327,6 @@ void _showLogoutDialog() {
                                       initialDate: DateTime.now(),
                                       firstDate: DateTime.now(),
                                       lastDate: DateTime(2030),
-                                      locale: const Locale('zh', 'TW'),
                                     );
                                     if (date == null) return;
                                     if (!context.mounted) return;
@@ -4392,17 +4383,17 @@ void _showLogoutDialog() {
                                               size: 18),
                                         ),
                                         const SizedBox(width: 12),
-                                        const Column(
+                                        Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text('選擇發布日期與時間',
+                                            Text(tr('post_pick_datetime'),
                                                 style: TextStyle(
                                                     color: Colors.white,
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 14)),
                                             SizedBox(height: 2),
-                                            Text('點擊以開啟日期選擇器',
+                                            Text(tr('post_pick_datetime_sub'),
                                                 style: TextStyle(
                                                     color: Colors.white70,
                                                     fontSize: 11)),
@@ -4430,7 +4421,7 @@ void _showLogoutDialog() {
                             int selEndMin = selStartMin;
                             String fmt2(int v) => v.toString().padLeft(2, '0');
                             String dateLabel(DateTime d) {
-                              const wds = ['一', '二', '三', '四', '五', '六', '日'];
+                              final wds = [tr('mon'), tr('tue'), tr('wed'), tr('thu'), tr('fri'), tr('sat'), tr('sun')];
                               return '${d.month}/${d.day}（${wds[d.weekday - 1]}）';
                             }
 
@@ -4498,14 +4489,14 @@ void _showLogoutDialog() {
                                                   .primaryColor,
                                               size: 18)),
                                       const SizedBox(width: 10),
-                                      const Text('選擇日期與時段',
+                                      Text(tr('slot_pick_title'),
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 15,
                                               color: Color(0xFF4E342E))),
                                     ]),
                                     const SizedBox(height: 12),
-                                    const Text('日期',
+                                    Text(tr('slot_date'),
                                         style: TextStyle(
                                             fontSize: 12, color: Colors.grey)),
                                     SizedBox(height: 4),
@@ -4547,7 +4538,7 @@ void _showLogoutDialog() {
                                                           shape:
                                                               BoxShape.circle)),
                                               const SizedBox(width: 5),
-                                              const Text('開始',
+                                              Text(tr('slot_start'),
                                                   style: TextStyle(
                                                       fontSize: 12,
                                                       color: Colors.grey))
@@ -4634,7 +4625,7 @@ void _showLogoutDialog() {
                                                           shape:
                                                               BoxShape.circle)),
                                               const SizedBox(width: 5),
-                                              const Text('結束',
+                                              Text(tr('slot_end'),
                                                   style: TextStyle(
                                                       fontSize: 12,
                                                       color: Colors.grey))
@@ -4693,7 +4684,7 @@ void _showLogoutDialog() {
                                       child: ElevatedButton.icon(
                                         icon: Icon(Icons.check_circle_outline,
                                             size: 18),
-                                        label: Text('確認時段'),
+                                        label: Text(tr('slot_confirm')),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor:
                                               Theme.of(context).primaryColor,
@@ -4825,7 +4816,7 @@ void _showLogoutDialog() {
                                 alignment: Alignment.centerLeft,
                                 child: OutlinedButton.icon(
                                   icon: const Icon(Icons.skip_next, size: 18),
-                                  label: const Text('跳過此留言'),
+                                  label: Text(tr('agent_skip_comment')),
                                   style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.grey,
                                       side:
@@ -4842,12 +4833,12 @@ void _showLogoutDialog() {
 
                           if (msg['widgetType'] == 'intent_suggestions') {
                             final suggestions = [
-                              {'l': '🖼️ 換頭像', 'v': '更換頭像'},
-                              {'l': '👤 改暱稱', 'v': '修改暱稱'},
-                              {'l': '🎨 換主題', 'v': '切換主題'},
-                              {'l': '📏 字體', 'v': '字體大小'},
-                              {'l': '📧 驗證', 'v': 'Email 驗證'},
-                              {'l': '🔑 改密碼', 'v': '修改密碼'},
+                              {'l': tr('agent_chip_avatar'), 'v': '更換頭像'},
+                              {'l': tr('agent_chip_nick'), 'v': '修改暱稱'},
+                              {'l': tr('agent_chip_theme'), 'v': '切換主題'},
+                              {'l': tr('agent_chip_font'), 'v': '字體大小'},
+                              {'l': tr('agent_chip_verify'), 'v': 'Email 驗證'},
+                              {'l': tr('agent_chip_pwd'), 'v': '修改密碼'},
                             ];
                             return Container(
                                 margin:
@@ -4874,42 +4865,42 @@ void _showLogoutDialog() {
                           if (msg['widgetType'] == 'notebook_options') {
                             final categories = <Map<String, dynamic>>[
                               {
-                                'title': '📚 筆記管理常用功能',
+                                'title': tr('agent_notes_group'),
                                 'color': Theme.of(context).primaryColor,
                                 'bgColor': const Color(0xFFEFEBE9),
                                 'items': <Map<String, dynamic>>[
                                   {
                                     'icon': Icons.menu_book_outlined,
-                                    'l': '跳轉筆記本',
-                                    'sub': '切換分頁查看所有筆記',
+                                    'l': tr('agent_goto_notebook'),
+                                    'sub': tr('agent_goto_notebook_sub'),
                                     'v': '查看筆記本',
                                     'c': const Color(0xFF1E88E5),
                                   },
                                   {
                                     'icon': Icons.add_circle_outline,
-                                    'l': '新增筆記',
-                                    'sub': '快速建立一篇新筆記',
+                                    'l': tr('agent_new_note'),
+                                    'sub': tr('agent_new_note_sub'),
                                     'v': '新增筆記',
                                     'c': const Color(0xFF43A047),
                                   },
                                   {
                                     'icon': Icons.note_alt_outlined,
-                                    'l': '整理筆記',
-                                    'sub': '由 AI 為您整理重點大綱',
+                                    'l': tr('agent_organize_note'),
+                                    'sub': tr('agent_organize_note_sub'),
                                     'v': '整理筆記',
                                     'c': const Color(0xFF7E57C2),
                                   },
                                   {
                                     'icon': Icons.search_outlined,
-                                    'l': '搜尋筆記',
-                                    'sub': '輸入關鍵字尋找特定筆記',
+                                    'l': tr('agent_search_note'),
+                                    'sub': tr('agent_search_note_sub'),
                                     'v': '搜尋筆記',
                                     'c': const Color(0xFFFB8C00),
                                   },
                                   {
                                     'icon': Icons.delete_outline,
-                                    'l': '刪除筆記',
-                                    'sub': '刪除不再需要的筆記項目',
+                                    'l': tr('agent_delete_note'),
+                                    'sub': tr('agent_delete_note_sub'),
                                     'v': '刪除筆記',
                                     'c': const Color(0xFFE53935),
                                   },
@@ -5079,14 +5070,14 @@ void _showLogoutDialog() {
                                 .toList();
                             final categories = <Map<String, dynamic>>[
                               {
-                                'title': '📁 選擇筆記分類',
+                                'title': tr('agent_pick_note_cat'),
                                 'color': Theme.of(context).primaryColor,
                                 'bgColor': Color(0xFFEFEBE9),
                                 'items': filteredCats.map((cat) {
                                   return {
                                     'icon': Icons.folder_open_outlined,
                                     'l': cat,
-                                    'sub': '將此筆記歸類於 $cat',
+                                    'sub': tr('agent_note_cat_sub', [cat.toString()]),
                                     'v': cat,
                                     'c': Theme.of(context).primaryColor,
                                   };
@@ -5303,7 +5294,7 @@ void _showLogoutDialog() {
                                                 }
                                                 _changePage(5, '筆記本');
                                               },
-                                              child: const Text('完成',
+                                              child: Text(tr('common_done'),
                                                   style: TextStyle(
                                                       color: Colors.grey)),
                                             ),
@@ -5325,7 +5316,7 @@ void _showLogoutDialog() {
                                                             NoteEditorScreen(
                                                                 note: note)));
                                               },
-                                              child: const Text('立即開啟'),
+                                              child: Text(tr('common_open_now')),
                                             )
                                           ])
                                     ]));
@@ -5373,21 +5364,21 @@ void _showLogoutDialog() {
                             // ── 分類結構定義 ──────────────────────────────
                             final categories = <Map<String, dynamic>>[
                               {
-                                'title': '📅 行程管理',
+                                'title': tr('agent_sched_group'),
                                 'color': const Color(0xFF42A5F5),
                                 'bgColor': const Color(0xFFE3F2FD),
                                 'items': <Map<String, dynamic>>[
                                   {
                                     'icon': Icons.add_circle_outline,
-                                    'l': '新增行程或待辦',
-                                    'sub': '對話建立日曆行程或待辦事項',
+                                    'l': tr('agent_add_sched'),
+                                    'sub': tr('agent_add_sched_sub'),
                                     'v': '新增',
                                     'c': const Color(0xFF42A5F5),
                                   },
                                   {
                                     'icon': Icons.edit_note_outlined,
-                                    'l': '修改行程或待辦',
-                                    'sub': '編輯或刪除已建立項目',
+                                    'l': tr('agent_edit_sched'),
+                                    'sub': tr('agent_edit_sched_sub'),
                                     'v': '修改',
                                     'c': const Color(0xFF66BB6A),
                                   },
@@ -5395,64 +5386,64 @@ void _showLogoutDialog() {
                               },
                               if (!isGuest)
                                 {
-                                  'title': '🌐 社群互動',
+                                  'title': tr('agent_social_group'),
                                   'color': const Color(0xFFFF7043),
                                   'bgColor': const Color(0xFFFBE9E7),
                                   'items': <Map<String, dynamic>>[
                                     {
                                       'icon': Icons.dynamic_feed_outlined,
-                                      'l': '發佈社群貼文',
-                                      'sub': '分享學習心得與文章',
+                                      'l': tr('agent_post'),
+                                      'sub': tr('agent_post_sub'),
                                       'v': '發佈貼文',
                                       'c': const Color(0xFFFF7043),
                                     },
                                     {
                                       'icon': Icons.question_answer_outlined,
-                                      'l': '回覆社群留言',
-                                      'sub': '與同學互動交流',
+                                      'l': tr('agent_reply'),
+                                      'sub': tr('agent_reply_sub'),
                                       'v': '回覆哪些留言',
                                       'c': const Color(0xFF26C6DA),
                                     },
                                   ],
                                 },
                               {
-                                'title': '📚 學習工具',
+                                'title': tr('agent_tools_group'),
                                 'color': const Color(0xFF26A69A),
                                 'bgColor': const Color(0xFFE0F2F1),
                                 'items': <Map<String, dynamic>>[
                                   {
                                     'icon': Icons.menu_book_outlined,
-                                    'l': '跳轉題庫測驗',
-                                    'sub': '開始練習與自我測試',
+                                    'l': tr('agent_goto_quiz'),
+                                    'sub': tr('agent_goto_quiz_sub'),
                                     'v': '題庫',
                                     'c': Color(0xFF26A69A),
                                   },
                                   if (!isGuest)
                                     {
                                       'icon': Icons.note_alt_outlined,
-                                      'l': '筆記本管理',
-                                      'sub': '整理並查閱學習筆記',
+                                      'l': tr('agent_notebook_mgmt'),
+                                      'sub': tr('agent_notebook_mgmt_sub'),
                                       'v': '筆記本管理',
                                       'c': Theme.of(context).primaryColor,
                                     },
                                 ],
                               },
                               {
-                                'title': '⚙️ 個人設定',
+                                'title': tr('agent_settings_group'),
                                 'color': const Color(0xFFAB47BC),
                                 'bgColor': const Color(0xFFF3E5F5),
                                 'items': <Map<String, dynamic>>[
                                   {
                                     'icon': Icons.manage_accounts_outlined,
-                                    'l': '修改個人資料',
-                                    'sub': '更新頭像、暱稱與簡介',
+                                    'l': tr('agent_edit_profile'),
+                                    'sub': tr('agent_edit_profile_sub'),
                                     'v': '個人檔案',
                                     'c': const Color(0xFFAB47BC),
                                   },
                                   {
                                     'icon': Icons.palette_outlined,
-                                    'l': '切換佈景主題',
-                                    'sub': '調整顏色風格與深淺模式',
+                                    'l': tr('agent_switch_theme'),
+                                    'sub': tr('agent_switch_theme_sub'),
                                     'v': '切換主題',
                                     'c': const Color(0xFFEC407A),
                                   },
@@ -5599,35 +5590,35 @@ void _showLogoutDialog() {
                           if (msg['widgetType'] == 'post_type_picker') {
                             final categories = <Map<String, dynamic>>[
                               {
-                                'title': '🌐 選擇貼文類型',
+                                'title': tr('agent_post_type'),
                                 'color': const Color(0xFFFF7043),
                                 'bgColor': const Color(0xFFFBE9E7),
                                 'items': <Map<String, dynamic>>[
                                   {
                                     'icon': Icons.chat_bubble_outline_rounded,
-                                    'l': '一般貼文',
-                                    'sub': '日常點滴與心情分享',
+                                    'l': tr('agent_post_general'),
+                                    'sub': tr('agent_post_general_sub'),
                                     'v': '一般',
                                     'c': const Color(0xFF78909C),
                                   },
                                   {
                                     'icon': Icons.note_alt_outlined,
-                                    'l': '學習筆記',
-                                    'sub': '記錄學習過程與心得',
+                                    'l': tr('agent_post_note'),
+                                    'sub': tr('agent_post_note_sub'),
                                     'v': '學習筆記',
                                     'c': const Color(0xFF43A047),
                                   },
                                   {
                                     'icon': Icons.psychology_outlined,
-                                    'l': '心情文章',
-                                    'sub': '抒發生活與讀書心得',
+                                    'l': tr('agent_post_mood'),
+                                    'sub': tr('agent_post_mood_sub'),
                                     'v': '心情文章',
                                     'c': const Color(0xFF7E57C2),
                                   },
                                   {
                                     'icon': Icons.folder_shared_outlined,
-                                    'l': '分享資料',
-                                    'sub': '提供考試或學術資源分享',
+                                    'l': tr('agent_post_doc'),
+                                    'sub': tr('agent_post_doc_sub'),
                                     'v': '分享資料',
                                     'c': const Color(0xFF1E88E5),
                                   },
@@ -5651,14 +5642,14 @@ void _showLogoutDialog() {
                                       border: Border.all(
                                           color: const Color(0xFFFFE082)),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(Icons.touch_app_outlined,
                                             size: 15, color: Color(0xFFF9A825)),
                                         SizedBox(width: 6),
                                         Text(
-                                          '請點選下方貼文類型來繼續 👇',
+                                          tr('agent_post_type_hint'),
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: Color(0xFFF57F17),
@@ -5846,14 +5837,14 @@ void _showLogoutDialog() {
                                   showDialog(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
-                                              title: const Text('確認附加'),
-                                              content: const Text(
-                                                  '確定要將大綱加入原筆記的最上方嗎？'),
+                                              title: Text(tr('note_append_title')),
+                                              content: Text(
+                                                  tr('note_append_msg')),
                                               actions: [
                                                 TextButton(
                                                     onPressed: () =>
                                                         Navigator.pop(ctx),
-                                                    child: const Text('取消')),
+                                                    child: Text(tr('btn_cancel'))),
                                                 TextButton(
                                                     onPressed: () {
                                                       Navigator.pop(ctx);
@@ -5878,11 +5869,11 @@ void _showLogoutDialog() {
                                                           .showSnackBar(
                                                               SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                                                   content: Text(
-                                                                      '已成功附加！')));
+                                                                      tr('note_append_done'))));
                                                       _changePage(5, '筆記本');
                                                       Navigator.pop(context);
                                                     },
-                                                    child: const Text('確定'))
+                                                    child: Text(tr('confirm')))
                                               ]));
                                 },
                                 onSaveNew: () {
@@ -5904,7 +5895,7 @@ void _showLogoutDialog() {
                                   NotesDatabase.notes.insert(0, newNote);
                                   ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                                       SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                                          content: Text('已儲存為新筆記！')));
+                                          content: Text(tr('note_saved_new'))));
                                   _changePage(5, '筆記本');
                                   Navigator.pop(context);
                                 },
@@ -5951,7 +5942,7 @@ void _showLogoutDialog() {
                                   ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                                       SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                           content: Text(
-                                              '✅ 已成功匯入 ${toAdd.length} 題測驗至題庫！')));
+                                              tr('quiz_imported_n', [toAdd.length.toString()]))));
                                 });
                           }
 
@@ -5966,7 +5957,7 @@ void _showLogoutDialog() {
                                       icon: const Icon(
                                           Icons.calendar_month_outlined,
                                           size: 16),
-                                      label: const Text('日曆行程'),
+                                      label: Text(tr('agent_btn_cal_event')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             const Color(0xFF42A5F5),
@@ -5984,7 +5975,7 @@ void _showLogoutDialog() {
                                     child: ElevatedButton.icon(
                                       icon: const Icon(Icons.check_box_outlined,
                                           size: 16),
-                                      label: const Text('待辦事項'),
+                                      label: Text(tr('agent_btn_todo')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             const Color(0xFFFF9800),
@@ -6013,7 +6004,7 @@ void _showLogoutDialog() {
                                       icon: const Icon(
                                           Icons.edit_calendar_outlined,
                                           size: 16),
-                                      label: const Text('修改行程'),
+                                      label: Text(tr('agent_btn_edit_event')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             const Color(0xFF66BB6A),
@@ -6031,7 +6022,7 @@ void _showLogoutDialog() {
                                     child: ElevatedButton.icon(
                                       icon: const Icon(Icons.check_box_outlined,
                                           size: 16),
-                                      label: const Text('修改待辦'),
+                                      label: Text(tr('agent_btn_edit_todo')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             const Color(0xFFFF9800),
@@ -6055,7 +6046,7 @@ void _showLogoutDialog() {
                                 margin:
                                     const EdgeInsets.only(bottom: 12, left: 40),
                                 alignment: Alignment.centerLeft,
-                                child: const Text('目前您沒有任何待辦事項。',
+                                child: Text(tr('agent_no_todos'),
                                     style: TextStyle(color: Colors.grey)),
                               );
                             }
@@ -6068,7 +6059,7 @@ void _showLogoutDialog() {
                                   final isDone =
                                       todo['isDone'] as bool? ?? false;
                                   final titleStr =
-                                      todo['title'] as String? ?? '無內容';
+                                      todo['title'] as String? ?? tr('common_no_content');
                                   final todoId = todo['id'].toString();
                                   return GestureDetector(
                                     onTap: () => _handleAISubmit(
@@ -6140,7 +6131,7 @@ void _showLogoutDialog() {
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       icon: Icon(Icons.edit, size: 16),
-                                      label: Text('修改內容'),
+                                      label: Text(tr('agent_btn_edit_content')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             Theme.of(context).primaryColor,
@@ -6158,7 +6149,7 @@ void _showLogoutDialog() {
                                     child: ElevatedButton.icon(
                                       icon: const Icon(Icons.delete_outline,
                                           size: 16),
-                                      label: const Text('刪除待辦'),
+                                      label: Text(tr('agent_btn_delete_todo')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.redAccent,
                                         foregroundColor: Colors.white,
@@ -6184,7 +6175,7 @@ void _showLogoutDialog() {
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       icon: const Icon(Icons.check, size: 16),
-                                      label: const Text('確定'),
+                                      label: Text(tr('confirm')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.redAccent,
                                         foregroundColor: Colors.white,
@@ -6200,7 +6191,7 @@ void _showLogoutDialog() {
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       icon: const Icon(Icons.close, size: 16),
-                                      label: const Text('取消'),
+                                      label: Text(tr('btn_cancel')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.grey.shade400,
                                         foregroundColor: Colors.white,
@@ -6229,8 +6220,8 @@ void _showLogoutDialog() {
                                       icon: Icon(Icons.event, size: 16),
                                       label: Text(msg['widgetType'] ==
                                               'add_type_confirmation'
-                                          ? '新增行程'
-                                          : '修改行程'),
+                                          ? tr('agent_btn_add_event')
+                                          : tr('agent_btn_edit_event')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             Theme.of(context).primaryColor,
@@ -6250,8 +6241,8 @@ void _showLogoutDialog() {
                                           size: 16),
                                       label: Text(msg['widgetType'] ==
                                               'add_type_confirmation'
-                                          ? '新增待辦'
-                                          : '修改待辦'),
+                                          ? tr('agent_btn_add_todo')
+                                          : tr('agent_btn_edit_todo')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blueAccent,
                                         foregroundColor: Colors.white,
@@ -6284,7 +6275,7 @@ void _showLogoutDialog() {
                                 margin:
                                     const EdgeInsets.only(bottom: 12, left: 40),
                                 alignment: Alignment.centerLeft,
-                                child: const Text('目前您沒有任何即將到來的行程。',
+                                child: Text(tr('agent_no_events'),
                                     style: TextStyle(color: Colors.grey)),
                               );
                             }
@@ -6328,7 +6319,7 @@ void _showLogoutDialog() {
                                         final timeStr =
                                             ev['time'] as String? ?? '';
                                         final titleStr =
-                                            ev['title'] as String? ?? '無標題';
+                                            ev['title'] as String? ?? tr('common_untitled');
                                         final evId = ev['id'].toString();
                                         return GestureDetector(
                                           onTap: () => _handleAISubmit(
@@ -6403,13 +6394,13 @@ void _showLogoutDialog() {
                               alignment: Alignment.centerLeft,
                               child: Wrap(spacing: 8, children: [
                                 ActionChip(
-                                  label: const Text('✏️ 修改標題'),
+                                  label: Text(tr('agent_btn_edit_title')),
                                   backgroundColor: const Color(0xFFFFF3E0),
                                   onPressed: () => _handleAISubmit(
                                       '修改標題', modalController, setModalState),
                                 ),
                                 ActionChip(
-                                  label: const Text('🕒 修改時間與日期'),
+                                  label: Text(tr('agent_btn_edit_time')),
                                   backgroundColor: const Color(0xFFE3F2FD),
                                   onPressed: () => _handleAISubmit('修改時間與日期',
                                       modalController, setModalState),
@@ -6479,18 +6470,18 @@ void _showLogoutDialog() {
                                               size: 18),
                                         ),
                                         const SizedBox(width: 10),
-                                        const Expanded(
+                                        Expanded(
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text('待發布排程確認',
+                                              Text(tr('agent_post_confirm_title'),
                                                   style: TextStyle(
                                                       color: Colors.white,
                                                       fontWeight:
                                                           FontWeight.bold,
                                                       fontSize: 15)),
-                                              Text('請確認以下貼文資訊',
+                                              Text(tr('agent_post_confirm_sub'),
                                                   style: TextStyle(
                                                       color: Colors.white70,
                                                       fontSize: 11)),
@@ -6531,7 +6522,7 @@ void _showLogoutDialog() {
                                                       style: const TextStyle(
                                                           fontSize: 13)),
                                                   const SizedBox(width: 5),
-                                                  Text(typeLabel,
+                                                  Text(trv(typeLabel),
                                                       style: const TextStyle(
                                                           fontSize: 12,
                                                           fontWeight:
@@ -6582,7 +6573,7 @@ void _showLogoutDialog() {
                                                           .toString()
                                                           .isNotEmpty
                                                   ? pData['time'].toString()
-                                                  : '立即發布',
+                                                  : tr('agent_publish_now'),
                                               style: TextStyle(
                                                   fontSize: 12,
                                                   color: Theme.of(context)
@@ -6616,13 +6607,13 @@ void _showLogoutDialog() {
                                                 borderRadius:
                                                     BorderRadius.circular(10)),
                                           ),
-                                          child: const Row(
+                                          child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(Icons.delete_outline,
                                                   size: 15),
                                               SizedBox(width: 4),
-                                              Text('捨棄',
+                                              Text(tr('agent_discard'),
                                                   style:
                                                       TextStyle(fontSize: 13)),
                                             ],
@@ -6646,13 +6637,13 @@ void _showLogoutDialog() {
                                           ),
                                           onPressed: () =>
                                               _publishAIPost(pData, false),
-                                          child: const Row(
+                                          child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(Icons.send_rounded,
                                                   size: 14),
                                               SizedBox(width: 5),
-                                              Text('立即發布',
+                                              Text(tr('agent_publish_now'),
                                                   style:
                                                       TextStyle(fontSize: 13)),
                                             ],
@@ -6674,13 +6665,13 @@ void _showLogoutDialog() {
                                           ),
                                           onPressed: () =>
                                               _publishAIPost(pData, true),
-                                          child: const Row(
+                                          child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(Icons.schedule_rounded,
                                                   size: 14),
                                               SizedBox(width: 5),
-                                              Text('確認排程',
+                                              Text(tr('agent_confirm_schedule'),
                                                   style:
                                                       TextStyle(fontSize: 13)),
                                             ],
@@ -6705,12 +6696,9 @@ void _showLogoutDialog() {
                                 });
                                 _publishAIPost(data, false);
                               },
-                              onOpenFullEditor: (data) {
-                                setModalState(() {
-                                  msg['cardState'] = 'completed';
-                                });
+                              onOpenFullEditor: (data) async {
                                 if (Navigator.canPop(context)) Navigator.pop(context);
-                                Navigator.push(
+                                final posted = await Navigator.push<bool>(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => CreatePostPage(
@@ -6723,6 +6711,9 @@ void _showLogoutDialog() {
                                     ),
                                   ),
                                 );
+                                if (posted == true) {
+                                  msg['cardState'] = 'completed';
+                                }
                               },
                               onCancel: () {
                                 setModalState(() {
@@ -6733,7 +6724,7 @@ void _showLogoutDialog() {
                                     'widgetType': 'action_result_card',
                                     'resultType': 'cancelled',
                                     'actionType': 'create_post',
-                                    'summary': '已取消發佈貼文。',
+                                    'summary': tr('agent_post_cancelled'),
                                   });
                                 });
                                 _aiFlowState = 'none';
@@ -6757,7 +6748,7 @@ void _showLogoutDialog() {
                                     'widgetType': 'action_result_card',
                                     'resultType': 'success',
                                     'actionType': msg['targetDialog'],
-                                    'summary': '已為您開啟操作介面！',
+                                    'summary': tr('agent_opened_ui'),
                                   });
                                 });
                                 _scrollToBottom();
@@ -6790,7 +6781,7 @@ void _showLogoutDialog() {
                                     'widgetType': 'action_result_card',
                                     'resultType': 'cancelled',
                                     'actionType': msg['targetDialog'],
-                                    'summary': '已取消此操作。',
+                                    'summary': tr('agent_op_cancelled'),
                                   });
                                 });
                                 _aiFlowState = 'none';
@@ -6844,7 +6835,9 @@ void _showLogoutDialog() {
                                       ]
                                     : []),
                             child: _buildAssistantRichContent(
-                              msg['text'] as String? ?? '',
+                              msg['isAI'] == true
+                                  ? msg['text'] as String? ?? ''
+                                  : trv(msg['text'] as String? ?? ''),
                               isAI: msg['isAI'] == true,
                               isDark: isDark,
                               primaryColor: Theme.of(context).primaryColor,
@@ -6884,12 +6877,12 @@ void _showLogoutDialog() {
                                     .hideCurrentSnackBar();
                                 ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                                   SnackBar(
-                                    content: const Row(
+                                    content: Row(
                                       children: [
                                         Icon(Icons.check_circle_outline_rounded,
                                             color: Colors.white, size: 20),
                                         SizedBox(width: 8),
-                                        Text('已複製代理人回覆內容'),
+                                        Text(tr('agent_copied_reply')),
                                       ],
                                     ),
                                     duration: const Duration(milliseconds: 1500),
@@ -6920,7 +6913,7 @@ void _showLogoutDialog() {
                                                   leading: Icon(Icons.copy,
                                                       color: Theme.of(context)
                                                           .primaryColor),
-                                                  title: const Text('複製文字'),
+                                                  title: Text(tr('agent_copy_text')),
                                                   onTap: () {
                                                     Navigator.pop(ctx);
                                                     Clipboard.setData(
@@ -6931,13 +6924,13 @@ void _showLogoutDialog() {
                                                         .showSnackBar(
                                                             SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                                                                 content: Text(
-                                                                    '已複製到剪貼簿')));
+                                                                    tr('common_copied'))));
                                                   }),
                                               ListTile(
                                                   leading: Icon(Icons.edit,
                                                       color: Theme.of(context)
                                                           .primaryColor),
-                                                  title: const Text('編輯'),
+                                                  title: Text(tr('common_edit')),
                                                   onTap: () async {
                                                     Navigator.pop(ctx);
 
@@ -6946,26 +6939,26 @@ void _showLogoutDialog() {
                                                       context: context,
                                                       builder: (dialogCtx) =>
                                                           AlertDialog(
-                                                        title: const Text(
-                                                            '編輯並回溯對話'),
-                                                        content: const Text(
-                                                            '您確定要重新執行此步驟嗎？這會清除該步驟之後的所有對話紀錄。'),
+                                                        title: Text(
+                                                            tr('agent_edit_rewind')),
+                                                        content: Text(
+                                                            tr('agent_edit_rewind_msg')),
                                                         actions: [
                                                           TextButton(
                                                             onPressed: () =>
                                                                 Navigator.pop(
                                                                     dialogCtx,
                                                                     false),
-                                                            child: const Text(
-                                                                '取消'),
+                                                            child: Text(
+                                                                tr('btn_cancel')),
                                                           ),
                                                           TextButton(
                                                             onPressed: () =>
                                                                 Navigator.pop(
                                                                     dialogCtx,
                                                                     true),
-                                                            child: const Text(
-                                                                '確定'),
+                                                            child: Text(
+                                                                tr('confirm')),
                                                           ),
                                                         ],
                                                       ),
@@ -7020,7 +7013,7 @@ void _showLogoutDialog() {
                     Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 4),
-                      child: Text('提醒：代理人可能會產生不準確的資訊，請自行查證。',
+                      child: Text(tr('agent_disclaimer'),
                           style: TextStyle(
                               color: Colors.grey.shade400, fontSize: 11)),
                     ),
@@ -7063,7 +7056,7 @@ void _showLogoutDialog() {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                '🎙️ 正在即時語音轉文字... 請說話',
+                                tr('agent_voice_live'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -7083,7 +7076,7 @@ void _showLogoutDialog() {
                                       .withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.stop_rounded,
@@ -7091,7 +7084,7 @@ void _showLogoutDialog() {
                                         color: Colors.deepOrangeAccent),
                                     SizedBox(width: 4),
                                     Text(
-                                      '完成',
+                                      tr('common_done'),
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -7194,8 +7187,8 @@ void _showLogoutDialog() {
                                   ),
                                   decoration: InputDecoration(
                                       hintText: isVoiceListening
-                                          ? '正在聆聽語音中，請說話...'
-                                          : '請輸入您的問題或指令...',
+                                          ? tr('agent_listening_hint')
+                                          : tr('agent_input_hint'),
                                       hintStyle: TextStyle(
                                         fontSize: 15.0,
                                         color: Colors.grey.shade400,
@@ -7315,7 +7308,7 @@ void _showLogoutDialog() {
         chatLogs.add({
           'isAI': true,
           'text':
-              '唔... 您是指「${result.suggestionLabel}」功能嗎？😅\n如果是的話，您可以點擊下方按鈕，或輸入「${result.suggestionKeyword}」來處理。',
+              tr('agent_suggest_feature', [trv(result.suggestionLabel ?? ''), trv(result.suggestionKeyword ?? '')]),
           'isCard': false
         });
         // 新增：提供點擊按鈕
@@ -7352,7 +7345,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs.add(
-              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_open_settings'), 'isCard': false});
         });
         goToProfile(650);
         _showEditNicknameDialog();
@@ -7361,7 +7354,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs.add(
-              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_open_settings'), 'isCard': false});
         });
         goToProfile(0);
         _pickAvatarFromLocal();
@@ -7370,7 +7363,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs.add(
-              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_open_settings'), 'isCard': false});
         });
         goToProfile(650);
         _showEditBioDialog();
@@ -7379,7 +7372,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs.add(
-              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_open_settings'), 'isCard': false});
         });
         goToProfile(400);
         _showFontSizeDialog();
@@ -7388,7 +7381,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs.add(
-              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_open_settings'), 'isCard': false});
         });
         goToProfile(400);
         _showThemeColorDialog();
@@ -7397,7 +7390,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs.add(
-              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_open_settings'), 'isCard': false});
         });
         goToProfile(900);
         _showEmailVerificationFlow();
@@ -7406,7 +7399,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs.add(
-              {'isAI': true, 'text': '沒問題！這就為您開啟相關設定介面 🛠️', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_open_settings'), 'isCard': false});
         });
         goToProfile(900);
         _showChangePasswordDialog();
@@ -7440,7 +7433,7 @@ void _showLogoutDialog() {
 
           chatLogs.add({
             'isAI': true,
-            'text': '沒問題！我為您準備了一張發文草稿卡片，您可以直接在卡片上選擇類型、編輯內容，然後一鍵發佈或前往完整發佈頁面 📝',
+            'text': tr('agent_post_draft'),
             'isCard': false,
           });
           chatLogs.add({
@@ -7465,7 +7458,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs
-              .add({'isAI': true, 'text': '沒問題，已為您跳轉至日曆！', 'isCard': false});
+              .add({'isAI': true, 'text': tr('agent_goto_calendar'), 'isCard': false});
         });
         return true;
       case UserIntent.createItinerary:
@@ -7489,7 +7482,7 @@ void _showLogoutDialog() {
 
           chatLogs.add({
             'isAI': true,
-            'text': '好的！我為您準備了行程資訊，點擊下方卡片即可一鍵開啟行程表單 📅',
+            'text': tr('agent_event_card'),
             'isCard': false
           });
           chatLogs.add({
@@ -7513,7 +7506,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '我很樂意幫您新增待辦事項！\n請問這個待辦事項的標題是什麼？',
+            'text': tr('agent_todo_ask_title'),
             'isCard': false
           });
           _scrollToBottom();
@@ -7528,7 +7521,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的！請問您想修改哪一個行程？\n請從下方列表點選：',
+            'text': tr('agent_pick_event_edit'),
             'isCard': false
           });
           chatLogs.add({
@@ -7549,7 +7542,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的！請問您想修改哪一個待辦事項？\n請從下方列表點選：',
+            'text': tr('agent_pick_todo_edit'),
             'isCard': false
           });
           chatLogs.add({
@@ -7570,7 +7563,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的，請問您想要新增『日曆行程』還是『待辦事項』呢？',
+            'text': tr('agent_ask_add_kind'),
             'isCard': false
           });
           chatLogs.add({
@@ -7591,7 +7584,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的，請問您想要修改『日曆行程』還是『待辦事項』呢？',
+            'text': tr('agent_ask_edit_kind'),
             'isCard': false
           });
           chatLogs.add({
@@ -7608,7 +7601,7 @@ void _showLogoutDialog() {
         _changePage(2, '社群');
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '好的，帶您去社群！', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_goto_social'), 'isCard': false});
         });
         return true;
       case UserIntent.viewQuestionBank:
@@ -7616,7 +7609,7 @@ void _showLogoutDialog() {
         _changePage(1, '題庫');
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '切換至題庫系統！', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_goto_quiz_msg'), 'isCard': false});
         });
         return true;
       case UserIntent.viewProfile:
@@ -7624,7 +7617,7 @@ void _showLogoutDialog() {
         _changePage(4, '個人檔案');
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '已為您打開個人檔案！', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_goto_profile_msg'), 'isCard': false});
         });
         return true;
       case UserIntent.viewActivity:
@@ -7633,7 +7626,7 @@ void _showLogoutDialog() {
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
           chatLogs
-              .add({'isAI': true, 'text': '好的，帶您去看看您的社群動態！', 'isCard': false});
+              .add({'isAI': true, 'text': tr('agent_goto_feed_msg'), 'isCard': false});
         });
         return true;
       case UserIntent.viewPendingComments:
@@ -7645,7 +7638,7 @@ void _showLogoutDialog() {
           chatLogs.add({
             'isAI': true,
             'text':
-                '我可以幫您處理以下事項：\n\n1. 📅 **新增行程**：直接輸入標題，或說「加行程」。\n2. 📝 **發布貼文**：輸入「發貼文」或「分享心情」。\n3. 🛠️ **個人設定**：修改暱稱、換頭像、改顏色或字體。\n4. 👤 **個人檔案**：查看您的詳細資料與設定。\n\n請問您現在需要哪方面的協助？',
+                tr('agent_help_list'),
             'isCard': false,
             'widgetType': 'help_options'
           });
@@ -7657,7 +7650,7 @@ void _showLogoutDialog() {
         _changePage(5, '筆記本');
         updateLogs(() {
           chatLogs.add({'isAI': false, 'text': userInput});
-          chatLogs.add({'isAI': true, 'text': '已為您切換至筆記本畫面！', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_goto_notebook_msg'), 'isCard': false});
         });
         return true;
       case UserIntent.createNote:
@@ -7668,7 +7661,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的，讓我來協助您新增一篇筆記！📓\n首先，請問這篇筆記的標題是什麼？',
+            'text': tr('agent_note_ask_title'),
             'isCard': false
           });
           _scrollToBottom();
@@ -7680,7 +7673,7 @@ void _showLogoutDialog() {
               {'isAI': false, 'text': userInput, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'searching_note';
           chatLogs
-              .add({'isAI': true, 'text': '請問您想搜尋什麼關鍵字或分類？', 'isCard': false});
+              .add({'isAI': true, 'text': tr('agent_note_ask_search'), 'isCard': false});
           _scrollToBottom();
         });
         // 若直接包含關鍵字，可優化提取
@@ -7692,7 +7685,7 @@ void _showLogoutDialog() {
           _aiFlowState = 'deleting_note_title';
           chatLogs.add({
             'isAI': true,
-            'text': '請告訴我您想刪除的筆記標題，我會幫您找出來。',
+            'text': tr('agent_note_ask_delete'),
             'isCard': false
           });
           _scrollToBottom();
@@ -7709,7 +7702,7 @@ void _showLogoutDialog() {
             });
             chatLogs.add({
               'isAI': true,
-              'text': '抱歉，訪客帳戶無法使用筆記與相關的 AI 整理功能。請登入或註冊正式帳號以開啟此功能！',
+              'text': tr('agent_guest_no_notes'),
               'isCard': false
             });
             _scrollToBottom();
@@ -7722,7 +7715,7 @@ void _showLogoutDialog() {
           _aiFlowState = 'organizing_note_select';
           chatLogs.add({
             'isAI': true,
-            'text': '好的！請問您想整理哪一篇筆記？請在下方搜尋或選擇：',
+            'text': tr('agent_note_ask_organize'),
             'isCard': false
           });
           chatLogs.add({
@@ -7740,7 +7733,7 @@ void _showLogoutDialog() {
           chatLogs.add({
             'isAI': true,
             'text':
-                '你可以透過以下兩種方式聯絡客服：\n\n1. **常見問題與 24H 線上客服**：\n   • 前往底部 **「個人檔案」** ➜ 切換至上方 **「系統協助」** 分頁 ➜ 點選 **「常見問題與線上客服」**。\n2. **客服與意見回饋表單**：\n   • 點選 **「客服與意見回饋」** 填寫表單回報 Bug 或功能建議。',
+                tr('agent_contact_support'),
             'isCard': false,
           });
           _scrollToBottom();
@@ -7752,7 +7745,7 @@ void _showLogoutDialog() {
           chatLogs.add({
             'isAI': true,
             'text':
-                '您可以前往底部 **「個人檔案」** ➜ 切換至上方 **「系統協助」** 分頁 ➜ 點選 **「客服與意見回饋」** 填寫表單回報問題或功能建議！',
+                tr('agent_feedback_where'),
             'isCard': false,
           });
           _scrollToBottom();
@@ -7767,7 +7760,7 @@ void _showLogoutDialog() {
     setModalState(() {
       chatLogs.add({
         'isAI': true,
-        'text': '沒問題，我這就幫您看看有哪些需要回覆的留言... 💬',
+        'text': tr('agent_checking_replies'),
         'isCard': false
       });
       _scrollToBottom();
@@ -7799,7 +7792,7 @@ void _showLogoutDialog() {
           var u = await db
               .query('users', where: 'id = ?', whereArgs: [c['user_id']]);
           String authorName =
-              u.isNotEmpty ? u.first['display_name'] as String : '未知用戶';
+              u.isNotEmpty ? u.first['display_name'] as String : tr('common_unknown_user');
           pendingComments.add({
             'commentId': c['id'],
             'postId': c['post_id'],
@@ -7814,7 +7807,7 @@ void _showLogoutDialog() {
     setModalState(() {
       if (pendingComments.isEmpty) {
         chatLogs
-            .add({'isAI': true, 'text': '目前您的貼文下沒有需要回覆的留言喔！', 'isCard': false});
+            .add({'isAI': true, 'text': tr('agent_no_replies'), 'isCard': false});
         _scrollToBottom();
       } else {
         _aiPendingReplyPosts = pendingComments.take(2).toList();
@@ -7823,11 +7816,11 @@ void _showLogoutDialog() {
         var firstItem = _aiPendingReplyPosts[0];
         var originalPost = socialPosts.firstWhere(
             (p) => p['id'] == firstItem['postId'],
-            orElse: () => {'content': '未知貼文'});
+            orElse: () => {'content': tr('common_unknown_post')});
         chatLogs.add({
           'isAI': true,
           'text':
-              '為您找到 ${_aiPendingReplyPosts.length} 則可以回覆的留言！\n\n您的貼文：「${originalPost['content']}」\n底下有來自「${firstItem['authorName']}」的留言：\n「${firstItem['text']}」\n請問您想回覆什麼？(若不想回覆這則請點擊下方按鈕或說「跳過」)',
+              tr('agent_replies_found', [_aiPendingReplyPosts.length.toString(), (originalPost['content']).toString(), (firstItem['authorName']).toString(), (firstItem['text']).toString()]),
           'isCard': false
         });
         chatLogs.add({
@@ -7895,7 +7888,7 @@ void _showLogoutDialog() {
           chatLogs.add({
             'isAI': true,
             'text':
-                '📓 您好！我是您的筆記本小助手。請問今天有什麼我可以幫忙的呢？\n\n您可以直接打字對我說，例如：「幫我新增筆記」、「幫我整理某篇筆記的重點摘要」或「搜尋筆記」。\n\n或者也可以直接點選下方的常用功能喔：',
+                tr('agent_notebook_hello'),
             'isCard': false
           });
           chatLogs.add({
@@ -7934,6 +7927,8 @@ void _showLogoutDialog() {
       // 純粹請求幫助或詢問助理能做什麼之指令
       final isHelpCommand = inputLower == 'help' ||
           inputLower == '幫助' ||
+          inputLower == 'ヘルプ' ||
+          inputLower == '도움말' ||
           inputLower == '協助' ||
           inputLower == '協助事項' ||
           inputLower == '協作事項' ||
@@ -7959,7 +7954,7 @@ void _showLogoutDialog() {
           chatLogs.add({'isAI': false, 'text': text});
           chatLogs.add({
             'isAI': true,
-            'text': '沒問題！我很樂意向您介紹。😊\n以下是我目前可以為您提供的協助事項：',
+            'text': tr('agent_intro'),
             'isCard': false
           });
           chatLogs.add({
@@ -7969,21 +7964,26 @@ void _showLogoutDialog() {
             'widgetType': 'help_options'
           });
           chatLogs.add(
-              {'isAI': true, 'text': '您可以點擊上方選項，或直接說給我聽吧！', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_intro_tail'), 'isCard': false});
           _scrollToBottom();
         });
         return;
       }
     } // End of _aiFlowState == 'none' check
 
-    if (text == '重來' || text == '取消' || text == '取消行程' || text == '取消發佈') {
+    if (text == '重來' ||
+        text == '取消' ||
+        text == '取消行程' ||
+        text == '取消發佈' ||
+        text == 'キャンセル' ||
+        text == '취소') {
       setModalState(() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'none';
         chatLogs.add({
           'isAI': true,
-          'text': '好的，已為您取消目前的進度。請問還有什麼我可以幫忙的？',
+          'text': tr('agent_progress_cancelled'),
           'isCard': false
         });
         _scrollToBottom();
@@ -7993,7 +7993,10 @@ void _showLogoutDialog() {
 
     // 處理口語式取消詞（在任意流程中）
     if (_aiFlowState != 'none') {
-      const oralCancelWords = {'算了', '不要了', '不要', '放棄', '停', '不用了', '不行了'};
+      const oralCancelWords = {
+        '算了', '不要了', '不要', '放棄', '停', '不用了', '不行了',
+        'やめる', 'やめて', 'いらない', '그만', '안 할래', '필요 없어',
+      };
       if (oralCancelWords.contains(text)) {
         setModalState(() {
           chatLogs
@@ -8001,7 +8004,7 @@ void _showLogoutDialog() {
           _aiFlowState = 'none';
           chatLogs.add({
             'isAI': true,
-            'text': '好的，已取消目前操作囉！👌 還有其他需要幫忙的嗎？',
+            'text': tr('agent_oral_cancelled'),
             'isCard': false
           });
           _scrollToBottom();
@@ -8013,9 +8016,13 @@ void _showLogoutDialog() {
     if (_aiFlowState == 'replying') {
       var commentItem = _aiPendingReplyPosts[_aiReplyPostIndex];
       var post = socialPosts.firstWhere((p) => p['id'] == commentItem['postId'],
-          orElse: () => {'content': '未知貼文'});
+          orElse: () => {'content': tr('common_unknown_post')});
 
-      if (text == '跳過' || text == '跳過這則' || text == '不用') {
+      if (text == '跳過' ||
+          text == '跳過這則' ||
+          text == '不用' ||
+          text == 'スキップ' ||
+          text == '건너뛰기') {
         setModalState(() {
           chatLogs
               .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
@@ -8025,12 +8032,12 @@ void _showLogoutDialog() {
           var nextItem = _aiPendingReplyPosts[_aiReplyPostIndex];
           var nextPost = socialPosts.firstWhere(
               (p) => p['id'] == nextItem['postId'],
-              orElse: () => {'content': '未知貼文'});
+              orElse: () => {'content': tr('common_unknown_post')});
           setModalState(() {
             chatLogs.add({
               'isAI': true,
               'text':
-                  '已跳過！下一則留言是針對您的貼文：「${nextPost['content']}」\n來自「${nextItem['authorName']}」：\n「${nextItem['text']}」\n請問您想回覆什麼？(若不回覆請點擊下方按鈕或說「跳過」)',
+                  tr('agent_skipped_next', [(nextPost['content']).toString(), (nextItem['authorName']).toString(), (nextItem['text']).toString()]),
               'isCard': false
             });
             chatLogs.add({
@@ -8044,7 +8051,7 @@ void _showLogoutDialog() {
         } else {
           setModalState(() {
             chatLogs.add(
-                {'isAI': true, 'text': '🎉 所有待回覆的留言都已處理完畢！', 'isCard': false});
+                {'isAI': true, 'text': tr('agent_all_replied'), 'isCard': false});
             _aiFlowState = 'none';
             _scrollToBottom();
           });
@@ -8058,7 +8065,7 @@ void _showLogoutDialog() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         chatLogs.add(
-            {'isAI': true, 'text': '好的！立刻帶您到畫面上執行回覆動作...', 'isCard': false});
+            {'isAI': true, 'text': tr('agent_goto_reply'), 'isCard': false});
         _scrollToBottom();
       });
 
@@ -8081,11 +8088,11 @@ void _showLogoutDialog() {
                         var nextItem = _aiPendingReplyPosts[_aiReplyPostIndex];
                         var nextPost = socialPosts.firstWhere(
                             (p) => p['id'] == nextItem['postId'],
-                            orElse: () => {'content': '未知貼文'});
+                            orElse: () => {'content': tr('common_unknown_post')});
                         chatLogs.add({
                           'isAI': true,
                           'text':
-                              '已完成！下一則留言是針對您的貼文：「${nextPost['content']}」\n來自「${nextItem['authorName']}」：\n「${nextItem['text']}」\n請問您想回覆什麼？(若不回覆請點擊下方按鈕或說「跳過」)',
+                              tr('agent_done_next', [(nextPost['content']).toString(), (nextItem['authorName']).toString(), (nextItem['text']).toString()]),
                           'isCard': false
                         });
                         chatLogs.add({
@@ -8098,7 +8105,7 @@ void _showLogoutDialog() {
                       } else {
                         chatLogs.add({
                           'isAI': true,
-                          'text': '🎉 所有待回覆的留言都已處理完畢！',
+                          'text': tr('agent_all_replied'),
                           'isCard': false
                         });
                         _aiFlowState = 'none';
@@ -8118,7 +8125,7 @@ void _showLogoutDialog() {
         _aiFlowState = 'adding_event_datetime';
         chatLogs.add({
           'isAI': true,
-          'text': '收到了，行程標題為「$text」。\n請用滾輪一次選好日期、開始與結束時間：',
+          'text': tr('agent_event_title_got', [text.toString()]),
           'isCard': false
         });
         chatLogs.add({
@@ -8156,14 +8163,14 @@ void _showLogoutDialog() {
       setModalState(() {
         chatLogs.add({
           'isAI': false,
-          'text': '開始：$displayStart  結束：$displayEnd',
+          'text': tr('agent_start_end', [displayStart.toString(), displayEnd.toString()]),
           'stateAtTime': _aiFlowState
         });
         _aiFlowState = 'adding_event_color_style';
         chatLogs.add({
           'isAI': true,
           'text':
-              '已設定時段：\n🟢 開始：$displayStart\n🔴 結束：$displayEnd\n\n最後一步，想幫這個行程挑選什麼風格的標籤顏色呢？',
+              tr('agent_slot_set', [displayStart.toString(), displayEnd.toString()]),
           'isCard': false
         });
         chatLogs.add({
@@ -8180,14 +8187,14 @@ void _showLogoutDialog() {
     if (_aiFlowState == 'adding_event_color_style') {
       final isLight = text.contains('淺');
       _aiFlowData['color_style'] = isLight ? 'light' : 'dark';
-      final styleLabel = isLight ? '淺色系' : '深色系';
+      final styleLabel = isLight ? tr('agent_light_palette') : tr('agent_dark_palette');
       setModalState(() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'adding_event_color';
         chatLogs.add({
           'isAI': true,
-          'text': '好的！已為您準備【$styleLabel】專屬色盤 🎨\n請從下方點選喜歡的顏色，或拖動滑桿自訂顏色：',
+          'text': tr('agent_palette_ready', [styleLabel.toString()]),
           'isCard': false
         });
         chatLogs.add({
@@ -8214,11 +8221,11 @@ void _showLogoutDialog() {
       setModalState(() {
         chatLogs.add({
           'isAI': false,
-          'text': '已選擇顏色 #${hexStr.substring(2)}',
+          'text': tr('agent_color_picked', [(hexStr.substring(2)).toString()]),
           'stateAtTime': _aiFlowState
         });
         chatLogs
-            .add({'isAI': true, 'text': '漂亮的選擇！ 正在為您加入行程...', 'isCard': false});
+            .add({'isAI': true, 'text': tr('agent_adding_event'), 'isCard': false});
         _scrollToBottom();
       });
 
@@ -8246,7 +8253,7 @@ void _showLogoutDialog() {
 
           await db.insert('calendar_events', <String, Object?>{
             'user_id': widget.currentUser['id'],
-            'title': _aiFlowData['title'] ?? '無標題行程',
+            'title': _aiFlowData['title'] ?? tr('agent_untitled_event'),
             'start_time': startStr,
             'end_time': endStr,
             'color': '0x${colorValue.toRadixString(16)}',
@@ -8279,7 +8286,7 @@ void _showLogoutDialog() {
                       decoration: BoxDecoration(
                           color: previewColor, shape: BoxShape.circle)),
                   const SizedBox(width: 10),
-                  const Text('代理人已為您成功加入行程！'),
+                  Text(tr('agent_event_added')),
                 ]),
               ),
             );
@@ -8289,7 +8296,7 @@ void _showLogoutDialog() {
           if (mounted) {
             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                content: Text('代理人新增行程失敗: $e'),
+                content: Text(tr('agent_event_add_failed', [e.toString()])),
                 backgroundColor: Colors.redAccent,
               ),
             );
@@ -8311,19 +8318,19 @@ void _showLogoutDialog() {
           _aiFlowData['edit_event_date'] = parts[2];
           _aiFlowData['edit_event_time'] = parts[3];
         }
-        final evTitle = _aiFlowData['edit_event_title'] ?? '這個行程';
+        final evTitle = _aiFlowData['edit_event_title'] ?? tr('agent_this_event');
         final evDate = _aiFlowData['edit_event_date'] ?? '';
         final evTime = _aiFlowData['edit_event_time'] ?? '';
         setModalState(() {
           chatLogs.add({
             'isAI': false,
-            'text': '選擇行程：$evTitle',
+            'text': tr('agent_event_selected_user', [evTitle.toString()]),
             'stateAtTime': _aiFlowState
           });
           _aiFlowState = 'editing_event_field';
           chatLogs.add({
             'isAI': true,
-            'text': '好的！您選擇了「$evTitle」($evDate $evTime)。\n請問您想修改什麼？',
+            'text': tr('agent_event_selected', [evTitle.toString(), evDate.toString(), evTime.toString()]),
             'isCard': false,
           });
           chatLogs.add({
@@ -8344,7 +8351,7 @@ void _showLogoutDialog() {
           chatLogs
               .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'editing_event_new_title';
-          chatLogs.add({'isAI': true, 'text': '請輸入新的行程標題：', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_ask_new_event_title'), 'isCard': false});
           _scrollToBottom();
         });
         return;
@@ -8355,7 +8362,7 @@ void _showLogoutDialog() {
               .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'editing_event_new_time';
           chatLogs
-              .add({'isAI': true, 'text': '請使用滾輪選擇新的日期與時段：', 'isCard': false});
+              .add({'isAI': true, 'text': tr('agent_ask_new_slot'), 'isCard': false});
           chatLogs.add({
             'isAI': true,
             'text': '',
@@ -8377,7 +8384,7 @@ void _showLogoutDialog() {
       setModalState(() {
         chatLogs.add(
             {'isAI': false, 'text': newTitle, 'stateAtTime': _aiFlowState});
-        chatLogs.add({'isAI': true, 'text': '正在更新行程標題...', 'isCard': false});
+        chatLogs.add({'isAI': true, 'text': tr('agent_updating_event_title'), 'isCard': false});
         _scrollToBottom();
       });
       Future.delayed(const Duration(milliseconds: 400), () async {
@@ -8403,7 +8410,7 @@ void _showLogoutDialog() {
             _changePage(0, '日曆行程');
             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                content: Text('✅ 行程標題已更新為「$newTitle」！'),
+                content: Text(tr('agent_event_title_updated', [newTitle.toString()])),
                 backgroundColor: Theme.of(context).primaryColor,
               ),
             );
@@ -8446,15 +8453,15 @@ void _showLogoutDialog() {
         final startTime = startParts.length > 1 ? startParts[1] : '09:00';
         final endTime = endParts.length > 1 ? endParts[1] : '10:00';
         final newTimeRange = '$startTime~$endTime';
-        final eventTitle = _aiFlowData['edit_event_title'] as String? ?? '行程';
+        final eventTitle = _aiFlowData['edit_event_title'] as String? ?? tr('agent_event_word');
         setModalState(() {
           chatLogs.add({
             'isAI': false,
             'text':
-                '新時段：$newStartFull ~ ${endParts.length > 1 ? endParts[1] : ""}',
+                tr('agent_new_slot_user', [newStartFull.toString(), (endParts.length > 1 ? endParts[1] : "").toString()]),
             'stateAtTime': _aiFlowState
           });
-          chatLogs.add({'isAI': true, 'text': '正在更新行程時間...', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_updating_event_time'), 'isCard': false});
           _scrollToBottom();
         });
         Future.delayed(const Duration(milliseconds: 400), () async {
@@ -8481,7 +8488,7 @@ void _showLogoutDialog() {
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                 SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
                   content:
-                      Text('✅ 行程「$eventTitle」時間已更新至 $newDate $newTimeRange！'),
+                      Text(tr('agent_event_time_updated', [eventTitle.toString(), newDate.toString(), newTimeRange.toString()])),
                   backgroundColor: Theme.of(context).primaryColor,
                 ),
               );
@@ -8501,7 +8508,7 @@ void _showLogoutDialog() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'none';
-        chatLogs.add({'isAI': true, 'text': '為您建立待辦事項中...', 'isCard': false});
+        chatLogs.add({'isAI': true, 'text': tr('agent_creating_todo'), 'isCard': false});
         _scrollToBottom();
       });
 
@@ -8510,7 +8517,7 @@ void _showLogoutDialog() {
           final db = await DatabaseHelper.instance.database;
           await db.insert('todos', <String, Object?>{
             'user_id': widget.currentUser['id'],
-            'text': _aiFlowData['title'] ?? '無標題待辦',
+            'text': _aiFlowData['title'] ?? tr('agent_untitled_todo'),
             'done': 0,
             'created_at': DateTime.now().toIso8601String(),
           });
@@ -8522,7 +8529,7 @@ void _showLogoutDialog() {
 
             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                content: Text('✅ 代理人已新增待辦：${_aiFlowData['title']}'),
+                content: Text(tr('agent_todo_added', [(_aiFlowData['title']).toString()])),
                 backgroundColor: Theme.of(context).primaryColor,
               ),
             );
@@ -8532,7 +8539,7 @@ void _showLogoutDialog() {
           if (mounted) {
             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                content: Text('新增待辦事項失敗，請稍後再試。'),
+                content: Text(tr('agent_todo_add_failed')),
                 backgroundColor: Colors.redAccent,
               ),
             );
@@ -8553,7 +8560,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的，開始建立新行程！請問這個行程的標題是什麼？',
+            'text': tr('agent_new_event_ask_title'),
             'isCard': false
           });
           _scrollToBottom();
@@ -8564,7 +8571,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的，開始建立新待辦事項！請問這個待辦事項的標題是什麼？',
+            'text': tr('agent_new_todo_ask_title'),
             'isCard': false
           });
           _scrollToBottom();
@@ -8573,7 +8580,7 @@ void _showLogoutDialog() {
         setModalState(() {
           _aiFlowState = 'none';
           chatLogs.add(
-              {'isAI': true, 'text': '已取消新增。請問還有什麼我可以幫忙的？', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_add_cancelled'), 'isCard': false});
           _scrollToBottom();
         });
       }
@@ -8591,7 +8598,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的！請問您想修改哪一個行程？\n請從下方列表點選：',
+            'text': tr('agent_pick_event_edit'),
             'isCard': false
           });
           chatLogs.add({
@@ -8608,7 +8615,7 @@ void _showLogoutDialog() {
           _aiFlowData = {};
           chatLogs.add({
             'isAI': true,
-            'text': '好的！請問您想修改哪一個待辦事項？\n請從下方列表點選：',
+            'text': tr('agent_pick_todo_edit'),
             'isCard': false
           });
           chatLogs.add({
@@ -8623,7 +8630,7 @@ void _showLogoutDialog() {
         setModalState(() {
           _aiFlowState = 'none';
           chatLogs.add(
-              {'isAI': true, 'text': '已取消修改。請問還有什麼我可以幫忙的？', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_edit_cancelled'), 'isCard': false});
           _scrollToBottom();
         });
       }
@@ -8639,17 +8646,17 @@ void _showLogoutDialog() {
           _aiFlowData['edit_todo_id'] = parts[0];
           _aiFlowData['edit_todo_title'] = parts[1];
         }
-        final todoTitle = _aiFlowData['edit_todo_title'] ?? '這個待辦事項';
+        final todoTitle = _aiFlowData['edit_todo_title'] ?? tr('agent_this_todo');
         setModalState(() {
           chatLogs.add({
             'isAI': false,
-            'text': '選擇待辦事項：$todoTitle',
+            'text': tr('agent_todo_selected_user', [todoTitle.toString()]),
             'stateAtTime': _aiFlowState
           });
           _aiFlowState = 'editing_todo_field';
           chatLogs.add({
             'isAI': true,
-            'text': '好的！您選擇了「$todoTitle」。\n請問您想做什麼？',
+            'text': tr('agent_todo_selected', [todoTitle.toString()]),
             'isCard': false,
           });
           chatLogs.add({
@@ -8670,20 +8677,20 @@ void _showLogoutDialog() {
           chatLogs
               .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'editing_todo_new_title';
-          chatLogs.add({'isAI': true, 'text': '請輸入新的待辦事項內容：', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_ask_new_todo'), 'isCard': false});
           _scrollToBottom();
         });
         return;
       }
       if (text == '刪除待辦') {
-        final todoTitle = _aiFlowData['edit_todo_title'] ?? '這個待辦事項';
+        final todoTitle = _aiFlowData['edit_todo_title'] ?? tr('agent_this_todo');
         setModalState(() {
           chatLogs
               .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
           _aiFlowState = 'confirming_delete_todo';
           chatLogs.add({
             'isAI': true,
-            'text': '確定要刪除待辦事項「$todoTitle」嗎？(請輸入 確定/取消)',
+            'text': tr('agent_todo_delete_confirm', [todoTitle.toString()]),
             'isCard': false
           });
           chatLogs.add({
@@ -8704,7 +8711,7 @@ void _showLogoutDialog() {
       setModalState(() {
         chatLogs.add(
             {'isAI': false, 'text': newTitle, 'stateAtTime': _aiFlowState});
-        chatLogs.add({'isAI': true, 'text': '正在更新待辦事項內容...', 'isCard': false});
+        chatLogs.add({'isAI': true, 'text': tr('agent_updating_todo'), 'isCard': false});
         _scrollToBottom();
       });
       Future.delayed(const Duration(milliseconds: 400), () async {
@@ -8718,7 +8725,7 @@ void _showLogoutDialog() {
             _changePage(0, '日曆行程');
             ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
               SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                content: Text('✅ 待辦事項內容已更新為「$newTitle」！'),
+                content: Text(tr('agent_todo_updated', [newTitle.toString()])),
                 backgroundColor: Theme.of(context).primaryColor,
               ),
             );
@@ -8733,7 +8740,7 @@ void _showLogoutDialog() {
 
     if (_aiFlowState == 'confirming_delete_todo') {
       final todoId = int.tryParse(_aiFlowData['edit_todo_id'] ?? '') ?? -1;
-      final todoTitle = _aiFlowData['edit_todo_title'] ?? '這個待辦事項';
+      final todoTitle = _aiFlowData['edit_todo_title'] ?? tr('agent_this_todo');
       setModalState(() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
@@ -8742,6 +8749,8 @@ void _showLogoutDialog() {
 
       if (text.contains('確認') ||
           text.contains('確定') ||
+          text.contains('はい') ||
+          text.contains('확인') ||
           text.toLowerCase() == 'yes' ||
           text.toLowerCase() == 'y') {
         Future.delayed(const Duration(milliseconds: 400), () async {
@@ -8754,7 +8763,7 @@ void _showLogoutDialog() {
               _changePage(0, '日曆行程');
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                 SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                  content: Text('✅ 已刪除待辦事項：「$todoTitle」！'),
+                  content: Text(tr('agent_todo_deleted', [todoTitle.toString()])),
                   backgroundColor: Colors.redAccent,
                 ),
               );
@@ -8765,7 +8774,7 @@ void _showLogoutDialog() {
         });
       } else {
         setModalState(() {
-          chatLogs.add({'isAI': true, 'text': '已取消刪除待辦事項。👌', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_todo_delete_cancelled'), 'isCard': false});
           _scrollToBottom();
         });
       }
@@ -8780,7 +8789,7 @@ void _showLogoutDialog() {
         _aiFlowState = 'adding_note_category';
         chatLogs.add({
           'isAI': true,
-          'text': '已記錄標題「$text」。\n接著，請選擇或輸入這篇筆記的分類：',
+          'text': tr('agent_note_title_got', [text.toString()]),
           'isCard': false
         });
         chatLogs.add({
@@ -8802,7 +8811,7 @@ void _showLogoutDialog() {
         _aiFlowState = 'adding_note_content';
         chatLogs.add({
           'isAI': true,
-          'text': '好的，分類為「$text」。\n最後，請輸入筆記的內容：',
+          'text': tr('agent_note_cat_got', [text.toString()]),
           'isCard': false
         });
         _scrollToBottom();
@@ -8816,7 +8825,7 @@ void _showLogoutDialog() {
         chatLogs
             .add({'isAI': false, 'text': text, 'stateAtTime': _aiFlowState});
         _aiFlowState = 'none';
-        chatLogs.add({'isAI': true, 'text': '為您建立筆記中...', 'isCard': false});
+        chatLogs.add({'isAI': true, 'text': tr('agent_creating_note'), 'isCard': false});
         _scrollToBottom();
       });
 
@@ -8824,7 +8833,7 @@ void _showLogoutDialog() {
       final newNote = Note(
         id: 'note_ai_${DateTime.now().millisecondsSinceEpoch}',
         userId: widget.currentUser['id'],
-        title: _aiFlowData['title'] ?? '無標題',
+        title: _aiFlowData['title'] ?? tr('common_untitled'),
         category: _aiFlowData['category'] ?? '未分類',
         content: _aiFlowData['content'] ?? '',
         strokes: [],
@@ -8867,11 +8876,11 @@ void _showLogoutDialog() {
       setModalState(() {
         if (results.isEmpty) {
           chatLogs.add(
-              {'isAI': true, 'text': '抱歉，沒有找到符合「$text」的筆記喔！', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_note_not_found', [text.toString()]), 'isCard': false});
         } else {
           chatLogs.add({
             'isAI': true,
-            'text': '為您找到 ${results.length} 篇相關筆記：',
+            'text': tr('agent_notes_found_n', [results.length.toString()]),
             'isCard': false
           });
           chatLogs.add({
@@ -8904,7 +8913,7 @@ void _showLogoutDialog() {
         setModalState(() {
           _aiFlowState = 'none';
           chatLogs.add(
-              {'isAI': true, 'text': '抱歉，找不到標題包含「$text」的筆記。', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_note_title_not_found', [text.toString()]), 'isCard': false});
           _scrollToBottom();
         });
       } else if (results.length == 1) {
@@ -8914,7 +8923,7 @@ void _showLogoutDialog() {
           _aiFlowState = 'confirm_delete_note';
           chatLogs.add({
             'isAI': true,
-            'text': '找到筆記「${note.title}」，確定要刪除嗎？(輸入 確定/取消)',
+            'text': tr('agent_note_delete_confirm', [note.title.toString()]),
             'isCard': false
           });
           chatLogs.add({
@@ -8930,7 +8939,7 @@ void _showLogoutDialog() {
           _aiFlowState = 'none';
           chatLogs.add({
             'isAI': true,
-            'text': '找到多篇名稱相似的筆記，為避免誤刪，請至筆記本首頁手動刪除喔！',
+            'text': tr('agent_note_many_similar'),
             'isCard': false
           });
           _scrollToBottom();
@@ -8948,6 +8957,8 @@ void _showLogoutDialog() {
 
       if (text.contains('確認') ||
           text.contains('確定') ||
+          text.contains('はい') ||
+          text.contains('확인') ||
           text.toLowerCase() == 'yes' ||
           text.toLowerCase() == 'y') {
         final note = _aiFlowData['note_to_delete'] as Note?;
@@ -8956,14 +8967,14 @@ void _showLogoutDialog() {
           setModalState(() {
             chatLogs.add({
               'isAI': true,
-              'text': '已成功為您刪除筆記「${note.title}」！',
+              'text': tr('agent_note_deleted', [note.title.toString()]),
               'isCard': false
             });
           });
         }
       } else {
         setModalState(() {
-          chatLogs.add({'isAI': true, 'text': '已取消刪除筆記動作。', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_note_delete_cancelled'), 'isCard': false});
         });
       }
       setModalState(() {
@@ -8980,7 +8991,7 @@ void _showLogoutDialog() {
         _aiFlowState = 'adding_post_content';
         chatLogs.add({
           'isAI': true,
-          'text': '類型已選擇「$text」。\n接下來，請輸入這篇貼文的內容：',
+          'text': tr('agent_post_type_got', [text.toString()]),
           'isCard': false
         });
         _scrollToBottom();
@@ -8996,7 +9007,7 @@ void _showLogoutDialog() {
         _aiFlowState = 'adding_post_time';
         chatLogs.add({
           'isAI': true,
-          'text': '收到！✍️\n最後，請問這篇貼文要什麼時候發佈？\n(可以直接點擊下方按鈕選取時間)',
+          'text': tr('agent_post_ask_time'),
           'isCard': false
         });
         chatLogs.add({
@@ -9018,7 +9029,7 @@ void _showLogoutDialog() {
         _aiFlowState = 'adding_post_confirm';
         chatLogs.add({
           'isAI': true,
-          'text': '沒問題！為您建立以下貼文預覽：',
+          'text': tr('agent_post_preview'),
           'isCard': false,
           'widgetType': 'confirm_post',
           'pendingData': Map<String, dynamic>.from(_aiFlowData)
@@ -9033,7 +9044,7 @@ void _showLogoutDialog() {
         setModalState(() {
           chatLogs.add({'isAI': false, 'text': text});
           chatLogs.add(
-              {'isAI': true, 'text': '好的！正在為您發佈貼文... 🚀', 'isCard': false});
+              {'isAI': true, 'text': tr('agent_publishing'), 'isCard': false});
         });
         await _addPostFromAI(_aiFlowData);
         if (mounted) {
@@ -9041,7 +9052,7 @@ void _showLogoutDialog() {
           _changePage(3, '社群動態');
           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
             SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-              content: Text('✅ 貼文已成功發佈！'),
+              content: Text(tr('agent_post_published')),
               backgroundColor: Theme.of(context).primaryColor,
             ),
           );
@@ -9050,7 +9061,7 @@ void _showLogoutDialog() {
       } else if (text == '取消發佈') {
         setModalState(() {
           chatLogs.add({'isAI': false, 'text': text});
-          chatLogs.add({'isAI': true, 'text': '已取消貼文發佈。👌', 'isCard': false});
+          chatLogs.add({'isAI': true, 'text': tr('agent_post_cancelled2'), 'isCard': false});
         });
         _aiFlowState = 'none';
       }
@@ -9102,7 +9113,7 @@ void _showLogoutDialog() {
         // Also keep a plain text summary for note append
         final pts = (structuredData['points'] as List).join('\n• ');
         final acts = (structuredData['actions'] as List).join('\n• ');
-        _aiFlowData['summary'] = '【重點摘要】\n• $pts\n\n【行動建議】\n• $acts';
+        _aiFlowData['summary'] = tr('agent_summary_fmt', [pts.toString(), acts.toString()]);
         try {
           setModalState(() {
             _aiFlowState = 'none';
@@ -9111,7 +9122,7 @@ void _showLogoutDialog() {
 
             chatLogs.add({
               'isAI': true,
-              'text': '整理完成！🎉 以下是為您生成的 AI 重點摘要：',
+              'text': tr('agent_summary_done'),
               'isCard': false
             });
             chatLogs.add({
@@ -9167,7 +9178,7 @@ void _showLogoutDialog() {
       chatLogs.add({'isAI': false, 'text': text});
       chatLogs.add({
         'isAI': true,
-        'text': '⏳ 正在查詢中...',
+        'text': tr('agent_querying'),
         'isCard': false,
       });
       _scrollToBottom();
@@ -9183,13 +9194,13 @@ void _showLogoutDialog() {
           userId: userId,
           actionType: 'ai_chat',
           basePoints: 2,
-          description: 'AI 助理對話導覽',
+          description: tr('agent_chat_points_desc'),
         );
       } on InsufficientPointsException catch (ipe) {
         setModalState(() {
           chatLogs[targetIndex] = {
             'isAI': true,
-            'text': '⚠️ 您的點數不足，無法發送 AI 詢問。\n${ipe.toString()}\n請點擊進行點數儲值或升級 VIP！',
+            'text': tr('agent_points_insufficient', [(ipe.toString()).toString()]),
             'isCard': false,
           };
         });
@@ -9217,7 +9228,7 @@ void _showLogoutDialog() {
         setModalState(() {
           chatLogs[targetIndex] = {
             'isAI': true,
-            'text': cleanedText.isNotEmpty ? cleanedText : '⏳ 正在思考中...',
+            'text': cleanedText.isNotEmpty ? cleanedText : tr('agent_thinking'),
             'isCard': false,
             'modelUsed': modelUsed,
           };
@@ -9230,7 +9241,7 @@ void _showLogoutDialog() {
         chatLogs[targetIndex] = {
           'isAI': true,
           'text':
-              '哎呀，我好像暫時連不上網路，沒辦法即時回覆你... 😅\n請稍等一下再試試看！如果想操作 APP 功能，也可以輸入「幫助」查看我能做什麼喔！',
+              tr('agent_offline'),
           'isCard': false,
         };
       });
@@ -9426,7 +9437,7 @@ void _showLogoutDialog() {
                 child: Icon(Icons.palette, color: selectedColor, size: 18),
               ),
               const SizedBox(width: 10),
-              Text(isLight ? '🌸 淺色系 色盤' : '🌲 深色系 色盤',
+              Text(isLight ? tr('palette_light') : tr('palette_dark'),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -9434,7 +9445,7 @@ void _showLogoutDialog() {
             ]),
             const SizedBox(height: 14),
             // ── 精選色磚 ──
-            const Text('精選配色',
+            Text(tr('palette_featured'),
                 style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey,
@@ -9482,7 +9493,7 @@ void _showLogoutDialog() {
               const Expanded(child: Divider()),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text('自訂顏色',
+                child: Text(tr('palette_custom'),
                     style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade500,
@@ -9583,13 +9594,13 @@ void _showLogoutDialog() {
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF4E342E)),
                     ),
-                    Text(isCustom ? '自訂顏色' : '精選配色',
+                    Text(isCustom ? tr('palette_custom') : tr('palette_featured'),
                         style: TextStyle(
                             fontSize: 11, color: Colors.grey.shade500)),
                   ])),
               ElevatedButton.icon(
                 icon: const Icon(Icons.check, size: 16),
-                label: const Text('確認'),
+                label: Text(tr('btn_confirm')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: selectedColor,
                   foregroundColor:
@@ -9628,22 +9639,22 @@ void _showLogoutDialog() {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: const [
+          Row(children: [
             Icon(Icons.report_problem_outlined, color: Colors.amber),
             SizedBox(width: 8),
-            Text('User 確認操作', style: TextStyle(fontWeight: FontWeight.bold))
+            Text(tr('agent_user_confirm'), style: TextStyle(fontWeight: FontWeight.bold))
           ]),
           const SizedBox(height: 12),
-          Text('📌 項目：${data['title']}', style: const TextStyle(fontSize: 15)),
-          Text('⏰ 時間：${data['time']}', style: const TextStyle(fontSize: 15)),
+          Text(tr('agent_item_fmt', [(data['title']).toString()]), style: const TextStyle(fontSize: 15)),
+          Text(tr('agent_time_fmt', [(data['time']).toString()]), style: const TextStyle(fontSize: 15)),
           const SizedBox(height: 18),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               TextButton(
                   onPressed: () => setModalState(() => chatLogs
-                      .add({'isAI': true, 'text': '好的，已取消。', 'isCard': false})),
-                  child: Text('取消', style: TextStyle(color: Colors.redAccent))),
+                      .add({'isAI': true, 'text': tr('agent_cancelled_short'), 'isCard': false})),
+                  child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.redAccent))),
               ElevatedButton(
                   style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).primaryColor,
@@ -9651,9 +9662,9 @@ void _showLogoutDialog() {
                   onPressed: () {
                     _addSchedule(data['time'], data['title'], data['color']);
                     setModalState(() => chatLogs.add(
-                        {'isAI': true, 'text': '✅ 已加入行程！', 'isCard': false}));
+                        {'isAI': true, 'text': tr('agent_event_added_short'), 'isCard': false}));
                   },
-                  child: const Text('確認加入'))
+                  child: Text(tr('common_confirm_add')))
             ],
           )
         ],
@@ -9711,7 +9722,7 @@ void _showLogoutDialog() {
                   color: Theme.of(context).primaryColor, size: 18),
               const SizedBox(width: 10),
               Text(
-                '去社群 / 加行程...',
+                tr('agent_bar_hint'),
                 style: TextStyle(
                   color: _isDarkMode ? Colors.white60 : Colors.grey,
                   fontSize: 14,
@@ -9777,7 +9788,7 @@ void _showLogoutDialog() {
                         child: Row(
                           children: [
                             Text(
-                              "${_selectedDate.year}年${_selectedDate.month}月${_selectedDate.day}日",
+                              tr('date_ymd', [_selectedDate.year.toString(), _selectedDate.month.toString(), _selectedDate.day.toString()]),
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -9803,7 +9814,7 @@ void _showLogoutDialog() {
                               icon: Icon(Icons.expand_more_rounded,
                                   size: 16, color: primaryColor),
                               label: Text(
-                                "展開月曆",
+                                tr('cal_expand_month'),
                                 style: TextStyle(
                                     color: primaryColor,
                                     fontSize: 12,
@@ -10086,7 +10097,7 @@ void _showLogoutDialog() {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Row(
-                      children: ['一', '二', '三', '四', '五', '六', '日']
+                      children: [tr('mon'), tr('tue'), tr('wed'), tr('thu'), tr('fri'), tr('sat'), tr('sun')]
                           .map((d) => Expanded(
                               child: Center(
                                   child: Text(d,
@@ -10452,7 +10463,7 @@ void _showLogoutDialog() {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Row(
-                    children: ['一', '二', '三', '四', '五', '六', '日']
+                    children: [tr('mon'), tr('tue'), tr('wed'), tr('thu'), tr('fri'), tr('sat'), tr('sun')]
                         .map((d) => Expanded(
                             child: Center(
                                 child: Text(d,
@@ -10672,8 +10683,8 @@ void _showLogoutDialog() {
   Widget _buildFreeTimeItem(String timeRange, int minutes) {
     final hr = minutes ~/ 60;
     final min = minutes % 60;
-    String durationStr = hr > 0 ? '$hr小時' : '';
-    if (min > 0 || hr == 0) durationStr += '$min分鐘';
+    String durationStr = hr > 0 ? tr('dur_hours', [hr.toString()]) : '';
+    if (min > 0 || hr == 0) durationStr += tr('dur_minutes', [min.toString()]);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -10721,7 +10732,7 @@ void _showLogoutDialog() {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                '空閒時間 ($durationStr)',
+                tr('cal_free_time_dur', [durationStr.toString()]),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -10807,7 +10818,7 @@ void _showLogoutDialog() {
                                 color: primaryColor, size: 28),
                             const SizedBox(width: 10),
                             Text(
-                              '今日日記',
+                              tr('diary_today'),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -10824,7 +10835,7 @@ void _showLogoutDialog() {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  '儲存中...',
+                                  tr('common_saving'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -10842,7 +10853,7 @@ void _showLogoutDialog() {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  '已自動儲存',
+                                  tr('diary_autosaved'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -10870,7 +10881,7 @@ void _showLogoutDialog() {
                                   ),
                                   decoration: InputDecoration(
                                     hintText:
-                                        '今天過得怎麼樣？記錄下你的心情、學習心得或生活點滴吧...',
+                                        tr('diary_hint'),
                                     hintStyle: TextStyle(
                                       fontSize: 14,
                                       color: isDark
@@ -10903,7 +10914,7 @@ void _showLogoutDialog() {
                                         : Colors.black54,
                                   ),
                                   decoration: InputDecoration(
-                                    hintText: '今天尚未寫日記...',
+                                    hintText: tr('diary_empty_hint'),
                                     hintStyle: TextStyle(
                                       fontSize: 14,
                                       color: isDark
@@ -10965,7 +10976,7 @@ void _showLogoutDialog() {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
-                                          'AI 導師思考分析中...',
+                                          tr('diary_ai_thinking'),
                                           style: TextStyle(
                                             fontSize: 13,
                                             color: isDark
@@ -11000,7 +11011,7 @@ void _showLogoutDialog() {
                                                     color: primaryColor),
                                                 const SizedBox(width: 4),
                                                 Text(
-                                                  '重新生成',
+                                                  tr('common_regenerate'),
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     color: primaryColor,
@@ -11019,7 +11030,7 @@ void _showLogoutDialog() {
                                   SelectableText(
                                     aiAdvice.isNotEmpty
                                         ? aiAdvice
-                                        : '尚未生成 AI 回饋，請點擊下方的「AI回饋」按鈕。',
+                                        : tr('diary_ai_none'),
                                     style: TextStyle(
                                       fontSize: 14,
                                       height: 1.6,
@@ -11042,7 +11053,7 @@ void _showLogoutDialog() {
                             OutlinedButton.icon(
                               icon: Icon(Icons.auto_awesome_rounded,
                                   size: 16, color: primaryColor),
-                              label: Text('AI回饋',
+                              label: Text(tr('diary_ai_btn'),
                                   style: TextStyle(
                                       color: primaryColor,
                                       fontWeight: FontWeight.bold)),
@@ -11075,7 +11086,7 @@ void _showLogoutDialog() {
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.delete_outline_rounded,
                                     size: 16),
-                                label: const Text('刪除'),
+                                label: Text(tr('common_delete')),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.redAccent,
                                   side: BorderSide(
@@ -11091,13 +11102,13 @@ void _showLogoutDialog() {
                                   showDialog(
                                     context: context,
                                     builder: (confirmCtx) => AlertDialog(
-                                      title: const Text('刪除'),
-                                      content: const Text('確定要刪除今天的日記紀錄嗎？'),
+                                      title: Text(tr('common_delete')),
+                                      content: Text(tr('diary_delete_confirm')),
                                       actions: [
                                         TextButton(
                                           onPressed: () =>
                                               Navigator.pop(confirmCtx),
-                                          child: const Text('取消'),
+                                          child: Text(tr('btn_cancel')),
                                         ),
                                         ElevatedButton(
                                           style: ElevatedButton.styleFrom(
@@ -11108,7 +11119,7 @@ void _showLogoutDialog() {
                                             Navigator.pop(confirmCtx);
                                             _deleteDiaryForToday();
                                           },
-                                          child: const Text('確定刪除'),
+                                          child: Text(tr('common_confirm_delete')),
                                         ),
                                       ],
                                     ),
@@ -11133,19 +11144,19 @@ void _showLogoutDialog() {
   String _getWeekdayName(int weekday) {
     switch (weekday) {
       case 1:
-        return '星期一';
+        return tr('wd_full_1');
       case 2:
-        return '星期二';
+        return tr('wd_full_2');
       case 3:
-        return '星期三';
+        return tr('wd_full_3');
       case 4:
-        return '星期四';
+        return tr('wd_full_4');
       case 5:
-        return '星期五';
+        return tr('wd_full_5');
       case 6:
-        return '星期六';
+        return tr('wd_full_6');
       case 7:
-        return '星期日';
+        return tr('wd_full_7');
       default:
         return '';
     }
@@ -11191,13 +11202,13 @@ void _showLogoutDialog() {
           Padding(
             padding: EdgeInsets.only(top: 40),
             child: Center(
-              child: Text('目前沒有待辦事項', style: TextStyle(color: Colors.grey)),
+              child: Text(tr('todo_none'), style: TextStyle(color: Colors.grey)),
             ),
           ),
         if (uncompleted.isNotEmpty) ...[
           Padding(
             padding: EdgeInsets.only(top: 8, bottom: 8),
-            child: Text('待辦中',
+            child: Text(tr('todo_pending'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -11208,7 +11219,7 @@ void _showLogoutDialog() {
         if (completed.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text('${targetDate.month}/${targetDate.day} 已完成',
+            child: Text(tr('todo_done_on', [targetDate.month.toString(), targetDate.day.toString()]),
                 style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -11326,13 +11337,13 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('管理待辦事項'),
+        title: Text(tr('todo_manage')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: editCtrl,
-              decoration: const InputDecoration(labelText: '內容'),
+              decoration: InputDecoration(labelText: tr('common_content')),
             ),
           ],
         ),
@@ -11343,12 +11354,12 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
               showDialog(
                 context: context,
                 builder: (confirmCtx) => AlertDialog(
-                  title: const Text('刪除待辦事項'),
-                  content: Text('確定要刪除「${item['title']}」嗎？'),
+                  title: Text(tr('todo_delete_title')),
+                  content: Text(tr('confirm_delete_item', [(item['title']).toString()])),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(confirmCtx),
-                        child: const Text('取消')),
+                        child: Text(tr('btn_cancel'))),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.redAccent,
@@ -11357,17 +11368,17 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                         Navigator.pop(confirmCtx);
                         _deleteTodo(item['id']);
                       },
-                      child: const Text('確定刪除'),
+                      child: Text(tr('common_confirm_delete')),
                     ),
                   ],
                 ),
               );
             },
-            child: const Text('刪除', style: TextStyle(color: Colors.redAccent)),
+            child: Text(tr('common_delete'), style: TextStyle(color: Colors.redAccent)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           ElevatedButton(
             onPressed: () {
@@ -11376,7 +11387,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('儲存'),
+            child: Text(tr('btn_save')),
           ),
         ],
       ),
@@ -11407,7 +11418,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
         _getMorandiScheduleColor(event['color'] as int? ?? 0xFFD87A7A);
 
     final String timeText = (event['time'] ?? '').toString();
-    final String titleText = (event['title'] ?? '未命名行程').toString();
+    final String titleText = (event['title'] ?? tr('event_unnamed')).toString();
 
     return GestureDetector(
         onTap: () => _showEditScheduleDialog(event),
@@ -11415,12 +11426,12 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
           showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                      title: const Text('刪除行程'),
-                      content: Text('確定要刪除「$titleText」嗎？'),
+                      title: Text(tr('event_delete_title')),
+                      content: Text(tr('confirm_delete_title_text', [titleText.toString()])),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('取消')),
+                            child: Text(tr('btn_cancel'))),
                         ElevatedButton(
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.redAccent,
@@ -11429,7 +11440,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                               Navigator.pop(ctx);
                               _deleteSchedule(event['id']);
                             },
-                            child: const Text('確定刪除'))
+                            child: Text(tr('common_confirm_delete')))
                       ]));
         },
         child: Container(
@@ -11621,8 +11632,8 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                   color: primaryColor, size: 22),
             ),
             const SizedBox(width: 12),
-            const Text(
-              '編輯行程',
+            Text(
+              tr('event_edit'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ],
@@ -11641,8 +11652,8 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 15),
                     decoration: InputDecoration(
-                      labelText: '行程標題',
-                      hintText: '輸入行程標題...',
+                      labelText: tr('event_title_label'),
+                      hintText: tr('event_title_hint'),
                       hintStyle: TextStyle(
                           color: Colors.grey.shade400, fontSize: 13),
                       filled: true,
@@ -11675,8 +11686,8 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        '選擇顏色標籤',
+                      Text(
+                        tr('event_color_label'),
                         style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -11703,7 +11714,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                showCustomColorPicker ? '收起調色盤' : '自訂調色盤',
+                                showCustomColorPicker ? tr('event_palette_hide') : tr('event_palette_custom'),
                                 style: TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w600,
@@ -11862,8 +11873,8 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
 
                   // ── 行程日期與區間 ──
                   if (!isMultiDay) ...[
-                    const Text(
-                      '行程日期',
+                    Text(
+                      tr('event_date'),
                       style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -11877,7 +11888,6 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                           initialDate: pickedStartDate,
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2030),
-                          locale: const Locale('zh', 'TW'),
                         );
                         if (picked != null) {
                           setDialogState(() {
@@ -11914,8 +11924,8 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                       ),
                     ),
                   ] else ...[
-                    const Text(
-                      '行程日期區間',
+                    Text(
+                      tr('event_date_range'),
                       style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -11932,7 +11942,6 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                                 initialDate: pickedStartDate,
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime(2030),
-                                locale: const Locale('zh', 'TW'),
                               );
                               if (picked != null) {
                                 setDialogState(() {
@@ -11973,9 +11982,9 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                             ),
                           ),
                         ),
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text('至',
+                          child: Text(tr('date_to'),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -11989,7 +11998,6 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                                 initialDate: pickedEndDate,
                                 firstDate: pickedStartDate,
                                 lastDate: DateTime(2030),
-                                locale: const Locale('zh', 'TW'),
                               );
                               if (picked != null) {
                                 setDialogState(() {
@@ -12033,8 +12041,8 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                   const SizedBox(height: 14),
 
                   // ── 行程時間 ──
-                  const Text(
-                    '行程時間',
+                  Text(
+                    tr('event_time'),
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
@@ -12123,7 +12131,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                   // ── 跨日行程切換 ──
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('跨日行程',
+                    title: Text(tr('event_multi_day'),
                         style: TextStyle(
                             fontSize: 13.5, fontWeight: FontWeight.w600)),
                     value: isMultiDay,
@@ -12139,7 +12147,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                   ),
 
                   // ── 重複設定 ──
-                  const Text('重複設定',
+                  Text(tr('event_repeat'),
                       style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -12164,23 +12172,23 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                             color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                           value: 'none',
                           child:
-                              Text('不重複', style: TextStyle(fontSize: 13))),
+                              Text(tr('event_repeat_none'), style: TextStyle(fontSize: 13))),
                       DropdownMenuItem(
                           value: 'daily',
                           child:
-                              Text('每天重複', style: TextStyle(fontSize: 13))),
+                              Text(tr('event_repeat_daily'), style: TextStyle(fontSize: 13))),
                       DropdownMenuItem(
                           value: 'weekly',
                           child:
-                              Text('每週重複', style: TextStyle(fontSize: 13))),
+                              Text(tr('event_repeat_weekly'), style: TextStyle(fontSize: 13))),
                       DropdownMenuItem(
                           value: 'yearly',
                           child:
-                              Text('每年重複', style: TextStyle(fontSize: 13))),
+                              Text(tr('event_repeat_yearly'), style: TextStyle(fontSize: 13))),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -12197,7 +12205,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                   ),
                   if (selectedRecurrenceType == 'weekly') ...[
                     const SizedBox(height: 10),
-                    const Text('重複星期 (可多選)',
+                    Text(tr('event_repeat_days'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 6),
@@ -12206,7 +12214,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                       children: List.generate(7, (index) {
                         int weekday = index + 1;
                         String weekdayLabel =
-                            ['一', '二', '三', '四', '五', '六', '日'][index];
+                            [tr('mon'), tr('tue'), tr('wed'), tr('thu'), tr('fri'), tr('sat'), tr('sun')][index];
                         bool isSelected =
                             selectedWeekdays.contains(weekday);
                         return GestureDetector(
@@ -12248,7 +12256,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                   ],
                   if (selectedRecurrenceType != 'none') ...[
                     const SizedBox(height: 12),
-                    const Text('結束重複',
+                    Text(tr('event_repeat_end'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 6),
@@ -12271,14 +12279,14 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                               color: Colors.grey.withValues(alpha: 0.2)),
                         ),
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                             value: 'never',
-                            child: Text('一直重複下去',
+                            child: Text(tr('event_repeat_forever'),
                                 style: TextStyle(fontSize: 13))),
                         DropdownMenuItem(
                             value: 'date',
-                            child: Text('重複到指定日期',
+                            child: Text(tr('event_repeat_until'),
                                 style: TextStyle(fontSize: 13))),
                       ],
                       onChanged: (val) {
@@ -12305,7 +12313,6 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                             initialDate: pickedRecurrenceEnd!,
                             firstDate: pickedStartDate,
                             lastDate: DateTime(2040),
-                            locale: const Locale('zh', 'TW'),
                           );
                           if (picked != null) {
                             setDialogState(() {
@@ -12348,12 +12355,12 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                 builder: (confirmCtx) => AlertDialog(
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
-                  title: const Text('刪除行程'),
-                  content: Text('確定要刪除「${event['title']}」嗎？'),
+                  title: Text(tr('event_delete_title')),
+                  content: Text(tr('confirm_delete_event_title', [(event['title']).toString()])),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(confirmCtx),
-                      child: const Text('取消'),
+                      child: Text(tr('btn_cancel')),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -12366,13 +12373,13 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                         Navigator.pop(confirmCtx);
                         _deleteSchedule(event['id']);
                       },
-                      child: const Text('確定刪除'),
+                      child: Text(tr('common_confirm_delete')),
                     ),
                   ],
                 ),
               );
             },
-            child: const Text('刪除',
+            child: Text(tr('common_delete'),
                 style: TextStyle(
                     color: Colors.redAccent, fontWeight: FontWeight.w600)),
           ),
@@ -12386,7 +12393,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -12428,7 +12435,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
               );
               Navigator.pop(ctx);
             },
-            child: const Text('儲存變更',
+            child: Text(tr('common_save_changes'),
                 style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
@@ -12455,12 +12462,12 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
     switch (goal) {
       case 'school':
         icon = Icons.edit_note_rounded;
-        tagText = isSolo ? '專屬建議 · 個人沉浸筆記' : '專屬建議 · 段考與觀念鞏固';
-        actionTitle = '單元概念梳理';
+        tagText = isSolo ? tr('sugg_tag_solo_notes') : tr('sugg_tag_exam_concept');
+        actionTitle = tr('sugg_concept_title');
         actionDesc = hasStuckPain
-            ? '先整理章節筆記或心智圖，配合 AI 解題攻克盲點'
-            : '建議先整理章節筆記或心智圖，攻克核心觀念';
-        buttonText = '前往筆記';
+            ? tr('sugg_concept_desc_stuck')
+            : tr('sugg_concept_desc');
+        buttonText = tr('sugg_goto_notes');
         onAction = () {
           setState(() {
             _currentIndex = 5;
@@ -12470,10 +12477,10 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
         break;
       case 'tech':
         icon = Icons.explore_outlined;
-        tagText = '專屬建議 · 科技與跨域探索';
-        actionTitle = '科技社群精選';
-        actionDesc = '前往 AI 與科技專屬主題，查看同儕筆記與討論';
-        buttonText = '前往社群';
+        tagText = tr('sugg_tag_tech');
+        actionTitle = tr('sugg_tech_title');
+        actionDesc = tr('sugg_tech_desc');
+        buttonText = tr('sugg_goto_social');
         onAction = () {
           setState(() {
             _currentIndex = 2;
@@ -12483,10 +12490,10 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
         break;
       case 'daily':
         icon = Icons.calendar_today_outlined;
-        tagText = isSolo ? '專屬建議 · 個人專注日程' : '專屬建議 · 日常自律打卡';
-        actionTitle = '規劃讀書節奏';
-        actionDesc = '點擊對話列輸入「幫我排今天行程」，AI 自動排程';
-        buttonText = '一鍵排程';
+        tagText = isSolo ? tr('sugg_tag_solo_sched') : tr('sugg_tag_daily');
+        actionTitle = tr('sugg_sched_title');
+        actionDesc = tr('sugg_sched_desc');
+        buttonText = tr('sugg_sched_btn');
         onAction = () {
           _openChatModal();
         };
@@ -12494,12 +12501,12 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
       case 'exam':
       default:
         icon = Icons.quiz_outlined;
-        tagText = '專屬建議 · 升學大考衝刺';
-        actionTitle = '大考弱點快篩';
+        tagText = tr('sugg_tag_exam');
+        actionTitle = tr('sugg_exam_title');
         actionDesc = hasStuckPain
-            ? '先做 1 次 10 題快篩測驗，AI 伴學即時引導破題盲點'
-            : '建議先做 1 次 10 題快篩測驗，快速定位盲點';
-        buttonText = '開始測驗';
+            ? tr('sugg_exam_desc_stuck')
+            : tr('sugg_exam_desc');
+        buttonText = tr('sugg_start_quiz');
         onAction = () {
           setState(() {
             _currentIndex = 1;
@@ -12554,7 +12561,7 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$actionTitle：$actionDesc',
+                  tr('sugg_title_desc', [actionTitle.toString(), actionDesc.toString()]),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -12659,8 +12666,8 @@ void _showAddTodoDialog() {
                   color: primaryColor, size: 22),
             ),
             const SizedBox(width: 12),
-            const Text(
-              '手動新增待辦',
+            Text(
+              tr('todo_manual_add'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ],
@@ -12670,8 +12677,8 @@ void _showAddTodoDialog() {
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           autofocus: true,
           decoration: InputDecoration(
-            labelText: '待辦內容',
-            hintText: '輸入待辦項目（例：背誦單字 Unit 3）...',
+            labelText: tr('todo_content_label'),
+            hintText: tr('todo_content_hint'),
             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
             filled: true,
             fillColor: isDark ? Colors.white10 : const Color(0xFFF8FAFC),
@@ -12705,7 +12712,7 @@ void _showAddTodoDialog() {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -12723,7 +12730,7 @@ void _showAddTodoDialog() {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('確認加入',
+            child: Text(tr('common_confirm_add'),
                 style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
@@ -12840,8 +12847,8 @@ void _showAddTodoDialog() {
                   color: primaryColor, size: 22),
             ),
             const SizedBox(width: 12),
-            const Text(
-              '手動新增行程',
+            Text(
+              tr('event_manual_add'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ],
@@ -12860,8 +12867,8 @@ void _showAddTodoDialog() {
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 15),
                     decoration: InputDecoration(
-                      labelText: '行程標題',
-                      hintText: '輸入行程標題（例：專案進度討論）...',
+                      labelText: tr('event_title_label'),
+                      hintText: tr('event_title_hint2'),
                       hintStyle: TextStyle(
                           color: Colors.grey.shade400, fontSize: 13),
                       filled: true,
@@ -12894,8 +12901,8 @@ void _showAddTodoDialog() {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        '選擇顏色標籤',
+                      Text(
+                        tr('event_color_label'),
                         style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -12922,7 +12929,7 @@ void _showAddTodoDialog() {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                showCustomColorPicker ? '收起調色盤' : '自訂調色盤',
+                                showCustomColorPicker ? tr('event_palette_hide') : tr('event_palette_custom'),
                                 style: TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w600,
@@ -13080,8 +13087,8 @@ void _showAddTodoDialog() {
 
                   // ── 行程日期 ──
                   if (!isMultiDay) ...[
-                    const Text(
-                      '行程日期',
+                    Text(
+                      tr('event_date'),
                       style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -13095,7 +13102,6 @@ void _showAddTodoDialog() {
                           initialDate: pickedStartDate,
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2030),
-                          locale: const Locale('zh', 'TW'),
                         );
                         if (picked != null) {
                           setDialogState(() {
@@ -13132,8 +13138,8 @@ void _showAddTodoDialog() {
                       ),
                     ),
                   ] else ...[
-                    const Text(
-                      '行程日期區間',
+                    Text(
+                      tr('event_date_range'),
                       style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -13150,7 +13156,6 @@ void _showAddTodoDialog() {
                                 initialDate: pickedStartDate,
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime(2030),
-                                locale: const Locale('zh', 'TW'),
                               );
                               if (picked != null) {
                                 setDialogState(() {
@@ -13191,9 +13196,9 @@ void _showAddTodoDialog() {
                             ),
                           ),
                         ),
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text('至',
+                          child: Text(tr('date_to'),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -13207,7 +13212,6 @@ void _showAddTodoDialog() {
                                 initialDate: pickedEndDate,
                                 firstDate: pickedStartDate,
                                 lastDate: DateTime(2030),
-                                locale: const Locale('zh', 'TW'),
                               );
                               if (picked != null) {
                                 setDialogState(() {
@@ -13251,8 +13255,8 @@ void _showAddTodoDialog() {
                   const SizedBox(height: 14),
 
                   // ── 行程時間 ──
-                  const Text(
-                    '行程時間',
+                  Text(
+                    tr('event_time'),
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
@@ -13341,7 +13345,7 @@ void _showAddTodoDialog() {
                   // ── 跨日行程切換 ──
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('跨日行程',
+                    title: Text(tr('event_multi_day'),
                         style: TextStyle(
                             fontSize: 13.5, fontWeight: FontWeight.w600)),
                     value: isMultiDay,
@@ -13357,7 +13361,7 @@ void _showAddTodoDialog() {
                   ),
 
                   // ── 重複設定 ──
-                  const Text('重複設定',
+                  Text(tr('event_repeat'),
                       style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -13382,23 +13386,23 @@ void _showAddTodoDialog() {
                             color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                           value: 'none',
                           child:
-                              Text('不重複', style: TextStyle(fontSize: 13))),
+                              Text(tr('event_repeat_none'), style: TextStyle(fontSize: 13))),
                       DropdownMenuItem(
                           value: 'daily',
                           child:
-                              Text('每天重複', style: TextStyle(fontSize: 13))),
+                              Text(tr('event_repeat_daily'), style: TextStyle(fontSize: 13))),
                       DropdownMenuItem(
                           value: 'weekly',
                           child:
-                              Text('每週重複', style: TextStyle(fontSize: 13))),
+                              Text(tr('event_repeat_weekly'), style: TextStyle(fontSize: 13))),
                       DropdownMenuItem(
                           value: 'yearly',
                           child:
-                              Text('每年重複', style: TextStyle(fontSize: 13))),
+                              Text(tr('event_repeat_yearly'), style: TextStyle(fontSize: 13))),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -13415,7 +13419,7 @@ void _showAddTodoDialog() {
                   ),
                   if (selectedRecurrenceType == 'weekly') ...[
                     const SizedBox(height: 10),
-                    const Text('重複星期 (可多選)',
+                    Text(tr('event_repeat_days'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 6),
@@ -13424,7 +13428,7 @@ void _showAddTodoDialog() {
                       children: List.generate(7, (index) {
                         int weekday = index + 1;
                         String weekdayLabel =
-                            ['一', '二', '三', '四', '五', '六', '日'][index];
+                            [tr('mon'), tr('tue'), tr('wed'), tr('thu'), tr('fri'), tr('sat'), tr('sun')][index];
                         bool isSelected =
                             selectedWeekdays.contains(weekday);
                         return GestureDetector(
@@ -13466,7 +13470,7 @@ void _showAddTodoDialog() {
                   ],
                   if (selectedRecurrenceType != 'none') ...[
                     const SizedBox(height: 12),
-                    const Text('結束重複',
+                    Text(tr('event_repeat_end'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 6),
@@ -13489,14 +13493,14 @@ void _showAddTodoDialog() {
                               color: Colors.grey.withValues(alpha: 0.2)),
                         ),
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                             value: 'never',
-                            child: Text('一直重複下去',
+                            child: Text(tr('event_repeat_forever'),
                                 style: TextStyle(fontSize: 13))),
                         DropdownMenuItem(
                             value: 'date',
-                            child: Text('重複到指定日期',
+                            child: Text(tr('event_repeat_until'),
                                 style: TextStyle(fontSize: 13))),
                       ],
                       onChanged: (val) {
@@ -13523,7 +13527,6 @@ void _showAddTodoDialog() {
                             initialDate: pickedRecurrenceEnd!,
                             firstDate: pickedStartDate,
                             lastDate: DateTime(2040),
-                            locale: const Locale('zh', 'TW'),
                           );
                           if (picked != null) {
                             setDialogState(() {
@@ -13568,7 +13571,7 @@ void _showAddTodoDialog() {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -13609,7 +13612,7 @@ void _showAddTodoDialog() {
               );
               Navigator.pop(ctx);
             },
-            child: const Text('確認加入',
+            child: Text(tr('common_confirm_add'),
                 style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
@@ -13628,13 +13631,13 @@ void _showAddTodoDialog() {
         context: context,
         builder: (ctx) => StatefulBuilder(builder: (context, setDialogState) {
               return AlertDialog(
-                title: const Text('編輯貼文', style: TextStyle(fontSize: 16)),
+                title: Text(tr('post_edit_title'), style: TextStyle(fontSize: 16)),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('貼文類型',
+                      Text(tr('post_type_label'),
                           style: TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(height: 8),
                       SingleChildScrollView(
@@ -13642,28 +13645,28 @@ void _showAddTodoDialog() {
                         child: Row(
                           children: [
                             _buildEditTypeChip(
-                                '📝  學習筆記',
+                                tr('post_chip_note'),
                                 'note',
                                 selectedType,
                                 (val) =>
                                     setDialogState(() => selectedType = val)),
                             const SizedBox(width: 8),
                             _buildEditTypeChip(
-                                '💭  心情文章',
+                                tr('post_chip_mood'),
                                 'mood',
                                 selectedType,
                                 (val) =>
                                     setDialogState(() => selectedType = val)),
                             const SizedBox(width: 8),
                             _buildEditTypeChip(
-                                '📄  分享資料',
+                                tr('post_chip_doc'),
                                 'doc',
                                 selectedType,
                                 (val) =>
                                     setDialogState(() => selectedType = val)),
                             const SizedBox(width: 8),
                             _buildEditTypeChip(
-                                '💬  一般貼文',
+                                tr('post_chip_general'),
                                 'text',
                                 selectedType,
                                 (val) =>
@@ -13672,16 +13675,16 @@ void _showAddTodoDialog() {
                         ),
                       ),
                       const SizedBox(height: 15),
-                      const Text('內容',
+                      Text(tr('common_content'),
                           style: TextStyle(fontSize: 12, color: Colors.grey)),
                       TextField(
                         controller: controller,
                         maxLines: null,
                         decoration:
-                            const InputDecoration(hintText: '修改貼文內容...'),
+                            InputDecoration(hintText: tr('post_content_edit_hint')),
                       ),
                       const SizedBox(height: 15),
-                      const Text('圖片',
+                      Text(tr('common_image'),
                           style: TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(height: 8),
                       if (currentImageBlob != null)
@@ -13739,7 +13742,7 @@ void _showAddTodoDialog() {
                             }
                           },
                           icon: Icon(Icons.add_a_photo, size: 18),
-                          label: Text('新增圖片'),
+                          label: Text(tr('common_add_image')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Theme.of(context).primaryColor,
                             side: BorderSide(
@@ -13752,7 +13755,7 @@ void _showAddTodoDialog() {
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('取消',
+                      child: Text(tr('btn_cancel'),
                           style: TextStyle(color: Colors.grey))),
                   TextButton(
                       onPressed: () {
@@ -13767,7 +13770,7 @@ void _showAddTodoDialog() {
                           'imageChanged': imageChanged,
                         });
                       },
-                      child: Text('儲存',
+                      child: Text(tr('btn_save'),
                           style: TextStyle(
                               color: Theme.of(context).primaryColor))),
                 ],
@@ -13848,17 +13851,17 @@ void _showAddTodoDialog() {
       confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-                title: const Text('刪除貼文', style: TextStyle(fontSize: 16)),
-                content: const Text('確定要刪除這篇貼文嗎？刪除後無法復原。'),
+                title: Text(tr('post_delete_title'), style: TextStyle(fontSize: 16)),
+                content: Text(tr('post_delete_msg')),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('取消',
+                      child: Text(tr('btn_cancel'),
                           style: TextStyle(color: Colors.grey))),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
                       child:
-                          const Text('刪除', style: TextStyle(color: Colors.red))),
+                          Text(tr('common_delete'), style: TextStyle(color: Colors.red))),
                 ],
               ));
     } catch (e) {
@@ -13876,14 +13879,14 @@ void _showAddTodoDialog() {
         await _loadData();
         if (mounted) {
           ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('貼文已刪除')),
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('post_deleted'))),
           );
         }
       } catch (e) {
         debugPrint('刪除貼文失敗: $e');
         if (mounted) {
           ScaffoldMessenger.maybeOf(context)?..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('刪除失敗，請稍後再試')),
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('common_delete_failed'))),
           );
         }
       }
@@ -13912,14 +13915,14 @@ void _showAddTodoDialog() {
           await _saveAvatar(blob: croppedBytes, colorIdx: _userAvatarColor);
           if (mounted) {
             ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('頭像可視範圍已更新並儲存')));
+                .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('avatar_crop_saved'))));
           }
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('選取圖片失敗，請再試一次')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('image_pick_failed'))));
       }
     }
   }
@@ -13951,8 +13954,8 @@ void _showAddTodoDialog() {
         if (mounted) {
           ScaffoldMessenger.of(context)
             ..clearSnackBars()
-            ..showSnackBar(const SnackBar(
-              content: Text('✅ 頭像已更新！'),
+            ..showSnackBar(SnackBar(
+              content: Text(tr('avatar_updated_ok')),
               duration: Duration(milliseconds: 1200),
             ));
         }
@@ -13961,7 +13964,7 @@ void _showAddTodoDialog() {
       debugPrint('儲存頭像失敗: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('頭像儲存失敗，請再試一次')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('avatar_save_failed'))));
       }
     }
   }
@@ -14001,23 +14004,23 @@ void _showAddTodoDialog() {
                       borderRadius: BorderRadius.circular(2)),
                 ),
                 if (!showPresets) ...[
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(20, 8, 20, 20),
                     child: Column(
                       children: [
-                        Text('更新大頭貼',
+                        Text(tr('avatar_update_title'),
                             style: TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                         SizedBox(height: 4),
-                        Text('選擇你喜歡的方式展現個人風格',
+                        Text(tr('avatar_update_sub'),
                             style: TextStyle(fontSize: 12, color: Colors.grey)),
                       ],
                     ),
                   ),
                   _buildPickerOption(
                     icon: Icons.photo_library_rounded,
-                    label: '從相簿選擇',
-                    subtitle: '選取你裝置中的精彩圖片',
+                    label: tr('avatar_from_gallery'),
+                    subtitle: tr('avatar_from_gallery_sub'),
                     onTap: () {
                       Navigator.pop(ctx);
                       _pickAvatarFromLocal();
@@ -14025,8 +14028,8 @@ void _showAddTodoDialog() {
                   ),
                   _buildPickerOption(
                     icon: Icons.camera_alt_rounded,
-                    label: '拍照',
-                    subtitle: '立即捕捉最真實的瞬間',
+                    label: tr('avatar_camera'),
+                    subtitle: tr('avatar_camera_sub'),
                     onTap: () async {
                       Navigator.pop(ctx);
                       final ImagePicker picker = ImagePicker();
@@ -14042,15 +14045,15 @@ void _showAddTodoDialog() {
                             colorIdx: _userAvatarColor, blob: bytes);
                         if (mounted) {
                           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('頭像已更新')));
+                              SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('avatar_updated'))));
                         }
                       }
                     },
                   ),
                   _buildPickerOption(
                     icon: Icons.face_rounded,
-                    label: '使用內建插圖',
-                    subtitle: '選擇可愛的預設角色與表情',
+                    label: tr('avatar_builtin'),
+                    subtitle: tr('avatar_builtin_sub'),
                     onTap: () {
                       setSheet(() => showPresets = true);
                     },
@@ -14065,7 +14068,7 @@ void _showAddTodoDialog() {
                           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
                           onPressed: () => setSheet(() => showPresets = false),
                         ),
-                        const Text('選擇內建插圖',
+                        Text(tr('avatar_builtin_title'),
                             style: TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                       ],
@@ -14093,7 +14096,7 @@ void _showAddTodoDialog() {
                               ScaffoldMessenger.of(context)
                                   .hideCurrentSnackBar();
                               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('頭像已更新')));
+                                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('avatar_updated'))));
                             }
                           },
                           child: Column(
@@ -14152,12 +14155,12 @@ void _showAddTodoDialog() {
     final controller = TextEditingController(text: _userBio ?? '');
     const int maxBioLength = 150;
     final List<String> bioPresets = [
-      '🎯 專注備考衝刺中，全力以赴！',
-      '📚 每天進步一點點，堅持就是勝利',
-      '💻 熱愛科技與程式設計，持續探索',
-      '🔥 自律帶來自由，每日學習打卡',
-      '✨ 保持好奇心，享受解題與成長',
-      '🌟 踏實走好每一步，追求卓越',
+      tr('bio_preset_1'),
+      tr('bio_preset_2'),
+      tr('bio_preset_3'),
+      tr('bio_preset_4'),
+      tr('bio_preset_5'),
+      tr('bio_preset_6'),
     ];
 
     showDialog(
@@ -14212,7 +14215,7 @@ void _showAddTodoDialog() {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '編輯個人簡介',
+                                tr('bio_edit_title'),
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -14221,7 +14224,7 @@ void _showAddTodoDialog() {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '展現你的學習態度與個人特色',
+                                tr('bio_edit_sub'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: isDark
@@ -14237,7 +14240,7 @@ void _showAddTodoDialog() {
                               color: isDark ? Colors.white54 : Colors.grey,
                               size: 20),
                           onPressed: () => Navigator.pop(ctx),
-                          tooltip: '關閉',
+                          tooltip: tr('btn_close'),
                         ),
                       ],
                     ),
@@ -14278,7 +14281,7 @@ void _showAddTodoDialog() {
                             decoration: InputDecoration(
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
-                              hintText: '介紹一下自己吧！寫下你的學習目標、座右銘或興趣領域...',
+                              hintText: tr('bio_hint'),
                               hintStyle: TextStyle(
                                 fontSize: 13.5,
                                 color: isDark
@@ -14305,7 +14308,7 @@ void _showAddTodoDialog() {
                                           color: Colors.grey.shade500),
                                       const SizedBox(width: 2),
                                       Text(
-                                        '清空',
+                                        tr('common_clear'),
                                         style: TextStyle(
                                             fontSize: 11,
                                             color: Colors.grey.shade500),
@@ -14341,7 +14344,7 @@ void _showAddTodoDialog() {
                             size: 15, color: primary),
                         const SizedBox(width: 6),
                         Text(
-                          '靈感推薦 (點擊快速填入)',
+                          tr('bio_inspire'),
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -14405,7 +14408,7 @@ void _showAddTodoDialog() {
                             ),
                             onPressed: () => Navigator.pop(ctx),
                             child: Text(
-                              '取消',
+                              tr('btn_cancel'),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: isDark
@@ -14433,14 +14436,14 @@ void _showAddTodoDialog() {
                               Navigator.pop(ctx);
                               await _updateBio(newBio);
                             },
-                            child: const Row(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(Icons.check_rounded,
                                     size: 18, color: Colors.white),
                                 SizedBox(width: 6),
                                 Text(
-                                  '儲存簡介',
+                                  tr('bio_save'),
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -14475,8 +14478,8 @@ void _showAddTodoDialog() {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(const SnackBar(
-        content: Text('簡介已更新'),
+      ..showSnackBar(SnackBar(
+        content: Text(tr('bio_updated')),
         duration: Duration(milliseconds: 1200),
       ));
   }
@@ -14485,11 +14488,11 @@ void _showAddTodoDialog() {
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('選擇字體大小'),
+        title: Text(tr('font_pick_title')),
         children: [
-          _buildFontSizeOption(ctx, '標準 (預設)', 1.2, '範例文字 Aa'),
-          _buildFontSizeOption(ctx, '放大 (大)', 1.35, '範例文字 Aa'),
-          _buildFontSizeOption(ctx, '特大 (清晰)', 1.5, '範例文字 Aa'),
+          _buildFontSizeOption(ctx, tr('font_size_std'), 1.2, tr('font_sample')),
+          _buildFontSizeOption(ctx, tr('font_size_large'), 1.35, tr('font_sample')),
+          _buildFontSizeOption(ctx, tr('font_size_xlarge'), 1.5, tr('font_sample')),
         ],
       ),
     );
@@ -14562,7 +14565,7 @@ void _showAddTodoDialog() {
       case 5:
         return AppLocaleService.tr('nav_notes', _appLanguage);
       case 6:
-        return '首頁';
+        return tr('nav_home');
       default:
         return _appBarTitle;
     }
@@ -14716,8 +14719,8 @@ void _showAddTodoDialog() {
     if (mounted) {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(
-          content: Text('偏好設定已儲存'),
+        ..showSnackBar(SnackBar(
+          content: Text(tr('saved_success')),
           duration: Duration(milliseconds: 1200),
         ));
     }
@@ -14730,13 +14733,13 @@ void _showAddTodoDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('更改暱稱'),
+        title: Text(tr('nick_change_title')),
         content: TextField(
           controller: controller,
-          decoration: InputDecoration(hintText: '請輸入新的暱稱'),
+          decoration: InputDecoration(hintText: tr('nick_hint')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('btn_cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
@@ -14747,7 +14750,7 @@ void _showAddTodoDialog() {
               Navigator.pop(ctx);
               await _updateNickname(newName);
             },
-            child: const Text('儲存'),
+            child: Text(tr('btn_save')),
           ),
         ],
       ),
@@ -14771,8 +14774,8 @@ void _showAddTodoDialog() {
     if (mounted) {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(
-          content: Text('暱稱已更新'),
+        ..showSnackBar(SnackBar(
+          content: Text(tr('nick_updated')),
           duration: Duration(milliseconds: 1200),
         ));
     }
@@ -14782,11 +14785,11 @@ void _showAddTodoDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Email 驗證'),
-        content: Text(_isEmailVerified ? '您的 Email 已驗證成功！' : '點擊下方按鈕發送驗證信。'),
+        title: Text(tr('email_verify_title')),
+        content: Text(_isEmailVerified ? tr('email_verified') : tr('email_verify_hint')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('btn_cancel'))),
           if (!_isEmailVerified)
             ElevatedButton(
               onPressed: () async {
@@ -14800,12 +14803,12 @@ void _showAddTodoDialog() {
                 navigator.pop();
                 messenger
                   ..clearSnackBars()
-                  ..showSnackBar(const SnackBar(
-                    content: Text('驗證成功！'),
+                  ..showSnackBar(SnackBar(
+                    content: Text(tr('email_verify_ok')),
                     duration: Duration(milliseconds: 1200),
                   ));
               },
-              child: const Text('發送驗證信'),
+              child: Text(tr('email_send_verify')),
             ),
         ],
       ),
@@ -14816,13 +14819,13 @@ void _showAddTodoDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('刪除帳號', style: TextStyle(color: Colors.red)),
-        content: const Text(
-            '您確定要刪除帳號嗎？\n\n帳號將進入 30 天的緩衝期。在 30 天內重新登入即可取消刪除並復原帳號，超過 30 天則將永久刪除所有資料且無法恢復。'),
+        title: Text(tr('profile_delete_account'), style: TextStyle(color: Colors.red)),
+        content: Text(
+            tr('delete_account_msg')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () async {
@@ -14839,7 +14842,7 @@ void _showAddTodoDialog() {
               if (!mounted) return;
               widget.onLogout();
             },
-            child: const Text('確認刪除', style: TextStyle(color: Colors.red)),
+            child: Text(tr('delete_account_confirm'), style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -14851,8 +14854,8 @@ void _showAddTodoDialog() {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('您已透過 Google 登入，無須修改密碼'),
+          SnackBar(
+            content: Text(tr('profile_no_password_needed')),
             duration: Duration(milliseconds: 1200),
           ),
         );
@@ -14863,34 +14866,34 @@ void _showAddTodoDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('修改密碼'),
+        title: Text(tr('profile_password')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
                 controller: oldCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: '目前的密碼')),
+                decoration: InputDecoration(labelText: tr('pwd_current'))),
             TextField(
                 controller: newCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: '新的密碼')),
+                decoration: InputDecoration(labelText: tr('pwd_new'))),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('btn_cancel'))),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context)
                 ..clearSnackBars()
-                ..showSnackBar(const SnackBar(
-                  content: Text('密碼已修改'),
+                ..showSnackBar(SnackBar(
+                  content: Text(tr('pwd_changed')),
                   duration: Duration(milliseconds: 1200),
                 ));
             },
-            child: const Text('確認修改'),
+            child: Text(tr('pwd_confirm_change')),
           ),
         ],
       ),
@@ -14905,7 +14908,7 @@ void _showAddTodoDialog() {
         builder: (ctx) => Scaffold(
           backgroundColor: const Color(0xFFFAFAFA),
           appBar: AppBar(
-            title: const Text('我的貼文'),
+            title: Text(tr('profile_my_posts')),
             backgroundColor: Colors.white,
             foregroundColor: Colors.black87,
             elevation: 0.5,
@@ -14928,10 +14931,10 @@ void _showAddTodoDialog() {
           children: [
             Icon(Icons.article_outlined, size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
-            Text('尚未發布任何貼文',
+            Text(tr('my_posts_empty'),
                 style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
             const SizedBox(height: 8),
-            Text('前往社群分享你的學習心得吧！',
+            Text(tr('my_posts_empty_sub'),
                 style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
           ],
         ),
@@ -14945,10 +14948,10 @@ void _showAddTodoDialog() {
       'text': Icons.chat_bubble_outline,
     };
     final typeNameMap = {
-      'note': '筆記',
-      'mood': '心情',
-      'share': '分享',
-      'text': '一般',
+      'note': tr('post_type_short_note'),
+      'mood': tr('post_type_short_mood'),
+      'share': tr('post_type_short_share'),
+      'text': tr('post_type_short_general'),
     };
 
     return ListView.separated(
@@ -14959,7 +14962,7 @@ void _showAddTodoDialog() {
         final post = myPosts[i];
         final postType = post['postType'] as String? ?? 'text';
         final icon = typeIconMap[postType] ?? Icons.chat_bubble_outline;
-        final typeName = typeNameMap[postType] ?? '一般';
+        final typeName = typeNameMap[postType] ?? tr('post_type_short_general');
         final primaryColor = Theme.of(context).primaryColor;
 
         return Material(
@@ -15046,7 +15049,7 @@ void _showAddTodoDialog() {
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey.shade500)),
                       const Spacer(),
-                      Text('前往貼文',
+                      Text(tr('post_go'),
                           style: TextStyle(
                               fontSize: 12,
                               color: primaryColor,
@@ -15134,8 +15137,8 @@ void _showAddTodoDialog() {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Text(
-                              'AI 學習診斷報告',
+                            Text(
+                              tr('diag_report_title'),
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -15174,8 +15177,8 @@ void _showAddTodoDialog() {
                                 const SizedBox(width: 4),
                                 Text(
                                   _diagnosisResult!.isAiGenerated
-                                      ? 'AI 智慧生成'
-                                      : '本地規則分析',
+                                      ? tr('diag_ai_generated')
+                                      : tr('diag_local_rule'),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -15223,7 +15226,7 @@ void _showAddTodoDialog() {
                               _sheetStateSetter = null;
                               Navigator.pop(context);
                             },
-                            child: Text('關閉',
+                            child: Text(tr('btn_close'),
                                 style: TextStyle(
                                     color: Theme.of(context).primaryColor,
                                     fontWeight: FontWeight.bold)),
@@ -15247,7 +15250,7 @@ void _showAddTodoDialog() {
                                 _showWrongQuestionsDialog(_lastQuizWrongIds);
                               },
                               child: Text(
-                                  '開始複習錯題 (${_lastQuizWrongIds.length})',
+                                  tr('diag_review_wrong', [_lastQuizWrongIds.length.toString()]),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold)),
                             ),
@@ -15295,7 +15298,7 @@ void _showAddTodoDialog() {
               ),
               const SizedBox(width: 10),
               Text(
-                'AI 導師正在產出診斷內容...',
+                tr('diag_generating'),
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.brown.shade400,
@@ -15347,8 +15350,8 @@ void _showAddTodoDialog() {
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
             const SizedBox(height: 16),
-            const Text(
-              '無法生成診斷報告',
+            Text(
+              tr('diag_failed'),
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -15356,7 +15359,7 @@ void _showAddTodoDialog() {
             ),
             const SizedBox(height: 8),
             Text(
-              '可能因為未取得有效的測驗資訊。請嘗試重新測驗。',
+              tr('diag_failed_sub'),
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
@@ -15410,8 +15413,8 @@ void _showAddTodoDialog() {
                         children: [
                           Text(
                             widget.currentUser['id'] == 'u4'
-                                ? '登入解鎖 AI 智慧報告'
-                                : '目前內建 AI 額度已達上限',
+                                ? tr('diag_guest_unlock')
+                                : tr('diag_quota_reached'),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -15423,8 +15426,8 @@ void _showAddTodoDialog() {
                           const SizedBox(height: 4),
                           Text(
                             widget.currentUser['id'] == 'u4'
-                                ? '訪客帳戶目前不支援 AI 智慧診斷功能。立即註冊或登入正式帳號，即可啟用由代理人助理生成的客製化學習診斷與複習建議！'
-                                : '目前測試金鑰為所有使用者共享，今日免費額度已耗盡。系統已自動切換為「本地規則分析」報告，造成不便敬請見諒！',
+                                ? tr('diag_guest_desc')
+                                : tr('diag_quota_desc'),
                             style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF5D4037),
@@ -15437,8 +15440,8 @@ void _showAddTodoDialog() {
                                 Navigator.pop(context);
                                 _changePage(4, '個人檔案');
                               },
-                              child: const Text(
-                                '立即去登入/註冊 ➔',
+                              child: Text(
+                                tr('diag_go_login'),
                                 style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -15478,12 +15481,12 @@ void _showAddTodoDialog() {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.analytics, color: Colors.white, size: 20),
                     SizedBox(width: 8),
                     Text(
-                      '學習診斷摘要',
+                      tr('diag_summary'),
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -15526,7 +15529,7 @@ void _showAddTodoDialog() {
                         color: Colors.orange.shade800, size: 18),
                     const SizedBox(width: 6),
                     Text(
-                      '待加強單元 (弱項)',
+                      tr('diag_weak_units'),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -15536,7 +15539,7 @@ void _showAddTodoDialog() {
                 ),
                 const SizedBox(height: 10),
                 if (report.weaknesses.isEmpty)
-                  Text('無特別明顯弱項',
+                  Text(tr('diag_no_weak'),
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey.shade500))
                 else
@@ -15585,12 +15588,12 @@ void _showAddTodoDialog() {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.lightbulb, color: Color(0xFFFBC02D), size: 20),
                     SizedBox(width: 8),
                     Text(
-                      'AI 導師複習建議',
+                      tr('diag_ai_advice'),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -15684,7 +15687,7 @@ void _showAddTodoDialog() {
                   Icon(Icons.error_outline,
                       color: Theme.of(context).primaryColor),
                   const SizedBox(width: 8),
-                  Text('錯題複習（${rows.length} 題）',
+                  Text(tr('wrong_review_n', [rows.length.toString()]),
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold)),
                 ]),
@@ -15692,7 +15695,7 @@ void _showAddTodoDialog() {
               const Divider(height: 1),
               Expanded(
                 child: rows.isEmpty
-                    ? const Center(child: Text('找不到對應的題目資料'))
+                    ? Center(child: Text(tr('wrong_not_found')))
                     : ListView.separated(
                         controller: sc,
                         padding: const EdgeInsets.all(16),

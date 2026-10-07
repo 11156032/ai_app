@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
+import 'notes_screen.dart';
+import '../services/app_locale_service.dart';
 
 const Map<String, String> _kPostTypeLabel = {
   'note': '📝 學習筆記',
@@ -72,7 +74,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
     if (!mounted) return;
     _submitComment();
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('代理人已為您自動輸入並送出！')));
+        .showSnackBar(SnackBar(content: Text(tr('pr_agent_sent'))));
     await Future.delayed(const Duration(milliseconds: 1500));
     if (mounted) {
       Navigator.pop(context);
@@ -94,7 +96,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
       final user =
           await db.query('users', where: 'id = ?', whereArgs: [c['user_id']]);
       final String name =
-          user.isNotEmpty ? user.first['display_name'] as String : '未知用戶';
+          user.isNotEmpty ? user.first['display_name'] as String : tr('common_unknown_user');
       // 載入留言者頭像資料
       final int avatarColor =
           user.isNotEmpty ? ((user.first['avatar_color'] as int?) ?? 0) : 0;
@@ -158,17 +160,17 @@ class _PostReplyPageState extends State<PostReplyPage> {
     final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-              title: const Text('刪除留言', style: TextStyle(fontSize: 16)),
-              content: const Text('確定要刪除這則留言嗎？'),
+              title: Text(tr('qd_delete_comment'), style: TextStyle(fontSize: 16)),
+              content: Text(tr('pr_delete_msg')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
                     child:
-                        const Text('取消', style: TextStyle(color: Colors.grey))),
+                        Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey))),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     child:
-                        const Text('刪除', style: TextStyle(color: Colors.red))),
+                        Text(tr('common_delete'), style: TextStyle(color: Colors.red))),
               ],
             ));
 
@@ -184,19 +186,19 @@ class _PostReplyPageState extends State<PostReplyPage> {
     final newText = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-              title: const Text('編輯留言', style: TextStyle(fontSize: 16)),
+              title: Text(tr('pr_edit_comment'), style: TextStyle(fontSize: 16)),
               content: TextField(
                 controller: editController,
                 maxLines: null,
-                decoration: const InputDecoration(hintText: '修改您的留言...'),
+                decoration: InputDecoration(hintText: tr('pr_edit_hint')),
               ),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('取消', style: TextStyle(color: Colors.grey))),
+                    child: Text(tr('btn_cancel'), style: TextStyle(color: Colors.grey))),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, editController.text),
-                    child: Text('儲存',
+                    child: Text(tr('btn_save'),
                         style:
                             TextStyle(color: Theme.of(context).primaryColor))),
               ],
@@ -259,6 +261,8 @@ class _PostReplyPageState extends State<PostReplyPage> {
       appBar: AppBar(
         backgroundColor:
             (isDark ? Colors.black : Colors.white).withValues(alpha: 0.75),
+        foregroundColor: textPrimary,
+        iconTheme: IconThemeData(color: textPrimary),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         flexibleSpace: ClipRect(
@@ -275,12 +279,12 @@ class _PostReplyPageState extends State<PostReplyPage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('留言討論',
+            Text(tr('pr_discussion'),
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: textPrimary)),
-            Text('${_comments.length} 則留言',
+            Text(tr('pr_comments_n', [_comments.length.toString()]),
                 style: TextStyle(fontSize: 11, color: textSecondary)),
           ],
         ),
@@ -311,7 +315,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Text(
-                            '${_comments.length} 則留言',
+                            tr('pr_comments_n', [_comments.length.toString()]),
                             style: TextStyle(
                                 fontSize: 12,
                                 color: textSecondary,
@@ -359,7 +363,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                                         ]
                                       : [],
                                 ),
-                                child: Text(label,
+                                child: Text(trv(label),
                                     style: TextStyle(
                                         fontSize: 11,
                                         color: _commentSort == label
@@ -393,7 +397,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                               key: ValueKey('empty_text_$_commentSort'),
                               duration: const Duration(milliseconds: 400),
                               delay: const Duration(milliseconds: 300),
-                              child: Text('還沒有人留言，快搶沙發！',
+                              child: Text(tr('pr_empty'),
                                   style: TextStyle(
                                       color: textSecondary, fontSize: 14)),
                             ),
@@ -435,7 +439,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '正在回覆 $_replyToName',
+                        tr('pr_replying_to', [_replyToName.toString()]),
                         style: const TextStyle(
                             fontSize: 12,
                             color: Colors.orange,
@@ -467,7 +471,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                   color: cardColor,
                   border: Border(top: BorderSide(color: borderColor, width: 1)),
                 ),
-                child: Text('訪客無法留言喔', style: TextStyle(color: textSecondary)),
+                child: Text(tr('pr_guest_no_comment'), style: TextStyle(color: textSecondary)),
               )
             else
               _ReplyInputBar(
@@ -546,7 +550,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                         decoration: BoxDecoration(
                             color: const Color(0xFFF5F0EE),
                             borderRadius: BorderRadius.circular(8)),
-                        child: Text(_kPostTypeLabel[postType]!,
+                        child: Text(trv(_kPostTypeLabel[postType]!),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: Theme.of(context).primaryColor)),
@@ -622,89 +626,550 @@ class _PostReplyPageState extends State<PostReplyPage> {
 
   Widget _buildPostAttachmentPreview(Map<String, dynamic> p) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
 
-    // 檔案附件
-    if (p['fileName'] != null && p['fileName'].toString().isNotEmpty) {
-      final fileName = p['fileName'] as String;
+    // 解析 attached_data
+    Map<String, dynamic>? attached;
+    final rawAttached = p['attached_data'];
+    if (rawAttached is Map) {
+      attached = Map<String, dynamic>.from(rawAttached);
+    } else if (rawAttached is String && rawAttached.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawAttached);
+        if (decoded is Map) {
+          attached = Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {}
+    }
+
+    // 1. 檔案附件
+    final fileName = (p['fileName'] ?? p['file_name'] ?? attached?['file_name'] ?? '').toString();
+    if (fileName.isNotEmpty) {
       return Container(
-        margin: const EdgeInsets.only(top: 10),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white10 : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
+          color: isDark ? const Color(0xFF26262B) : const Color(0xFFF6F8FA),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? Colors.white12 : Colors.grey.shade300,
+          ),
         ),
         child: Row(
           children: [
-            Icon(Icons.insert_drive_file,
-                color: Theme.of(context).primaryColor, size: 20),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.insert_drive_file_rounded,
+                  color: primaryColor, size: 20),
+            ),
+            const SizedBox(width: 10),
             Expanded(
-                child: Text('分享文件: $fileName',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13))),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr('pr_shared_file'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.white54 : Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );
     }
 
-    // 學習 Pack
-    if (p['postType'] == 'learning_pack') {
-      var attached = p['attached_data'];
-      if (attached is String) {
-        try {
-          attached = jsonDecode(attached);
-        } catch (_) {}
-      }
-      if (attached != null && attached is Map) {
+    // 2. 學習 Pack
+    if (p['postType'] == 'learning_pack' || (attached != null && attached.containsKey('pack_title'))) {
+      if (attached != null) {
         final title = (attached['pack_title'] as String? ?? '').isNotEmpty
-            ? attached['pack_title']
-            : '無標題學習 Pack';
-        final desc = attached['pack_description'] as String? ?? '';
+            ? attached['pack_title'].toString()
+            : tr('pack_untitled');
+        final desc = (attached['pack_description'] as String? ?? '').toString();
+
+        final dynamic schedulesRaw = attached['schedules'];
+        final dynamic quizzesRaw = attached['quizzes'];
+        int schedCount = 0;
+        int quizCount = 0;
+        if (schedulesRaw is List) {
+          schedCount = schedulesRaw.length;
+        } else if (schedulesRaw is String && schedulesRaw.isNotEmpty) {
+          try {
+            schedCount = (jsonDecode(schedulesRaw) as List).length;
+          } catch (_) {}
+        }
+        if (quizzesRaw is List) {
+          quizCount = quizzesRaw.length;
+        } else if (quizzesRaw is String && quizzesRaw.isNotEmpty) {
+          try {
+            quizCount = (jsonDecode(quizzesRaw) as List).length;
+          } catch (_) {}
+        }
+
         return Container(
-          margin: const EdgeInsets.only(top: 10),
-          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.orange.withValues(alpha: 0.1)
-                : Colors.orange.shade50,
-            borderRadius: BorderRadius.circular(12),
+                ? Colors.orange.withValues(alpha: 0.12)
+                : const Color(0xFFFFF8F0),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-                color: isDark
-                    ? Colors.orange.withValues(alpha: 0.3)
-                    : Colors.orange.shade200),
+              color: isDark
+                  ? Colors.orange.withValues(alpha: 0.35)
+                  : Colors.orange.shade200,
+              width: 1.1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.inventory_2_rounded,
-                      color: Colors.orange.shade700, size: 20),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.inventory_2_rounded,
+                        color: Colors.orange.shade800, size: 18),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       title,
                       style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: isDark
-                              ? Colors.orange.shade300
-                              : Colors.orange.shade900),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.5,
+                        color: isDark
+                            ? Colors.orange.shade300
+                            : Colors.orange.shade900,
+                      ),
                     ),
                   ),
-                  const Text('請至動態牆匯入',
-                      style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      tr('pack_label'),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? Colors.orange.shade300
+                            : Colors.orange.shade800,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               if (desc.isNotEmpty) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
                   desc,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? Colors.orange.shade200
-                          : Colors.orange.shade800),
+                    fontSize: 12.5,
+                    color: isDark
+                        ? Colors.orange.shade200
+                        : const Color(0xFF6B4512),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  if (schedCount > 0)
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white10 : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        tr('pr_sched_n', [schedCount.toString()]),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                        ),
+                      ),
+                    ),
+                  if (quizCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white10 : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        tr('pr_quiz_n', [quizCount.toString()]),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
+    // 3. 筆記或題目 (Shared Resource)
+    if (attached != null && attached['shared_type'] != null) {
+      final sharedType = attached['shared_type'];
+
+      if (sharedType == 'note') {
+        final String title = attached['title'] ?? tr('note_untitled');
+        final String category = attached['category'] ?? tr('val_uncategorized');
+        final String rawContent = attached['content'] ?? '';
+        final bool hasStrokes = attached['strokes'] != null &&
+            attached['strokes'].toString() != '[]' &&
+            attached['strokes'].toString().isNotEmpty;
+
+        String cleanExcerpt = rawContent
+            .replaceAll(RegExp(r'\[color=.*?\]'), '')
+            .replaceAll('[/color]', '')
+            .replaceAll(RegExp(r'#+\s*'), '')
+            .replaceAll('**', '')
+            .replaceAll('~~', '')
+            .replaceAll('`', '')
+            .replaceAll(RegExp(r'^[•\-\+\*]\s*', multiLine: true), '')
+            .replaceAll(RegExp(r'\n+'), ' ')
+            .trim();
+        if (cleanExcerpt.isEmpty) {
+          cleanExcerpt = tr('pr_tap_full');
+        }
+
+        return GestureDetector(
+          onTap: () => _showNotePreviewDialog(p, attached!),
+          child: Container(
+            margin: const EdgeInsets.only(top: 12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF232328) : const Color(0xFFFAF8F5),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white12
+                    : primaryColor.withValues(alpha: 0.2),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 左側質感主題色飾條
+                    Container(
+                      width: 4.5,
+                      color: primaryColor,
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 頂部列：圖示 + 標題 + 分類標籤
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.menu_book_rounded,
+                                    color: primaryColor,
+                                    size: 15,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14.5,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF2C2421),
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : primaryColor.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    category.startsWith('#')
+                                        ? category
+                                        : '#$category',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : primaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // 筆記內容精簡摘要
+                            Text(
+                              cleanExcerpt,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: isDark
+                                    ? Colors.white60
+                                    : const Color(0xFF6B625E),
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            // 底部特徵標籤與精緻匯入按鈕
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white10
+                                        : Colors.black.withValues(alpha: 0.04),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        hasStrokes
+                                            ? Icons.draw_rounded
+                                            : Icons.article_rounded,
+                                        size: 12,
+                                        color: isDark
+                                            ? const Color(0xFFCE93D8)
+                                            : const Color(0xFF7B1FA2),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        hasStrokes ? tr('pr_handwritten') : tr('note_plain'),
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w500,
+                                          color: isDark
+                                              ? const Color(0xFFCE93D8)
+                                              : const Color(0xFF7B1FA2),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Spacer(),
+                                InkWell(
+                                  onTap: () => _importSharedNote(p, attached!),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 11, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          primaryColor.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: primaryColor
+                                            .withValues(alpha: 0.35),
+                                        width: 0.9,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.download_rounded,
+                                          size: 13,
+                                          color: primaryColor,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          tr('note_import'),
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: primaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      } else if (sharedType == 'question') {
+        final String text = (attached['text'] as String?) ?? '';
+        final dynamic rawOptions = attached['options'];
+        List<dynamic> options = [];
+        if (rawOptions is List) {
+          options = rawOptions;
+        } else if (rawOptions is String && rawOptions.isNotEmpty) {
+          try {
+            options = jsonDecode(rawOptions) as List<dynamic>;
+          } catch (_) {}
+        }
+        final String subject = (attached['subject'] ?? '一般').toString();
+        final String difficulty = (attached['difficulty'] ?? '中').toString();
+
+        return Container(
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF2C2C2C) : primaryColor.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? Colors.white10 : primaryColor.withValues(alpha: 0.2),
+              width: 1.2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.help_outline_rounded,
+                      color: primaryColor, size: 18),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      tr('q_challenge', [subject.toString()]),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: primaryColor),
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      tr('q_difficulty', [difficulty.toString()]),
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: primaryColor,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              if (text.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  text,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isDark ? Colors.white : Colors.black87),
+                ),
+              ],
+              if (options.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Column(
+                  children: List.generate(options.length, (idx) {
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF333333) : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isDark ? Colors.white10 : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Text(
+                        '${String.fromCharCode(65 + idx)}. ${options[idx]}',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                        ),
+                      ),
+                    );
+                  }),
                 ),
               ],
             ],
@@ -713,64 +1178,205 @@ class _PostReplyPageState extends State<PostReplyPage> {
       }
     }
 
-    // 筆記或題目 (Shared Resource)
-    final attached = p['attached_data'];
-    if (attached != null && attached['shared_type'] != null) {
-      final sharedType = attached['shared_type'];
-      if (sharedType == 'note') {
-        final title = attached['title'] ?? '無標題筆記';
-        return Container(
-          margin: const EdgeInsets.only(top: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white10
-                : Theme.of(context).primaryColor.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.sticky_note_2_outlined,
-                  color: Theme.of(context).primaryColor, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text('分享筆記: $title',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Theme.of(context).primaryColor))),
-            ],
+    return const SizedBox.shrink();
+  }
+
+  void _importSharedNote(Map<String, dynamic> p, Map<String, dynamic> attached) {
+    try {
+      final String title = attached['title'] ?? tr('note_untitled');
+      final String content = attached['content'] ?? '';
+      final String category = attached['category'] ?? '學習';
+      final String authorName = p['author'] ?? tr('common_unknown_user');
+      final String authorUserId = p['userId']?.toString() ?? '';
+      final int authorAvatarColor = p['authorAvatarColor'] as int? ?? 0;
+
+      final List<Stroke> strokes = [];
+      final String? strokesJson = attached['strokes'];
+      if (strokesJson != null && strokesJson.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(strokesJson) as List;
+          for (var s in decoded) {
+            strokes.add(Stroke.fromJson(s as Map<String, dynamic>));
+          }
+        } catch (e) {
+          debugPrint('解析筆記繪圖失敗: $e');
+        }
+      }
+
+      final newNote = Note(
+        id: 'note_${DateTime.now().millisecondsSinceEpoch}',
+        userId: widget.currentUser['id']?.toString() ?? 'u1',
+        title: '$title (社群匯入)',
+        content: content,
+        category:
+            NotesDatabase.categories.contains(category) ? category : '未分類',
+        strokes: strokes,
+        updatedAt: DateTime.now(),
+        authorName: authorName,
+        authorUserId: authorUserId,
+        authorAvatarColor: authorAvatarColor,
+      );
+
+      NotesDatabase.notes.insert(0, newNote);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(
+            duration: const Duration(milliseconds: 1500),
+            behavior: SnackBarBehavior.floating,
+            content: Text(tr('note_imported')),
+            backgroundColor: Theme.of(context).primaryColor,
           ),
         );
-      } else if (sharedType == 'question') {
-        final subject = attached['subject'] ?? '一般';
-        return Container(
-          margin: const EdgeInsets.only(top: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white10
-                : Theme.of(context).primaryColor.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.help_outline_rounded,
-                  color: Theme.of(context).primaryColor, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text('分享題目: [$subject]',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Theme.of(context).primaryColor))),
-            ],
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+          SnackBar(
+            duration: const Duration(milliseconds: 1500),
+            behavior: SnackBarBehavior.floating,
+            content: Text(tr('common_import_failed', [e.toString()])),
+            backgroundColor: Colors.red,
           ),
         );
       }
     }
+  }
 
-    return const SizedBox.shrink();
+  void _showNotePreviewDialog(
+      Map<String, dynamic> p, Map<String, dynamic> attached) {
+    final String rawTitle = attached['title'] as String? ?? '';
+    final String rawContent = attached['content'] as String? ?? '';
+    final String title = rawTitle.isNotEmpty ? rawTitle : tr('note_untitled');
+    final String content = rawContent.isNotEmpty ? rawContent : (p['content'] as String? ?? '');
+    final String category = (attached['category'] as String? ?? '').isNotEmpty
+        ? (attached['category'] as String)
+        : '學習';
+    final String authorName = p['author'] as String? ?? tr('common_unknown_user');
+    final String timeStr = p['time'] as String? ??
+        (p['created_at']?.toString().split('T').first ?? '');
+
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+    final dialogBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: dialogBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.menu_book_rounded,
+                    color: primaryColor, size: 18),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '#$category',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.5,
+              minWidth: double.maxFinite,
+            ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        tr('pr_author', [authorName.toString()]),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                        ),
+                      ),
+                      if (timeStr.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '· $timeStr',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: isDark ? Colors.white38 : Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    content,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.6,
+                      color: isDark ? Colors.white70 : const Color(0xFF333333),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(tr('btn_close'), style: TextStyle(color: Colors.grey.shade600)),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _importSharedNote(p, attached);
+              },
+              icon: const Icon(Icons.download_rounded, size: 15),
+              label: Text(tr('note_import')),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildCommentTree(
@@ -812,7 +1418,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                               .withValues(alpha: 0.8)),
                       const SizedBox(width: 6),
                       Text(
-                        '查看 ${sub.length} 則回覆...',
+                        tr('pr_view_replies', [sub.length.toString()]),
                         style: TextStyle(
                           color: Theme.of(context).primaryColor,
                           fontSize: 12,
@@ -861,7 +1467,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                                   color: Theme.of(context).primaryColor),
                               const SizedBox(width: 4),
                               Text(
-                                '收合回覆',
+                                tr('pr_collapse_replies'),
                                 style: TextStyle(
                                   color: Theme.of(context).primaryColor,
                                   fontSize: 11,
@@ -1006,7 +1612,7 @@ class _PostReplyPageState extends State<PostReplyPage> {
                           Icon(Icons.reply_rounded,
                               size: 13, color: primaryColor),
                           const SizedBox(width: 3),
-                          Text('回覆',
+                          Text(tr('qd_reply'),
                               style: TextStyle(
                                   fontSize: 11,
                                   color: primaryColor,
@@ -1114,8 +1720,8 @@ class _ReplyInputBarState extends State<_ReplyInputBar> {
                     color: widget.isDark ? Colors.white : Colors.black87),
                 decoration: InputDecoration(
                   hintText: widget.replyToName != null
-                      ? '回覆 ${widget.replyToName}...'
-                      : '說說你的想法...',
+                      ? tr('pr_reply_hint', [widget.replyToName.toString()])
+                      : tr('pr_input_hint'),
                   hintStyle: TextStyle(
                       color:
                           widget.isDark ? Colors.white38 : Colors.grey.shade400,

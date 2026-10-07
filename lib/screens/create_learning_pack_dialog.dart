@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
+import '../services/app_locale_service.dart';
 
 class CreateLearningPackDialog extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -148,7 +149,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
   Future<void> _buildAndReturnPack() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請輸入 Pack 標題')));
+          .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('lp_need_title'))));
       return;
     }
 
@@ -235,7 +236,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('打包失敗: $e')));
+            .showSnackBar(SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('lp_pack_failed', [e.toString()]))));
         setState(() => _isLoading = false);
       }
     }
@@ -300,12 +301,12 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '建立學習 Pack',
+                                tr('lp_title'),
                                 style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
@@ -314,7 +315,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                '打包讀書排程與練習試卷，讓同學一鍵套用',
+                                tr('lp_sub'),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: Colors.black54,
@@ -342,15 +343,15 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                           // 1. Pack 基本資訊
                           _buildSectionTitle(
                             icon: Icons.edit_note_rounded,
-                            title: 'Pack 基本資訊',
+                            title: tr('lp_basic'),
                             color: primaryColor,
                           ),
                           const SizedBox(height: 8),
                           TextField(
                             controller: _titleController,
                             decoration: InputDecoration(
-                              labelText: 'Pack 標題 *',
-                              hintText: '例如：學測衝刺 7 天排程與模考包',
+                              labelText: tr('lp_title_label'),
+                              hintText: tr('lp_title_hint'),
                               filled: true,
                               fillColor: const Color(0xFFF9F7F5),
                               prefixIcon: const Icon(Icons.title_rounded,
@@ -379,8 +380,8 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                             controller: _descController,
                             maxLines: 2,
                             decoration: InputDecoration(
-                              labelText: '簡介描述（選填）',
-                              hintText: '說明這個 Pack 適合的年級、科目或複習建議...',
+                              labelText: tr('lp_desc_label'),
+                              hintText: tr('lp_desc_hint'),
                               filled: true,
                               fillColor: const Color(0xFFF9F7F5),
                               prefixIcon: const Icon(Icons.notes_rounded,
@@ -410,20 +411,20 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                           // 2. 行事曆排程區間
                           _buildSectionTitle(
                             icon: Icons.calendar_month_rounded,
-                            title: '行事曆排程區間',
+                            title: tr('lp_cal_range'),
                             color: const Color(0xFFE65100),
-                            badge: '$_selectedEventCount 個事件',
+                            badge: tr('lp_events_n', [_selectedEventCount.toString()]),
                           ),
                           const SizedBox(height: 8),
 
                           // 快速選擇膠囊
                           Row(
                             children: [
-                              _buildQuickRangeChip('未來 7 天', 7),
+                              _buildQuickRangeChip(tr('lp_next7'), 7),
                               const SizedBox(width: 6),
-                              _buildQuickRangeChip('未來 14 天', 14),
+                              _buildQuickRangeChip(tr('lp_next14'), 14),
                               const SizedBox(width: 6),
-                              _buildQuickRangeChip('未來 30 天', 30),
+                              _buildQuickRangeChip(tr('lp_next30'), 30),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -462,8 +463,8 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                                         const SizedBox(height: 2),
                                         Text(
                                           _selectedEventCount > 0
-                                              ? '已包含區間內 $_selectedEventCount 個學習排程'
-                                              : '此區間內無行事曆排程',
+                                              ? tr('lp_included_n', [_selectedEventCount.toString()])
+                                              : tr('lp_no_events'),
                                           style: TextStyle(
                                             fontSize: 11.5,
                                             color: _selectedEventCount > 0
@@ -484,8 +485,8 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                                       border: Border.all(
                                           color: const Color(0xFFFFD54F)),
                                     ),
-                                    child: const Text(
-                                      '變更日期',
+                                    child: Text(
+                                      tr('lp_change_date'),
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -505,9 +506,9 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                             children: [
                               _buildSectionTitle(
                                 icon: Icons.quiz_rounded,
-                                title: '包含題庫試卷',
+                                title: tr('lp_papers'),
                                 color: const Color(0xFF1565C0),
-                                badge: '${_selectedPaperIds.length} 套',
+                                badge: tr('lp_papers_n', [_selectedPaperIds.length.toString()]),
                               ),
                               const Spacer(),
                               if (_allPapers.isNotEmpty)
@@ -526,8 +527,8 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                                   child: Text(
                                     _selectedPaperIds.length ==
                                             _allPapers.length
-                                        ? '取消全選'
-                                        : '全選',
+                                        ? tr('pb_unselect_all')
+                                        : tr('wq_select_all'),
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -550,13 +551,13 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                                 border: Border.all(
                                     color: Colors.grey.shade200),
                               ),
-                              child: const Column(
+                              child: Column(
                                 children: [
                                   Icon(Icons.feed_outlined,
                                       color: Colors.grey, size: 28),
                                   SizedBox(height: 6),
                                   Text(
-                                    '尚未建立自訂試卷，仍可單獨打包排程！',
+                                    tr('lp_no_papers'),
                                     style: TextStyle(
                                         fontSize: 12, color: Colors.grey),
                                   ),
@@ -568,7 +569,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                               children: _allPapers.map((paper) {
                                 final id = paper['id'] as int;
                                 final name =
-                                    paper['name'] as String? ?? '未命名試卷';
+                                    paper['name'] as String? ?? tr('paper_unnamed');
                                 final qCount = _getPaperQuestionCount(paper);
                                 final isSelected =
                                     _selectedPaperIds.contains(id);
@@ -604,7 +605,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                                       ),
                                     ),
                                     subtitle: Text(
-                                      '包含 $qCount 題題目',
+                                      tr('lp_q_count', [qCount.toString()]),
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: Colors.grey.shade600,
@@ -655,7 +656,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                '已選 $_selectedEventCount 個排程事件 ＋ ${_selectedPaperIds.length} 套試卷',
+                                tr('lp_summary', [_selectedEventCount.toString(), _selectedPaperIds.length.toString()]),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
@@ -681,7 +682,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                child: const Text('取消'),
+                                child: Text(tr('btn_cancel')),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -691,7 +692,7 @@ class _CreateLearningPackDialogState extends State<CreateLearningPackDialog> {
                                 onPressed: _buildAndReturnPack,
                                 icon: const Icon(Icons.archive_rounded,
                                     size: 18),
-                                label: const Text('確認打包 Pack'),
+                                label: Text(tr('lp_confirm')),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFFF9800),
                                   foregroundColor: Colors.white,

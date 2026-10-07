@@ -461,8 +461,8 @@ class _SmoothAppSplashState extends State<_SmoothAppSplash>
                       ),
                       const SizedBox(height: 10),
                       // 副標題：優雅灰褐色搭配加大字距
-                      const Text(
-                        '智慧陪伴 • 卓越學習',
+                      Text(
+                        tr('main_tagline'),
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w500,

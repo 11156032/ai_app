@@ -22,9 +22,9 @@ extension VoiceNoteDetailLevelExtension on VoiceNoteDetailLevel {
   String get label {
     switch (this) {
       case VoiceNoteDetailLevel.concise:
-        return '精簡';
+        return tr('vs_concise');
       case VoiceNoteDetailLevel.detailed:
-        return '詳盡';
+        return tr('vs_detailed');
     }
   }
 
@@ -40,9 +40,9 @@ extension VoiceNoteDetailLevelExtension on VoiceNoteDetailLevel {
   String get subtitle {
     switch (this) {
       case VoiceNoteDetailLevel.concise:
-        return '極速提煉核心結論與關鍵要點，去蕪存菁';
+        return tr('vs_concise_d');
       case VoiceNoteDetailLevel.detailed:
-        return '完整梳理邏輯脈絡、深度解析與推導過程';
+        return tr('vs_detailed_d');
     }
   }
 }
@@ -60,60 +60,60 @@ extension VoiceNoteStyleExtension on VoiceNoteStyle {
   String get label {
     switch (this) {
       case VoiceNoteStyle.academicLecture:
-        return '課堂研討';
+        return tr('vs_style_lecture');
       case VoiceNoteStyle.agileMeeting:
-        return '商務會議';
+        return tr('vs_style_meeting');
       case VoiceNoteStyle.speedSummary:
-        return '速讀摘要';
+        return tr('vs_style_speed');
       case VoiceNoteStyle.structureMindmap:
-        return '架構心智圖';
+        return tr('vs_style_mindmap');
       case VoiceNoteStyle.inspirationJournal:
-        return '靈感隨筆';
+        return tr('vs_style_journal');
     }
   }
 
   String get fullName {
     switch (this) {
       case VoiceNoteStyle.academicLecture:
-        return '課堂與學術研討';
+        return tr('vs_full_lecture');
       case VoiceNoteStyle.agileMeeting:
-        return '敏捷商務會議';
+        return tr('vs_full_meeting');
       case VoiceNoteStyle.speedSummary:
-        return '極速速讀摘要';
+        return tr('vs_full_speed');
       case VoiceNoteStyle.structureMindmap:
-        return '架構拆解與心智圖';
+        return tr('vs_full_mindmap');
       case VoiceNoteStyle.inspirationJournal:
-        return '靈感閃念與隨筆';
+        return tr('vs_full_journal');
     }
   }
 
   String get subtitle {
     switch (this) {
       case VoiceNoteStyle.academicLecture:
-        return '知識吸收・考證與複習';
+        return tr('vs_use_lecture');
       case VoiceNoteStyle.agileMeeting:
-        return '決策・進度與執行對齊';
+        return tr('vs_use_meeting');
       case VoiceNoteStyle.speedSummary:
-        return '快速掌握長文／長語音核心';
+        return tr('vs_use_speed');
       case VoiceNoteStyle.structureMindmap:
-        return '複雜知識拓撲與系統規劃';
+        return tr('vs_use_mindmap');
       case VoiceNoteStyle.inspirationJournal:
-        return '捕捉點子・生活感悟';
+        return tr('vs_use_journal');
     }
   }
 
   String get badgeTag {
     switch (this) {
       case VoiceNoteStyle.academicLecture:
-        return '康乃爾分層';
+        return tr('vs_tag_lecture');
       case VoiceNoteStyle.agileMeeting:
-        return '決策+待辦';
+        return tr('vs_tag_meeting');
       case VoiceNoteStyle.speedSummary:
-        return '極致降噪';
+        return tr('vs_tag_speed');
       case VoiceNoteStyle.structureMindmap:
-        return '純層級視覺';
+        return tr('vs_tag_mindmap');
       case VoiceNoteStyle.inspirationJournal:
-        return '思維原味';
+        return tr('vs_tag_journal');
     }
   }
 
@@ -135,15 +135,15 @@ extension VoiceNoteStyleExtension on VoiceNoteStyle {
   String get description {
     switch (this) {
       case VoiceNoteStyle.academicLecture:
-        return '康乃爾分層架構：核心名詞解析（Bold + 繁中定義）、脈絡邏輯筆記與 3~5 題自我檢測 QA（Active Recall）';
+        return tr('vs_spec_lecture');
       case VoiceNoteStyle.agileMeeting:
-        return '決策與落地導向：一話決策（Executive TL;DR）、核心共識結論與可勾選待辦清單（動作 + 負責人 + 預計時程）';
+        return tr('vs_spec_meeting');
       case VoiceNoteStyle.speedSummary:
-        return '極致降噪：30 秒吸收重點（3 條具體數據金句）與正反觀點／核心論點對比 Markdown 表格';
+        return tr('vs_spec_speed');
       case VoiceNoteStyle.structureMindmap:
-        return '純層級視覺：多層級結構大綱（最多三層）＋ 內嵌 Mermaid 思維導圖語法與原生互動心智圖';
+        return tr('vs_spec_mindmap');
       case VoiceNoteStyle.inspirationJournal:
-        return '保留思維原味：核心亮點提取（> 引用塊）與延伸思考方向聯想標籤（Chips 格式）';
+        return tr('vs_spec_journal');
     }
   }
 
@@ -151,33 +151,33 @@ extension VoiceNoteStyleExtension on VoiceNoteStyle {
     switch (this) {
       case VoiceNoteStyle.academicLecture:
         return [
-          '核心名詞與觀念解析（Bold + 繁中定義）',
-          '章節脈絡邏輯筆記與考點梳理',
-          '3～5 題主動回憶自我檢測 QA (Active Recall)',
+          tr('vs_out_lecture_1'),
+          tr('vs_out_lecture_2'),
+          tr('vs_out_lecture_3'),
         ];
       case VoiceNoteStyle.agileMeeting:
         return [
-          '一話決策（Executive TL;DR 速報）',
-          '核心共識與各議程決議事項',
-          '可勾選待辦清單（- [ ] 動作 + 負責人 + 期限）',
+          tr('vs_out_meeting_1'),
+          tr('vs_out_meeting_2'),
+          tr('vs_out_meeting_3'),
         ];
       case VoiceNoteStyle.speedSummary:
         return [
-          '30 秒極速吸收（3 條具體事實數據金句）',
-          '正反觀點／核心論點對比（強制 Markdown 表格）',
-          '直擊精要，極致剔除口語贅字',
+          tr('vs_out_speed_1'),
+          tr('vs_out_speed_2'),
+          tr('vs_out_speed_3'),
         ];
       case VoiceNoteStyle.structureMindmap:
         return [
-          '多層級結構大綱（嚴格依賴 #、##、###，最多三層）',
-          '內嵌 Mermaid 思維導圖代碼塊',
-          '同步生成可全螢幕探索之互動樹狀心智圖',
+          tr('vs_out_mindmap_1'),
+          tr('vs_out_mindmap_2'),
+          tr('vs_out_mindmap_3'),
         ];
       case VoiceNoteStyle.inspirationJournal:
         return [
-          '核心亮點提取（> 引用塊醒目標註）',
-          '生活感悟、靈感火花與真實思考流動',
-          '延伸思考方向與聯想標籤（Chips 格式）',
+          tr('vs_out_journal_1'),
+          tr('vs_out_journal_2'),
+          tr('vs_out_journal_3'),
         ];
     }
   }
@@ -384,7 +384,7 @@ class VoiceNoteService {
   }) async {
     if (transcript.trim().isEmpty) {
       return VoiceNoteResult(
-        title: '空白語音筆記',
+        title: tr('vs_blank_note'),
         category: style.suggestedCategory,
         markdownContent: '',
         tags: [],
@@ -571,9 +571,9 @@ class VoiceNoteService {
 【核心原則】
 1. 說話者分離 (Diarization) 與標點符號完整校正：
    - 說話者辨識 (Diarization)：若輸入語音逐字稿含有多位說話者或時間戳（例如 [00:15] 說話者 1: ... 或對話語境），請在 "corrected_transcript" 與 "content" 中明確保留與區分「說話者 1」、「說話者 2」或角色名稱。
-   - 標點符號完整化：強制為所有語句補充正確全角繁體中文標點符號（句號「。」、逗號「，」、問號「？」、驚嘆號「！」），嚴禁輸出完全無標點符號的連續文字。
+   - 標點符號完整化：強制為所有語句補充輸出語言對應的正確標點符號，嚴禁輸出完全無標點符號的連續文字。
    - 精確校正中英文專有名詞、專業術語、同音錯字（例如將「摸豆」校正為「Model」、「API」、「Flutter」等），並剔除口語贅字（如「呃、啊、那個」）。
-2. 台灣繁體中文（正體中文）術語強制規範：
+2. 術語規範（僅在輸出語言為繁體中文時適用）：
    - 專案（嚴禁使用「項目」稱呼 Project）
    - 使用者（嚴禁使用「用戶」）
    - 資料庫（嚴禁使用「數據庫」）
@@ -587,7 +587,7 @@ class VoiceNoteService {
    - 最佳化（嚴禁使用「優化」）
    - 雲端（嚴禁使用「雲」）
 3. 防通靈與防空標籤規範：
-   - 嚴禁通靈未在語音中提及的人名、日期或數據。若未提及負責人標註「[未指定]」，未提及期限標註「[待定]」。
+   - 嚴禁通靈未在語音中提及的人名、日期或數據。若未提及負責人標註「[未指定]」，未提及期限標註「[待定]」（這兩個佔位詞請原樣保留不翻譯）。
    - 若語音中完全無待辦事項，action_items 必須回傳空陣列 []，嚴禁生成「無」、「無待辦」等佔位文字。
 4. $lengthHint
 5. $detailHint
@@ -598,7 +598,7 @@ $styleInstruction
 你必須只回傳一個乾淨、標準的 JSON 物件，不得包含任何 Markdown 代碼塊（```json）前後包裝，直接以 { 開頭以 } 結尾：
 
 {
-  "title": "簡短精確的筆記標題（15字以內，繁體中文）",
+  "title": "簡短精確的筆記標題（15字以內）",
   "category": "${style.suggestedCategory}",
   "summary": "核心情境摘要（1~2句，讓人一眼看懂這是什麼內容）",
   "key_points": ["關鍵重點1", "關鍵重點2", "關鍵重點3"],
@@ -634,7 +634,7 @@ $langInstruction
 架構依據康乃爾分層筆記法，請在 content 中輸出以下結構：
 # 🎓 [主題名稱]
 ## 📖 核心名詞與術語解析
-- **[術語名]**：以台灣繁體中文給予清晰白話之定義與核心概念。
+- **[術語名]**：以指定的輸出語言給予清晰白話之定義與核心概念。
 ## 🧠 課堂脈絡與考點梳理
 梳理課程觀念、推導因果與重要關聯點。
 ## ❓ 自我檢測問答 (Active Recall)
@@ -813,51 +813,51 @@ mindmap
 
     switch (style) {
       case VoiceNoteStyle.academicLecture:
-        buffer.writeln('# ${style.emoji} 課堂與學術研討筆記');
+        buffer.writeln(tr('vs_off_lecture_h', [style.emoji.toString()]));
         buffer.writeln();
-        buffer.writeln('## 📖 核心名詞與觀念解析');
+        buffer.writeln(tr('vs_off_terms'));
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
         buffer.writeln();
-        buffer.writeln('## ❓ 主動回憶自我檢測 (Active Recall)');
-        buffer.writeln('- **Q1**：此主題的核心意涵為何？');
+        buffer.writeln(tr('vs_off_recall'));
+        buffer.writeln(tr('vs_off_q1'));
         buffer.writeln('  - **A**：請根據筆記要點回想並自我解答。');
         break;
       case VoiceNoteStyle.agileMeeting:
-        buffer.writeln('# ${style.emoji} 敏捷商務會議摘要');
+        buffer.writeln(tr('vs_off_meeting_h', [style.emoji.toString()]));
         buffer.writeln();
-        buffer.writeln('**記錄日期**：${DateTime.now().toString().substring(0, 10)}');
+        buffer.writeln(tr('vs_off_date', [(DateTime.now().toString().substring(0, 10)).toString()]));
         buffer.writeln();
-        buffer.writeln('## ⚡ 一話決策 (TL;DR)');
-        buffer.writeln('> 本次會議針對核心推進方向達成共識。');
+        buffer.writeln(tr('vs_off_tldr'));
+        buffer.writeln(tr('vs_off_tldr_body'));
         buffer.writeln();
-        buffer.writeln('## 🤝 議程討論與決議事項');
+        buffer.writeln(tr('vs_off_agenda'));
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
         buffer.writeln();
-        buffer.writeln('## ✅ 待辦行動清單');
-        buffer.writeln('- [ ] 確認後續跟進步驟 (負責人: [待指派] | 預計時程: [待定])');
+        buffer.writeln(tr('vs_off_todos'));
+        buffer.writeln(tr('vs_off_todo1'));
         break;
       case VoiceNoteStyle.speedSummary:
-        buffer.writeln('# ${style.emoji} 極速速讀摘要');
+        buffer.writeln(tr('vs_off_speed_h', [style.emoji.toString()]));
         buffer.writeln();
-        buffer.writeln('## 🎯 30秒核心金句');
+        buffer.writeln(tr('vs_off_30s'));
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
         buffer.writeln();
-        buffer.writeln('## 📊 核心論點對比表');
-        buffer.writeln('| 分析維度 | 核心要點 | 考量重點 |');
+        buffer.writeln(tr('vs_off_table_h'));
+        buffer.writeln(tr('vs_off_table_cols'));
         buffer.writeln('| :--- | :--- | :--- |');
-        buffer.writeln('| 核心議題 | 詳見上方重點整理 | 需持續評估跟進 |');
+        buffer.writeln(tr('vs_off_table_row'));
         break;
       case VoiceNoteStyle.structureMindmap:
-        buffer.writeln('# ${style.emoji} 架構拆解與心智圖');
+        buffer.writeln(tr('vs_off_mindmap_h', [style.emoji.toString()]));
         buffer.writeln();
-        buffer.writeln('## 🌳 階層化知識大綱');
+        buffer.writeln(tr('vs_off_outline'));
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
         buffer.writeln();
-        buffer.writeln('## 🗺️ Mermaid 思維導圖');
+        buffer.writeln(tr('vs_off_mermaid'));
         buffer.writeln('```mermaid');
         buffer.writeln('mindmap');
         buffer.writeln('  root((${style.label}))');
@@ -866,23 +866,23 @@ mindmap
         buffer.writeln('```');
         break;
       case VoiceNoteStyle.inspirationJournal:
-        buffer.writeln('# ${style.emoji} 靈感閃念與隨筆');
+        buffer.writeln(tr('vs_off_journal_h', [style.emoji.toString()]));
         buffer.writeln();
-        buffer.writeln('## 🌟 核心閃念亮點');
-        buffer.writeln('> 捕捉生活與思維的靈感火花。');
+        buffer.writeln(tr('vs_off_spark'));
+        buffer.writeln(tr('vs_off_spark_body'));
         buffer.writeln();
-        buffer.writeln('## 💭 心得感悟與靈感流動');
+        buffer.writeln(tr('vs_off_feel'));
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
         buffer.writeln();
-        buffer.writeln('## 🏷️ 延伸聯想與思考方向');
-        buffer.writeln('- #靈感延伸 探索應用可能性');
+        buffer.writeln(tr('vs_off_extend'));
+        buffer.writeln(tr('vs_off_extend_1'));
         break;
     }
 
     buffer.writeln();
     buffer.writeln('---');
-    buffer.writeln('*⚠️ 此為語音原始記錄（離線整理），可手動編輯調整。*');
+    buffer.writeln(tr('vs_off_footer'));
     return buffer.toString();
   }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
+import '../services/app_locale_service.dart';
 
 class QuestionDiscussionPage extends StatefulWidget {
   final Map<String, dynamic> questionData;
@@ -52,7 +53,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
   }
 
   String get _currentUserName {
-    return (widget.currentUser['name'] ?? widget.currentUser['username'] ?? '學習夥伴').toString();
+    return (widget.currentUser['name'] ?? widget.currentUser['username'] ?? tr('qd_partner')).toString();
   }
 
   String? get _currentUserAvatar {
@@ -114,7 +115,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
       await DatabaseHelper.instance.addQuestionDiscussion(
         questionId: _questionId,
         userId: 'u_ai_tutor',
-        userName: '🤖 AI 智慧助教',
+        userName: tr('qd_ai_tutor_name'),
         content: '【觀念提示】\n針對本題《$sub》考點：$explanation\n做題時注意審題關鍵字，排除干擾選項即可迅速作答！',
         isAiResponse: 1,
       );
@@ -166,7 +167,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
       debugPrint('送出留言失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('送出留言失敗，請重試')),
+        SnackBar(content: Text(tr('qd_send_failed'))),
       );
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -185,19 +186,19 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
       await Future.delayed(const Duration(milliseconds: 800));
 
       final buffer = StringBuffer();
-      buffer.writeln('💡 【AI 助教深度解題觀點】');
-      buffer.writeln('本題屬於《$sub》核心題型。');
+      buffer.writeln(tr('qd_ai_view'));
+      buffer.writeln(tr('qd_ai_core_type', [sub.toString()]));
       if (explanation.isNotEmpty) {
-        buffer.writeln('👉 核心思路：$explanation');
+        buffer.writeln(tr('qd_ai_core_idea', [explanation.toString()]));
       } else {
-        buffer.writeln('👉 解題技巧：建議先分析題幹主要條件，針對各選項進行正誤對比，特別留意細節定義！');
+        buffer.writeln(tr('qd_ai_tip'));
       }
-      buffer.writeln('若同學對於某步驟有疑問，歡迎直接在此回覆發問喔！');
+      buffer.writeln(tr('qd_ai_ask'));
 
       await DatabaseHelper.instance.addQuestionDiscussion(
         questionId: _questionId,
         userId: 'u_ai_tutor',
-        userName: '🤖 AI 智慧助教',
+        userName: tr('qd_ai_tutor_name'),
         content: buffer.toString(),
         isAiResponse: 1,
       );
@@ -234,13 +235,13 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('刪除留言', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: const Text('確定要刪除這則討論留言嗎？'),
+        title: Text(tr('qd_delete_comment'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Text(tr('qd_delete_comment_msg')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('btn_cancel'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('刪除', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: Text(tr('common_delete'), style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -270,10 +271,10 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
       final dt = DateTime.tryParse(rawTime.toString());
       if (dt == null) return rawTime.toString();
       final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 1) return '剛剛';
-      if (diff.inMinutes < 60) return '${diff.inMinutes} 分鐘前';
-      if (diff.inHours < 24) return '${diff.inHours} 小時前';
-      if (diff.inDays < 7) return '${diff.inDays} 天前';
+      if (diff.inMinutes < 1) return tr('time_just_now');
+      if (diff.inMinutes < 60) return tr('time_min_ago', [diff.inMinutes.toString()]);
+      if (diff.inHours < 24) return tr('time_hour_ago', [diff.inHours.toString()]);
+      if (diff.inDays < 7) return tr('time_day_ago', [diff.inDays.toString()]);
       return '${dt.month}/${dt.day} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (_) {
       return '';
@@ -306,11 +307,13 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          '題目討論串',
+        title: Text(
+          tr('qp_discussion'),
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
         ),
         backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1E293B),
+        iconTheme: const IconThemeData(color: Color(0xFF334155)),
         elevation: 0.5,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF334155)),
@@ -322,7 +325,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
               _isQuestionExpanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
               color: const Color(0xFF4F46E5),
             ),
-            tooltip: _isQuestionExpanded ? '收合題目' : '展開題目',
+            tooltip: _isQuestionExpanded ? tr('qd_collapse') : tr('qd_expand'),
             onPressed: () => setState(() => _isQuestionExpanded = !_isQuestionExpanded),
           ),
         ],
@@ -367,7 +370,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '難度：$diff',
+                        tr('pb_diff_n', [diff.toString()]),
                         style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: diffColor),
                       ),
                     ),
@@ -377,7 +380,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                       child: Row(
                         children: [
                           Text(
-                            _isQuestionExpanded ? '收合題目' : '展開題目',
+                            _isQuestionExpanded ? tr('qd_collapse') : tr('qd_expand'),
                             style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                           ),
                           Icon(
@@ -446,7 +449,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                         border: Border.all(color: const Color(0xFFFDE68A)),
                       ),
                       child: Text(
-                        '💡 解析：$explanation',
+                        tr('qd_explanation', [explanation.toString()]),
                         style: const TextStyle(fontSize: 11.5, color: Color(0xFF92400E), height: 1.3),
                       ),
                     ),
@@ -473,7 +476,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                               const Icon(Icons.forum_rounded, size: 18, color: Color(0xFF4F46E5)),
                               const SizedBox(width: 6),
                               Text(
-                                '討論交流 (${_discussions.length} 則留言)',
+                                tr('qd_count', [_discussions.length.toString()]),
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -504,7 +507,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                                       : const Icon(Icons.auto_awesome_rounded, size: 14, color: Color(0xFF7C3AED)),
                                   const SizedBox(width: 4),
                                   Text(
-                                    _isGeneratingAi ? '思考中...' : '召喚 AI 助教解答',
+                                    _isGeneratingAi ? tr('qd_thinking') : tr('qd_summon_ai'),
                                     style: const TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.bold,
@@ -527,13 +530,13 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                             children: [
                               Icon(Icons.chat_bubble_outline_rounded, size: 48, color: Colors.grey.shade300),
                               const SizedBox(height: 12),
-                              const Text(
-                                '目前還沒有討論留言',
+                              Text(
+                                tr('qd_empty'),
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF64748B)),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '提出你的疑問，或分享解題技巧與心得吧！',
+                                tr('qd_empty_sub'),
                                 style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                               ),
                             ],
@@ -556,7 +559,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
 
   Widget _buildCommentCard(Map<String, dynamic> d) {
     final id = int.tryParse(d['id']?.toString() ?? '0') ?? 0;
-    final userName = d['user_name']?.toString() ?? '學習夥伴';
+    final userName = d['user_name']?.toString() ?? tr('qd_partner');
     final content = d['content']?.toString() ?? '';
     final timeStr = _formatTime(d['created_at']);
     final isAi = (d['is_ai_response'] as int? ?? 0) == 1;
@@ -624,8 +627,8 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                               color: const Color(0xFF7C3AED),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
-                              'AI 助教',
+                            child: Text(
+                              tr('qd_ai_badge'),
                               style: TextStyle(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -645,7 +648,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                 IconButton(
                   icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFF94A3B8)),
                   onPressed: () => _deleteComment(id),
-                  tooltip: '刪除留言',
+                  tooltip: tr('qd_delete_comment'),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -677,13 +680,13 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                     _replyToParentId = id;
                   });
                 },
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Row(
                     children: [
                       Icon(Icons.reply_rounded, size: 15, color: Color(0xFF64748B)),
                       SizedBox(width: 4),
-                      Text('回覆', style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                      Text(tr('qd_reply'), style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
                     ],
                   ),
                 ),
@@ -705,7 +708,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        likesCount > 0 ? '$likesCount' : '讚',
+                        likesCount > 0 ? '$likesCount' : tr('qd_like'),
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: isLiked ? FontWeight.bold : FontWeight.normal,
@@ -755,7 +758,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '回覆 $_replyToUser',
+                          tr('qd_reply_to', [_replyToUser.toString()]),
                           style: const TextStyle(fontSize: 11.5, color: Color(0xFF4F46E5), fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(width: 4),
@@ -786,8 +789,8 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
                     minLines: 1,
                     maxLines: 4,
                     style: const TextStyle(fontSize: 13.5, color: Color(0xFF1E293B)),
-                    decoration: const InputDecoration(
-                      hintText: '發表討論、提出疑問或心得...',
+                    decoration: InputDecoration(
+                      hintText: tr('qd_input_hint'),
                       hintStyle: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
                       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       border: InputBorder.none,

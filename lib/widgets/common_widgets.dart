@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:typed_data';
+import '../services/app_locale_service.dart';
 
 // 預設插圖頭像（emoji 角色 + 背景色）
-const List<Map<String, dynamic>> kPresetAvatars = [
-  {'emoji': '😊', 'color': Color(0xFFA1887F), 'label': '開心'}, // 預設暖棕
-  {'emoji': '🐱', 'color': Color(0xFFFFAB91), 'label': '小貓'},
-  {'emoji': '🐶', 'color': Color(0xFFA5D6A7), 'label': '小狗'},
-  {'emoji': '🦊', 'color': Color(0xFFFFCC80), 'label': '狐狸'},
-  {'emoji': '🐼', 'color': Color(0xFF90A4AE), 'label': '熊貓'},
-  {'emoji': '🦁', 'color': Color(0xFFFFF176), 'label': '獅子'},
-  {'emoji': '🐸', 'color': Color(0xFF80CBC4), 'label': '青蛙'},
-  {'emoji': '🐧', 'color': Color(0xFF90CAF9), 'label': '企鹅'},
+List<Map<String, dynamic>> get kPresetAvatars => [
+  {'emoji': '😊', 'color': Color(0xFFA1887F), 'label': tr('avatar_happy')}, // 預設暖棕
+  {'emoji': '🐱', 'color': Color(0xFFFFAB91), 'label': tr('avatar_cat')},
+  {'emoji': '🐶', 'color': Color(0xFFA5D6A7), 'label': tr('avatar_dog')},
+  {'emoji': '🦊', 'color': Color(0xFFFFCC80), 'label': tr('avatar_fox')},
+  {'emoji': '🐼', 'color': Color(0xFF90A4AE), 'label': tr('avatar_panda')},
+  {'emoji': '🦁', 'color': Color(0xFFFFF176), 'label': tr('avatar_lion')},
+  {'emoji': '🐸', 'color': Color(0xFF80CBC4), 'label': tr('avatar_frog')},
+  {'emoji': '🐧', 'color': Color(0xFF90CAF9), 'label': tr('avatar_penguin')},
 ];
 
 /// 根據名稱字串推算頭像顏色索引
@@ -75,10 +76,10 @@ String formatRelativeTime(dynamic timeStr) {
   try {
     DateTime dt = DateTime.parse(timeStr.toString());
     Duration diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return '剛剛';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} 分鐘前';
-    if (diff.inHours < 24) return '${diff.inHours} 小時前';
-    if (diff.inDays < 30) return '${diff.inDays} 天前';
+    if (diff.inSeconds < 60) return tr('time_just_now');
+    if (diff.inMinutes < 60) return tr('time_min_ago', [diff.inMinutes.toString()]);
+    if (diff.inHours < 24) return tr('time_hour_ago', [diff.inHours.toString()]);
+    if (diff.inDays < 30) return tr('time_day_ago', [diff.inDays.toString()]);
     return '${dt.month}/${dt.day}';
   } catch (e) {
     return timeStr.toString();
@@ -711,7 +712,7 @@ class RichNoteContentView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (content.trim().isEmpty) {
       return Text(
-        '（此筆記尚無純文字記錄）',
+        tr('note_no_text'),
         style: TextStyle(
           color: isDark ? Colors.white38 : Colors.grey,
           fontStyle: FontStyle.italic,
@@ -817,78 +818,78 @@ class CommunityTopic {
   });
 }
 
-const List<CommunityTopic> kCommunityTopics = [
+List<CommunityTopic> get kCommunityTopics => [
   CommunityTopic(
     id: 'topic_math',
-    name: '📐 數理邏輯',
-    title: '數理邏輯',
+    name: tr('topic_math_name'),
+    title: tr('topic_math_title'),
     emoji: '📐',
     color: Color(0xFF1E88E5),
-    description: '探討數學解題、理化實驗與邏輯思維技巧',
+    description: tr('topic_math_desc'),
   ),
   CommunityTopic(
     id: 'topic_science',
-    name: '🔬 自然科學',
-    title: '自然科學',
+    name: tr('topic_sci_name'),
+    title: tr('topic_sci_title'),
     emoji: '🔬',
     color: Color(0xFF00897B),
-    description: '探索生物演化、地球科學與宇宙科普新知',
+    description: tr('topic_sci_desc'),
   ),
   CommunityTopic(
     id: 'topic_literature',
-    name: '📚 國文文學',
-    title: '國文文學',
+    name: tr('topic_lit_name'),
+    title: tr('topic_lit_title'),
     emoji: '📚',
     color: Color(0xFF6D4C41),
-    description: '古文賞析、現代文學閱讀心得與寫作技巧',
+    description: tr('topic_lit_desc'),
   ),
   CommunityTopic(
     id: 'topic_social',
-    name: '🌍 社會人文',
-    title: '社會人文',
+    name: tr('topic_soc_name'),
+    title: tr('topic_soc_title'),
     emoji: '🌍',
     color: Color(0xFFE65100),
-    description: '歷史脈絡梳理、地理人文與公民社會思辨',
+    description: tr('topic_soc_desc'),
   ),
   CommunityTopic(
     id: 'topic_ai',
-    name: '💡 AI 與科技',
-    title: 'AI 與科技',
+    name: tr('topic_ai_name'),
+    title: tr('topic_ai_title'),
     emoji: '💡',
     color: Color(0xFF7B1FA2),
-    description: '人工智慧輔助學習、程式設計與未來科技',
+    description: tr('topic_ai_desc'),
   ),
   CommunityTopic(
     id: 'topic_english',
-    name: '🇬🇧 英語外語',
-    title: '英語外語',
+    name: tr('topic_en_name'),
+    title: tr('topic_en_title'),
     emoji: '🇬🇧',
     color: Color(0xFF0288D1),
-    description: '單字文法、聽力口說練習與多益檢定衝刺',
+    description: tr('topic_en_desc'),
   ),
   CommunityTopic(
     id: 'topic_exam',
-    name: '🎯 備考衝刺',
-    title: '備考衝刺',
+    name: tr('topic_exam_name'),
+    title: tr('topic_exam_title'),
     emoji: '🎯',
     color: Color(0xFFC2185B),
-    description: '學測分科會考倒數、歷屆試題與錯題複習筆記',
+    description: tr('topic_exam_desc'),
   ),
   CommunityTopic(
     id: 'topic_daily',
-    name: '☕ 學習日常',
-    title: '學習日常',
+    name: tr('topic_daily_name'),
+    title: tr('topic_daily_title'),
     emoji: '☕',
     color: Color(0xFFF57C00),
-    description: '讀書打卡、番茄鐘專注心得與學習心情交流',
+    description: tr('topic_daily_desc'),
   ),
   CommunityTopic(
     id: 'topic_creative',
-    name: '📝 智慧筆記',
-    title: '智慧筆記',
+    name: tr('topic_notes_name'),
+    title: tr('topic_notes_title'),
     emoji: '📝',
     color: Color(0xFF512DA8),
-    description: '筆記排版、重點整理與視覺化心智圖分享',
+    description: tr('topic_notes_desc'),
   ),
 ];
 
@@ -941,9 +942,6 @@ List<String> normalizeCommunityTopicIds(Iterable<String> ids) {
   final normalized = <String>{};
   for (final id in ids) {
     normalized.add(normalizeCommunityTopicId(id));
-  }
-  if (normalized.isEmpty) {
-    normalized.addAll(['topic_math', 'topic_ai']);
   }
   return normalized.toList();
 }

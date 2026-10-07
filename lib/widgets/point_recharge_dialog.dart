@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/membership_service.dart';
 import 'vip_badge_widget.dart';
+import '../services/app_locale_service.dart';
 
 class PointRechargeDialog extends StatefulWidget {
   final String userId;
@@ -47,19 +48,19 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
 
   bool _isProcessing = false;
   bool _isSuccess = false;
-  String _processingMessage = '正在呼叫支付驗證...';
+  String _processingMessage = tr('pr_calling');
 
-  final List<Map<String, dynamic>> _pointPackages = const [
-    {'name': '體驗點數包', 'points': 100, 'price': 30, 'tag': ''},
-    {'name': '熱門超值包', 'points': 300, 'price': 90, 'tag': '最熱門'},
-    {'name': '尊享巨量包', 'points': 600, 'price': 160, 'tag': '省 20%'},
-    {'name': '無憂大禮包', 'points': 1500, 'price': 360, 'tag': '超值 7 折'},
+  final List<Map<String, dynamic>> _pointPackages = [
+    {'name': tr('pr_pkg1'), 'points': 100, 'price': 30, 'tag': ''},
+    {'name': tr('pr_pkg2'), 'points': 300, 'price': 90, 'tag': tr('pr_tag_hot')},
+    {'name': tr('pr_pkg3'), 'points': 600, 'price': 160, 'tag': tr('pr_tag_save20')},
+    {'name': tr('pr_pkg4'), 'points': 1500, 'price': 360, 'tag': tr('pr_tag_30off')},
   ];
 
-  final List<Map<String, dynamic>> _tierPackages = const [
-    {'tier': 'silver', 'name': '白銀 VIP', 'days': 30, 'price': 99, 'bonus': 50, 'tag': '小試身手'},
-    {'tier': 'gold', 'name': '黃金 VIP', 'days': 30, 'price': 199, 'bonus': 150, 'tag': '強烈推薦'},
-    {'tier': 'diamond', 'name': '鑽石 VIP', 'days': 30, 'price': 390, 'bonus': 500, 'tag': '無限專享'},
+  final List<Map<String, dynamic>> _tierPackages = [
+    {'tier': 'silver', 'name': tr('val_tier_silver'), 'days': 30, 'price': 99, 'bonus': 50, 'tag': tr('pr_tag_try')},
+    {'tier': 'gold', 'name': tr('val_tier_gold'), 'days': 30, 'price': 199, 'bonus': 150, 'tag': tr('pr_tag_recommend')},
+    {'tier': 'diamond', 'name': tr('val_tier_diamond'), 'days': 30, 'price': 390, 'bonus': 500, 'tag': tr('pr_tag_unlimited')},
   ];
 
   @override
@@ -82,14 +83,14 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
     setState(() {
       _isProcessing = true;
       _isSuccess = false;
-      _processingMessage = '正在進行安全驗證與 Apple/Google 憑證核對...';
+      _processingMessage = tr('pr_verifying');
     });
 
     await Future.delayed(const Duration(milliseconds: 1000));
     if (!mounted) return;
 
     setState(() {
-      _processingMessage = '交易處理中，正在入帳點數...';
+      _processingMessage = tr('pr_processing');
     });
 
     try {
@@ -134,7 +135,7 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
         _isSuccess = false;
       });
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('模擬交易失敗: $e')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('pr_failed', [e.toString()]))),
       );
     }
   }
@@ -195,8 +196,8 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  '（模擬沙盒環境，未進行實際扣款）',
+                Text(
+                  tr('pr_sandbox'),
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 30),
@@ -215,8 +216,8 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '交易成功！權益已即時生效',
+                Text(
+                  tr('pr_success'),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -225,7 +226,7 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '已自動更新您的點數餘額與 VIP 階級權益 🎉',
+                  tr('pr_success_sub'),
                   style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black54),
                 ),
                 const SizedBox(height: 24),
@@ -247,7 +248,7 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '儲值與 VIP 會員訂閱',
+                            tr('pr_title'),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -255,7 +256,7 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                             ),
                           ),
                           Text(
-                            '解鎖 AI 全效診斷與無限對話',
+                            tr('pr_sub'),
                             style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.grey),
                           ),
                         ],
@@ -282,9 +283,9 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                     labelColor: themeColor,
                     unselectedLabelColor: isDark ? Colors.white54 : Colors.grey,
                     labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                    tabs: const [
-                      Tab(text: '⚡ 點數儲值包'),
-                      Tab(text: '👑 VIP 會員方案'),
+                    tabs: [
+                      Tab(text: tr('pr_tab_points')),
+                      Tab(text: tr('pr_tab_vip')),
                     ],
                   ),
                 ),
@@ -347,7 +348,7 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                                     const SizedBox(height: 18),
                                   const SizedBox(height: 6),
                                   Text(
-                                    '${pkg['points']} 點',
+                                    tr('pr_points_n', [(pkg['points']).toString()]),
                                     style: const TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.w900,
@@ -423,12 +424,12 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '首升贈 ${pkg['bonus']} 點',
+                                    tr('pr_bonus_n', [(pkg['bonus']).toString()]),
                                     style: const TextStyle(fontSize: 11, color: Color(0xFFD81B60), fontWeight: FontWeight.bold),
                                   ),
                                   const Spacer(),
                                   Text(
-                                    'NT\$ ${pkg['price']} /月',
+                                    tr('pr_price_month', [(pkg['price']).toString()]),
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
@@ -460,13 +461,13 @@ class _PointRechargeDialogState extends State<PointRechargeDialog> with SingleTi
                       ),
                       elevation: 4,
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.lock, size: 18, color: Colors.white70),
                         SizedBox(width: 8),
                         Text(
-                          '模擬安全結帳 (Tap to Pay)',
+                          tr('pr_checkout'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'common_widgets.dart';
+import '../services/app_locale_service.dart';
 
 // ─────────────────────────────────────────────────────
 // WelcomeSplash — 頂級 Apple 白底風格（Light Theme）
@@ -75,59 +76,59 @@ class _WelcomeSplashState extends State<WelcomeSplash>
   late Set<String> _selectedTopicIds; // Q4: 關注學科 (多選 標籤雲)
 
   // 學科分類與標籤定義
-  static const List<({
+  static List<({
     String categoryId,
     String categoryName,
     String categoryShortName,
     String categoryEmoji,
     List<({String id, String name, String emoji})> topics,
-  })> _subjectGroups = [
+  })> get _subjectGroups => [
     (
       categoryId: 'cat_stem',
-      categoryName: '數理邏輯與自然科學',
-      categoryShortName: '數理自然',
+      categoryName: tr('ws_cat_science'),
+      categoryShortName: tr('ws_cat_science_s'),
       categoryEmoji: '📐',
       topics: [
-        (id: 'topic_math', name: '數學解題', emoji: '📐'),
-        (id: 'topic_science', name: '自然理化', emoji: '🔬'),
-        (id: 'topic_physics', name: '高中物理', emoji: '⚡'),
-        (id: 'topic_chemistry', name: '化學實驗', emoji: '🧪'),
-        (id: 'topic_biology', name: '生物地科', emoji: '🌱'),
+        (id: 'topic_math', name: tr('ws_t_math'), emoji: '📐'),
+        (id: 'topic_science', name: tr('ws_t_science'), emoji: '🔬'),
+        (id: 'topic_physics', name: tr('ws_t_physics'), emoji: '⚡'),
+        (id: 'topic_chemistry', name: tr('ws_t_chem'), emoji: '🧪'),
+        (id: 'topic_biology', name: tr('ws_t_bio'), emoji: '🌱'),
       ],
     ),
     (
       categoryId: 'cat_humanities',
-      categoryName: '語文素養與人文社會',
-      categoryShortName: '語文社會',
+      categoryName: tr('ws_cat_lang'),
+      categoryShortName: tr('ws_cat_lang_s'),
       categoryEmoji: '📚',
       topics: [
-        (id: 'topic_literature', name: '國文賞析', emoji: '📖'),
-        (id: 'topic_english', name: '英語外語', emoji: '🌍'),
-        (id: 'topic_social', name: '社會公民', emoji: '⚖️'),
-        (id: 'topic_history', name: '歷史地理', emoji: '🏛️'),
+        (id: 'topic_literature', name: tr('ws_t_lit'), emoji: '📖'),
+        (id: 'topic_english', name: tr('ws_t_english'), emoji: '🌍'),
+        (id: 'topic_social', name: tr('ws_t_social'), emoji: '⚖️'),
+        (id: 'topic_history', name: tr('ws_t_history'), emoji: '🏛️'),
       ],
     ),
     (
       categoryId: 'cat_tech',
-      categoryName: 'AI 科技與前沿跨域',
-      categoryShortName: 'AI 科技',
+      categoryName: tr('ws_cat_ai'),
+      categoryShortName: tr('ws_cat_ai_s'),
       categoryEmoji: '💡',
       topics: [
-        (id: 'topic_ai', name: 'AI 人工智慧', emoji: '🤖'),
-        (id: 'topic_coding', name: '程式開發', emoji: '💻'),
-        (id: 'topic_creative', name: '心智圖圖解', emoji: '🧠'),
-        (id: 'topic_tech', name: '前沿科普', emoji: '🚀'),
+        (id: 'topic_ai', name: tr('ws_t_ai'), emoji: '🤖'),
+        (id: 'topic_coding', name: tr('ws_t_coding'), emoji: '💻'),
+        (id: 'topic_creative', name: tr('ws_t_mindmap'), emoji: '🧠'),
+        (id: 'topic_tech', name: tr('ws_t_tech'), emoji: '🚀'),
       ],
     ),
     (
       categoryId: 'cat_exam_daily',
-      categoryName: '大考衝刺與自律日常',
-      categoryShortName: '升學日常',
+      categoryName: tr('ws_cat_exam'),
+      categoryShortName: tr('ws_cat_exam_s'),
       categoryEmoji: '🎯',
       topics: [
-        (id: 'topic_exam', name: '會考學測歷屆', emoji: '📝'),
-        (id: 'topic_daily', name: '自律打卡讀書會', emoji: '⏰'),
-        (id: 'topic_toeic', name: '多益檢定', emoji: '🏆'),
+        (id: 'topic_exam', name: tr('ws_t_exam'), emoji: '📝'),
+        (id: 'topic_daily', name: tr('ws_t_daily'), emoji: '⏰'),
+        (id: 'topic_toeic', name: tr('ws_t_toeic'), emoji: '🏆'),
       ],
     ),
   ];
@@ -209,9 +210,6 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     if (_exitAnim.isAnimating || _exitAnim.isCompleted) return;
     await _exitAnim.forward();
     if (!mounted) return;
-    if (_selectedTopicIds.isEmpty) {
-      _selectedTopicIds.addAll(['topic_math', 'topic_ai']);
-    }
     final normalizedCommunities = normalizeCommunityTopicIds(_selectedTopicIds);
     widget.onDone(
       normalizedCommunities,
@@ -241,9 +239,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     HapticFeedback.selectionClick();
     setState(() {
       if (_selectedTopicIds.contains(topicId)) {
-        if (_selectedTopicIds.length > 1) {
-          _selectedTopicIds.remove(topicId);
-        }
+        _selectedTopicIds.remove(topicId);
       } else {
         _selectedTopicIds.add(topicId);
       }
@@ -255,9 +251,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     final allSelected = topicIds.every((id) => _selectedTopicIds.contains(id));
     setState(() {
       if (allSelected) {
-        if (_selectedTopicIds.length > topicIds.length) {
-          _selectedTopicIds.removeAll(topicIds);
-        }
+        _selectedTopicIds.removeAll(topicIds);
       } else {
         _selectedTopicIds.addAll(topicIds);
       }
@@ -531,11 +525,11 @@ class _WelcomeSplashState extends State<WelcomeSplash>
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '略過',
+                      tr('ws_skip'),
                       style: TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: 12.5,
@@ -567,24 +561,24 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     final rawName = widget.userName?.trim() ?? '';
     final isPureNumber = RegExp(r'^\d+$').hasMatch(rawName);
     final greetingTitle = (rawName.isNotEmpty && !isPureNumber)
-        ? '嗨，$rawName！\n開啟專屬於你的智慧學習'
-        : '歡迎加入！\n開啟專屬於你的智慧學習';
+        ? tr('ws_hi_name', [rawName.toString()])
+        : tr('ws_welcome');
 
     return _StepContainer(
       stepIndex: 0,
       activePageIndex: _currentPage,
-      stepBadge: '✦ AI 智慧伴學 · 個人化啟程',
+      stepBadge: tr('ws_badge0'),
       title: greetingTitle,
-      subtitle: '只需 30 秒回答 4 個小問題，為你即時配置最適切的 AI 解題特助、題庫與心智圖筆記系統。',
-      children: const [
+      subtitle: tr('ws_intro'),
+      children: [
         SizedBox(height: 8),
 
         // 3 大極致質感 Bento 亮點卡片
         _WelcomeFeatureCard(
           emoji: '🎯',
-          tag: '精準組卷',
-          title: '目標導向題庫與弱項分析',
-          description: '依大考或段考進度，推薦最適切的練習難度並即時診斷能力盲點',
+          tag: tr('ws_f1_tag'),
+          title: tr('ws_f1_title'),
+          description: tr('ws_f1_desc'),
           accentColor: Color(0xFF0284C7),
           gradientColors: [Color(0xFF0284C7), Color(0xFF0369A1)],
           bgTint: Color(0xFFF0F9FF),
@@ -592,9 +586,9 @@ class _WelcomeSplashState extends State<WelcomeSplash>
         SizedBox(height: 12),
         _WelcomeFeatureCard(
           emoji: '🤖',
-          tag: '24H 伴學',
-          title: 'AI 步驟詳解與觀念啟發',
-          description: '遇到難題即時提供破題思路，引導式教學而非直接給死答案',
+          tag: tr('ws_f2_tag'),
+          title: tr('ws_f2_title'),
+          description: tr('ws_f2_desc'),
           accentColor: Color(0xFFEA580C),
           gradientColors: [Color(0xFFFF9F0A), Color(0xFFEA580C)],
           bgTint: Color(0xFFFFF7ED),
@@ -602,9 +596,9 @@ class _WelcomeSplashState extends State<WelcomeSplash>
         SizedBox(height: 12),
         _WelcomeFeatureCard(
           emoji: '🧠',
-          tag: '語音速記',
-          title: '語音秒轉結構化心智圖',
-          description: '課堂錄音自動萃取重點並轉換為視覺化架構，輕鬆梳理知識脈絡',
+          tag: tr('ws_f3_tag'),
+          title: tr('ws_f3_title'),
+          description: tr('ws_f3_desc'),
           accentColor: Color(0xFF7C3AED),
           gradientColors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
           bgTint: Color(0xFFF5F3FF),
@@ -620,14 +614,14 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     return _StepContainer(
       stepIndex: 1,
       activePageIndex: _currentPage,
-      stepBadge: '步驟 1 / 4 · 學習目標',
-      title: '你的主要學習目標是什麼？',
-      subtitle: '選擇目前最符合的方向，為你推薦合適的內容與工具',
+      stepBadge: tr('ws_s1_badge'),
+      title: tr('ws_s1_title'),
+      subtitle: tr('ws_s1_sub'),
       children: [
         _AppleLinearCard(
           emoji: '🎓',
-          title: '升學大考衝刺',
-          subtitle: '會考、學測、統測與分科測驗重點複習',
+          title: tr('ws_g_exam'),
+          subtitle: tr('ws_g_exam_s'),
           isSelected: _selectedGoal == 'exam',
           onTap: () {
             HapticFeedback.selectionClick();
@@ -636,8 +630,8 @@ class _WelcomeSplashState extends State<WelcomeSplash>
         ),
         _AppleLinearCard(
           emoji: '📚',
-          title: '學校課業鞏固',
-          subtitle: '緊跟平時進度，掌握單元核心概念與段考複習',
+          title: tr('ws_g_school'),
+          subtitle: tr('ws_g_school_s'),
           isSelected: _selectedGoal == 'school',
           onTap: () {
             HapticFeedback.selectionClick();
@@ -646,8 +640,8 @@ class _WelcomeSplashState extends State<WelcomeSplash>
         ),
         _AppleLinearCard(
           emoji: '💡',
-          title: '科技與程式探索',
-          subtitle: '學習 AI 應用、程式開發與跨學科新知',
+          title: tr('ws_g_tech'),
+          subtitle: tr('ws_g_tech_s'),
           isSelected: _selectedGoal == 'tech',
           onTap: () {
             HapticFeedback.selectionClick();
@@ -656,8 +650,8 @@ class _WelcomeSplashState extends State<WelcomeSplash>
         ),
         _AppleLinearCard(
           emoji: '📝',
-          title: '自律習慣與日常',
-          subtitle: '規劃每日讀書節奏、整理筆記與打卡記錄',
+          title: tr('ws_g_daily'),
+          subtitle: tr('ws_g_daily_s'),
           isSelected: _selectedGoal == 'daily',
           onTap: () {
             HapticFeedback.selectionClick();
@@ -675,9 +669,9 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     return _StepContainer(
       stepIndex: 2,
       activePageIndex: _currentPage,
-      stepBadge: '步驟 2 / 4 · 學習困擾 (可多選)',
-      title: '平時學習最常遇到哪些困擾？',
-      subtitle: '選取你的需求，系統將優先為你配置智慧輔助工具',
+      stepBadge: tr('ws_s2_badge'),
+      title: tr('ws_s2_title'),
+      subtitle: tr('ws_s2_sub'),
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
@@ -689,36 +683,36 @@ class _WelcomeSplashState extends State<WelcomeSplash>
                 _BentoSquareCard(
                   width: cardWidth,
                   emoji: '🧩',
-                  badgeText: 'AI 破題',
-                  title: '遇到難題卡關',
-                  subtitle: '即時引導解題思路與盲點',
+                  badgeText: tr('ws_p1_badge'),
+                  title: tr('ws_p1'),
+                  subtitle: tr('ws_p1_s'),
                   isSelected: _selectedPainPoints.contains('stuck_questions'),
                   onTap: () => _togglePainPoint('stuck_questions'),
                 ),
                 _BentoSquareCard(
                   width: cardWidth,
                   emoji: '📑',
-                  badgeText: '語音轉大綱',
-                  title: '筆記散亂繁雜',
-                  subtitle: '口述秒轉心智圖與重點架構',
+                  badgeText: tr('ws_p2_badge'),
+                  title: tr('ws_p2'),
+                  subtitle: tr('ws_p2_s'),
                   isSelected: _selectedPainPoints.contains('scattered_notes'),
                   onTap: () => _togglePainPoint('scattered_notes'),
                 ),
                 _BentoSquareCard(
                   width: cardWidth,
                   emoji: '⏰',
-                  badgeText: '智慧排程',
-                  title: '缺乏自律規劃',
-                  subtitle: '自動產生計畫並同步日曆',
+                  badgeText: tr('ws_p3_badge'),
+                  title: tr('ws_p3'),
+                  subtitle: tr('ws_p3_s'),
                   isSelected: _selectedPainPoints.contains('procrastination'),
                   onTap: () => _togglePainPoint('procrastination'),
                 ),
                 _BentoSquareCard(
                   width: cardWidth,
                   emoji: '📦',
-                  badgeText: '資源共享',
-                  title: '缺少練習資源',
-                  subtitle: '同儕優質題庫與試卷一鍵獲取',
+                  badgeText: tr('ws_p4_badge'),
+                  title: tr('ws_p4'),
+                  subtitle: tr('ws_p4_s'),
                   isSelected: _selectedPainPoints.contains('resource_lacking'),
                   onTap: () => _togglePainPoint('resource_lacking'),
                 ),
@@ -737,15 +731,15 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     return _StepContainer(
       stepIndex: 3,
       activePageIndex: _currentPage,
-      stepBadge: '步驟 3 / 4 · 學習模式',
-      title: '你偏好哪種學習氛圍？',
-      subtitle: '依照你的學習習慣，為你打造最舒服的使用方式',
+      stepBadge: tr('ws_s3_badge'),
+      title: tr('ws_s3_title'),
+      subtitle: tr('ws_s3_sub'),
       children: [
         _ImmersiveHeroCard(
           emoji: '🧘',
-          tag: '個人專注',
-          title: '安靜沉浸，個人專注學習',
-          description: '以個人題庫、專屬筆記與 AI 解題為主，不受外界打擾',
+          tag: tr('ws_m1_tag'),
+          title: tr('ws_m1_title'),
+          description: tr('ws_m1_desc'),
           accentColor: const Color(0xFF0284C7),
           tintBgColor: const Color(0xFFF0F9FF),
           isSelected: _selectedIncentive == 'solo',
@@ -756,9 +750,9 @@ class _WelcomeSplashState extends State<WelcomeSplash>
         ),
         _ImmersiveHeroCard(
           emoji: '🤝',
-          tag: '同儕交流',
-          title: '社群互動，與同儕互相交流',
-          description: '參與熱門主題討論、查看同學分享的筆記與心得資源',
+          tag: tr('ws_m2_tag'),
+          title: tr('ws_m2_title'),
+          description: tr('ws_m2_desc'),
           accentColor: const Color(0xFF7C3AED),
           tintBgColor: const Color(0xFFF5F3FF),
           isSelected: _selectedIncentive == 'peer',
@@ -769,9 +763,9 @@ class _WelcomeSplashState extends State<WelcomeSplash>
         ),
         _ImmersiveHeroCard(
           emoji: '🔥',
-          tag: '目標排行',
-          title: '打卡激勵，成就排行榜挑戰',
-          description: '結合學習點數、累積連續天數與成就榜激勵自己前進',
+          tag: tr('ws_m3_tag'),
+          title: tr('ws_m3_title'),
+          description: tr('ws_m3_desc'),
           accentColor: const Color(0xFFEA580C),
           tintBgColor: const Color(0xFFFFF7ED),
           isSelected: _selectedIncentive == 'team',
@@ -782,9 +776,9 @@ class _WelcomeSplashState extends State<WelcomeSplash>
         ),
         _ImmersiveHeroCard(
           emoji: '🤖',
-          tag: 'AI 伴學',
-          title: '專屬教練，24 小時智慧隨行',
-          description: '隨時提問解惑、提供弱點診斷與即時精準回饋',
+          tag: tr('ws_m4_tag'),
+          title: tr('ws_m4_title'),
+          description: tr('ws_m4_desc'),
           accentColor: const Color(0xFF059669),
           tintBgColor: const Color(0xFFECFDF5),
           isSelected: _selectedIncentive == 'ai_coach',
@@ -811,9 +805,9 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     return _StepContainer(
       stepIndex: 4,
       activePageIndex: _currentPage,
-      stepBadge: '步驟 4 / 4 · 關注學科 (可多選)',
-      title: '選擇你想關注的學科領域',
-      subtitle: '點選上方分類隨時探索切換，為你優先推薦相關題目與筆記',
+      stepBadge: tr('ws_s4_badge'),
+      title: tr('ws_s4_title'),
+      subtitle: tr('ws_s4_sub'),
       headerExtra: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -839,7 +833,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '已選取 $totalSelected 個領域標籤',
+                  tr('ws_selected_n', [totalSelected.toString()]),
                   style: const TextStyle(
                     color: Color(0xFFC2410C),
                     fontSize: 12,
@@ -968,7 +962,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Icon(
                 Icons.lightbulb_outline_rounded,
@@ -978,7 +972,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '點選上方分類標籤可自由切換，隨時於個人設定隨心調整',
+                  tr('ws_tag_hint'),
                   style: TextStyle(
                     color: Color(0xFF64748B),
                     fontSize: 11.5,
@@ -998,11 +992,11 @@ class _WelcomeSplashState extends State<WelcomeSplash>
     final isCoverPage = _currentPage == 0;
     final isLastPage = _currentPage == 4;
 
-    String buttonText = '下一步';
+    String buttonText = tr('login_next');
     if (isCoverPage) {
-      buttonText = '開啟 30 秒專屬配置';
+      buttonText = tr('ws_start_setup');
     } else if (isLastPage) {
-      buttonText = '開始使用';
+      buttonText = tr('ws_get_started');
     }
 
     return Padding(
@@ -1082,7 +1076,7 @@ class _WelcomeSplashState extends State<WelcomeSplash>
           if (isCoverPage) ...[
             const SizedBox(height: 6),
             Text(
-              '⚡ 約需 30 秒 · 隨時可於「個人檔案」調整所有偏好',
+              tr('ws_footer'),
               style: TextStyle(
                 color: Colors.grey.shade400,
                 fontSize: 11,
@@ -1528,7 +1522,7 @@ class _AnimatedCategoryCardState extends State<_AnimatedCategoryCard>
                     ),
                   ),
                   child: Text(
-                    widget.isAllSelected ? '取消全選' : '全選此類',
+                    widget.isAllSelected ? tr('pb_unselect_all') : tr('ws_select_cat'),
                     style: TextStyle(
                       color: widget.isAllSelected
                           ? const Color(0xFFEA580C)

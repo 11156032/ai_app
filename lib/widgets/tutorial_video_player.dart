@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../services/app_locale_service.dart';
 
 class TutorialVideoPlayer extends StatefulWidget {
   final String assetPath;
@@ -115,13 +116,13 @@ class TutorialVideoPlayer extends StatefulWidget {
             width: 1.2,
           ),
         ),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.ondemand_video_rounded,
                 color: Color(0xFF8D6E63), size: 24),
             SizedBox(width: 10),
             Text(
-              '操作教學示範影片',
+              tr('tv_title'),
               style: TextStyle(
                 color: Color(0xFF3E2723),
                 fontSize: 17,
@@ -142,7 +143,7 @@ class TutorialVideoPlayer extends StatefulWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE8DDD5)),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
                     Icon(
                       Icons.video_library_outlined,
@@ -151,7 +152,7 @@ class TutorialVideoPlayer extends StatefulWidget {
                     ),
                     SizedBox(height: 12),
                     Text(
-                      '教學示範影片更新中',
+                      tr('tv_updating'),
                       style: TextStyle(
                         color: Color(0xFF3E2723),
                         fontSize: 15,
@@ -160,7 +161,7 @@ class TutorialVideoPlayer extends StatefulWidget {
                     ),
                     SizedBox(height: 6),
                     Text(
-                      '最新介面操作示範影片正在後製更新中，敬請期待！',
+                      tr('tv_updating_sub'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Color(0xFF757575),
@@ -176,8 +177,8 @@ class TutorialVideoPlayer extends StatefulWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              '關閉',
+            child: Text(
+              tr('btn_close'),
               style: TextStyle(
                 color: Color(0xFF8D6E63),
                 fontSize: 14,
@@ -324,8 +325,8 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
               const Icon(Icons.videocam_off_outlined,
                   color: Color(0xFFD7CCC8), size: 38),
               const SizedBox(height: 8),
-              const Text(
-                '無法載入操作導覽影片',
+              Text(
+                tr('tv_load_failed'),
                 style: TextStyle(
                     color: Color(0xFFFDFBF7),
                     fontSize: 13,
@@ -339,7 +340,7 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                 },
                 icon: const Icon(Icons.refresh,
                     size: 16, color: Color(0xFFFFB300)),
-                label: const Text('重試',
+                label: Text(tr('tv_retry'),
                     style: TextStyle(color: Color(0xFFFFB300), fontSize: 12)),
               ),
             ],
@@ -355,7 +356,7 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
           color: const Color(0xFF2C221E),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -363,7 +364,7 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                   color: Color(0xFFFFB300), strokeWidth: 2.5),
               SizedBox(height: 12),
               Text(
-                '正在準備操作示範影片...',
+                tr('tv_preparing'),
                 style: TextStyle(color: Color(0xFFD7CCC8), fontSize: 13),
               ),
             ],
@@ -557,7 +558,7 @@ class _TutorialVideoPlayerState extends State<TutorialVideoPlayer>
                               _playbackSpeed == 1.0
                                   ? '1.0x'
                                   : (_playbackSpeed < 1.0
-                                      ? '慢放 ${_playbackSpeed == 0.5 ? '0.5x' : '0.75x'}'
+                                      ? tr('tv_slow', [(_playbackSpeed == 0.5 ? '0.5x' : '0.75x').toString()])
                                       : '1.25x'),
                               style: TextStyle(
                                 color: _playbackSpeed != 1.0

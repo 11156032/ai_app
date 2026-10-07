@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/membership_service.dart';
+import '../services/app_locale_service.dart';
 
 class VipBadgeWidget extends StatelessWidget {
   final String tierCode;
@@ -81,7 +82,7 @@ class VipBadgeWidget extends StatelessWidget {
           if (showLabelText) ...[
             SizedBox(width: fontSize * 0.35),
             Text(
-              info.name,
+              trv(info.name),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,

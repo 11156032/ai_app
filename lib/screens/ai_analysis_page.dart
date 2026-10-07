@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../services/ai_diagnosis_service.dart';
 import 'ai_training_page.dart';
+import '../services/app_locale_service.dart';
 
 class AiAnalysisPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -171,8 +172,8 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
     if (_subjectStats.isEmpty) {
       if (mounted) {
         setState(() {
-          _aiInsightStrength = '尚無足夠數據，請先完成幾次測驗後再來查看！';
-          _aiInsightWeakness = '完成更多題目後，AI 會為你分析弱點所在。';
+          _aiInsightStrength = tr('ana_no_data_strength');
+          _aiInsightWeakness = tr('ana_no_data_weakness');
           _isLoadingInsight = false;
         });
       }
@@ -186,7 +187,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
     final weeklyTotal = _dailyHours.fold(0.0, (a, b) => a + b);
 
     final prompt =
-        '根據以下學習數據，輸出繁體中文 JSON {"strength":"...","weakness":"..."}，各1~2句。\n\n各科數據：\n$statsLines\n本週學習：${weeklyTotal.toStringAsFixed(1)}h，連續${widget.streakDays}天。';
+        '根據以下學習數據，輸出 JSON {"strength":"...","weakness":"..."}，各1~2句。\n${AppLocaleService.getAiLanguageInstruction()}\n\n各科數據：\n$statsLines\n本週學習：${weeklyTotal.toStringAsFixed(1)}h，連續${widget.streakDays}天。';
 
     String strength = '';
     String weakness = '';
@@ -214,11 +215,11 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
 
     if (strength.isEmpty) {
       strength =
-          '${_strongestSubject.isNotEmpty ? _strongestSubject : "您"}的學習表現亮眼！正確率高，建議可以挑戰更進階的題型。';
+          tr('ana_strength_fallback', [_strongestSubject.isNotEmpty ? trv(_strongestSubject) : tr('ana_you')]);
     }
     if (weakness.isEmpty) {
       weakness =
-          '${_weakestSubject.isNotEmpty ? _weakestSubject : "部分科目"}仍有進步空間，建議多做練習題來鞏固基礎。';
+          tr('ana_weakness_fallback', [_weakestSubject.isNotEmpty ? trv(_weakestSubject) : tr('ana_some_subjects')]);
     }
 
     if (mounted) {
@@ -267,7 +268,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
         backgroundColor: primaryBrown,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('AI 學習分析報告',
+        title: Text(tr('ana_title'),
             style: TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
@@ -324,12 +325,12 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
                           borderRadius: BorderRadius.circular(16)),
                       elevation: 4,
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.fitness_center, color: Colors.white, size: 20),
                         SizedBox(width: 8),
-                        Text('開始今日專屬特訓',
+                        Text(tr('ana_start_training'),
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -394,17 +395,17 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
             child: const Text('✨', style: TextStyle(fontSize: 24)),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('AI 洞察已更新',
+                Text(tr('ana_insight_updated'),
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold)),
                 SizedBox(height: 4),
-                Text('根據您的學習歷程，已產生最新能力評估。',
+                Text(tr('ana_insight_updated_sub'),
                     style: TextStyle(color: Colors.white70, fontSize: 13)),
               ],
             ),
@@ -425,7 +426,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       children: [
         Row(
           children: [
-            Text('本週學習時數',
+            Text(tr('ana_weekly_hours'),
                 style: TextStyle(
                     color: textColor,
                     fontSize: 16,
@@ -543,16 +544,16 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.local_fire_department,
                   color: Color(0xFFFF6B35), size: 18),
               SizedBox(width: 4),
-              Text('連續學習', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              Text(tr('ana_streak'), style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 8),
-          Text('${widget.streakDays} 天',
+          Text(tr('ana_days_n', [widget.streakDays.toString()]),
               style: TextStyle(
                   color: textColor, fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
@@ -588,11 +589,11 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.auto_awesome, color: Color(0xFF6D5448), size: 18),
               SizedBox(width: 4),
-              Text('AI 評估熟練度',
+              Text(tr('ana_ai_proficiency'),
                   style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
@@ -627,13 +628,13 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('能力雷達圖',
+            Text(tr('ana_radar'),
                 style: TextStyle(
                     color: textColor,
                     fontSize: 16,
                     fontWeight: FontWeight.bold)),
             if (hasEnoughData)
-              Text('${testedSubjects.length} 個已測驗科目',
+              Text(tr('ana_tested_n', [testedSubjects.length.toString()]),
                   style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
@@ -658,7 +659,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
                       color: const Color(0xFF6D5448).withValues(alpha: 0.35)),
                   const SizedBox(height: 14),
                   Text(
-                    testedSubjects.isEmpty ? '尚無足夠資料' : '已測驗科目數量不足',
+                    testedSubjects.isEmpty ? tr('ana_no_data') : tr('ana_few_subjects'),
                     style: TextStyle(
                         color: textColor,
                         fontSize: 15,
@@ -667,8 +668,8 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
                   const SizedBox(height: 6),
                   Text(
                     testedSubjects.isEmpty
-                        ? '請多完成幾次各科測驗\n雷達圖將自動更新為您的能力分佈 📊'
-                        : '多邊形雷達圖需至少 3 個測驗科目（目前已有 ${testedSubjects.length} 科）\n請多完成其他科目的測驗！🎯',
+                        ? tr('ana_no_data_sub')
+                        : tr('ana_few_subjects_sub', [testedSubjects.length.toString()]),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         color: Colors.grey, fontSize: 13, height: 1.5),
@@ -753,7 +754,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
       children: [
         Row(
           children: [
-            Text('AI 智慧洞察',
+            Text(tr('ana_ai_insight'),
                 style: TextStyle(
                     color: textColor,
                     fontSize: 16,
@@ -769,14 +770,14 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
         ),
         const SizedBox(height: 16),
         if (_isLoadingInsight)
-          const Center(
+          Center(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 children: [
                   CircularProgressIndicator(color: Color(0xFF6D5448)),
                   SizedBox(height: 12),
-                  Text('AI 正在分析您的學習數據...',
+                  Text(tr('ana_analyzing'),
                       style: TextStyle(color: Colors.grey)),
                 ],
               ),
@@ -788,7 +789,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
             iconColor: Colors.amber.shade600,
             indicatorColor: Colors.green,
             title:
-                '強項：${_strongestSubject.isNotEmpty ? _strongestSubject : "整體表現"}',
+                tr('ana_strength_title', [_strongestSubject.isNotEmpty ? trv(_strongestSubject) : tr('ana_overall')]),
             desc: _aiInsightStrength,
             textColor: textColor,
           ),
@@ -798,7 +799,7 @@ class _AiAnalysisPageState extends State<AiAnalysisPage>
             iconColor: Colors.orange,
             indicatorColor: Colors.amber,
             title:
-                '建議加強：${_weakestSubject.isNotEmpty ? _weakestSubject : "持續練習"}',
+                tr('ana_weak_title', [_weakestSubject.isNotEmpty ? trv(_weakestSubject) : tr('ana_keep_practicing')]),
             desc: _aiInsightWeakness,
             textColor: textColor,
           ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import '../services/ai_diagnosis_service.dart';
 import 'question_discussion_page.dart';
+import '../services/app_locale_service.dart';
 
 class ReviewPage extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
@@ -145,11 +146,11 @@ class _ReviewPageState extends State<ReviewPage>
     if (!mounted) return;
     ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
       SnackBar(duration: const Duration(milliseconds: 1500), 
-        content: const Row(
+        content: Row(
           children: [
             Icon(Icons.check_circle, color: Colors.white),
             SizedBox(width: 10),
-            Text('已儲存錯題與筆記'),
+            Text(tr('rv_saved')),
           ],
         ),
         backgroundColor: Colors.green.shade700,
@@ -246,14 +247,14 @@ class _ReviewPageState extends State<ReviewPage>
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title:
-            const Text('交卷檢討', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(tr('rv_title'), style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
-            tooltip: '回到題庫頁面',
+            tooltip: tr('rv_back_bank'),
             onPressed: () {
               Navigator.of(context).popUntil((route) => route.isFirst);
             },
@@ -289,18 +290,18 @@ class _ReviewPageState extends State<ReviewPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('本次測驗成績',
+                      Text(tr('rv_score_title'),
                           style: TextStyle(
                               color: cs.onPrimary.withValues(alpha: 0.8),
                               fontSize: 13)),
                       const SizedBox(height: 4),
-                      Text('$score 分',
+                      Text(tr('rv_score_n', [score.toString()]),
                           style: TextStyle(
                               color: cs.onPrimary,
                               fontSize: 36,
                               fontWeight: FontWeight.w900)),
                       const SizedBox(height: 6),
-                      Text('答對 $correctCount / $total 題',
+                      Text(tr('rv_correct_n', [correctCount.toString(), total.toString()]),
                           style: TextStyle(
                               color: cs.onPrimary.withValues(alpha: 0.85),
                               fontSize: 14)),
@@ -340,7 +341,7 @@ class _ReviewPageState extends State<ReviewPage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('題目詳解 (${widget.questions.length} 題)',
+                Text(tr('rv_detail_n', [widget.questions.length.toString()]),
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -348,7 +349,7 @@ class _ReviewPageState extends State<ReviewPage>
                 Row(
                   children: [
                     Text(
-                      '只看錯題',
+                      tr('rv_wrong_only'),
                       style: TextStyle(
                         fontSize: 14,
                         color: cs.onSurfaceVariant,
@@ -417,7 +418,7 @@ class _ReviewPageState extends State<ReviewPage>
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.save_rounded),
-                    label: Text(_saving ? '儲存中...' : '儲存錯題與筆記',
+                    label: Text(_saving ? tr('common_saving') : tr('rv_save_wrong_notes'),
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600)),
                     style: ElevatedButton.styleFrom(
@@ -712,21 +713,21 @@ class _ReviewPageState extends State<ReviewPage>
       headerBgClr = cs.surfaceContainerHighest.withValues(alpha: 0.3);
       badgeBgClr = cs.outline.withValues(alpha: 0.5);
       statusIcon = Icons.remove_rounded;
-      statusText = '未作答';
+      statusText = tr('rv_unanswered');
       statusTextColor = cs.onSurfaceVariant;
     } else if (isCorrect) {
       borderClr = Colors.green.withValues(alpha: 0.25);
       headerBgClr = Colors.green.withValues(alpha: 0.06);
       badgeBgClr = Colors.green;
       statusIcon = Icons.check_rounded;
-      statusText = '答對';
+      statusText = tr('today_correct');
       statusTextColor = Colors.green.shade700;
     } else {
       borderClr = Colors.red.withValues(alpha: 0.25);
       headerBgClr = Colors.red.withValues(alpha: 0.06);
       badgeBgClr = Colors.red;
       statusIcon = Icons.close_rounded;
-      statusText = '答錯';
+      statusText = tr('today_wrong');
       statusTextColor = Colors.red.shade700;
     }
 
@@ -775,7 +776,7 @@ class _ReviewPageState extends State<ReviewPage>
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text('第 ${qIdx + 1} 題',
+                Text(tr('rv_q_n', [(qIdx + 1).toString()]),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
@@ -791,7 +792,7 @@ class _ReviewPageState extends State<ReviewPage>
                   IconButton(
                     iconSize: 20,
                     visualDensity: VisualDensity.compact,
-                    tooltip: isFav ? '取消收藏' : '收藏題目',
+                    tooltip: isFav ? tr('wq_unfav') : tr('rv_fav'),
                     onPressed: () async {
                       try {
                         final db = await DatabaseHelper.instance.database;
@@ -943,7 +944,7 @@ class _ReviewPageState extends State<ReviewPage>
                         onPressed: () => _showAiExplanationSheet(
                             context, qIdx, q, correct, chosen),
                         icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-                        label: const Text('詢問 AI 解析',
+                        label: Text(tr('rv_ask_ai'),
                             style: TextStyle(fontSize: 12)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Theme.of(context).primaryColor,
@@ -975,7 +976,7 @@ class _ReviewPageState extends State<ReviewPage>
                           },
                           icon: const Icon(Icons.forum_outlined,
                               size: 16, color: Color(0xFF4F46E5)),
-                          label: const Text('題目討論串',
+                          label: Text(tr('qp_discussion'),
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF4F46E5),
@@ -1001,8 +1002,8 @@ class _ReviewPageState extends State<ReviewPage>
                     maxLines: 4,
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
-                      labelText: '新增筆記（選填）',
-                      hintText: '記錄這題的思路或心得...',
+                      labelText: tr('rv_note_label'),
+                      hintText: tr('rv_note_hint'),
                       labelStyle: const TextStyle(fontSize: 13),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -1036,7 +1037,7 @@ class _ReviewPageState extends State<ReviewPage>
                       const Icon(Icons.bookmark_add_outlined,
                           size: 16, color: Color(0xFF5C6BC0)),
                       const SizedBox(width: 6),
-                      const Text('加入錯題本',
+                      Text(tr('rv_add_wrong'),
                           style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -1317,7 +1318,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
         if (!mounted) return;
         setState(() {
           _isLoading = false;
-          _explanationBuffer.write('\n\n[連線錯誤] 無法取得 AI 解析：$err');
+          _explanationBuffer.write(tr('rv_ai_conn_err', [err.toString()]));
         });
       },
       onDone: () {
@@ -1390,7 +1391,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'AI 專屬解析',
+                  tr('rv_ai_title'),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -1400,7 +1401,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded),
-                  tooltip: '重新生成解析',
+                  tooltip: tr('rv_ai_regen'),
                   onPressed: _isLoading ? null : _regenerate,
                 ),
                 IconButton(
@@ -1437,7 +1438,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'AI 導師觀念剖析',
+                        tr('rv_ai_tutor'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -1456,8 +1457,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                           children: [
                             CircularProgressIndicator(color: cs.primary),
                             const SizedBox(height: 16),
-                            const Text(
-                              'AI 導師正在深度解析本題觀念...',
+                            Text(
+                              tr('rv_ai_loading'),
                               style:
                                   TextStyle(color: Colors.grey, fontSize: 13),
                             ),
@@ -1507,7 +1508,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
     final correctOpt = String.fromCharCode(65 + widget.correctIndex);
     final chosenOpt = widget.chosenIndex != null
         ? String.fromCharCode(65 + widget.chosenIndex!)
-        : '未作答';
+        : tr('rv_unanswered');
     final isCorrect = widget.chosenIndex == widget.correctIndex;
 
     return Container(
@@ -1557,7 +1558,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '難度 $difficulty',
+                    tr('rv_difficulty_n', [difficulty.toString()]),
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey.shade700,
@@ -1583,8 +1584,8 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
                 ),
                 child: Text(
                   isCorrect
-                      ? '✓ 答對'
-                      : (widget.chosenIndex != null ? '✗ 答錯' : '未作答'),
+                      ? tr('rv_correct_mark')
+                      : (widget.chosenIndex != null ? tr('rv_wrong_mark') : tr('rv_unanswered')),
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
@@ -1699,14 +1700,14 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
           // 正確解答 vs 學生作答提示
           Row(
             children: [
-              Text('正確答案：($correctOpt)',
+              Text(tr('rv_correct_answer', [correctOpt.toString()]),
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.green.shade800)),
               const Spacer(),
               Text(
-                  '您的作答：${widget.chosenIndex != null ? '($chosenOpt)' : '未作答'}',
+                  tr('rv_your_answer', [(widget.chosenIndex != null ? '($chosenOpt)' : tr('rv_unanswered')).toString()]),
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1808,11 +1809,11 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
 
           String autoTitle;
           if (i == 0) {
-            autoTitle = '🎯 觀念剖析與正確解答';
+            autoTitle = tr('rv_sec_concept');
           } else if (i == 1) {
-            autoTitle = '🔍 盲點檢視與誤解釐清';
+            autoTitle = tr('rv_sec_blind');
           } else {
-            autoTitle = '💡 核心總結與重點複習';
+            autoTitle = tr('rv_sec_summary');
           }
           autoCards.add(_buildSectionCard(autoTitle, pLines, cs));
         }
@@ -1823,7 +1824,7 @@ class _AiExplanationSheetState extends State<_AiExplanationSheet> {
           );
         }
       }
-      return _buildSectionCard('🎯 觀念剖析與解析', lines, cs);
+      return _buildSectionCard(tr('rv_sec_concept2'), lines, cs);
     }
 
     return Column(

@@ -4,6 +4,7 @@ import '../database/database_helper.dart';
 import '../services/membership_service.dart';
 import '../widgets/vip_badge_widget.dart';
 import '../widgets/point_recharge_dialog.dart';
+import '../services/app_locale_service.dart';
 
 class MembershipCenterScreen extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -76,7 +77,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
 
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), 
-          content: Text('🎉 每日簽到成功！獲得 +$bonus 點數'),
+          content: Text(tr('mc_checkin_ok', [bonus.toString()])),
           backgroundColor: const Color(0xFF4CAF50),
           behavior: SnackBarBehavior.floating,
         ),
@@ -115,7 +116,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
       backgroundColor: isDark ? const Color(0xFF141416) : const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Text(
-          'VIP 會員與點數中心',
+          tr('mc_title'),
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : const Color(0xFF1F2937),
@@ -170,9 +171,9 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
                             labelColor: themeColor,
                             unselectedLabelColor: isDark ? Colors.white54 : Colors.grey,
                             labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            tabs: const [
-                              Tab(text: '👑 会員特權比較'),
-                              Tab(text: '📜 點數變動紀錄'),
+                            tabs: [
+                              Tab(text: tr('mc_tab_compare')),
+                              Tab(text: tr('mc_tab_history')),
                             ],
                           ),
                           SizedBox(
@@ -220,7 +221,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
         break;
     }
 
-    final displayName = widget.currentUser['display_name'] ?? widget.currentUser['username'] ?? '使用者';
+    final displayName = widget.currentUser['display_name'] ?? widget.currentUser['username'] ?? tr('mc_user');
 
     return Container(
       width: double.infinity,
@@ -271,8 +272,8 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
                       ),
                       Text(
                         _expiresAtIso != null && _expiresAtIso!.isNotEmpty
-                            ? 'VIP 到期日: ${_expiresAtIso!.split('T')[0]}'
-                            : '永久基本會員',
+                            ? tr('mc_expires', [(_expiresAtIso!.split('T')[0]).toString()])
+                            : tr('mc_basic_forever'),
                         style: const TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                     ],
@@ -293,8 +294,8 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '當前可用點數 (Tokens)',
+                  Text(
+                    tr('mc_points_avail'),
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   const SizedBox(height: 4),
@@ -323,8 +324,8 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
               ElevatedButton.icon(
                 onPressed: () => _openRechargeDialog('points'),
                 icon: const Icon(Icons.add_shopping_cart, size: 16, color: Color(0xFF3E2723)),
-                label: const Text(
-                  '購買點數',
+                label: Text(
+                  tr('mc_buy_points'),
                   style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3E2723)),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -372,7 +373,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '每日登入獎勵',
+                  tr('mc_daily_bonus'),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -381,7 +382,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '當前階級每日可領 +${tierInfo.dailyBonus} 點數',
+                  tr('mc_daily_bonus_n', [tierInfo.dailyBonus.toString()]),
                   style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.grey.shade600),
                 ),
               ],
@@ -396,7 +397,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             child: Text(
-              _hasClaimedToday ? '今日已領' : '立即簽到',
+              _hasClaimedToday ? tr('mc_claimed') : tr('mc_claim'),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: _hasClaimedToday ? (isDark ? Colors.white38 : Colors.grey.shade600) : Colors.white,
@@ -414,7 +415,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          'VIP 會員權益對比矩陣',
+          tr('mc_matrix'),
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -438,16 +439,16 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
             TableRow(
               decoration: BoxDecoration(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey[100]),
               children: [
-                Padding(padding: const EdgeInsets.all(8), child: Text('權益項目', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : Colors.black87))),
-                Padding(padding: const EdgeInsets.all(8), child: Text('普通', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white70 : Colors.black87))),
-                const Padding(padding: EdgeInsets.all(8), child: Text('黃金', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFFFF8F00)))),
-                const Padding(padding: EdgeInsets.all(8), child: Text('鑽石', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF7E57C2)))),
+                Padding(padding: const EdgeInsets.all(8), child: Text(tr('mc_benefit'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : Colors.black87))),
+                Padding(padding: const EdgeInsets.all(8), child: Text(tr('mc_normal'), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white70 : Colors.black87))),
+                Padding(padding: EdgeInsets.all(8), child: Text(tr('mc_gold'), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFFFF8F00)))),
+                Padding(padding: EdgeInsets.all(8), child: Text(tr('mc_diamond'), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF7E57C2)))),
               ],
             ),
-            _buildTableRow('AI 詢問點數折扣', '原價 (1.0x)', '8 折 (0.8x)', '5 折半價', isDark),
-            _buildTableRow('每日簽到點數', '+10 Pts', '+50 Pts', '+100 Pts', isDark),
-            _buildTableRow('AI 診斷詳細報告', '基本款', '完整深度', 'VIP 無限速', isDark),
-            _buildTableRow('專屬身份徽章', '普通灰色', '金色光澤', '鑽石流光', isDark),
+            _buildTableRow(tr('mc_ai_discount'), tr('mc_full_price'), tr('mc_20off'), tr('mc_half'), isDark),
+            _buildTableRow(tr('mc_daily_points'), '+10 Pts', '+50 Pts', '+100 Pts', isDark),
+            _buildTableRow(tr('mc_ai_report'), tr('mc_basic'), tr('mc_full_depth'), tr('mc_vip_unlimited'), isDark),
+            _buildTableRow(tr('mc_badge'), tr('mc_badge_gray'), tr('mc_badge_gold'), tr('mc_badge_diamond'), isDark),
           ],
         ),
         const SizedBox(height: 24),
@@ -457,8 +458,8 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
           child: ElevatedButton.icon(
             onPressed: () => _openRechargeDialog('tiers'),
             icon: const Icon(Icons.star_rounded, color: Colors.white),
-            label: const Text(
-              '★ 立即升級 VIP 方案',
+            label: Text(
+              tr('mc_upgrade'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             style: ElevatedButton.styleFrom(
@@ -492,7 +493,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
           children: [
             Icon(Icons.history, size: 48, color: isDark ? Colors.white38 : Colors.grey),
             const SizedBox(height: 12),
-            Text('尚無點數變動紀錄', style: TextStyle(color: isDark ? Colors.white38 : Colors.grey)),
+            Text(tr('mc_no_history'), style: TextStyle(color: isDark ? Colors.white38 : Colors.grey)),
           ],
         ),
       );
@@ -521,7 +522,7 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
             ),
           ),
           title: Text(
-            tx['description'] as String? ?? '點數異動',
+            tx['description'] as String? ?? tr('mc_points_change'),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
           subtitle: Text(dateStr, style: const TextStyle(fontSize: 11, color: Colors.grey)),

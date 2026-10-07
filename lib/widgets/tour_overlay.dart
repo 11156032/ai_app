@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'tutorial_video_player.dart';
 import 'mindmap_node.dart';
 import 'mindmap_canvas.dart';
+import '../services/app_locale_service.dart';
 
 class TourKeys {
   static final GlobalKey wrongQuestionsTabKey = GlobalKey();
@@ -495,7 +496,7 @@ class _TourOverlayState extends State<TourOverlay>
                           ),
                           const Spacer(),
                           Text(
-                            '步驟 $visibleStepNumber / ${visibleSteps.length}',
+                            tr('tour_step_n', [visibleStepNumber.toString(), visibleSteps.length.toString()]),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade500,
@@ -613,9 +614,9 @@ class _TourOverlayState extends State<TourOverlay>
                                       setState(() {
                                         _activeVideoAsset = step.tutorialVideoAsset;
                                         _activeVideoTitle =
-                                            step.tutorialVideoTitle ?? '操作示範';
+                                            step.tutorialVideoTitle ?? tr('tour_demo');
                                         _activeVideoBadge =
-                                            step.featureIndex == 2 ? '題庫測驗教學' : '操作教學';
+                                            step.featureIndex == 2 ? tr('tour_quiz_tutorial') : tr('tour_tutorial');
                                       });
                                     },
                                     borderRadius: BorderRadius.circular(12),
@@ -650,7 +651,7 @@ class _TourOverlayState extends State<TourOverlay>
                                           Expanded(
                                             child: Text(
                                               step.tutorialVideoTitle ??
-                                                  '觀看題庫測驗操作示範影片 🎬',
+                                                  tr('tour_watch_quiz_video'),
                                               style: TextStyle(
                                                 color: Colors.amber.shade900,
                                                 fontSize: 12.5,
@@ -687,7 +688,7 @@ class _TourOverlayState extends State<TourOverlay>
                                     const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                 minimumSize: const Size(0, 36),
                               ),
-                              child: const Text('略過', style: TextStyle(fontSize: 13)),
+                              child: Text(tr('ws_skip'), style: TextStyle(fontSize: 13)),
                             ),
                           ],
                           const Spacer(),
@@ -703,7 +704,7 @@ class _TourOverlayState extends State<TourOverlay>
                                     borderRadius: BorderRadius.circular(12)),
                                 minimumSize: const Size(0, 38),
                               ),
-                              child: const Text('← 上一步',
+                              child: Text(tr('tour_prev'),
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13)),
@@ -723,7 +724,7 @@ class _TourOverlayState extends State<TourOverlay>
                               minimumSize: const Size(0, 38),
                             ),
                             child: Text(
-                              isLastVisible ? '已了解 ✅' : '下一步 →',
+                              isLastVisible ? tr('tour_got_it') : tr('tour_next'),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 13.5),
                             ),
@@ -776,7 +777,7 @@ class _TourOverlayState extends State<TourOverlay>
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _activeVideoTitle ?? '操作教學示範',
+                                _activeVideoTitle ?? tr('tour_demo_full'),
                                 style: const TextStyle(
                                   color: Color(0xFF3E2723),
                                   fontSize: 15,
@@ -810,7 +811,7 @@ class _TourOverlayState extends State<TourOverlay>
                             autoPlay: true,
                             looping: true,
                             isActive: true,
-                            badgeLabel: _activeVideoBadge ?? '操作示範',
+                            badgeLabel: _activeVideoBadge ?? tr('tour_demo'),
                             initialMuted: false,
                           ),
                         ),
@@ -868,8 +869,8 @@ class _TourOverlayState extends State<TourOverlay>
                               ),
                             ),
                             const SizedBox(height: 16),
-                            const Text(
-                              '確定要略過功能引導嗎？',
+                            Text(
+                              tr('tour_skip_q'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 18,
@@ -888,7 +889,7 @@ class _TourOverlayState extends State<TourOverlay>
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: const Color(0xFFE2E8F0)),
                               ),
-                              child: const Row(
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Icon(
@@ -899,7 +900,7 @@ class _TourOverlayState extends State<TourOverlay>
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      '略過引導可能會影響後續操作的使用體驗與新功能探索。只需幾個步驟即可快速掌握核心功能，確定要略過嗎？',
+                                      tr('tour_skip_msg'),
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Color(0xFF475569),
@@ -930,8 +931,8 @@ class _TourOverlayState extends State<TourOverlay>
                                         borderRadius: BorderRadius.circular(14),
                                       ),
                                     ),
-                                    child: const Text(
-                                      '確認略過',
+                                    child: Text(
+                                      tr('tour_confirm_skip'),
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
@@ -956,8 +957,8 @@ class _TourOverlayState extends State<TourOverlay>
                                         borderRadius: BorderRadius.circular(14),
                                       ),
                                     ),
-                                    child: const Text(
-                                      '繼續引導',
+                                    child: Text(
+                                      tr('tour_continue'),
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -981,7 +982,7 @@ class _TourOverlayState extends State<TourOverlay>
             Positioned.fill(
               child: FullscreenMindMapView(
                 root: _activeFullscreenMindMapRoot!,
-                title: _activeFullscreenMindMapTitle ?? '光合作用機制 — 互動心智圖',
+                title: _activeFullscreenMindMapTitle ?? tr('tour_mm_title'),
                 onClose: () {
                   setState(() {
                     _activeFullscreenMindMapRoot = null;
@@ -1017,39 +1018,39 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
     super.initState();
     _demoRoot = MindMapNode(
       id: 'demo_root',
-      label: '🌿 光合作用機制',
+      label: tr('tour_mm_root'),
       color: const Color(0xFF2E7D32),
       children: [
         MindMapNode(
           id: 'demo_c1',
-          label: '☀️ 光反應 (類囊體膜)',
+          label: tr('tour_mm_c1'),
           color: const Color(0xFF1565C0),
           children: [
             MindMapNode(
               id: 'demo_c1_1',
-              label: '⚡ 產生 ATP / NADPH',
+              label: tr('tour_mm_c1_1'),
               color: const Color(0xFF0288D1),
             ),
             MindMapNode(
               id: 'demo_c1_2',
-              label: '💧 水分子光解放氧',
+              label: tr('tour_mm_c1_2'),
               color: const Color(0xFF0097A7),
             ),
           ],
         ),
         MindMapNode(
           id: 'demo_c2',
-          label: '🌙 固碳反應 (葉綠體基質)',
+          label: tr('tour_mm_c2'),
           color: const Color(0xFF6A1B9A),
           children: [
             MindMapNode(
               id: 'demo_c2_1',
-              label: '🔄 卡爾文循環',
+              label: tr('tour_mm_c2_1'),
               color: const Color(0xFF8E24AA),
             ),
             MindMapNode(
               id: 'demo_c2_2',
-              label: '🍬 固定 CO₂ 生成葡萄糖',
+              label: tr('tour_mm_c2_2'),
               color: const Color(0xFFAB47BC),
             ),
           ],
@@ -1080,7 +1081,7 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
                 _buildTabButton(
                   index: 0,
                   icon: Icons.mic_rounded,
-                  label: '🎙️ 語音速記',
+                  label: tr('tour_voice'),
                   activeColor: const Color(0xFFD84315),
                 ),
                 const SizedBox(width: 4),
@@ -1090,7 +1091,7 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
                 _buildTabButton(
                   index: 1,
                   icon: Icons.account_tree_rounded,
-                  label: '🧠 結構化心智圖',
+                  label: tr('tour_mindmap'),
                   activeColor: const Color(0xFF4A148C),
                 ),
                 const Spacer(),
@@ -1101,13 +1102,13 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
                       if (scope != null) {
                         scope.openFullscreenMindMap(
                           _demoRoot,
-                          '光合作用機制 — 互動心智圖',
+                          tr('tour_mm_title'),
                         );
                       } else {
                         FullscreenMindMapView.open(
                           context,
                           root: _demoRoot,
-                          title: '光合作用機制 — 互動心智圖',
+                          title: tr('tour_mm_title'),
                         );
                       }
                     },
@@ -1119,13 +1120,13 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
                         color: const Color(0xFF4A148C).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.fullscreen_rounded,
                               size: 14, color: Color(0xFF4A148C)),
                           SizedBox(width: 2),
-                          Text('全螢幕',
+                          Text(tr('tour_fullscreen'),
                               style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
@@ -1223,7 +1224,7 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'AI 語音速記中 00:48',
+                      tr('tour_recording'),
                       style: TextStyle(
                           fontSize: 10,
                           color: Colors.red.shade800,
@@ -1241,7 +1242,7 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '🎓 說話者：老師',
+                  tr('tour_speaker'),
                   style: TextStyle(
                       fontSize: 10,
                       color: Colors.blue.shade800,
@@ -1258,8 +1259,8 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.black12),
             ),
-            child: const Text(
-              '「光合作用分為光反應與固碳反應。在類囊體膜上的光反應利用光能裂解水生成氧氣，並產生能量 ATP 與 NADPH；隨後在基質進行卡爾文循環生成葡萄糖...」',
+            child: Text(
+              tr('tour_transcript'),
               style: TextStyle(
                   fontSize: 12, height: 1.5, color: Color(0xFF3E2723)),
             ),
@@ -1267,11 +1268,11 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
           const SizedBox(height: 8),
           Row(
             children: [
-              _buildTag('#生物'),
+              _buildTag(tr('tour_tag_bio')),
               const SizedBox(width: 4),
-              _buildTag('#光合作用'),
+              _buildTag(tr('tour_tag_photo')),
               const SizedBox(width: 4),
-              _buildTag('#卡爾文循環'),
+              _buildTag(tr('tour_tag_calvin')),
               const Spacer(),
               GestureDetector(
                 onTap: () => setState(() => _activeTab = 1),
@@ -1282,9 +1283,9 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
                     color: const Color(0xFF4A148C).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Text('生成心智圖',
+                      Text(tr('tour_gen_mindmap'),
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -1335,13 +1336,13 @@ class _VoiceToMindMapTourDemoState extends State<VoiceToMindMapTourDemo> {
                     color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.pinch_rounded,
                           size: 11, color: Colors.white),
                       SizedBox(width: 3),
-                      Text('可雙指縮放拖曳',
+                      Text(tr('tour_pinch'),
                           style: TextStyle(
                               fontSize: 9.5, color: Colors.white)),
                     ],

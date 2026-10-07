@@ -6,6 +6,7 @@ import '../services/notebook_helper.dart';
 import 'question_edit_page.dart';
 import 'question_practice_page.dart';
 import 'question_discussion_page.dart';
+import '../services/app_locale_service.dart';
 
 class QuestionSetDetailPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -204,8 +205,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           children: [
             Icon(Icons.psychology_rounded, color: cs.primary, size: 28),
             const SizedBox(width: 12),
-            const Text(
-              '請選擇作答模式',
+            Text(
+              tr('qs_pick_mode'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ],
@@ -213,8 +214,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              '此設定會影響測驗結束後，系統是否為您儲存分數與錯題紀錄。',
+            Text(
+              tr('qs_pick_mode_sub'),
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 16),
@@ -249,14 +250,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '一般練習 (不記錄成績)',
+                          Text(
+                            tr('qs_mode_practice'),
                             style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '直接作答，作答結果不存入個人學習歷程。',
+                            tr('qs_mode_practice_sub'),
                             style: TextStyle(
                                 fontSize: 12, color: cs.onSurfaceVariant),
                           ),
@@ -303,16 +304,16 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '模擬測驗 (儲存測驗紀錄)',
+                          Text(
+                            tr('qs_mode_exam'),
                             style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             widget.paperId != null
-                                ? '交卷後自動儲存測驗分數與歷史。'
-                                : '交卷後將自動儲存測驗分數，並將錯題加入錯題本。',
+                                ? tr('qs_mode_exam_sub_paper')
+                                : tr('qs_mode_exam_sub'),
                             style: TextStyle(
                                 fontSize: 12, color: cs.onSurfaceVariant),
                           ),
@@ -328,7 +329,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
         ],
       ),
@@ -356,16 +357,16 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('刪除題目'),
-        content: const Text('確定要刪除這題嗎？這個動作無法復原。'),
+        title: Text(tr('qs_delete_q')),
+        content: Text(tr('qs_delete_q_msg')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('刪除', style: TextStyle(color: Colors.red)),
+            child: Text(tr('common_delete'), style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -393,14 +394,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('題目已移除')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_removed'))),
       );
       await _loadQuestions();
     } catch (e) {
       debugPrint('刪除題目失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('移除失敗')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_remove_failed'))),
       );
     }
   }
@@ -418,7 +419,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       final selectedPaper = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('選擇要加入的自訂題本'),
+          title: Text(tr('wq_pick_paper')),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -428,7 +429,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 if (index == 0) {
                   return ListTile(
                     leading: const Icon(Icons.add, color: Colors.blue),
-                    title: const Text('建立新題本並加入',
+                    title: Text(tr('wq_new_paper_add'),
                         style: TextStyle(
                             color: Colors.blue, fontWeight: FontWeight.bold)),
                     onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
@@ -438,7 +439,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 return ListTile(
                   leading: const Icon(Icons.assignment_rounded,
                       color: Colors.orange),
-                  title: Text(p['name'] ?? '未命名題本'),
+                  title: Text(p['name'] ?? tr('wq_paper_unnamed')),
                   onTap: () => Navigator.pop(ctx, p),
                 );
               },
@@ -447,7 +448,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text(tr('btn_cancel')),
             ),
           ],
         ),
@@ -458,16 +459,16 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       if (selectedPaper['action'] == 'create_new') {
         if (!mounted) return;
         final newNameController = TextEditingController();
-        final defaultName = '題本 ${papers.length + 1}';
+        final defaultName = tr('qs_paper_n', [(papers.length + 1).toString()]);
 
         final newPaperName = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('建立新題本'),
+            title: Text(tr('wq_new_paper')),
             content: TextField(
               controller: newNameController,
               decoration: InputDecoration(
-                labelText: '題本名稱',
+                labelText: tr('wq_paper_name'),
                 hintText: defaultName,
               ),
               autofocus: true,
@@ -475,14 +476,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('取消'),
+                child: Text(tr('btn_cancel')),
               ),
               ElevatedButton(
                 onPressed: () {
                   final text = newNameController.text.trim();
                   Navigator.pop(ctx, text.isEmpty ? defaultName : text);
                 },
-                child: const Text('確定'),
+                child: Text(tr('confirm')),
               ),
             ],
           ),
@@ -498,33 +499,33 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已建立並成功加入「$newPaperName」')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_created_added', [newPaperName.toString()]))),
         );
         return;
       }
 
       final paperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
-      final paperName = selectedPaper['name'] ?? '未命名題本';
+      final paperName = selectedPaper['name'] ?? tr('wq_paper_unnamed');
 
       final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
       if (ids.contains(questionId)) {
         if (!mounted) return;
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('此題目已存在於該自訂題本中')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_q_exists'))),
         );
       } else {
         ids.add(questionId);
         await DatabaseHelper.instance.updatePaper(paperId, paperName, ids);
         if (!mounted) return;
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已將題目成功加入「$paperName」')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_q_added', [paperName.toString()]))),
         );
       }
     } catch (e) {
       debugPrint('加到題本失敗: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('加入失敗，請稍後再試')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_add_failed'))),
       );
     }
   }
@@ -546,7 +547,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       final selectedPaper = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('選擇要匯入的自訂題本'),
+          title: Text(tr('qs_pick_import')),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -556,7 +557,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 if (index == 0) {
                   return ListTile(
                     leading: const Icon(Icons.add, color: Colors.blue),
-                    title: const Text('建立新題本並匯入',
+                    title: Text(tr('qs_new_paper_import'),
                         style: TextStyle(
                             color: Colors.blue, fontWeight: FontWeight.bold)),
                     onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
@@ -566,7 +567,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 return ListTile(
                   leading: const Icon(Icons.assignment_rounded,
                       color: Colors.orange),
-                  title: Text(p['name'] ?? '未命名題本'),
+                  title: Text(p['name'] ?? tr('wq_paper_unnamed')),
                   onTap: () => Navigator.pop(ctx, p),
                 );
               },
@@ -575,7 +576,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text(tr('btn_cancel')),
             ),
           ],
         ),
@@ -589,16 +590,16 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       if (selectedPaper['action'] == 'create_new') {
         if (!mounted) return null;
         final newNameController = TextEditingController();
-        final defaultName = '${widget.title} (複製)';
+        final defaultName = tr('qs_copy_name', [widget.title.toString()]);
 
         final newPaperName = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('建立新題本'),
+            title: Text(tr('wq_new_paper')),
             content: TextField(
               controller: newNameController,
               decoration: InputDecoration(
-                labelText: '題本名稱',
+                labelText: tr('wq_paper_name'),
                 hintText: defaultName,
               ),
               autofocus: true,
@@ -606,14 +607,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('取消'),
+                child: Text(tr('btn_cancel')),
               ),
               ElevatedButton(
                 onPressed: () {
                   final text = newNameController.text.trim();
                   Navigator.pop(ctx, text.isEmpty ? defaultName : text);
                 },
-                child: const Text('確定'),
+                child: Text(tr('confirm')),
               ),
             ],
           ),
@@ -631,11 +632,11 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         if (!mounted) return null;
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-              content: Text('已建立並成功匯入 ${allIds.length} 題至「$newPaperName」')),
+              content: Text(tr('qs_created_imported', [allIds.length.toString(), newPaperName.toString()]))),
         );
       } else {
         finalPaperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
-        finalPaperName = selectedPaper['name'] ?? '未命名題本';
+        finalPaperName = selectedPaper['name'] ?? tr('wq_paper_unnamed');
 
         final ids =
             await DatabaseHelper.instance.getQuestionIdsForPaper(finalPaperId);
@@ -649,11 +650,11 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         if (!mounted) return null;
         if (addedCount == 0) {
           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('所有題目均已存在於「$finalPaperName」中')),
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_all_exist', [finalPaperName.toString()]))),
           );
         } else {
           ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已成功匯入 $addedCount 題至「$finalPaperName」！')),
+            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_imported_n', [addedCount.toString(), finalPaperName.toString()]))),
           );
         }
       }
@@ -662,7 +663,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       debugPrint('整套匯入失敗: $e');
       if (!mounted) return null;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('匯入失敗，請稍後再試')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_import_failed'))),
       );
       return null;
     }
@@ -677,7 +678,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     final answerIndex = question['answerIndex'] as int;
     final correctAnswerText = (answerIndex >= 0 && answerIndex < options.length)
         ? options[answerIndex]
-        : '未知';
+        : tr('common_unknown');
 
     final explanation = question['explanation']?.toString() ?? '';
 
@@ -738,7 +739,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       question['isFavorite'] = nextVal == 1;
                     });
                     messenger..hideCurrentSnackBar()..showSnackBar(
-                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(nextVal == 1 ? '已加入收藏' : '已取消收藏')),
+                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(nextVal == 1 ? tr('wq_faved') : tr('post_unbookmarked'))),
                     );
                   } catch (e) {
                     debugPrint('切換收藏失敗: $e');
@@ -766,33 +767,33 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       question['user_id']?.toString() == currentUserId;
 
                   final items = <PopupMenuEntry<String>>[];
-                  items.add(const PopupMenuItem(value: 'discussion', child: Row(
+                  items.add(PopupMenuItem(value: 'discussion', child: Row(
                     children: [
                       Icon(Icons.forum_outlined, size: 16, color: Color(0xFF4F46E5)),
                       SizedBox(width: 8),
-                      Text('題目討論串'),
+                      Text(tr('qp_discussion')),
                     ],
                   )));
                   if (isOwner) {
-                    items.add(const PopupMenuItem(
-                        value: 'edit', child: Text('編輯題目')));
+                    items.add(PopupMenuItem(
+                        value: 'edit', child: Text(tr('qs_edit_q'))));
                   }
                   if (widget.paperId != null) {
-                    items.add(const PopupMenuItem(
-                        value: 'add_to_notebook', child: Text('加入筆記本')));
-                    items.add(const PopupMenuItem(
+                    items.add(PopupMenuItem(
+                        value: 'add_to_notebook', child: Text(tr('wq_add_notebook'))));
+                    items.add(PopupMenuItem(
                         value: 'delete',
                         child:
-                            Text('移除題目', style: TextStyle(color: Colors.red))));
+                            Text(tr('qs_remove_q'), style: TextStyle(color: Colors.red))));
                   } else {
-                    items.add(const PopupMenuItem(
-                        value: 'add_to_paper', child: Text('加到自訂題本')));
-                    items.add(const PopupMenuItem(
-                        value: 'add_to_notebook', child: Text('加入筆記本')));
+                    items.add(PopupMenuItem(
+                        value: 'add_to_paper', child: Text(tr('qs_add_to_paper'))));
+                    items.add(PopupMenuItem(
+                        value: 'add_to_notebook', child: Text(tr('wq_add_notebook'))));
                     if (isOwner) {
-                      items.add(const PopupMenuItem(
+                      items.add(PopupMenuItem(
                           value: 'delete',
-                          child: Text('刪除題目',
+                          child: Text(tr('qs_delete_q'),
                               style: TextStyle(color: Colors.red))));
                     }
                   }
@@ -864,7 +865,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '正確答案：$correctAnswerText',
+                        tr('qs_correct_answer', [correctAnswerText.toString()]),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.blue,
@@ -879,7 +880,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     child: Divider(height: 1),
                   ),
                   Text(
-                    '解析：\n$explanation',
+                    tr('qs_explanation', [explanation.toString()]),
                     style: TextStyle(
                       color: cs.onSurfaceVariant,
                       height: 1.5,
@@ -900,13 +901,13 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFC7D2FE)),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.forum_outlined, size: 16, color: Color(0xFF4F46E5)),
                   SizedBox(width: 6),
                   Text(
-                    '進入討論串 / 查看同儕與 AI 助教詳解',
+                    tr('qs_go_discussion'),
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
@@ -1000,10 +1001,10 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       const SizedBox(height: 4),
                       Text(
                         widget.isCustomOnly
-                            ? '個人自訂'
+                            ? tr('qs_custom_personal')
                             : (widget.paperId != null
-                                ? '自訂題本'
-                                : '${widget.subject ?? "公共題庫"} • ${widget.chapter ?? "全部章節"}'),
+                                ? tr('qs_custom_paper')
+                                : tr('qs_header_sub', [widget.subject != null ? trv(widget.subject!) : tr('qs_public_bank'), widget.chapter ?? tr('qs_all_chapters')])),
                         style: TextStyle(
                           color: cs.onPrimary.withValues(alpha: 0.8),
                           fontSize: 13,
@@ -1020,7 +1021,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '題目總數',
+                tr('qs_total'),
                 style: TextStyle(
                   color: cs.onPrimary.withValues(alpha: 0.7),
                   fontSize: 12,
@@ -1028,7 +1029,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
               ),
               const SizedBox(height: 2),
               Text(
-                '${_questions.length} 題',
+                tr('qs_n', [_questions.length.toString()]),
                 style: TextStyle(
                   color: cs.onPrimary,
                   fontSize: 20,
@@ -1052,7 +1053,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
             child: ElevatedButton.icon(
               onPressed: _showPracticeModeSelectionDialog,
               icon: const Icon(Icons.play_arrow_rounded, size: 22),
-              label: const Text('開始作答',
+              label: Text(tr('qs_start'),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: cs.primary,
@@ -1082,7 +1083,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     : Icons.visibility_rounded,
                 size: 20,
               ),
-              label: Text(_showAnswers ? '隱藏解析' : '顯示解析',
+              label: Text(_showAnswers ? tr('qs_hide_ans') : tr('qs_show_ans'),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 14)),
               style: OutlinedButton.styleFrom(
@@ -1102,7 +1103,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
               child: OutlinedButton.icon(
                 onPressed: _importAllQuestionsToPaper,
                 icon: const Icon(Icons.copy_all_rounded, size: 20),
-                label: const Text('收錄題本',
+                label: Text(tr('qs_collect'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 style: OutlinedButton.styleFrom(
@@ -1213,7 +1214,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       question['isFavorite'] = nextVal == 1;
                     });
                     messenger..hideCurrentSnackBar()..showSnackBar(
-                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(nextVal == 1 ? '已加入收藏' : '已取消收藏')),
+                      SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(nextVal == 1 ? tr('wq_faved') : tr('post_unbookmarked'))),
                     );
                   } catch (e) {
                     debugPrint('切換收藏失敗: $e');
@@ -1244,25 +1245,25 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
                   final items = <PopupMenuEntry<String>>[];
                   if (isOwner) {
-                    items.add(const PopupMenuItem(
-                        value: 'edit', child: Text('編輯題目')));
+                    items.add(PopupMenuItem(
+                        value: 'edit', child: Text(tr('qs_edit_q'))));
                   }
                   if (widget.paperId != null) {
-                    items.add(const PopupMenuItem(
-                        value: 'add_to_notebook', child: Text('加入筆記本')));
-                    items.add(const PopupMenuItem(
+                    items.add(PopupMenuItem(
+                        value: 'add_to_notebook', child: Text(tr('wq_add_notebook'))));
+                    items.add(PopupMenuItem(
                         value: 'delete',
                         child:
-                            Text('移除題目', style: TextStyle(color: Colors.red))));
+                            Text(tr('qs_remove_q'), style: TextStyle(color: Colors.red))));
                   } else {
-                    items.add(const PopupMenuItem(
-                        value: 'add_to_paper', child: Text('加到自訂題本')));
-                    items.add(const PopupMenuItem(
-                        value: 'add_to_notebook', child: Text('加入筆記本')));
+                    items.add(PopupMenuItem(
+                        value: 'add_to_paper', child: Text(tr('qs_add_to_paper'))));
+                    items.add(PopupMenuItem(
+                        value: 'add_to_notebook', child: Text(tr('wq_add_notebook'))));
                     if (isOwner) {
-                      items.add(const PopupMenuItem(
+                      items.add(PopupMenuItem(
                           value: 'delete',
-                          child: Text('刪除題目',
+                          child: Text(tr('qs_delete_q'),
                               style: TextStyle(color: Colors.red))));
                     }
                   }
@@ -1472,7 +1473,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                         Icon(Icons.folder_open,
                             size: 64, color: cs.primary.withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
-                        Text('這個資料夾目前沒有題目',
+                        Text(tr('qs_folder_empty'),
                             style: TextStyle(
                                 color: cs.onSurfaceVariant, fontSize: 16)),
                       ],

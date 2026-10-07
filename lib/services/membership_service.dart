@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../database/database_helper.dart';
+import 'app_locale_service.dart';
 
 class InsufficientPointsException implements Exception {
   final int requiredPoints;
@@ -14,7 +15,7 @@ class InsufficientPointsException implements Exception {
 
   @override
   String toString() =>
-      '點數不足：$actionName 需要 $requiredPoints 點，當前剩餘 $currentPoints 點。';
+      tr('ms_insufficient', [actionName.toString(), requiredPoints.toString(), currentPoints.toString()]);
 }
 
 class MembershipTierInfo {
@@ -135,7 +136,7 @@ class MembershipService {
       userId: userId,
       amount: -finalCost,
       type: actionType,
-      description: '$description (消耗 $finalCost 點)',
+      description: tr('ms_cost_desc', [description.toString(), finalCost.toString()]),
     );
 
     debugPrint('PointDeduction: User $userId spent $finalCost points for $actionType. Balance: $newPoints');
@@ -158,7 +159,7 @@ class MembershipService {
       userId: userId,
       amount: amount,
       type: '${actionType}_refund',
-      description: '$reason (退回 $amount 點)',
+      description: tr('ms_refund_desc', [reason.toString(), amount.toString()]),
     );
 
     debugPrint('PointRefund: User $userId refunded $amount points for $actionType. Balance: $newPoints');
@@ -203,7 +204,7 @@ class MembershipService {
       userId: userId,
       amount: bonusPoints,
       type: 'daily_reward',
-      description: '每日簽到獎勵 (${tierInfo.name})',
+      description: tr('ms_checkin_desc', [tierInfo.name.toString()]),
     );
 
     return bonusPoints;
@@ -225,7 +226,7 @@ class MembershipService {
       userId: userId,
       amount: pointsAmount,
       type: 'recharge',
-      description: '模擬儲值：$packageName (NT\$ ${priceTwd.toInt()})',
+      description: tr('ms_recharge_desc', [packageName.toString(), (priceTwd.toInt()).toString()]),
     );
   }
 
@@ -251,7 +252,7 @@ class MembershipService {
       userId: userId,
       amount: 0,
       type: 'tier_upgrade',
-      description: '模擬升級：${tierInfo.name} ($durationDays 天, NT\$ ${priceTwd.toInt()})',
+      description: tr('ms_upgrade_desc', [tierInfo.name.toString(), durationDays.toString(), (priceTwd.toInt()).toString()]),
     );
 
     // 如果升級附贈點數
@@ -264,7 +265,7 @@ class MembershipService {
         userId: userId,
         amount: bonusPoints,
         type: 'recharge',
-        description: '升級 VIP 禮包贈送點數',
+        description: tr('ms_upgrade_gift'),
       );
     }
   }

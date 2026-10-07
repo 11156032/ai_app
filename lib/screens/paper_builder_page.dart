@@ -6,6 +6,7 @@ import 'question_edit_page.dart';
 import 'ai_upload_paper_page.dart';
 import 'question_set_detail_page.dart';
 import 'question_discussion_page.dart';
+import '../services/app_locale_service.dart';
 
 class PaperBuilderPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
@@ -95,7 +96,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         }
         // Default auto-generated name
         final now = DateTime.now();
-        _nameCtrl.text = '${now.month}月${now.day}日 自訂複習題本';
+        _nameCtrl.text = tr('pb_default_name', [now.month.toString(), now.day.toString()]);
       }
 
       if (!mounted) return;
@@ -173,7 +174,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('已新增題目並自動勾選加入本題本！'), backgroundColor: Colors.green),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('pb_added_auto')), backgroundColor: Colors.green),
         );
       }
     }
@@ -227,7 +228,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         setState(() {});
         if (!mounted) return;
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('AI 辨識題目已自動加入並勾選！'), backgroundColor: Colors.green),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('pb_ai_added')), backgroundColor: Colors.green),
         );
       }
     }
@@ -238,14 +239,14 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請輸入題本名稱')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('pb_need_name'))),
       );
       return;
     }
 
     if (_selectedQuestionIds.isEmpty) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請至少勾選一道題目')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('pb_need_q'))),
       );
       return;
     }
@@ -267,7 +268,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-          content: Text('成功儲存題本「$name」！共 ${questionIds.length} 題。'),
+          content: Text(tr('pb_saved', [name.toString(), questionIds.length.toString()])),
           backgroundColor: Colors.green,
         ),
       );
@@ -290,7 +291,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('儲存失敗: $e')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('pb_save_failed', [e.toString()]))),
       );
     }
   }
@@ -341,7 +342,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          widget.paperId == null ? '挑題組卷 / 建立題本' : '編輯題本內容',
+          widget.paperId == null ? tr('pb_title_new') : tr('pb_title_edit'),
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -349,6 +350,8 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
           ),
         ),
         backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1E293B),
+        iconTheme: const IconThemeData(color: Color(0xFF334155)),
         elevation: 0.5,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF334155)),
@@ -357,12 +360,12 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF4F46E5)),
-            tooltip: '手動寫新題',
+            tooltip: tr('pb_manual_new'),
             onPressed: _addNewQuestion,
           ),
           IconButton(
             icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED)),
-            tooltip: 'AI 拍考卷',
+            tooltip: tr('pb_ai_snap'),
             onPressed: _aiScanAndAppend,
           ),
         ],
@@ -391,12 +394,12 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(Icons.assignment_rounded, size: 18, color: Color(0xFF4F46E5)),
                           SizedBox(width: 6),
                           Text(
-                            '題本名稱',
+                            tr('wq_paper_name'),
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)),
                           ),
                         ],
@@ -406,7 +409,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                         controller: _nameCtrl,
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
                         decoration: InputDecoration(
-                          hintText: '請輸入題本名稱...',
+                          hintText: tr('pb_name_hint'),
                           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
@@ -435,7 +438,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                         child: TextField(
                           controller: _searchCtrl,
                           decoration: InputDecoration(
-                            hintText: '搜尋題幹關鍵字...',
+                            hintText: tr('pb_search_hint'),
                             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                             prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF94A3B8)),
                             suffixIcon: _searchKeyword.isNotEmpty
@@ -478,7 +481,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                           size: 16,
                         ),
                         label: Text(
-                          isAllFilteredSelected ? '取消全選' : '全選',
+                          isAllFilteredSelected ? tr('pb_unselect_all') : tr('wq_select_all'),
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                         style: TextButton.styleFrom(
@@ -503,7 +506,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: FilterChip(
-                          label: Text('$s ($count)'),
+                          label: Text('${trv(s)} ($count)'),
                           selected: isSel,
                           labelStyle: TextStyle(
                             fontSize: 12,
@@ -536,13 +539,13 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '符合題目 ${filtered.length} 題 • 已勾選 ${_selectedQuestionIds.length} 題',
+                      tr('pb_count_line', [filtered.length.toString(), _selectedQuestionIds.length.toString()]),
                       style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
                     ),
                     if (_selectedQuestionIds.isNotEmpty)
                       GestureDetector(
                         onTap: () => setState(() => _selectedQuestionIds.clear()),
-                        child: const Text('全部取消', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                        child: Text(tr('pb_clear_sel'), style: TextStyle(color: Colors.redAccent, fontSize: 12)),
                       ),
                   ],
                 ),
@@ -562,14 +565,14 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                         Icon(Icons.search_off_rounded, size: 44, color: Colors.grey.shade300),
                         const SizedBox(height: 10),
                         Text(
-                          _allBankQuestions.isEmpty ? '目前題庫中尚未有題目' : '找不到符合條件的題目',
+                          _allBankQuestions.isEmpty ? tr('pb_bank_empty') : tr('pb_no_match'),
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
                         ),
                         const SizedBox(height: 8),
                         TextButton.icon(
                           onPressed: _addNewQuestion,
                           icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('立即手動寫題'),
+                          label: Text(tr('pb_write_now')),
                         ),
                       ],
                     ),
@@ -666,7 +669,7 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        '難度：$diff',
+                                        tr('pb_diff_n', [diff.toString()]),
                                         style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: diffColor),
                                       ),
                                     ),
@@ -682,13 +685,13 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                                           color: const Color(0xFFF1F5F9),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
-                                        child: const Row(
+                                        child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(Icons.forum_outlined, size: 14, color: Color(0xFF4F46E5)),
                                             SizedBox(width: 4),
                                             Text(
-                                              '討論串',
+                                              tr('pb_discussion'),
                                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
                                             ),
                                           ],
@@ -769,9 +772,9 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('目前已勾選', style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                    Text(tr('pb_selected'), style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
                     Text(
-                      '${_selectedQuestionIds.length} 道題目',
+                      tr('pb_selected_n', [_selectedQuestionIds.length.toString()]),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
@@ -789,10 +792,10 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                         : const Icon(Icons.rocket_launch_rounded, size: 18),
                     label: Text(
                       _saving
-                          ? '儲存中...'
+                          ? tr('common_saving')
                           : (_selectedQuestionIds.isEmpty
-                              ? '請勾選題目'
-                              : (widget.paperId == null ? '完成組卷並開始測驗' : '更新題本內容')),
+                              ? tr('pb_pick_q')
+                              : (widget.paperId == null ? tr('pb_finish_start') : tr('pb_update'))),
                       style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(

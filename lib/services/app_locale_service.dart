@@ -1,4 +1,15 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' show PlatformDispatcher;
+
+import '../l10n/l10n_all.dart';
+
+/// 依目前介面語言取得翻譯字串（{0}、{1}… 依序以 [args] 置換）
+String tr(String key, [List<String>? args]) =>
+    AppLocaleService.tr(key, null, args);
+
+/// 將以繁中儲存的資料值（篩選分類、題型、貼文類型等）轉為目前語言顯示；
+/// 查無對照時原樣返回，不影響程式邏輯判斷所用的原始值
+String trv(String zhValue) => AppLocaleService.trValue(zhValue);
 
 /// 應用程式多語系支援服務（繁體中文、日本語、한국어）
 class AppLocaleService {
@@ -9,15 +20,40 @@ class AppLocaleService {
   static const String ja = 'ja';
   static const String ko = 'ko';
 
+  /// 尚未讀取到使用者偏好前（首次啟動、登入頁），依裝置系統語言決定預設介面語言
   static final ValueNotifier<String> currentLanguageNotifier =
-      ValueNotifier<String>(zhTW);
+      ValueNotifier<String>(_deviceDefaultLanguage());
+
+  static String _deviceDefaultLanguage() {
+    switch (PlatformDispatcher.instance.locale.languageCode) {
+      case 'ja':
+        return ja;
+      case 'ko':
+        return ko;
+      default:
+        return zhTW;
+    }
+  }
 
   static String get currentLanguage => currentLanguageNotifier.value;
 
   static void setLanguage(String lang) {
     if (lang == zhTW || lang == ja || lang == ko) {
+      if (currentLanguageNotifier.value == lang) return;
       currentLanguageNotifier.value = lang;
+      _rebuildAllWidgets();
     }
+  }
+
+  /// 語言切換後強制整棵 Widget 樹重建（保留 State），
+  /// 讓所有以 tr() 取字串的畫面（含 IndexedStack 中保留的分頁）立即套用新語言
+  static void _rebuildAllWidgets() {
+    void rebuild(Element el) {
+      el.markNeedsBuild();
+      el.visitChildren(rebuild);
+    }
+
+    WidgetsBinding.instance.rootElement?.visitChildren(rebuild);
   }
 
   static String getLanguageDisplayName(String code) {
@@ -60,6 +96,7 @@ class AppLocaleService {
 
   /// 常用介面文字翻譯對照表
   static final Map<String, Map<String, String>> _translations = {
+    ...l10nAll,
     // 頂部 AppBar 與 導覽列
     'nav_home': {zhTW: '首頁', ja: 'ホーム', ko: '홈'},
     'nav_calendar': {zhTW: '日曆行程', ja: 'カレンダー', ko: '캘린더'},
@@ -673,10 +710,31 @@ class AppLocaleService {
     },
   };
 
+  static Map<String, String>? _reverseIndex;
+
+  /// 以繁中原文反查翻譯（供 [trv] 使用）
+  static String trValue(String zhValue) {
+    if (currentLanguage == zhTW) return zhValue;
+    _reverseIndex ??= () {
+      final idx = <String, String>{};
+      _translations.forEach((key, map) {
+        final zh = map[zhTW];
+        if (zh != null) idx.putIfAbsent(zh, () => key);
+      });
+      return idx;
+    }();
+    final key = _reverseIndex![zhValue];
+    return key == null ? zhValue : tr(key);
+  }
+
   /// 獲取當前語言對應的字串，並支援參數置換
   static String tr(String key, [String? langCode, List<String>? args]) {
     final code = langCode ?? currentLanguage;
     final map = _translations[key];
+    assert(() {
+      if (map == null) debugPrint('[i18n] missing key: $key');
+      return true;
+    }());
     String text = map != null ? (map[code] ?? map[zhTW] ?? key) : key;
     if (args != null) {
       for (int i = 0; i < args.length; i++) {

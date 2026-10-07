@@ -8,6 +8,7 @@ import '../services/voice_note_service.dart';
 import '../services/voice_note_background_manager.dart';
 import '../widgets/mindmap_node.dart';
 import '../widgets/mindmap_canvas.dart';
+import '../services/app_locale_service.dart';
 
 // ==========================================
 // 1. 繪圖軌跡資料模型 (Stroke)
@@ -482,7 +483,7 @@ class _NotesScreenState extends State<NotesScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '🎉 AI 筆記「${newNote.title}」已整理完成！',
+                  tr('notes_ai_done', [newNote.title.toString()]),
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
@@ -490,7 +491,7 @@ class _NotesScreenState extends State<NotesScreen> {
             ],
           ),
           action: SnackBarAction(
-            label: '立即查看',
+            label: tr('notes_view_now'),
             textColor: Colors.amber,
             onPressed: () {
               Navigator.push(
@@ -548,7 +549,7 @@ class _NotesScreenState extends State<NotesScreen> {
     final userId = widget.currentUser['id']?.toString() ?? '';
     if (userId == 'u4') {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('訪客帳戶無法使用語音筆記功能，請先登入！')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('notes_guest_voice'))),
       );
       return;
     }
@@ -578,7 +579,7 @@ class _NotesScreenState extends State<NotesScreen> {
             final newNote = Note(
               id: 'note_${DateTime.now().millisecondsSinceEpoch}',
               userId: userId,
-              title: title.isEmpty ? '語音速記筆記' : title,
+              title: title.isEmpty ? tr('notes_voice_default_title') : title,
               content: markdownContent,
               category: category.isEmpty ? '未分類' : category,
               strokes: [],
@@ -598,7 +599,7 @@ class _NotesScreenState extends State<NotesScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '「${newNote.title}」已成功建立並存入筆記本！',
+                          tr('notes_created', [newNote.title.toString()]),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -666,7 +667,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '✨ 選擇新增筆記方式',
+                    tr('notes_add_mode'),
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -745,7 +746,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             Row(
                               children: [
                                 Text(
-                                  '🎙️ 語音錄音速記',
+                                  tr('notes_voice_mode'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -762,8 +763,8 @@ class _NotesScreenState extends State<NotesScreen> {
                                     color: const Color(0xFF8E24AA),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Text(
-                                    'AI 整理 ⚡',
+                                  child: Text(
+                                    tr('notes_ai_badge'),
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
@@ -775,7 +776,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '長錄音完整收錄・自動標點・去贅字整理與心智圖',
+                              tr('notes_voice_mode_sub'),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isDark
@@ -841,7 +842,7 @@ class _NotesScreenState extends State<NotesScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '📝 一般筆記',
+                              tr('notes_text_mode'),
                               style: TextStyle(
                                 fontSize: 15.5,
                                 fontWeight: FontWeight.bold,
@@ -852,7 +853,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Markdown 富文字排版、標籤分類管理與 AI 摘要',
+                              tr('notes_text_mode_sub'),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isDark
@@ -903,13 +904,13 @@ class _NotesScreenState extends State<NotesScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('刪除確認'),
+        title: Text(tr('notes_delete_confirm_title')),
         content: Text(
-            '確定要刪除「${note.title.isEmpty ? '無標題筆記' : note.title}」這篇筆記嗎？此動作無法復原。'),
+            tr('notes_delete_confirm', [(note.title.isEmpty ? tr('note_untitled') : note.title).toString()])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -922,11 +923,11 @@ class _NotesScreenState extends State<NotesScreen> {
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                const SnackBar(
-                    content: Text('筆記已刪除 🗑️'), duration: Duration(seconds: 1)),
+                SnackBar(
+                    content: Text(tr('notes_deleted')), duration: Duration(seconds: 1)),
               );
             },
-            child: const Text('確定刪除'),
+            child: Text(tr('common_confirm_delete')),
           ),
         ],
       ),
@@ -948,7 +949,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 Icon(Icons.label_important_outline,
                     color: Theme.of(context).primaryColor),
                 SizedBox(width: 8),
-                Text('管理分類標籤'),
+                Text(tr('notes_manage_cats')),
               ],
             ),
             content: SizedBox(
@@ -970,8 +971,8 @@ class _NotesScreenState extends State<NotesScreen> {
                           child: TextField(
                             controller: addController,
                             style: const TextStyle(fontSize: 14),
-                            decoration: const InputDecoration(
-                              hintText: '新增分類名稱...',
+                            decoration: InputDecoration(
+                              hintText: tr('notes_new_cat_hint'),
                               border: InputBorder.none,
                               isDense: true,
                             ),
@@ -999,7 +1000,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                 ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                                   SnackBar(
                                     content:
-                                        Text('🎉 分類標籤「$newCat」新增成功！已排在列表最前。'),
+                                        Text(tr('notes_cat_added', [newCat.toString()])),
                                     backgroundColor:
                                         Theme.of(context).primaryColor,
                                     duration: const Duration(milliseconds: 1500),
@@ -1008,24 +1009,24 @@ class _NotesScreenState extends State<NotesScreen> {
                               } else {
                                 ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                                   SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                                    content: Text('⚠️ 此分類標籤已經存在！'),
+                                    content: Text(tr('notes_cat_exists')),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
                               }
                             }
                           },
-                          child: const Text('新增'),
+                          child: Text(tr('val_cmd_add')),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Divider(),
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      '現有分類標籤清單：',
+                      tr('notes_cat_list'),
                       style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
@@ -1054,7 +1055,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             child: ListTile(
                               visualDensity: VisualDensity.compact,
                               title: Text(
-                                cat,
+                                trv(cat),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: isSystem
@@ -1089,7 +1090,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(
                                           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-                                              content: Text('已刪除分類標籤「$cat」')),
+                                              content: Text(tr('notes_cat_deleted', [cat.toString()]))),
                                         );
                                       },
                                     ),
@@ -1105,7 +1106,7 @@ class _NotesScreenState extends State<NotesScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('完成',
+                child: Text(tr('common_done'),
                     style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
@@ -1146,7 +1147,7 @@ class _NotesScreenState extends State<NotesScreen> {
                           child: GestureDetector(
                             onLongPress: _showCategoryManagementDialog,
                             child: ChoiceChip(
-                              label: Text('$cat ($count)'),
+                              label: Text('${trv(cat)} ($count)'),
                               selected: isSelected,
                               selectedColor: Theme.of(context).primaryColor,
                               backgroundColor: const Color(0xFFF5F5F5),
@@ -1205,7 +1206,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             color: Theme.of(context).primaryColor, size: 16),
                         const SizedBox(width: 4),
                         Text(
-                          '編輯標籤',
+                          tr('notes_edit_tags'),
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
@@ -1232,7 +1233,7 @@ class _NotesScreenState extends State<NotesScreen> {
                   color: const Color(0xFF4A148C).withValues(alpha: 0.25),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   SizedBox(
                     width: 16,
@@ -1246,7 +1247,7 @@ class _NotesScreenState extends State<NotesScreen> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '🤖 AI 正在背景為您提煉整理語音筆記，完成後將自動發送推播通知...',
+                      tr('notes_ai_bg'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1270,8 +1271,8 @@ class _NotesScreenState extends State<NotesScreen> {
                         const SizedBox(height: 16),
                         Text(
                           _selectedCategory == '全部'
-                              ? '目前沒有任何筆記哦！'
-                              : '在「$_selectedCategory」中沒有筆記',
+                              ? tr('notes_empty')
+                              : tr('notes_empty_cat', [_selectedCategory.toString()]),
                           style: TextStyle(
                               color: Colors.grey.shade600, fontSize: 15),
                         ),
@@ -1283,7 +1284,7 @@ class _NotesScreenState extends State<NotesScreen> {
                               onPressed: _createNewRegularNote,
                               icon:
                                   const Icon(Icons.edit_note_rounded, size: 18),
-                              label: const Text('一般筆記'),
+                              label: Text(tr('notes_text_fab')),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Theme.of(context).primaryColor,
                                 side: BorderSide(
@@ -1297,7 +1298,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             ElevatedButton.icon(
                               onPressed: _showVoiceNoteSheet,
                               icon: const Icon(Icons.mic_rounded, size: 18),
-                              label: const Text('AI 語音速記'),
+                              label: Text(tr('notes_voice_fab')),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF4A148C),
                                 foregroundColor: Colors.white,
@@ -1370,7 +1371,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        note.category,
+                                        trv(note.category),
                                         style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.bold,
@@ -1389,7 +1390,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                           borderRadius:
                                               BorderRadius.circular(6),
                                         ),
-                                        child: const Row(
+                                        child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(Icons.hub_outlined,
@@ -1397,7 +1398,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                                 color: Color(0xFF4A148C)),
                                             SizedBox(width: 3),
                                             Text(
-                                              '心智圖',
+                                              tr('notes_mindmap'),
                                               style: TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.bold,
@@ -1442,7 +1443,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                 ),
                                 const SizedBox(height: 10),
                                 Text(
-                                  note.title.isEmpty ? '無標題筆記' : note.title,
+                                  note.title.isEmpty ? tr('note_untitled') : note.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -1646,8 +1647,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              '分享筆記',
+                            Text(
+                              tr('notes_share'),
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
@@ -1655,7 +1656,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                               ),
                             ),
                             Text(
-                              '《${widget.note.title.isEmpty ? "無標題筆記" : widget.note.title}》',
+                              tr('notes_share_title', [(widget.note.title.isEmpty ? tr('note_untitled') : widget.note.title).toString()]),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1669,8 +1670,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    '選擇分享目的地：',
+                  Text(
+                    tr('notes_share_dest'),
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
@@ -1719,13 +1720,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                                         color: Colors.blue.shade700, size: 22),
                                   ),
                                   const SizedBox(width: 12),
-                                  const Expanded(
+                                  Expanded(
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          '公開社群論壇',
+                                          tr('notes_share_public'),
                                           style: TextStyle(
                                             fontSize: 14.5,
                                             fontWeight: FontWeight.bold,
@@ -1734,7 +1735,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                                         ),
                                         SizedBox(height: 2),
                                         Text(
-                                          '發佈至全站動態牆，所有同學皆可瀏覽與匯入',
+                                          tr('notes_share_public_sub'),
                                           style: TextStyle(
                                               fontSize: 11.5,
                                               color: Colors.grey),
@@ -1768,8 +1769,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                               const Icon(Icons.groups_rounded,
                                   size: 16, color: Color(0xFF4A148C)),
                               const SizedBox(width: 6),
-                              const Text(
-                                '分享至我的學習群組',
+                              Text(
+                                tr('notes_share_group'),
                                 style: TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.bold,
@@ -1803,7 +1804,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      '您目前尚未加入任何群組，可先至社群探索並加入學習群組喔！',
+                                      tr('notes_no_groups'),
                                       style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey.shade600),
@@ -1817,7 +1818,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                               final groupId = g['id'] as int;
                               final isSelected = selectedTarget == groupId;
                               final emoji = g['icon_emoji']?.toString() ?? '📚';
-                              final name = g['name']?.toString() ?? '未命名群組';
+                              final name = g['name']?.toString() ?? tr('notes_group_unnamed');
                               final memberCount = g['member_count'] ?? 1;
 
                               return Padding(
@@ -1877,7 +1878,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                               Text(
-                                                '$memberCount 位成員',
+                                                tr('group_members_n', [memberCount.toString()]),
                                                 style: TextStyle(
                                                     fontSize: 11,
                                                     color:
@@ -1920,7 +1921,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: const Text('取消'),
+                          child: Text(tr('btn_cancel')),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1931,23 +1932,23 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                             if (selectedTarget == 'public') {
                               Navigator.pop(ctx, {
                                 'type': 'public',
-                                'targetName': '社群論壇',
+                                'targetName': tr('notes_target_forum'),
                                 'groupId': null,
                               });
                             } else {
                               final targetGroup = myGroups.firstWhere(
                                 (g) => g['id'] == selectedTarget,
-                                orElse: () => {'name': '群組'},
+                                orElse: () => {'name': tr('group_default_name')},
                               );
                               Navigator.pop(ctx, {
                                 'type': 'group',
-                                'targetName': targetGroup['name'] ?? '群組',
+                                'targetName': targetGroup['name'] ?? tr('group_default_name'),
                                 'groupId': selectedTarget as int,
                               });
                             }
                           },
                           icon: const Icon(Icons.send_rounded, size: 18),
-                          label: const Text('確定分享',
+                          label: Text(tr('notes_share_confirm'),
                               style: TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 14.5)),
                           style: ElevatedButton.styleFrom(
@@ -1992,11 +1993,11 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           if (targetGroupId != null) 'group_id': targetGroupId,
           'user_id': widget.note.userId,
           'content':
-              '我分享了我的學習筆記《${widget.note.title.isEmpty ? "無標題筆記" : widget.note.title}》，歡迎點擊一鍵匯入！ 📝',
+              '我分享了我的學習筆記《${widget.note.title.isEmpty ? tr('note_untitled') : widget.note.title}》，歡迎點擊一鍵匯入！ 📝',
           'type': 'note',
           'attached_data': jsonEncode({
             'shared_type': 'note',
-            'title': widget.note.title.isEmpty ? "無標題筆記" : widget.note.title,
+            'title': widget.note.title.isEmpty ? tr('note_untitled') : widget.note.title,
             'content': widget.note.content,
             'category': widget.note.category,
             'strokes': strokesJson,
@@ -2017,8 +2018,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(isGroup
-                        ? '🎉 筆記已成功分享至「$targetName」群組！'
-                        : '🎉 筆記已成功公開分享至社群論壇！'),
+                        ? tr('notes_shared_group', [targetName.toString()])
+                        : tr('notes_shared_public')),
                   ),
                 ],
               ),
@@ -2037,7 +2038,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           messenger.clearSnackBars();
           messenger..hideCurrentSnackBar()..showSnackBar(
             SnackBar(
-              content: Text('分享失敗: $e'),
+              content: Text(tr('notes_share_failed', [e.toString()])),
               backgroundColor: Colors.redAccent,
               duration: const Duration(milliseconds: 1400),
               behavior: SnackBarBehavior.floating,
@@ -2059,8 +2060,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
       NotesDatabase.notes.remove(widget.note);
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          const SnackBar(
-            content: Text('已自動捨棄空白筆記 🗑️'),
+          SnackBar(
+            content: Text(tr('notes_empty_discarded')),
             duration: Duration(milliseconds: 800),
           ),
         );
@@ -2071,8 +2072,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     _autoSave();
     if (mounted) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        const SnackBar(
-          content: Text('筆記已自動儲存 💾'),
+        SnackBar(
+          content: Text(tr('notes_autosaved')),
           duration: Duration(milliseconds: 800),
         ),
       );
@@ -2084,16 +2085,16 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('刪除確認'),
+        title: Text(tr('notes_delete_confirm_title')),
         content: Text(
           widget.note.title.trim().isNotEmpty
-              ? '確定要刪除「${widget.note.title}」這篇筆記嗎？此動作無法復原。'
-              : '確定要刪除此篇筆記嗎？此動作無法復原。',
+              ? tr('notes_delete_named', [widget.note.title.toString()])
+              : tr('notes_delete_unnamed'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -2106,13 +2107,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               Navigator.pop(ctx);
               Navigator.pop(context);
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                const SnackBar(
-                  content: Text('筆記已刪除 🗑️'),
+                SnackBar(
+                  content: Text(tr('notes_deleted')),
                   duration: Duration(seconds: 1),
                 ),
               );
             },
-            child: const Text('確定刪除'),
+            child: Text(tr('common_confirm_delete')),
           ),
         ],
       ),
@@ -2168,11 +2169,11 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               setState(() {});
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
                 SnackBar(duration: const Duration(milliseconds: 1500), 
-                  content: const Row(
+                  content: Row(
                     children: [
                       Icon(Icons.check_circle, color: Colors.white, size: 18),
                       SizedBox(width: 8),
-                      Text('語音筆記已插入！'),
+                      Text(tr('notes_voice_inserted')),
                     ],
                   ),
                   backgroundColor: const Color(0xFF4A148C),
@@ -2477,6 +2478,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
         backgroundColor: Colors.white, // 全白背景
         appBar: AppBar(
           backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          iconTheme: const IconThemeData(color: Colors.black87),
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios,
@@ -2525,18 +2528,18 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                     return DropdownMenuItem<String>(
                       value: cat,
                       child: Text(
-                        '分類: $cat',
+                        tr('notes_cat_n', [trv(cat)]),
                         overflow: TextOverflow.ellipsis,
                       ),
                     );
                   }),
-                  const DropdownMenuItem<String>(
+                  DropdownMenuItem<String>(
                     value: '__add_new__',
                     child: Row(
                       children: [
                         Icon(Icons.add, size: 16, color: Colors.green),
                         SizedBox(width: 4),
-                        Text('新增分類', style: TextStyle(color: Colors.green)),
+                        Text(tr('notes_new_cat'), style: TextStyle(color: Colors.green)),
                       ],
                     ),
                   ),
@@ -2553,8 +2556,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                 onPressed: _openVoiceNoteSheetForEditor,
                 icon: const Icon(Icons.mic_rounded,
                     size: 15, color: Colors.white),
-                label: const Text(
-                  '錄音',
+                label: Text(
+                  tr('notes_record'),
                   style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
@@ -2576,13 +2579,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             IconButton(
               icon: Icon(Icons.share,
                   color: Theme.of(context).primaryColor, size: 21),
-              tooltip: '分享至社群',
+              tooltip: tr('ql_share_social'),
               onPressed: _shareNote,
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded,
                   color: Color(0xFFD32F2F), size: 21),
-              tooltip: '刪除筆記',
+              tooltip: tr('agent_delete_note'),
               onPressed: _deleteCurrentNoteFromEditor,
             ),
           ],
@@ -2595,14 +2598,14 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   indicatorSize: TabBarIndicatorSize.label,
                   labelStyle:
                       const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  tabs: const [
+                  tabs: [
                     Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.edit_note, size: 18),
                           SizedBox(width: 4),
-                          Text('純文字內容'),
+                          Text(tr('notes_plain')),
                         ],
                       ),
                     ),
@@ -2613,7 +2616,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                           Icon(Icons.hub_outlined,
                               size: 16, color: Color(0xFF4A148C)),
                           SizedBox(width: 4),
-                          Text('心智圖', style: TextStyle(color: Color(0xFF4A148C))),
+                          Text(tr('notes_mindmap'), style: TextStyle(color: Color(0xFF4A148C))),
                         ],
                       ),
                     ),
@@ -2637,8 +2640,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF3E2723),
                       ),
-                      decoration: const InputDecoration(
-                        hintText: '請輸入筆記標題...',
+                      decoration: InputDecoration(
+                        hintText: tr('notes_title_hint'),
                         hintStyle: TextStyle(color: Colors.black26),
                         border: InputBorder.none,
                         isDense: true,
@@ -2695,8 +2698,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                         height: 1.7,
                         color: Colors.black87,
                       ),
-                      decoration: const InputDecoration(
-                        hintText: '在此輸入純文字內容...\n可以使用下方格式工具列。',
+                      decoration: InputDecoration(
+                        hintText: tr('notes_body_hint'),
                         hintStyle: TextStyle(color: Colors.black26),
                         border: InputBorder.none,
                         isDense: true,
@@ -2722,10 +2725,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
           children: [
             Icon(Icons.hub_outlined, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            Text('此筆記尚無關聯心智圖',
+            Text(tr('notes_no_mindmap'),
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
             const SizedBox(height: 8),
-            Text('可透過上方 🎙️ 語音速記生成結構化心智圖',
+            Text(tr('notes_no_mindmap_sub'),
                 style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
           ],
         ),
@@ -2745,7 +2748,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                       size: 14, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
                   Text(
-                    '支援雙指縮放與拖曳移動',
+                    tr('notes_mindmap_gesture'),
                     style:
                         TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                   ),
@@ -2758,11 +2761,11 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                     root: _mindmapRootNode!,
                     title: _titleController.text.isNotEmpty
                         ? _titleController.text
-                        : '心智圖全螢幕檢視',
+                        : tr('notes_mindmap_fullscreen'),
                   );
                 },
                 icon: const Icon(Icons.fullscreen_rounded, size: 16),
-                label: const Text('全螢幕橫向畫布', style: TextStyle(fontSize: 12)),
+                label: Text(tr('notes_fullscreen_canvas'), style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF4A148C),
                   padding:
@@ -2827,8 +2830,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                     Icon(Icons.palette_rounded,
                         color: Theme.of(context).primaryColor),
                     const SizedBox(width: 8),
-                    const Text(
-                      '自訂筆記字色調色盤',
+                    Text(
+                      tr('notes_color_palette'),
                       style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
@@ -2839,7 +2842,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('經典色系推薦：',
+                Text(tr('notes_color_presets'),
                     style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey,
@@ -2905,7 +2908,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   }).toList(),
                 ),
                 const SizedBox(height: 20),
-                const Text('自訂 HEX 色碼（例: #FF5722）：',
+                Text(tr('notes_color_hex'),
                     style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey,
@@ -2938,7 +2941,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                             fontWeight: FontWeight.bold),
                         decoration: InputDecoration(
                           prefixText: '# ',
-                          hintText: '輸入 HEX 色碼...',
+                          hintText: tr('notes_hex_hint'),
                           counterText: '',
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
@@ -2973,7 +2976,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                       elevation: 2,
                     ),
                     icon: const Icon(Icons.format_color_fill, size: 18),
-                    label: const Text('套用此自訂色彩',
+                    label: Text(tr('notes_apply_color'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 15)),
                     onPressed: () {
@@ -3019,7 +3022,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                         : const Color(0xFF5D4037),
                     size: 21,
                   ),
-                  tooltip: _isMarkdownPreview ? '切換為編輯模式' : '切換為成果預覽',
+                  tooltip: _isMarkdownPreview ? tr('notes_to_edit') : tr('notes_to_preview'),
                   onPressed: () =>
                       setState(() => _isMarkdownPreview = !_isMarkdownPreview),
                 ),
@@ -3033,56 +3036,56 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.format_bold,
                       color: Color(0xFF5D4037), size: 20),
-                  tooltip: '粗體',
+                  tooltip: tr('notes_bold'),
                   onPressed: _toggleBold,
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.title,
                       color: Color(0xFF5D4037), size: 20),
-                  tooltip: '大標頭 H1',
+                  tooltip: tr('notes_h1'),
                   onPressed: _toggleH1,
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.text_fields,
                       color: Color(0xFF5D4037), size: 20),
-                  tooltip: '次標頭 H2',
+                  tooltip: tr('notes_h2'),
                   onPressed: _toggleH2,
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.horizontal_rule_rounded,
                       color: Color(0xFF5D4037), size: 20),
-                  tooltip: '橫條分隔線 (---)',
+                  tooltip: tr('notes_hr'),
                   onPressed: _insertHorizontalRule,
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.check_box_outlined,
                       color: Color(0xFF2E7D32), size: 19),
-                  tooltip: '待辦項目 (- [ ])',
+                  tooltip: tr('notes_todo'),
                   onPressed: _toggleCheckbox,
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.format_quote_rounded,
                       color: Color(0xFF673AB7), size: 20),
-                  tooltip: '引用重點 (>)',
+                  tooltip: tr('notes_quote'),
                   onPressed: _toggleQuote,
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.format_list_bulleted,
                       color: Color(0xFF5D4037), size: 20),
-                  tooltip: '列點',
+                  tooltip: tr('notes_bullet'),
                   onPressed: _toggleBullet,
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.format_indent_increase,
                       color: Color(0xFF5D4037), size: 20),
-                  tooltip: '縮排',
+                  tooltip: tr('notes_indent'),
                   onPressed: _toggleIndent,
                 ),
                 // 語音補充按鈕
@@ -3090,7 +3093,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.mic_rounded,
                       color: Color(0xFF7B1FA2), size: 20),
-                  tooltip: '語音補充內容',
+                  tooltip: tr('notes_voice_add'),
                   onPressed: _openVoiceNoteSheetForEditor,
                 ),
               ],
@@ -3102,7 +3105,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                const Text('字色: ',
+                Text(tr('notes_text_color'),
                     style: TextStyle(fontSize: 11, color: Colors.grey)),
                 ..._morandiPalette.map((color) {
                   return GestureDetector(
@@ -3140,7 +3143,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                             size: 13, color: Theme.of(context).primaryColor),
                         const SizedBox(width: 3),
                         Text(
-                          '自訂調色盤',
+                          tr('event_palette_custom'),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -3165,19 +3168,19 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('新增分類標籤'),
+        title: Text(tr('notes_add_cat_title')),
         content: TextField(
           controller: addController,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '請輸入新的分類名稱',
+          decoration: InputDecoration(
+            hintText: tr('notes_add_cat_hint'),
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(tr('btn_cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -3195,11 +3198,11 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                 });
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('🎉 已新增並套用分類「$newCat」！')),
+                  SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('notes_cat_applied', [newCat.toString()]))),
                 );
               }
             },
-            child: const Text('新增並套用'),
+            child: Text(tr('notes_add_apply')),
           ),
         ],
       ),

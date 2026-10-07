@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
+import '../../services/app_locale_service.dart';
 
 // ─── 分類標籤選項 ───────────────────────────────────────────────────────────────
 const List<String> kGroupTags = [
@@ -72,7 +73,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('請輸入群組名稱')),
+        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('cg_need_name'))),
       );
       return;
     }
@@ -92,7 +93,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
         widget.onCreated();
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-            content: Text('🎉 群組「$name」已建立！'),
+            content: Text(tr('cg_created', [name.toString()])),
             backgroundColor: Theme.of(context).primaryColor,
           ),
         );
@@ -101,7 +102,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       if (mounted) {
         setState(() => _isCreating = false);
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text('建立失敗：$e')),
+          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('cg_failed', [e.toString()]))),
         );
       }
     }
@@ -138,7 +139,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                       color: Theme.of(context).primaryColor, size: 22),
                 ),
                 const SizedBox(width: 12),
-                const Text('建立新群組',
+                Text(tr('cg_title'),
                     style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -156,7 +157,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             const SizedBox(height: 20),
 
             // ── Emoji 選擇 ──
-            Text('群組圖示',
+            Text(tr('cg_icon'),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -200,7 +201,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             const SizedBox(height: 16),
 
             // ── 群組名稱 ──
-            Text('群組名稱 *',
+            Text(tr('cg_name'),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -211,7 +212,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               maxLength: 30,
               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
-                hintText: '例：高中數學研討群',
+                hintText: tr('cg_name_hint'),
                 hintStyle: TextStyle(
                     color: isDark ? Colors.white38 : Colors.grey.shade400),
                 filled: true,
@@ -227,7 +228,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             const SizedBox(height: 14),
 
             // ── 群組簡介 ──
-            Text('群組簡介',
+            Text(tr('cg_desc'),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -239,7 +240,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               maxLength: 80,
               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
-                hintText: '簡單介紹這個群組的用途',
+                hintText: tr('cg_desc_hint'),
                 hintStyle: TextStyle(
                     color: isDark ? Colors.white38 : Colors.grey.shade400),
                 filled: true,
@@ -255,7 +256,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             const SizedBox(height: 16),
 
             // ── 類型選擇（最重要的部分）──
-            Text('群組類型',
+            Text(tr('cg_type'),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -266,8 +267,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               type: 'public',
               icon: Icons.public_rounded,
               iconColor: const Color(0xFF2196F3),
-              title: '公開群組 🌐',
-              subtitle: '任何人可瀏覽、加入和閱讀貼文',
+              title: tr('cg_public'),
+              subtitle: tr('cg_public_sub'),
             ),
             const SizedBox(height: 8),
             _buildTypeOption(
@@ -275,19 +276,19 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               type: 'private',
               icon: Icons.lock_rounded,
               iconColor: const Color(0xFFFF9800),
-              title: '私人群組 🔒',
-              subtitle: '未公開，非成員無法閱讀貼文',
+              title: tr('cg_private'),
+              subtitle: tr('cg_private_sub'),
             ),
             const SizedBox(height: 8),
             // 加入設定
             SwitchListTile(
-              title: Text('加入群組需審核',
+              title: Text(tr('cg_approval'),
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white70 : Colors.black87)),
               subtitle: Text(
-                _joinRequiresApproval ? '使用者點擊連結後需由管理員審核' : '知道連結的人可直接加入群組',
+                _joinRequiresApproval ? tr('cg_approval_on') : tr('cg_approval_off'),
                 style: TextStyle(
                     fontSize: 12,
                     color: isDark ? Colors.white38 : Colors.grey.shade600),
@@ -300,7 +301,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             const SizedBox(height: 16),
 
             // ── 分類標籤 ──
-            Text('分類標籤',
+            Text(tr('cg_tags'),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -333,7 +334,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                               : borderCol),
                     ),
                     child: Text(
-                      tag,
+                      trv(tag),
                       style: TextStyle(
                         fontSize: 12.5,
                         color: isSelected
@@ -372,7 +373,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('$_selectedEmoji 建立群組',
+                          Text(tr('cg_create_btn', [_selectedEmoji.toString()]),
                               style: const TextStyle(
                                   fontSize: 15, fontWeight: FontWeight.bold)),
                         ],

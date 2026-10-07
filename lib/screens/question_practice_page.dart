@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import 'review_page.dart';
 import 'question_discussion_page.dart';
+import '../services/app_locale_service.dart';
 
 class QuestionPracticePage extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
@@ -246,13 +247,13 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     if (widget.questions.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(widget.title),
+          title: Text(trv(widget.title)),
           backgroundColor: cs.primary,
           foregroundColor: cs.onPrimary,
         ),
         body: Center(
           child: Text(
-            '目前沒有可練習的題目',
+            tr('qp_empty'),
             style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
           ),
         ),
@@ -268,14 +269,14 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(trv(widget.title)),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         actions: [
           if (widget.currentUser != null)
             IconButton(
               icon: const Icon(Icons.forum_outlined),
-              tooltip: '題目討論串',
+              tooltip: tr('qp_discussion'),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -291,7 +292,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
           TextButton(
             onPressed: _selectedAnswers.isEmpty ? null : _submitPaper,
             child: Text(
-              '交卷',
+              tr('qp_submit'),
               style: TextStyle(
                 color: _selectedAnswers.isEmpty
                     ? cs.onPrimary.withValues(alpha: 0.5)
@@ -321,7 +322,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '答題進度',
+                                tr('qp_progress'),
                                 style: TextStyle(
                                   color: cs.onSurfaceVariant,
                                   fontSize: 12,
@@ -370,7 +371,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '第 ${_currentIndex + 1} 題  •  ${currentQuestion['type']?.toString() ?? '單選題'}',
+                              tr('qp_header', [(_currentIndex + 1).toString(), trv(currentQuestion['type']?.toString() ?? '單選題')]),
                               style: TextStyle(
                                 color: cs.onSurface.withValues(alpha: 0.6),
                                 fontSize: 12,
@@ -380,8 +381,8 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                               iconSize: 20,
                               visualDensity: VisualDensity.compact,
                               tooltip: _flagged.contains(_currentIndex)
-                                  ? '取消標記'
-                                  : '標記此題',
+                                  ? tr('qp_unflag')
+                                  : tr('qp_flag'),
                               onPressed: () {
                                 setState(() {
                                   if (_flagged.contains(_currentIndex)) {
@@ -405,7 +406,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                         const SizedBox(height: 10),
                         Text(
                           _questionText(currentQuestion).isEmpty
-                              ? '題目內容遺失'
+                              ? tr('qp_missing')
                               : _questionText(currentQuestion),
                           style: TextStyle(
                             color: cs.onSurface,
@@ -419,7 +420,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '請選擇答案',
+                    tr('qp_choose'),
                     style: TextStyle(
                       color: cs.onSurface,
                       fontSize: 14,
@@ -437,7 +438,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                             color: cs.outline.withValues(alpha: 0.12)),
                       ),
                       child: Text(
-                        '這題沒有設定選項，請直接閱讀解析。',
+                        tr('qp_no_options'),
                         style: TextStyle(
                             color: cs.onSurface.withValues(alpha: 0.7)),
                       ),
@@ -548,7 +549,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                (selectedIndex == answerIndex) ? '答對了' : '再想想',
+                                (selectedIndex == answerIndex) ? tr('qp_correct') : tr('qp_wrong'),
                                 style: TextStyle(
                                   color: (selectedIndex == answerIndex)
                                       ? Colors.green.shade700
@@ -560,7 +561,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            '正確答案：${String.fromCharCode(65 + answerIndex)} ${options.isNotEmpty && answerIndex < options.length ? options[answerIndex] : ''}',
+                            tr('qp_answer', [(String.fromCharCode(65 + answerIndex)).toString(), (options.isNotEmpty && answerIndex < options.length ? options[answerIndex] : '').toString()]),
                             style: TextStyle(
                               color: cs.onSurface,
                               fontWeight: FontWeight.w700,
@@ -602,14 +603,14 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                                   border:
                                       Border.all(color: const Color(0xFFC7D2FE)),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(Icons.forum_rounded,
                                         size: 16, color: Color(0xFF4F46E5)),
                                     SizedBox(width: 6),
                                     Text(
-                                      '進入討論串 / 查看同儕心得與 AI 助教解析',
+                                      tr('qp_go_discussion'),
                                       style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
@@ -632,7 +633,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                               ? null
                               : () => _updateCurrentIndex(_currentIndex - 1),
                           icon: const Icon(Icons.chevron_left_rounded),
-                          label: const Text('上一題'),
+                          label: Text(tr('qp_prev')),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -655,8 +656,8 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                           ),
                           label: Text(
                             _currentIndex >= widget.questions.length - 1
-                                ? '確認交卷'
-                                : '下一題',
+                                ? tr('qp_confirm_submit')
+                                : tr('qp_next'),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: cs.primary,
@@ -687,24 +688,24 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     String contentText;
     if (unanswered > 0 && flaggedCount > 0) {
       contentText =
-          '您還有 $unanswered 題尚未作答，且尚有 $flaggedCount 題已標記的題目，確定要結束作答並直接交卷嗎？';
+          tr('qp_submit_unans_flag', [unanswered.toString(), flaggedCount.toString()]);
     } else if (unanswered > 0) {
-      contentText = '您還有 $unanswered 題尚未作答，確定要結束作答並直接交卷嗎？';
+      contentText = tr('qp_submit_unans', [unanswered.toString()]);
     } else if (flaggedCount > 0) {
-      contentText = '您尚有 $flaggedCount 題標記的題目，確定要交卷並查看檢討報告嗎？';
+      contentText = tr('qp_submit_flag', [flaggedCount.toString()]);
     } else {
-      contentText = '確定要交卷並查看檢討報告嗎？';
+      contentText = tr('qp_submit_plain');
     }
 
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.assignment_turned_in_rounded, color: Colors.blue),
             SizedBox(width: 8),
-            Text('確認交卷'),
+            Text(tr('qp_confirm_submit')),
           ],
         ),
         content: Text(
@@ -714,7 +715,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('繼續作答', style: TextStyle(color: Colors.grey)),
+            child: Text(tr('qp_continue'), style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -724,7 +725,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                   borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('確認交卷'),
+            child: Text(tr('qp_confirm_submit')),
           ),
         ],
       ),

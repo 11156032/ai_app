@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
+import '../services/app_locale_service.dart';
 
 // --- 測驗歷史頁面 ---
 class QuizHistoryPage extends StatefulWidget {
@@ -48,7 +49,7 @@ class _QuizHistoryPageState extends State<QuizHistoryPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        title: const Text('測驗歷史'),
+        title: Text(tr('profile_quiz_history')),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0.5,
@@ -63,7 +64,7 @@ class _QuizHistoryPageState extends State<QuizHistoryPage> {
                       Icon(Icons.history,
                           size: 64, color: Colors.grey.shade300),
                       const SizedBox(height: 16),
-                      Text('尚無測驗或學習紀錄',
+                      Text(tr('qh_empty'),
                           style: TextStyle(
                               color: Colors.grey.shade500, fontSize: 15)),
                     ],
@@ -89,7 +90,7 @@ class _QuizHistoryPageState extends State<QuizHistoryPage> {
                     final int mins = durationSec ~/ 60;
                     final int secs = durationSec % 60;
                     final String durationLabel =
-                        mins > 0 ? '$mins 分 $secs 秒' : '$secs 秒';
+                        mins > 0 ? tr('qh_min_sec', [mins.toString(), secs.toString()]) : tr('qh_sec', [secs.toString()]);
 
                     final bool isQuizRecord = total > 0;
                     List<dynamic> wrongIds = [];
@@ -140,7 +141,7 @@ class _QuizHistoryPageState extends State<QuizHistoryPage> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      isQuizRecord ? '測驗模式' : '自主學習瀏覽',
+                                      isQuizRecord ? tr('qh_quiz_mode') : tr('qh_browse_mode'),
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
@@ -163,11 +164,11 @@ class _QuizHistoryPageState extends State<QuizHistoryPage> {
                             Row(
                               children: [
                                 _statChip(Icons.check_circle_outline,
-                                    '$correct/$total 題', Colors.green.shade600),
+                                    tr('qh_score_frac', [correct.toString(), total.toString()]), Colors.green.shade600),
                                 const SizedBox(width: 12),
                                 _statChip(
                                     Icons.star_outline,
-                                    '${total > 0 ? ((correct / total) * 100).round() : 0} 分',
+                                    tr('qh_score_pts', [(total > 0 ? ((correct / total) * 100).round() : 0).toString()]),
                                     primaryColor),
                                 const SizedBox(width: 12),
                                 _statChip(Icons.timer_outlined, durationLabel,
@@ -194,7 +195,7 @@ class _QuizHistoryPageState extends State<QuizHistoryPage> {
                                       Icon(Icons.replay_outlined,
                                           size: 14, color: Colors.red.shade600),
                                       const SizedBox(width: 6),
-                                      Text('錯題複習（${wrongIds.length} 題）',
+                                      Text(tr('qh_review_wrong', [wrongIds.length.toString()]),
                                           style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.red.shade700,
@@ -206,7 +207,7 @@ class _QuizHistoryPageState extends State<QuizHistoryPage> {
                             ],
                           ] else ...[
                             _statChip(Icons.timer_outlined,
-                                '自主瀏覽 $durationLabel', Colors.teal.shade600),
+                                tr('qh_browse_dur', [durationLabel.toString()]), Colors.teal.shade600),
                           ],
                         ],
                       ),

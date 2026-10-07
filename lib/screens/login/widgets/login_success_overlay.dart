@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../../services/app_locale_service.dart';
 
 // ── 登入成功動畫 Overlay ────────────────────────────────────────────────────
 class LoginSuccessOverlay extends StatefulWidget {
@@ -211,7 +212,7 @@ class _BouncingDotsIndicator extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          '載入中',
+          tr('common_loading'),
           style: TextStyle(
             fontSize: 16.5,
             fontWeight: FontWeight.w600,

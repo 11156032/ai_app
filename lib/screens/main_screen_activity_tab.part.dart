@@ -23,11 +23,11 @@ extension MainScreenActivityTab on _MainScreenState {
   };
 
   // ─── 篩選 chip 定義（與類型對應）────────────────────────────────
-  static const List<Map<String, dynamic>> _activityFilterChips = [
-    {'label': '全部', 'type': null},
-    {'label': '📝 筆記', 'type': 'note'},
-    {'label': '💭 心情', 'type': 'mood'},
-    {'label': '📄 分享', 'type': 'doc'},
+  static List<Map<String, dynamic>> get _activityFilterChips => [
+    {'label': tr('val_all'), 'type': null},
+    {'label': tr('social_compact_note'), 'type': 'note'},
+    {'label': tr('social_compact_mood'), 'type': 'mood'},
+    {'label': tr('act_chip_share'), 'type': 'doc'},
   ];
 
   // ─── 主入口 ─────────────────────────────────────────────────────
@@ -56,8 +56,8 @@ extension MainScreenActivityTab on _MainScreenState {
                   ),
                   child: Row(
                     children: [
-                      _buildPillTab(isDark, '📝 我的發佈', 0),
-                      _buildPillTab(isDark, '🔖 收藏貼文', 1),
+                      _buildPillTab(isDark, tr('act_my_posts'), 0),
+                      _buildPillTab(isDark, tr('act_bookmarks'), 1),
                     ],
                   ),
                 ),
@@ -160,7 +160,7 @@ extension MainScreenActivityTab on _MainScreenState {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              _activitySortNewest ? '最新' : '最舊',
+                              _activitySortNewest ? tr('act_newest') : tr('act_oldest'),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isDark
@@ -252,11 +252,11 @@ extension MainScreenActivityTab on _MainScreenState {
       return _buildActivityEmptyState(
         isDark,
         icon: Icons.edit_note_rounded,
-        title: _activityTypeFilter != '全部' ? '此分類尚無發佈' : '還沒有任何發佈',
+        title: _activityTypeFilter != '全部' ? tr('act_empty_type') : tr('act_empty'),
         subtitle: _activityTypeFilter != '全部'
-            ? '試試其他分類，或去社群發表新貼文！'
-            : '分享你的學習心得，讓同學們一起進步！',
-        ctaLabel: '去發佈貼文',
+            ? tr('act_empty_type_sub')
+            : tr('act_empty_sub'),
+        ctaLabel: tr('act_go_post'),
         onCta: () => _changePage(2, '社群'),
       );
     }
@@ -289,11 +289,11 @@ extension MainScreenActivityTab on _MainScreenState {
       return _buildActivityEmptyState(
         isDark,
         icon: Icons.bookmark_border_rounded,
-        title: _activityTypeFilter != '全部' ? '此分類尚無收藏' : '尚無收藏貼文',
+        title: _activityTypeFilter != '全部' ? tr('act_empty_bm_type') : tr('act_empty_bm'),
         subtitle: _activityTypeFilter != '全部'
-            ? '試試其他分類，或去社群瀏覽更多內容！'
-            : '看到感興趣的內容時，點擊 🔖 即可收藏到這裡。',
-        ctaLabel: '去瀏覽社群',
+            ? tr('act_empty_bm_type_sub')
+            : tr('act_empty_bm_sub'),
+        ctaLabel: tr('act_go_browse'),
         onCta: () => _changePage(2, '社群'),
       );
     }
@@ -343,7 +343,8 @@ extension MainScreenActivityTab on _MainScreenState {
     final badgeBg = isDark
         ? (_postTypeBadgeBgDark[postType] ?? const Color(0xFF3E2723))
         : (_postTypeBadgeBg[postType] ?? const Color(0xFFF5EEE8));
-    final typeLabel = kPostTypeLabel[postType];
+    final rawTypeLabel = kPostTypeLabel[postType];
+    final typeLabel = rawTypeLabel == null ? null : trv(rawTypeLabel);
     final author = p['author'] as String? ?? '';
     final content = p['content'] as String? ?? '';
     final time = p['time'] as String? ?? '';
@@ -514,7 +515,8 @@ extension MainScreenActivityTab on _MainScreenState {
     final badgeBg = isDark
         ? (_postTypeBadgeBgDark[postType] ?? const Color(0xFF3E2723))
         : (_postTypeBadgeBg[postType] ?? const Color(0xFFF5EEE8));
-    final typeLabel = kPostTypeLabel[postType];
+    final rawTypeLabel = kPostTypeLabel[postType];
+    final typeLabel = rawTypeLabel == null ? null : trv(rawTypeLabel);
     final author = p['author'] as String? ?? '';
     final content = p['content'] as String? ?? '';
     final time = p['time'] as String? ?? '';
@@ -645,7 +647,7 @@ extension MainScreenActivityTab on _MainScreenState {
                         child: Text(
                           attached['title'] as String? ??
                               attached['shared_type'] as String? ??
-                              '附件',
+                              tr('act_attachment'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
