@@ -57,16 +57,29 @@ Future<void> main() async {
 
 Future<void> _initFirebaseAndNotifications() async {
   try {
-    await Firebase.initializeApp().timeout(const Duration(seconds: 4));
+    if (!kIsWeb) {
+      await Firebase.initializeApp().timeout(const Duration(seconds: 4));
+    }
+  } catch (e) {
+    debugPrint('Firebase.initializeApp warning: $e');
+  }
+
+  try {
     await AppConfigService.instance
         .initialize()
-        .timeout(const Duration(seconds: 4));
-    await PushNotificationService()
-        .initialize()
-        .timeout(const Duration(seconds: 4));
+        .timeout(const Duration(seconds: 5));
   } catch (e) {
-    debugPrint(
-        'Warning: Firebase / PushNotification initialization deferred or failed: $e');
+    debugPrint('AppConfigService.initialize warning: $e');
+  }
+
+  try {
+    if (!kIsWeb) {
+      await PushNotificationService()
+          .initialize()
+          .timeout(const Duration(seconds: 4));
+    }
+  } catch (e) {
+    debugPrint('PushNotificationService warning: $e');
   }
 }
 

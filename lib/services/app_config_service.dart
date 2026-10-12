@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:http/http.dart' as http;
 
 enum AppUpdateType {
   none,
@@ -14,6 +16,13 @@ class AppConfigService {
   static final AppConfigService instance = AppConfigService._internal();
 
   FirebaseRemoteConfig? _remoteConfig;
+
+  // Firebase Remote Config REST API 連線設定（確保 Web / 手機皆能 100% 成功同步）
+  static const String _kFirebaseApiKey =
+      'AIzaSyCAySIqHo7X9sSmfsDunHxQMnLDiifVTks';
+  static const String _kFirebaseProjectId = 'ai-app-493608';
+  static const String _kFirebaseAppId =
+      '1:789026077383:android:5fd946ddc995cb3f761ce2';
 
   // 狀態監聽器
   final ValueNotifier<bool> isMaintenanceNotifier = ValueNotifier<bool>(false);
@@ -47,42 +56,108 @@ class AppConfigService {
       debugPrint('⚠️ [AppConfigService] 無法取得 PackageInfo: $e');
     }
 
-    try {
-      if (Firebase.apps.isEmpty) {
-        try {
-          await Firebase.initializeApp().timeout(const Duration(seconds: 3));
-        } catch (_) {}
+    bool syncedViaSdk = false;
+
+    // 1. 原生平台（Android / iOS）優先使用 Firebase SDK
+    if (!kIsWeb) {
+      try {
+        if (Firebase.apps.isEmpty) {
+          try {
+            await Firebase.initializeApp().timeout(const Duration(seconds: 3));
+          } catch (_) {}
+        }
+        _remoteConfig = FirebaseRemoteConfig.instance;
+
+        // 快取策略：開發設為 0 秒，正式環境縮短為 15 秒（即時反映維護狀態）
+        await _remoteConfig!.setConfigSettings(RemoteConfigSettings(
+          fetchTimeout: const Duration(seconds: 5),
+          minimumFetchInterval:
+              kDebugMode ? Duration.zero : const Duration(seconds: 15),
+        ));
+
+        // 設定預設值（離線或初次載入之兜底）
+        await _remoteConfig!.setDefaults(<String, dynamic>{
+          'is_maintenance': false,
+          'maintenance_msg': _maintenanceMsg,
+          'min_version': _currentAppVersion,
+          'latest_version': _currentAppVersion,
+          'update_url': '',
+        });
+
+        // 拉取並啟用最新配置
+        await _remoteConfig!.fetchAndActivate().timeout(
+              const Duration(seconds: 4),
+              onTimeout: () => false,
+            );
+
+        _syncFromRemoteConfig();
+        syncedViaSdk = true;
+      } catch (e) {
+        debugPrint('⚠️ [AppConfigService] Firebase SDK 初始化失敗: $e');
       }
-      _remoteConfig = FirebaseRemoteConfig.instance;
-
-      // 配置快取策略：開發除錯模式設為 0 秒（即時反映），生產環境設為 10 分鐘
-      await _remoteConfig!.setConfigSettings(RemoteConfigSettings(
-        fetchTimeout: const Duration(seconds: 5),
-        minimumFetchInterval:
-            kDebugMode ? Duration.zero : const Duration(minutes: 10),
-      ));
-
-      // 設定預設值（離線或初次載入之兜底）
-      await _remoteConfig!.setDefaults(<String, dynamic>{
-        'is_maintenance': false,
-        'maintenance_msg': _maintenanceMsg,
-        'min_version': _currentAppVersion,
-        'latest_version': _currentAppVersion,
-        'update_url': '',
-      });
-
-      // 拉取並啟用最新配置
-      await _remoteConfig!.fetchAndActivate().timeout(
-            const Duration(seconds: 4),
-            onTimeout: () => false,
-          );
-
-      _syncFromRemoteConfig();
-    } catch (e) {
-      debugPrint('⚠️ [AppConfigService] Firebase Remote Config 初始化失敗: $e');
-      _syncFromRemoteConfig();
     }
+
+    // 2. Web 平台或 SDK 失敗時，無縫採用 Firebase Remote Config REST API 同步
+    if (!syncedViaSdk) {
+      await _fetchFromRemoteConfigRest();
+    }
+
     _applyDemoRemote();
+  }
+
+  /// 透過 Firebase Remote Config REST API 直連拉取最新參數（Web 專用與 SDK 雙重備援）
+  Future<bool> _fetchFromRemoteConfigRest() async {
+    try {
+      final url = Uri.parse(
+        'https://firebaseremoteconfig.googleapis.com/v1/projects/$_kFirebaseProjectId/namespaces/firebase:fetch?key=$_kFirebaseApiKey',
+      );
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'appId': _kFirebaseAppId,
+              'appInstanceId':
+                  'web_client_${DateTime.now().millisecondsSinceEpoch}',
+            }),
+          )
+          .timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final entries = data['entries'] as Map<String, dynamic>?;
+        if (entries != null) {
+          final isMaintStr = entries['is_maintenance']?.toString() ?? 'false';
+          final isMaint = isMaintStr.toLowerCase() == 'true';
+          final msg = entries['maintenance_msg']?.toString() ?? '';
+          final minVer = entries['min_version']?.toString() ?? '';
+          final latestVer = entries['latest_version']?.toString() ?? '';
+          final url = entries['update_url']?.toString() ?? '';
+
+          _minVersion = minVer.isNotEmpty ? minVer : _currentAppVersion;
+          _latestVersion =
+              latestVer.isNotEmpty ? latestVer : _currentAppVersion;
+          _updateUrl = url;
+          if (msg.isNotEmpty) _maintenanceMsg = msg;
+
+          isMaintenanceNotifier.value = isMaint;
+          maintenanceMsgNotifier.value = _maintenanceMsg;
+
+          // 檢查版本更新類型
+          _evaluateUpdateType();
+
+          debugPrint(
+              '🔍 [AppConfigService REST] 同步成功 ➜ is_maintenance: $isMaint | min_version: $_minVersion | latest_version: $_latestVersion');
+          return true;
+        }
+      } else {
+        debugPrint(
+            '⚠️ [AppConfigService REST] 回應異常 [${response.statusCode}]: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AppConfigService REST] 請求例外: $e');
+    }
+    return false;
   }
 
   // TODO(demo): 影片錄製用，錄完即移除。Web 建置加 --dart-define=DEMO_REMOTE=true，
@@ -111,7 +186,7 @@ class AppConfigService {
   /// 重新檢查最新狀態（用於維護頁面點擊「重新檢查」按鈕）
   Future<bool> recheck() async {
     try {
-      if (_remoteConfig != null) {
+      if (!kIsWeb && _remoteConfig != null) {
         await _remoteConfig!.fetchAndActivate().timeout(
               const Duration(seconds: 4),
               onTimeout: () => false,
@@ -122,7 +197,7 @@ class AppConfigService {
     } catch (e) {
       debugPrint('⚠️ [AppConfigService] 重新整理失敗: $e');
     }
-    return false;
+    return await _fetchFromRemoteConfigRest();
   }
 
   void _syncFromRemoteConfig() {
