@@ -64,7 +64,7 @@ class AiDiagnosisService {
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
     try {
-      return utf8.decode(base64Decode('QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
+      return utf8.decode(base64Decode('QVEuQWI4Uk42S3hsa2Z2QlJaenFXSGpXamNlZmFtVzlEeEx6UjdZOWliX2c4aXZHRWRJNUE='));
     } catch (_) {
       return '';
     }
@@ -93,11 +93,9 @@ class AiDiagnosisService {
   /// Groq AI 預設使用的模型清單 (按優先順序排序)
   /// 【支援 Cloudflare 中繼站之現行有效模型】
   static const List<String> _kGroqModels = [
-    'groq/compound', // Groq 官方 Compound 複合旗艦引擎
-    'openai/gpt-oss-120b', // Groq 官方 120B 大規模語言模型
-    'qwen/qwen3.8-27b', // Groq 官方 Qwen 3.8 27B 繁中加強模型
-    'groq/compound-mini', // Groq 官方 Compound Mini 極速模型
-    'openai/gpt-oss-20b', // Groq 官方 20B 模型
+    'openai/gpt-oss-20b', // Groq 官方 20B 極速模型 (現行有效)
+    'openai/gpt-oss-120b', // Groq 官方 120B 大規模語言模型 (現行有效)
+    'qwen/qwen3.8-27b', // Groq 官方 Qwen 3.8 27B 繁中加強模型 (現行有效)
   ];
 
   static DateTime? nextAvailableTime;
@@ -423,7 +421,7 @@ class AiDiagnosisService {
    • 💡「系統協助」（重要！客服與系統資訊皆在此）：
      -「常見問題與線上客服」：各功能常見問答與 24H 智慧線上客服專員對談。
      -「客服與意見回饋」：填寫表單回報 Bug 或功能建議，支援上傳截圖。
-     -「關於我們」：了解 App 核心技術、品牌理念、代表 Logo 意涵與最新版本 (v1.8.5) 資訊。
+     -「關於我們」：了解 App 核心技術、品牌理念、代表 Logo 意涵與最新版本 (v1.8.6) 資訊。
      -「互動式功能引導」：重新體驗新手操作教學。
      -「服務條款」與「隱私權政策」。
 2. 📚 題庫（底部導航「題庫」）：
@@ -513,19 +511,19 @@ ${AppLocaleService.getAiLanguageInstruction()}
 
       // 順位 2：Cloudflare Groq 引擎
       if (proxyText == null || proxyText.trim().isEmpty) {
-        debugPrint('代理人助理：切換 Cloudflare Groq 引擎 (compound-beta)...');
+        debugPrint('代理人助理：切換 Cloudflare Groq 引擎 (openai/gpt-oss-20b)...');
         proxyText = await _tryCloudflareProxy(
           provider: 'groq',
-          model: 'compound-beta',
+          model: 'openai/gpt-oss-20b',
           prompt: fullPrompt,
           timeoutSeconds: 8,
         );
       }
       if (proxyText == null || proxyText.trim().isEmpty) {
-        debugPrint('代理人助理：切換 Cloudflare Groq 深度模型 (qwen/qwen3.6-27b)...');
+        debugPrint('代理人助理：切換 Cloudflare Groq 深度模型 (openai/gpt-oss-120b)...');
         proxyText = await _tryCloudflareProxy(
           provider: 'groq',
-          model: 'qwen/qwen3.6-27b',
+          model: 'openai/gpt-oss-120b',
           prompt: fullPrompt,
           timeoutSeconds: 12,
         );
@@ -592,11 +590,8 @@ ${AppLocaleService.getAiLanguageInstruction()}
     if (_kOpenRouterApiKey.trim().isNotEmpty) {
       final fallbackModels = [
         if (customModel != null && customModel.isNotEmpty) customModel,
-        'google/gemini-2.0-flash-lite-001:free',
-        'meta-llama/llama-3.3-70b-instruct:free',
-        'deepseek/deepseek-r1:free',
-        'qwen/qwen-2.5-72b-instruct:free',
-        'mistralai/mistral-7b-instruct:free',
+        'google/gemma-4-26b-a4b-it:free',
+        'nvidia/nemotron-3.5-lightning:free',
       ];
 
       for (final model in fallbackModels) {
@@ -691,6 +686,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
         debugPrint('代理人助理：Gemini 中繼失敗，嘗試 Cloudflare 雲端中繼站 (Groq)...');
         proxyText = await _tryCloudflareProxy(
           provider: 'groq',
+          model: 'openai/gpt-oss-20b',
           prompt: fullPrompt,
         );
       }
@@ -735,7 +731,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
    - 提供學生互相分享讀書心得、發布貼文與互動討論。
 7. ⚙️ 個人設定、自訂導覽列與帳號安全：
    - **個人檔案** > **設定與安全**：支援修改暱稱、頭像、個人簡介、**自訂導覽列項目順序與側邊抽屜配置**、深淺色主題切換、字體大小、通知開關、密碼修改。
-   - **個人檔案** > **系統協助**：包含「常見問題與線上客服」（24H 智能客服）、「客服與意見回饋」（表單回報）與「關於我們」（品牌理念、代表 Logo 解讀與 v1.8.5 版本資訊）。
+   - **個人檔案** > **系統協助**：包含「常見問題與線上客服」（24H 智能客服）、「客服與意見回饋」（表單回報）與「關於我們」（品牌理念、代表 Logo 解讀與 v1.8.6 版本資訊）。
 
 【回答規範】
 - $langDirective
@@ -1276,7 +1272,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
         debugPrint('學習建議：Gemini 中繼站無回應，切換 Groq 中繼站...');
         proxyText = await _tryCloudflareProxy(
           provider: 'groq',
-          model: 'groq/compound',
+          model: 'openai/gpt-oss-20b',
           prompt: prompt,
           timeoutSeconds: 6,
         );

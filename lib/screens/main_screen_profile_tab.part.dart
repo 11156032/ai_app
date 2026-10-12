@@ -7076,7 +7076,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '最新發布',
-      'version': 'v1.8.5',
+      'version': 'v1.8.6',
       'date': '2026-09-21',
       'isPinned': true,
       'icon': Icons.auto_awesome_rounded,
@@ -7926,7 +7926,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.8.5',
+                                  'v1.8.6',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,

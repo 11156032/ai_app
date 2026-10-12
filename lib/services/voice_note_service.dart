@@ -367,7 +367,7 @@ class VoiceNoteService {
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
     try {
-      return utf8.decode(base64Decode('QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
+      return utf8.decode(base64Decode('QVEuQWI4Uk42S3hsa2Z2QlJaenFXSGpXamNlZmFtVzlEeEx6UjdZOWliX2c4aXZHRWRJNUE='));
     } catch (_) {
       return '';
     }
@@ -406,13 +406,13 @@ class VoiceNoteService {
       timeoutSeconds: 15,
     );
 
-    // 順位 2-A：Cloudflare Groq 快速引擎 (groq/compound)
+    // 順位 2-A：Cloudflare Groq 快速引擎 (openai/gpt-oss-20b)
     if (responseText == null || responseText.trim().isEmpty) {
       debugPrint(
-          'VoiceNoteService: 切換 Cloudflare Groq 極速引擎 (groq/compound)...');
+          'VoiceNoteService: 切換 Cloudflare Groq 極速引擎 (openai/gpt-oss-20b)...');
       responseText = await _tryCloudflareProxy(
         provider: 'groq',
-        model: 'groq/compound',
+        model: 'openai/gpt-oss-20b',
         prompt: prompt,
         timeoutSeconds: 15,
       );

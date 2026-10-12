@@ -75,7 +75,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
     try {
-      return utf8.decode(base64Decode('QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
+      return utf8.decode(base64Decode('QVEuQWI4Uk42S3hsa2Z2QlJaenFXSGpXamNlZmFtVzlEeEx6UjdZOWliX2c4aXZHRWRJNUE='));
     } catch (_) {
       return '';
     }
@@ -132,6 +132,45 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
     // 4. 內建系統 Gemini API Key
     return _kDefaultGeminiApiKey;
+  }
+
+  // 考卷辨識專用 Gemini API Key（與題庫生成金鑰分開，額度互不影響）
+  Future<String> _getPaperApiKey() async {
+    // 1. Check user custom api key in db
+    try {
+      final uid =
+          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+              .toString();
+      final db = await DatabaseHelper.instance.database;
+      final userRows =
+          await db.query('users', where: 'id = ?', whereArgs: [uid]);
+      if (userRows.isNotEmpty) {
+        final customKey = userRows.first['gemini_api_key'] as String?;
+        if (customKey != null && customKey.trim().isNotEmpty) {
+          return customKey.trim();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting user custom api key: $e');
+    }
+
+    // 2. Fallback to dotenv
+    try {
+      final key = dotenv.env['GEMINI_PAPER_API_KEY'];
+      if (key != null && key.isNotEmpty) return key;
+    } catch (_) {}
+
+    // 3. Fallback to fromEnvironment
+    const envKey = String.fromEnvironment('GEMINI_PAPER_API_KEY');
+    if (envKey.isNotEmpty) return envKey;
+
+    // 4. 內建考卷辨識專用 Gemini API Key
+    try {
+      return utf8.decode(base64Decode(
+          'QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
+    } catch (_) {
+      return '';
+    }
   }
 
   /// 從 PDF 檔案二進位中提取文字內容（原生支援數位考卷直接解析）
@@ -473,12 +512,12 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         timeoutSeconds: 25,
       );
 
-      // 順位 2：Cloudflare Groq 旗艦中繼引擎 (groq/compound)
+      // 順位 2：Cloudflare Groq 旗艦中繼引擎 (openai/gpt-oss-20b)
       if (responseText == null || responseText.trim().isEmpty) {
-        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 旗艦引擎 (groq/compound)...');
+        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 旗艦引擎 (openai/gpt-oss-20b)...');
         responseText = await _tryCloudflareProxy(
           provider: 'groq',
-          model: 'groq/compound',
+          model: 'openai/gpt-oss-20b',
           prompt: prompt,
           timeoutSeconds: 20,
         );
@@ -615,12 +654,12 @@ $pdfExtractedText
 }
 ''';
 
-          final apiKey = await _getApiKey();
+          final apiKey = await _getPaperApiKey();
           if (apiKey.isNotEmpty) {
             final fastModels = [
+              'gemini-3.5-flash',
               'gemini-2.5-flash',
-              'gemini-2.0-flash',
-              'gemini-1.5-flash',
+              'gemini-3.5-flash-lite',
             ];
             for (final modelName in fastModels) {
               try {
@@ -660,7 +699,7 @@ $pdfExtractedText
             debugPrint('AiUploadPaper: Gemini 文字解析全部失敗，嘗試 Groq 中繼...');
             responseText = await _tryCloudflareProxy(
               provider: 'groq',
-              model: 'groq/compound',
+              model: 'openai/gpt-oss-20b',
               prompt: pdfTextPrompt,
               timeoutSeconds: 15,
             );
@@ -699,11 +738,11 @@ $pdfExtractedText
 }
 ''';
 
-        final apiKey = await _getApiKey();
+        final apiKey = await _getPaperApiKey();
         final modelsToTry = [
+          'gemini-3.5-flash',
           'gemini-2.5-flash',
-          'gemini-2.0-flash',
-          'gemini-1.5-flash',
+          'gemini-3.5-flash-lite',
         ];
 
         // 嘗試 Gemini SDK (加入 25s 超時保護，避免掛起)
@@ -791,6 +830,9 @@ $pdfExtractedText
                   debugPrint('AiUploadPaper: Gemini REST API ($modelName) 辨識成功！');
                   break;
                 }
+              } else {
+                debugPrint(
+                    'AiUploadPaper: Gemini REST API ($modelName) 錯誤 [${res.statusCode}]: ${res.body}');
               }
             } catch (restErr) {
               debugPrint(

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -47,6 +48,11 @@ class AppConfigService {
     }
 
     try {
+      if (Firebase.apps.isEmpty) {
+        try {
+          await Firebase.initializeApp().timeout(const Duration(seconds: 3));
+        } catch (_) {}
+      }
       _remoteConfig = FirebaseRemoteConfig.instance;
 
       // 配置快取策略：開發除錯模式設為 0 秒（即時反映），生產環境設為 10 分鐘
