@@ -134,20 +134,22 @@ class _LoginScreenState extends State<LoginScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('login_forgot_title')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tr('login_forgot_desc')),
-            const SizedBox(height: 14),
-            TextField(
-              controller: emailResetCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: _inputDeco(tr('login_email'),
-                  suffix: const Icon(Icons.email_outlined,
-                      color: Color(0xFFBCAAA4))),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr('login_forgot_desc')),
+              const SizedBox(height: 14),
+              TextField(
+                controller: emailResetCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: _inputDeco(tr('login_email'),
+                    suffix: const Icon(Icons.email_outlined,
+                        color: Color(0xFFBCAAA4))),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -218,46 +220,48 @@ class _LoginScreenState extends State<LoginScreen> {
         builder: (ctx) => StatefulBuilder(builder: (context, setState) {
           return AlertDialog(
             title: Text(tr('login_reset_title')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(tr('login_reset_desc')),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: newPasswordCtrl,
-                  obscureText: obscureNew,
-                  decoration: _inputDeco(
-                    tr('pwd_new_label'),
-                    suffix: IconButton(
-                      icon: Icon(
-                        obscureNew
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: const Color(0xFFBCAAA4),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(tr('login_reset_desc')),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: newPasswordCtrl,
+                    obscureText: obscureNew,
+                    decoration: _inputDeco(
+                      tr('pwd_new_label'),
+                      suffix: IconButton(
+                        icon: Icon(
+                          obscureNew
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: const Color(0xFFBCAAA4),
+                        ),
+                        onPressed: () => setState(() => obscureNew = !obscureNew),
                       ),
-                      onPressed: () => setState(() => obscureNew = !obscureNew),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: confirmPasswordCtrl,
-                  obscureText: obscureConfirm,
-                  decoration: _inputDeco(
-                    tr('pwd_confirm_new'),
-                    suffix: IconButton(
-                      icon: Icon(
-                        obscureConfirm
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: const Color(0xFFBCAAA4),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: confirmPasswordCtrl,
+                    obscureText: obscureConfirm,
+                    decoration: _inputDeco(
+                      tr('pwd_confirm_new'),
+                      suffix: IconButton(
+                        icon: Icon(
+                          obscureConfirm
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: const Color(0xFFBCAAA4),
+                        ),
+                        onPressed: () =>
+                            setState(() => obscureConfirm = !obscureConfirm),
                       ),
-                      onPressed: () =>
-                          setState(() => obscureConfirm = !obscureConfirm),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             actions: [
               TextButton(

@@ -954,8 +954,9 @@ class _NotesScreenState extends State<NotesScreen> {
             ),
             content: SizedBox(
               width: MediaQuery.of(context).size.width * 0.85,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                 children: [
                   // 新增分類輸入區
                   Container(
@@ -1103,6 +1104,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 ],
               ),
             ),
+          ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
@@ -2814,14 +2816,15 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              left: 20,
-              right: 20,
-              top: 20,
-            ),
-            child: Column(
+          return SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                left: 20,
+                right: 20,
+                top: 20,
+              ),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2987,7 +2990,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
                 ),
               ],
             ),
-          );
+          ),
+        );
         },
       ),
     );

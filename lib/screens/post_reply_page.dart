@@ -6,6 +6,7 @@ import 'package:animate_do/animate_do.dart';
 import '../database/database_helper.dart';
 import '../widgets/common_widgets.dart';
 import 'notes_screen.dart';
+import 'question_set_detail_page.dart';
 import '../services/app_locale_service.dart';
 
 const Map<String, String> _kPostTypeLabel = {
@@ -1175,10 +1176,298 @@ class _PostReplyPageState extends State<PostReplyPage> {
             ],
           ),
         );
+      } else if (sharedType == 'paper') {
+        return _buildSharedPaperCard(p, attached);
       }
     }
 
     return const SizedBox.shrink();
+  }
+
+  Widget _buildSharedPaperCard(
+      Map<String, dynamic> p, Map<String, dynamic> attached) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+    final String paperName = attached['paper_name'] ?? '精選題本';
+    final int questionCount = attached['question_count'] as int? ??
+        ((attached['question_ids'] as List?)?.length ?? 0);
+    final String creatorName =
+        attached['creator_name'] ?? (p['author'] ?? '同學');
+    final dynamic qData = attached['questions_data'];
+    String? previewQuestion;
+    if (qData is List && qData.isNotEmpty && qData.first is Map) {
+      previewQuestion = qData.first['text']?.toString();
+    }
+
+    final cardBg =
+        isDark ? const Color(0xFF26262B) : const Color(0xFFF9F7F5);
+    final borderCol = isDark
+        ? Colors.white12
+        : primaryColor.withValues(alpha: 0.25);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderCol, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              color: primaryColor.withValues(alpha: isDark ? 0.2 : 0.08),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.auto_stories_rounded,
+                        color: primaryColor, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          paperName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14.5,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          '建立者：$creatorName',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                isDark ? Colors.white60 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '共 $questionCount 題',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (previewQuestion != null && previewQuestion.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '題目摘要：',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            isDark ? Colors.white54 : Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '1. $previewQuestion',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => QuestionSetDetailPage(
+                              currentUser: widget.currentUser,
+                              title: paperName,
+                              paperId: attached['paper_id'] as int?,
+                              allSubjects: const [],
+                              subjectChapters: const {},
+                            ),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        side: BorderSide(
+                            color: primaryColor.withValues(alpha: 0.4)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: Icon(Icons.play_arrow_rounded,
+                          size: 16, color: primaryColor),
+                      label: Text(
+                        tr('ql_paper_start_practice'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _importSharedPaper(attached),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.bookmark_add_rounded, size: 15),
+                      label: Text(
+                        tr('ql_paper_save_to_my'),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _importSharedPaper(Map<String, dynamic> attached) async {
+    final paperName = attached['paper_name'] as String? ?? '精選題本';
+    final dynamic qDataRaw = attached['questions_data'];
+    final dynamic qIdsRaw = attached['question_ids'];
+    final currentUid = widget.currentUser['id'].toString();
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+      List<int> targetQuestionIds = [];
+
+      if (qDataRaw is List && qDataRaw.isNotEmpty) {
+        for (final q in qDataRaw) {
+          if (q is Map) {
+            final text = q['text']?.toString() ?? '';
+            if (text.isEmpty) continue;
+            final existing = await db.query(
+              'questions',
+              where: 'text = ?',
+              whereArgs: [text],
+              limit: 1,
+            );
+            if (existing.isNotEmpty) {
+              targetQuestionIds.add(existing.first['id'] as int);
+            } else {
+              final optionsStr = q['options'] is String
+                  ? q['options']
+                  : jsonEncode(q['options'] ?? []);
+              final newQid = await db.insert('questions', <String, Object?>{
+                'user_id': currentUid,
+                'subject': q['subject'] ?? '一般',
+                'text': text,
+                'options': optionsStr,
+                'answer': (q['answer'] ?? 0).toString(),
+                'explanation': q['explanation'] ?? '',
+                'difficulty': q['difficulty'] ?? '中',
+                'type': q['type'] ?? '單選題',
+                'is_public': 0,
+                'bookmarked': 0,
+                'created_at': DateTime.now().toIso8601String(),
+              });
+              targetQuestionIds.add(newQid);
+            }
+          }
+        }
+      } else if (qIdsRaw is List) {
+        targetQuestionIds = qIdsRaw
+            .map((e) => int.tryParse(e.toString()) ?? 0)
+            .where((id) => id > 0)
+            .toList();
+      }
+
+      if (targetQuestionIds.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('題本內無有效題目可收錄')),
+          );
+        }
+        return;
+      }
+
+      await DatabaseHelper.instance.createPaper(
+        currentUid,
+        paperName,
+        targetQuestionIds,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              duration: const Duration(milliseconds: 2000),
+              behavior: SnackBarBehavior.floating,
+              content: Text(tr('ql_paper_imported', [paperName])),
+              backgroundColor: Theme.of(context).primaryColor,
+            ),
+          );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(milliseconds: 2000),
+            behavior: SnackBarBehavior.floating,
+            content: Text(tr('ql_paper_import_failed', [e.toString()])),
+          ),
+        );
+      }
+    }
   }
 
   void _importSharedNote(Map<String, dynamic> p, Map<String, dynamic> attached) {

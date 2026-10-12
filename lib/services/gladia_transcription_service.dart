@@ -687,7 +687,7 @@ class GladiaTranscriptionService {
 
     final audioBytes = await audioFile.readAsBytes();
     final model = GenerativeModel(
-      model: 'gemini-3.6-flash',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey,
     );
 

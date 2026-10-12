@@ -765,7 +765,7 @@ mindmap
   Future<String?> _tryDirectGemini(String prompt) async {
     try {
       final model = GenerativeModel(
-        model: 'gemini-3.6-flash',
+        model: 'gemini-2.5-flash',
         apiKey: _kGeminiApiKey,
       );
       final response = await model.generateContent(
