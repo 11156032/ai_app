@@ -546,6 +546,14 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       return;
     }
 
+    // 檔案大小偵測與日誌
+    final fileSizeMB = _fileBytes!.length / (1024 * 1024);
+    debugPrint('AiUploadPaper: 檔案大小 = ${fileSizeMB.toStringAsFixed(2)} MB, MIME = $_mimeType');
+    if (fileSizeMB > 20) {
+      _showErrorSnackBar('檔案過大（${fileSizeMB.toStringAsFixed(1)} MB），建議控制在 20MB 以內以確保辨識順利。');
+      return;
+    }
+
     setState(() {
       _state = UploadState.analyzing;
       _currentStep = 0;
@@ -565,8 +573,12 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
       // ── 順位 1：若為 PDF 檔案，優先採用 PDF 內建文字萃取 ➔ Gemini / Groq 高速文字解析 ──
       if (_isPdf && _fileBytes != null) {
-        debugPrint('AiUploadPaper: 正在從 PDF 提取文字內容...');
+        debugPrint('AiUploadPaper: 正在從 PDF 提取文字內容 (檔案: $_selectedFileName)...');
         final pdfExtractedText = _extractTextFromPdfBytes(_fileBytes!);
+        debugPrint('AiUploadPaper: PDF 文字提取結果長度 = ${pdfExtractedText.length} 字元');
+        if (pdfExtractedText.length < 15) {
+          debugPrint('AiUploadPaper: PDF 文字過少，將改用多模態視覺辨識...');
+        }
         if (pdfExtractedText.length >= 15) {
           debugPrint(
               'AiUploadPaper: 成功從 PDF 提取文字 (長度: ${pdfExtractedText.length})，啟動高速 AI 解析引擎...');
@@ -620,7 +632,7 @@ $pdfExtractedText
                   ),
                 );
                 final res = await model.generateContent([Content.text(pdfTextPrompt)])
-                    .timeout(const Duration(seconds: 20));
+                    .timeout(const Duration(seconds: 40));
                 if (res.text != null && res.text!.trim().isNotEmpty) {
                   responseText = res.text;
                   debugPrint('AiUploadPaper: Gemini ($modelName) PDF 文字解析成功！');
@@ -632,13 +644,14 @@ $pdfExtractedText
             }
           }
 
-          // 若直連失敗，嘗試 Cloudflare Groq 中繼 (5 秒極速超時)
+          // 若直連失敗，嘗試 Cloudflare Groq 中繼
           if (responseText == null || responseText.trim().isEmpty) {
+            debugPrint('AiUploadPaper: Gemini 文字解析全部失敗，嘗試 Groq 中繼...');
             responseText = await _tryCloudflareProxy(
               provider: 'groq',
               model: 'groq/compound',
               prompt: pdfTextPrompt,
-              timeoutSeconds: 5,
+              timeoutSeconds: 15,
             );
           }
         }
@@ -711,7 +724,7 @@ $pdfExtractedText
                 generationConfig: GenerationConfig(
                   responseMimeType: 'application/json',
                 ),
-              ).timeout(const Duration(seconds: 25));
+              ).timeout(const Duration(seconds: 45));
               if (response.text != null && response.text!.trim().isNotEmpty) {
                 responseText = response.text;
                 debugPrint('AiUploadPaper: Gemini SDK ($modelName) 多模態辨識成功！');
@@ -757,7 +770,7 @@ $pdfExtractedText
                       },
                     }),
                   )
-                  .timeout(const Duration(seconds: 25));
+                  .timeout(const Duration(seconds: 45));
 
               if (res.statusCode == 200) {
                 final data = jsonDecode(utf8.decode(res.bodyBytes));
@@ -785,13 +798,13 @@ $pdfExtractedText
             prompt: systemPrompt,
             base64Data: base64Data,
             mimeType: _mimeType,
-            timeoutSeconds: 30,
+            timeoutSeconds: 50,
           );
         }
       }
 
       if (responseText == null || responseText.trim().isEmpty) {
-        throw Exception('無法完成考卷解析。請確認檔案字跡清晰或重新拍攝後再試。');
+        throw Exception('無法完成考卷解析。請確認：\n1. 網路連線正常\n2. 檔案為選擇題格式\n3. 檔案字跡清晰且非加密 PDF\n若為掃描圖檔 PDF，建議截圖後以圖片方式上傳。');
       }
 
       stepTimer.cancel();
