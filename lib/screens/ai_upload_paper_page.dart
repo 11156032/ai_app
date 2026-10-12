@@ -332,66 +332,68 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final cs = Theme.of(ctx).colorScheme;
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Text(
-                  tr('up_photo_source'),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    child: Icon(Icons.camera_alt_rounded, color: cs.primary),
                   ),
-                  title: Text(tr('up_camera'),
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(tr('up_camera_sub'),
-                      style: TextStyle(fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickImage(ImageSource.camera);
-                  },
-                ),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+                  Text(
+                    tr('up_photo_source'),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
-                    child: Icon(Icons.photo_library_rounded, color: cs.primary),
                   ),
-                  title: Text(tr('up_gallery'),
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(tr('up_gallery_sub'),
-                      style: TextStyle(fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickImage(ImageSource.gallery);
-                  },
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.camera_alt_rounded, color: cs.primary),
+                    ),
+                    title: Text(tr('up_camera'),
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(tr('up_camera_sub'),
+                        style: TextStyle(fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickImage(ImageSource.camera);
+                    },
+                  ),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.photo_library_rounded, color: cs.primary),
+                    ),
+                    title: Text(tr('up_gallery'),
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(tr('up_gallery_sub'),
+                        style: TextStyle(fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickImage(ImageSource.gallery);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -500,7 +502,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         final apiKey = await _getApiKey();
         if (apiKey.isNotEmpty) {
           final model = GenerativeModel(
-            model: 'gemini-3.6-flash',
+            model: 'gemini-2.5-flash',
             apiKey: apiKey,
             generationConfig: GenerationConfig(
               maxOutputTokens: (count * 350) + 300,
@@ -616,9 +618,9 @@ $pdfExtractedText
           final apiKey = await _getApiKey();
           if (apiKey.isNotEmpty) {
             final fastModels = [
-              'gemini-3.6-flash',
-              'gemini-3.1-flash-lite',
-              'gemini-3.5-flash',
+              'gemini-2.5-flash',
+              'gemini-2.0-flash',
+              'gemini-1.5-flash',
             ];
             for (final modelName in fastModels) {
               try {
@@ -644,7 +646,16 @@ $pdfExtractedText
             }
           }
 
-          // 若直連失敗，嘗試 Cloudflare Groq 中繼
+          // 若直連失敗，優先嘗試 Cloudflare Gemini 中繼站 (20 秒超時)
+          if (responseText == null || responseText.trim().isEmpty) {
+            debugPrint('AiUploadPaper: Gemini 本地 SDK 直連解析失敗，嘗試 Cloudflare Gemini 中繼...');
+            responseText = await _tryCloudflareProxy(
+              provider: 'gemini',
+              prompt: pdfTextPrompt,
+              timeoutSeconds: 20,
+            );
+          }
+          // 次選 Cloudflare Groq 中繼 (15 秒超時)
           if (responseText == null || responseText.trim().isEmpty) {
             debugPrint('AiUploadPaper: Gemini 文字解析全部失敗，嘗試 Groq 中繼...');
             responseText = await _tryCloudflareProxy(
@@ -690,10 +701,9 @@ $pdfExtractedText
 
         final apiKey = await _getApiKey();
         final modelsToTry = [
-          'gemini-3.6-flash',
-          'gemini-3.1-flash-lite',
-          'gemini-3.5-flash',
-          'gemini-3.7-flash',
+          'gemini-2.5-flash',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
         ];
 
         // 嘗試 Gemini SDK (加入 25s 超時保護，避免掛起)
@@ -1366,18 +1376,24 @@ $pdfExtractedText
                     Icon(Icons.picture_as_pdf_rounded,
                         size: 34, color: Colors.redAccent.shade200),
                     const SizedBox(width: 14),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(tr('up_pdf_title'),
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14.5)),
-                        const SizedBox(height: 2),
-                        Text(tr('up_pdf_sub'),
-                            style: TextStyle(
-                                fontSize: 11, color: cs.onSurfaceVariant)),
-                      ],
+                    Flexible(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(tr('up_pdf_title'),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14.5),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(tr('up_pdf_sub'),
+                              style: TextStyle(
+                                  fontSize: 11, color: cs.onSurfaceVariant),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
                     )
                   ],
                 ),

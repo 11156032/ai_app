@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'question_set_detail_page.dart';
+import 'main_screen.dart';
 import '../services/app_locale_service.dart';
 
 class SubjectChaptersPage extends StatefulWidget {
@@ -101,6 +102,17 @@ class _SubjectChaptersPageState extends State<SubjectChaptersPage> {
         title: Text(tr('chapters_title', [widget.subject.toString()])),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_rounded, size: 26),
+            tooltip: tr('qs_back_to_bank'),
+            onPressed: () {
+              MainScreen.tabSwitchNotifier.value = 1;
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: chapters.isEmpty
           ? Center(

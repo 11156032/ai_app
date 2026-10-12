@@ -501,43 +501,43 @@ ${AppLocaleService.getAiLanguageInstruction()}
     final fullPrompt =
         '$systemInstruction\n\n【對話歷史】\n$historyStr\n\n【當前最新提問（請務必嚴格只針對此提問給出精準解答，長度 50~100 字內；${AppLocaleService.getAiLanguageInstruction()}）】：${userInput.trim()}\n助理:';
 
-    // 1. 優先使用 Cloudflare 雲端中繼站 (依序：Groq -> OpenRouter -> Gemini)
+    // 1. 優先使用 Cloudflare 雲端中繼站 (依序：Gemini 旗艦引擎 -> Groq -> OpenRouter)
     try {
-      // 順位 1：Cloudflare Groq 引擎 (compound-beta 極速直出模型)
-      debugPrint('代理人助理：優先啟動 Cloudflare 雲端中繼站 (Groq / compound-beta)...');
+      // 順位 1：Cloudflare Gemini 旗艦引擎 (回應迅速且穩定)
+      debugPrint('代理人助理：優先啟動 Cloudflare 雲端中繼站 (Gemini 旗艦引擎)...');
       String? proxyText = await _tryCloudflareProxy(
-        provider: 'groq',
-        model: 'compound-beta',
+        provider: 'gemini',
         prompt: fullPrompt,
         timeoutSeconds: 15,
       );
+
+      // 順位 2：Cloudflare Groq 引擎
+      if (proxyText == null || proxyText.trim().isEmpty) {
+        debugPrint('代理人助理：切換 Cloudflare Groq 引擎 (compound-beta)...');
+        proxyText = await _tryCloudflareProxy(
+          provider: 'groq',
+          model: 'compound-beta',
+          prompt: fullPrompt,
+          timeoutSeconds: 8,
+        );
+      }
       if (proxyText == null || proxyText.trim().isEmpty) {
         debugPrint('代理人助理：切換 Cloudflare Groq 深度模型 (qwen/qwen3.6-27b)...');
         proxyText = await _tryCloudflareProxy(
           provider: 'groq',
           model: 'qwen/qwen3.6-27b',
           prompt: fullPrompt,
-          timeoutSeconds: 25,
+          timeoutSeconds: 12,
         );
       }
 
-      // 順位 2：Cloudflare OpenRouter 引擎
+      // 順位 3：Cloudflare OpenRouter 引擎
       if (proxyText == null || proxyText.trim().isEmpty) {
         debugPrint('代理人助理：切換 Cloudflare OpenRouter 引擎中繼...');
         proxyText = await _tryCloudflareProxy(
           provider: 'openrouter',
           prompt: fullPrompt,
           timeoutSeconds: 6,
-        );
-      }
-
-      // 順位 3：Cloudflare Gemini 引擎 (排在最後進行旗艦保底)
-      if (proxyText == null || proxyText.trim().isEmpty) {
-        debugPrint('代理人助理：切換 Cloudflare Gemini 旗艦保底中繼...');
-        proxyText = await _tryCloudflareProxy(
-          provider: 'gemini',
-          prompt: fullPrompt,
-          timeoutSeconds: 12,
         );
       }
       if (proxyText != null && proxyText.trim().isNotEmpty) {
@@ -634,7 +634,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
       debugPrint('代理人助理：OpenRouter 免費模型均失敗，啟動官方 Gemini 2.5 Flash 進行救援');
       try {
         final model = GenerativeModel(
-          model: 'gemini-3.6-flash',
+          model: 'gemini-2.5-flash',
           apiKey: _kSystemGeminiApiKey,
           systemInstruction: Content.system(systemInstruction),
         );
@@ -679,18 +679,18 @@ ${AppLocaleService.getAiLanguageInstruction()}
       }
     }
 
-    // 最終防護線：嘗試 Cloudflare 雲端中繼站 (支援 Groq 與 Gemini 雙重備援)
+    // 最終防護線：嘗試 Cloudflare 雲端中繼站 (支援 Gemini 與 Groq 雙重備援)
     try {
-      debugPrint('代理人助理：嘗試 Cloudflare 雲端中繼站 (Groq)...');
+      debugPrint('代理人助理：嘗試 Cloudflare 雲端中繼站 (Gemini)...');
       final fullPrompt = '$systemInstruction\n\n【使用者問題】\n$userInput';
       String? proxyText = await _tryCloudflareProxy(
-        provider: 'groq',
+        provider: 'gemini',
         prompt: fullPrompt,
       );
       if (proxyText == null || proxyText.isEmpty) {
-        debugPrint('代理人助理：Groq 中繼失敗，嘗試 Cloudflare 雲端中繼站 (Gemini)...');
+        debugPrint('代理人助理：Gemini 中繼失敗，嘗試 Cloudflare 雲端中繼站 (Groq)...');
         proxyText = await _tryCloudflareProxy(
-          provider: 'gemini',
+          provider: 'groq',
           prompt: fullPrompt,
         );
       }
@@ -1040,10 +1040,10 @@ ${AppLocaleService.getAiLanguageInstruction()}
         }
       }
 
-      // 2. Cloudflare Groq 中繼站
+      // 2. Cloudflare Gemini 中繼站 (優先保證高可用與極速)
       try {
         final proxyText = await _tryCloudflareProxy(
-          provider: 'groq',
+          provider: 'gemini',
           prompt: prompt,
           timeoutSeconds: 8,
         );
@@ -1054,18 +1054,39 @@ ${AppLocaleService.getAiLanguageInstruction()}
       } catch (_) {}
 
       // 3. Gemini 直連
-      final model = GenerativeModel(
-        model: 'gemini-3.6-flash',
-        apiKey: _kSystemGeminiApiKey,
-      );
-      final contentStream = model.generateContentStream([Content.text(prompt)]);
-      await for (final chunk
-          in contentStream.timeout(const Duration(seconds: 8))) {
-        final text = chunk.text;
-        if (text != null && text.isNotEmpty) {
-          yield text;
-        }
+      if (_kSystemGeminiApiKey.isNotEmpty) {
+        try {
+          final model = GenerativeModel(
+            model: 'gemini-2.5-flash',
+            apiKey: _kSystemGeminiApiKey,
+          );
+          final contentStream =
+              model.generateContentStream([Content.text(prompt)]);
+          bool hasYielded = false;
+          await for (final chunk
+              in contentStream.timeout(const Duration(seconds: 8))) {
+            final text = chunk.text;
+            if (text != null && text.isNotEmpty) {
+              yield text;
+              hasYielded = true;
+            }
+          }
+          if (hasYielded) return;
+        } catch (_) {}
       }
+
+      // 4. Cloudflare Groq 中繼站 (備援)
+      try {
+        final proxyText = await _tryCloudflareProxy(
+          provider: 'groq',
+          prompt: prompt,
+          timeoutSeconds: 6,
+        );
+        if (proxyText != null && proxyText.isNotEmpty) {
+          yield proxyText;
+          return;
+        }
+      } catch (_) {}
     } on GenerativeAIException catch (e) {
       debugPrint('Gemini stream error: $e');
       // 若是 429，更新冷卻時間
@@ -1245,26 +1266,25 @@ ${AppLocaleService.getAiLanguageInstruction()}
 
     // 2. 備援：Cloudflare 雲端中繼站 (適合實體手機無本機 Key 時)
     try {
-      debugPrint('學習建議：嘗試 Cloudflare 雲端中繼站 (Groq)...');
+      debugPrint('學習建議：優先嘗試 Cloudflare 雲端中繼站 (Gemini)...');
       String? proxyText = await _tryCloudflareProxy(
-        provider: 'groq',
-        model: 'llama-3.1-8b-instant',
+        provider: 'gemini',
         prompt: prompt,
-        timeoutSeconds: 6,
+        timeoutSeconds: 8,
       );
       if (proxyText == null || proxyText.trim().isEmpty) {
-        debugPrint('學習建議：Groq 中繼站無回應，切換 Gemini 中繼站...');
+        debugPrint('學習建議：Gemini 中繼站無回應，切換 Groq 中繼站...');
         proxyText = await _tryCloudflareProxy(
-          provider: 'gemini',
+          provider: 'groq',
+          model: 'groq/compound',
           prompt: prompt,
           timeoutSeconds: 6,
         );
       }
       if (proxyText == null || proxyText.trim().isEmpty) {
-        debugPrint('學習建議：Gemini 中繼站無回應，切換 OpenRouter 中繼站...');
+        debugPrint('學習建議：Groq 中繼站無回應，切換 OpenRouter 中繼站...');
         proxyText = await _tryCloudflareProxy(
           provider: 'openrouter',
-          model: 'google/gemma-4-26b-a4b-it:free',
           prompt: prompt,
           timeoutSeconds: 6,
         );
@@ -1284,7 +1304,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
       debugPrint('學習建議：嘗試 Gemini 備援...');
       try {
         final model = GenerativeModel(
-            model: 'gemini-3.6-flash', apiKey: _kSystemGeminiApiKey);
+            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
         await for (final chunk in model.generateContentStream(
             [Content.text(prompt)]).timeout(const Duration(seconds: 8))) {
@@ -1529,17 +1549,21 @@ $noteContent
 ${AppLocaleService.getAiLanguageInstruction()}
 ''';
 
+    bool hasYielded = false;
     try {
-      final model = GenerativeModel(
-        model: 'gemini-3.6-flash',
-        apiKey: _kSystemGeminiApiKey,
-      );
-      final contentStream = model.generateContentStream([Content.text(prompt)]);
-      await for (final chunk
-          in contentStream.timeout(const Duration(seconds: 8))) {
-        final text = chunk.text;
-        if (text != null && text.isNotEmpty) {
-          yield text;
+      if (_kSystemGeminiApiKey.isNotEmpty) {
+        final model = GenerativeModel(
+          model: 'gemini-2.5-flash',
+          apiKey: _kSystemGeminiApiKey,
+        );
+        final contentStream = model.generateContentStream([Content.text(prompt)]);
+        await for (final chunk
+            in contentStream.timeout(const Duration(seconds: 8))) {
+          final text = chunk.text;
+          if (text != null && text.isNotEmpty) {
+            yield text;
+            hasYielded = true;
+          }
         }
       }
     } on GenerativeAIException catch (e) {
@@ -1548,10 +1572,24 @@ ${AppLocaleService.getAiLanguageInstruction()}
           e.message.contains('RESOURCE_EXHAUSTED')) {
         nextAvailableTime = DateTime.now().add(const Duration(seconds: 60));
       }
-      rethrow;
     } catch (e) {
       debugPrint('Unexpected note stream error: $e');
-      rethrow;
+    }
+
+    if (!hasYielded) {
+      try {
+        final proxyText = await _tryCloudflareProxy(
+          provider: 'gemini',
+          prompt: prompt,
+          timeoutSeconds: 8,
+        );
+        if (proxyText != null && proxyText.isNotEmpty) {
+          yield proxyText;
+          return;
+        }
+      } catch (e) {
+        debugPrint('Cloudflare note stream proxy error: $e');
+      }
     }
   }
 
@@ -1639,7 +1677,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
     required String subject,
   }) async {
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$apiKey',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
 
     final wrongDetails = wrongQuestions.map((q) {
@@ -1685,40 +1723,57 @@ JSON 欄位名稱請保持英文不變，只有欄位內容使用指定語言。
 ${AppLocaleService.getAiLanguageInstruction()}
 ''';
 
-    final response = await http
-        .post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'contents': [
-              {
-                'parts': [
-                  {'text': prompt},
-                ],
-              },
-            ],
-            'generationConfig': {'responseMimeType': 'application/json'},
-          }),
-        )
-        .timeout(const Duration(seconds: 12));
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': prompt},
+                  ],
+                },
+              ],
+              'generationConfig': {'responseMimeType': 'application/json'},
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
 
-    if (response.statusCode == 200) {
-      final resJson = jsonDecode(response.body);
-      final text = resJson['candidates']?[0]?['content']?['parts']?[0]?['text']
-          as String?;
-      if (text != null && text.trim().isNotEmpty) {
-        final decoded = jsonDecode(text.trim());
+      if (response.statusCode == 200) {
+        final resJson = jsonDecode(response.body);
+        final text = resJson['candidates']?[0]?['content']?['parts']?[0]?['text']
+            as String?;
+        if (text != null && text.trim().isNotEmpty) {
+          final decoded = jsonDecode(text.trim());
+          return DiagnosisResult.fromJson(decoded, isAiGenerated: true);
+        }
+      }
+
+      if (response.statusCode == 429) {
+        _updateNextAvailableTime(response.body);
+      }
+    } catch (e) {
+      debugPrint('Gemini Direct API error: $e');
+    }
+
+    // 備援：Cloudflare Gemini 雲端中繼站
+    try {
+      final proxyText = await _tryCloudflareProxy(
+        provider: 'gemini',
+        prompt: prompt,
+        timeoutSeconds: 12,
+      );
+      if (proxyText != null && proxyText.trim().isNotEmpty) {
+        final decoded = jsonDecode(proxyText.trim());
         return DiagnosisResult.fromJson(decoded, isAiGenerated: true);
       }
+    } catch (proxyErr) {
+      debugPrint('Cloudflare Proxy diagnosis fallback error: $proxyErr');
     }
 
-    if (response.statusCode == 429) {
-      _updateNextAvailableTime(response.body);
-    }
-
-    throw Exception(
-      'Failed to get response from Gemini API: ${response.statusCode} - ${response.body}',
-    );
+    throw Exception('Failed to get diagnosis response from Gemini API & Cloudflare Proxy');
   }
 
   static DiagnosisResult _generateLocalFallback({
@@ -1931,11 +1986,11 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       }
     }
 
-    // 2. 備援：發起 Cloudflare 雲端中繼站 (Groq 引擎)
+    // 2. 備援：Cloudflare 雲端中繼站 (優先 Gemini 旗艦引擎)
     try {
-      debugPrint('AI 解析：嘗試 Cloudflare 雲端中繼站 (Groq)...');
+      debugPrint('AI 解析：優先嘗試 Cloudflare 雲端中繼站 (Gemini)...');
       final proxyText = await _tryCloudflareProxy(
-        provider: 'groq',
+        provider: 'gemini',
         prompt: prompt,
         timeoutSeconds: 8,
       );
@@ -1944,7 +1999,7 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
         return;
       }
     } catch (e) {
-      debugPrint('AI 解析 Cloudflare Groq 中繼站失敗: $e');
+      debugPrint('AI 解析 Cloudflare Gemini 中繼站失敗: $e');
     }
 
     // 3. 備援：嘗試 Gemini 直連
@@ -1954,7 +2009,7 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       debugPrint('AI 解析：切換 Gemini 備援...');
       try {
         final model = GenerativeModel(
-            model: 'gemini-3.6-flash', apiKey: _kSystemGeminiApiKey);
+            model: 'gemini-2.5-flash', apiKey: _kSystemGeminiApiKey);
         bool hasYielded = false;
         await for (final chunk in model.generateContentStream(
             [Content.text(prompt)]).timeout(const Duration(seconds: 6))) {
@@ -1970,20 +2025,20 @@ ${options.asMap().entries.map((e) => '${String.fromCharCode(65 + e.key)}. ${e.va
       }
     }
 
-    // 4. 最終備援：Cloudflare Gemini 中繼站
+    // 4. 備援：Cloudflare Groq 引擎
     try {
-      debugPrint('AI 解析：嘗試 Cloudflare 雲端中繼站 (Gemini)...');
+      debugPrint('AI 解析：嘗試 Cloudflare 雲端中繼站 (Groq)...');
       final proxyText = await _tryCloudflareProxy(
-        provider: 'gemini',
+        provider: 'groq',
         prompt: prompt,
-        timeoutSeconds: 8,
+        timeoutSeconds: 6,
       );
       if (proxyText != null && proxyText.isNotEmpty) {
         yield proxyText;
         return;
       }
     } catch (e) {
-      debugPrint('AI 解析 Cloudflare Gemini 中繼站失敗: $e');
+      debugPrint('AI 解析 Cloudflare Groq 中繼站失敗: $e');
     }
 
     // 5. 本地高質量結構化備援解析（保證永遠正常呈現）
@@ -2028,7 +2083,7 @@ ${AppLocaleService.getAiLanguageInstruction()}內容務必勵志、具體且切�
     if (apiKey.isNotEmpty) {
       try {
         final model = GenerativeModel(
-          model: 'gemini-3.6-flash',
+          model: 'gemini-2.5-flash',
           apiKey: apiKey,
         );
         final responseStream = model
@@ -2048,7 +2103,22 @@ ${AppLocaleService.getAiLanguageInstruction()}內容務必勵志、具體且切�
       }
     }
 
-    // 2. 嘗試 Cloudflare Groq / Compound ( Timeout 縮短至 3 秒)
+    // 2. 優先嘗試 Cloudflare Gemini 中繼站 ( Timeout 縮短至 4 秒)
+    try {
+      final text = await _tryCloudflareProxy(
+        provider: 'gemini',
+        prompt: prompt,
+        timeoutSeconds: 4,
+      );
+      if (text != null && text.isNotEmpty) {
+        yield toTraditionalChinese(cleanThinkingTags(text.trim()));
+        return;
+      }
+    } catch (e) {
+      debugPrint('AI 日記建議 Cloudflare Gemini 失敗: $e');
+    }
+
+    // 3. 嘗試 Cloudflare Groq / Compound ( Timeout 縮短至 3 秒)
     try {
       final text = await _tryCloudflareProxy(
         provider: 'groq',
@@ -2061,21 +2131,6 @@ ${AppLocaleService.getAiLanguageInstruction()}內容務必勵志、具體且切�
       }
     } catch (e) {
       debugPrint('AI 日記建議 Groq 失敗: $e');
-    }
-
-    // 3. 嘗試 OpenRouter / Cloudflare Gemini ( Timeout 縮短至 3 秒)
-    try {
-      final text = await _tryCloudflareProxy(
-        provider: 'gemini',
-        prompt: prompt,
-        timeoutSeconds: 3,
-      );
-      if (text != null && text.isNotEmpty) {
-        yield toTraditionalChinese(cleanThinkingTags(text.trim()));
-        return;
-      }
-    } catch (e) {
-      debugPrint('AI 日記建議 Cloudflare Gemini 失敗: $e');
     }
 
     // 4. 本地高質量備援建議 (Fallback)

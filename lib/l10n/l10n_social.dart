@@ -1282,6 +1282,61 @@ const Map<String, Map<String, String>> l10nSocial = {
     'ja': '承認待ち・再確認',
     'ko': '승인 대기 중, 다시 확인',
   },
+  'jg_open_camera_scan': {
+    'zh_TW': '開啟相機掃描',
+    'ja': 'カメラでスキャン',
+    'ko': '카메라로 스캔',
+  },
+  'jg_paste_from_clip': {
+    'zh_TW': '讀取剪貼簿',
+    'ja': 'クリップボード読込',
+    'ko': '클립보드 읽기',
+  },
+  'qr_scanner_title': {
+    'zh_TW': '掃描 QR Code',
+    'ja': 'QRコードをスキャン',
+    'ko': 'QR 코드 스캔',
+  },
+  'qr_scanner_hint': {
+    'zh_TW': '將群組 QR Code 置於方框內進行掃描',
+    'ja': '枠内にQRコードを合わせてください',
+    'ko': '프레임 안에 QR 코드를 맞춰주세요',
+  },
+  'qr_not_found_in_image': {
+    'zh_TW': '未在圖片中偵測到有效的 QR Code',
+    'ja': '画像からQRコードを検出できませんでした',
+    'ko': '이미지에서 QR 코드를 감지하지 못했습니다',
+  },
+  'qr_camera_failed': {
+    'zh_TW': '無法啟動相機',
+    'ja': 'カメラを起動できません',
+    'ko': '카메라를 시작할 수 없습니다',
+  },
+  'qr_camera_perm_hint': {
+    'zh_TW': '請確認是否已授予相機權限',
+    'ja': 'カメラの権限が許可されているかご確認ください',
+    'ko': '카메라 권한을 확인해 주세요',
+  },
+  'qr_gallery_pick': {
+    'zh_TW': '相簿選取',
+    'ja': 'アルバムから選択',
+    'ko': '앨범에서 선택',
+  },
+  'qr_torch_on': {
+    'zh_TW': '關閉閃光',
+    'ja': 'フラッシュオフ',
+    'ko': '플래시 끄기',
+  },
+  'qr_torch_off': {
+    'zh_TW': '開啟手電筒',
+    'ja': 'ライトを点灯',
+    'ko': '손전등 켜기',
+  },
+  'qr_flip_camera': {
+    'zh_TW': '翻轉鏡頭',
+    'ja': 'カメラ切替',
+    'ko': '카메라 전환',
+  },
   'jg_read_qr': {
     'zh_TW': '讀取 QR / 貼上碼',
     'ja': 'QR読み取り / コード貼り付け',

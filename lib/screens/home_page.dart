@@ -217,64 +217,71 @@ class _HomePageState extends State<HomePage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                _greeting,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text('🔥', style: TextStyle(fontSize: 12)),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      tr('home_streak_n', [_streakDays.toString()]),
-                                      style: const TextStyle(
-                                        color: Colors.orange,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    _greeting,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                     ),
-                                  ],
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('🔥', style: TextStyle(fontSize: 12)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        tr('home_streak_n', [_streakDays.toString()]),
+                                        style: const TextStyle(
+                                          color: Colors.orange,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              userName,
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : const Color(0xFF1F2937),
+                                letterSpacing: -0.3,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            userName,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? Colors.white : const Color(0xFF1F2937),
-                              letterSpacing: -0.3,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _formattedDate,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                            const SizedBox(height: 2),
+                            Text(
+                              _formattedDate,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       // AI 助手快捷浮動按鈕
                       GestureDetector(
