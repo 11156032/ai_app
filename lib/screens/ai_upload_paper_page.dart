@@ -224,7 +224,15 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       debugPrint('PDF text extraction error: $e');
     }
 
-    if (buffer.length < 20) {
+    // 品質驗證：檢查提取的文字是否為可讀內容（而非 glyph ID 亂碼）
+    final extracted = buffer.toString().trim();
+    if (extracted.isNotEmpty && !_isReadableText(extracted)) {
+      debugPrint('AiUploadPaper: PDF 提取文字品質不佳（可能為 glyph 編碼亂碼），捨棄並改用視覺辨識');
+      return '';
+    }
+
+    if (extracted.length < 20) {
+      final fallbackBuffer = StringBuffer();
       try {
         final utf8Text = utf8.decode(bytes, allowMalformed: true);
         final chineseOrAlpha =
@@ -235,13 +243,37 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               str.length > 5 &&
               !str.startsWith('%PDF') &&
               !str.contains('endobj')) {
-            buffer.writeln(str);
+            fallbackBuffer.writeln(str);
           }
         }
       } catch (_) {}
+      final fallbackText = fallbackBuffer.toString().trim();
+      if (fallbackText.isNotEmpty && _isReadableText(fallbackText)) {
+        return fallbackText;
+      }
+      return '';
     }
 
-    return buffer.toString().trim();
+    return extracted;
+  }
+
+  /// 驗證文字是否為可讀內容（非 glyph ID 亂碼）
+  /// 檢查可讀字元（中日韓、英文字母、數字、常見標點）的比例是否超過 40%
+  static bool _isReadableText(String text) {
+    if (text.isEmpty) return false;
+    // 可讀字元：中日韓文字、英文字母、數字、常見中英文標點、空白
+    final readableChars = RegExp(
+      r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7afa-zA-Z0-9\s.,;:!?()\[\]{}\-+=]',
+    );
+    int readableCount = 0;
+    for (int i = 0; i < text.length; i++) {
+      if (readableChars.hasMatch(text[i])) {
+        readableCount++;
+      }
+    }
+    final ratio = readableCount / text.length;
+    debugPrint('AiUploadPaper: 文字可讀性比例 = ${(ratio * 100).toStringAsFixed(1)}% ($readableCount/${text.length})');
+    return ratio >= 0.4;
   }
 
 
@@ -625,7 +657,13 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               'AiUploadPaper: 成功從 PDF 提取文字 (長度: ${pdfExtractedText.length})，啟動高速 AI 解析引擎...');
           final pdfTextPrompt = '''
 你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷題庫解析與結構化大師」。
-以下是從使用者上傳的考卷 PDF 中完整提取的題目文字內容。請仔細分析所有試卷題目，並結構化為標準單選題題庫。
+以下是從使用者上傳的考卷 PDF（檔名：$_selectedFileName）中完整提取的題目文字內容。請仔細分析所有試卷題目，並結構化為標準單選題題庫。
+
+【最重要規則：絕對禁止自行編造題目！】
+- 你必須且只能解析下方「考卷文字內容」中實際存在的題目
+- 如果文字內容看起來是亂碼、不可讀、或無法辨識出任何試題，請回傳空的 questions 陣列：{"paper_name":"無法辨識","subject":"","chapter":"","questions":[]}
+- 絕對不可自行捏造、虛構任何題目或答案
+- subject 學科必須根據考卷實際內容判斷（如檔名或內容與英文相關就是英文，與數學相關就是數學）
 
 【核心規則：無答案試卷自動演算解題】：
 1. 若試卷中無提供答案，請由 AI 親自為每道題目深度推導演算出正確答案（填入 options 的 0-based 索引 "0", "1", "2" 或 "3"），並在 explanation 中提供詳盡清晰的步驟與觀念詳解！
@@ -711,7 +749,12 @@ $pdfExtractedText
       if (responseText == null || responseText.trim().isEmpty) {
         final systemPrompt = '''
 你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷 OCR、題庫辨識與自動解題大師」。
-請仔細檢視並深度解析使用者上傳的試卷文件（PDF 檔案或考卷圖片），提取出所有題目並結構化為標準單選題題庫。
+請仔細檢視並深度解析使用者上傳的試卷文件（檔名：$_selectedFileName），提取出所有題目並結構化為標準單選題題庫。
+
+【最重要規則：絕對禁止自行編造題目！】
+- 你必須且只能辨識文件中實際存在的題目，不可自行捏造
+- 如果檔案無法辨識或無法提取出任何試題，請回傳空的 questions 陣列：{"paper_name":"無法辨識","subject":"","chapter":"","questions":[]}
+- subject 學科必須根據考卷實際內容判斷（如檔名或內容與英文相關就是英文，與數學相關就是數學）
 
 【重要辨識、無答案自動推導與品質準則】
 1. 忠實辨識原題：請精確辨識考卷中的真實題目文字、題幹條件、數值、選項與題意。
