@@ -758,20 +758,24 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
             ),
             child: Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(tr('pb_selected'), style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
-                    Text(
-                      tr('pb_selected_n', [_selectedQuestionIds.length.toString()]),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF4F46E5),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(tr('pb_selected'), style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                      Text(
+                        tr('pb_selected_n', [_selectedQuestionIds.length.toString()]),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF4F46E5),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

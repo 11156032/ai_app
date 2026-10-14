@@ -264,32 +264,34 @@ $emoji 邀請你加入【$groupName】${isPrivate ? '(私人群組)' : ''}
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text(tr('gi_expiry_title'),
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-            const Divider(height: 1),
-            ...options.map((opt) => ListTile(
-                  title: Text(opt['label'] as String),
-                  trailing: (_expiryLabel == opt['label'])
-                      ? Icon(Icons.check_circle,
-                          color: Theme.of(context).primaryColor)
-                      : null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    final days = opt['days'] as int?;
-                    final expiry = days != null
-                        ? DateTime.now().add(Duration(days: days))
-                        : null;
-                    _setExpiry(opt['label'] as String, expiry);
-                  },
-                )),
-            const SizedBox(height: 8),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(tr('gi_expiry_title'),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              const Divider(height: 1),
+              ...options.map((opt) => ListTile(
+                    title: Text(opt['label'] as String),
+                    trailing: (_expiryLabel == opt['label'])
+                        ? Icon(Icons.check_circle,
+                            color: Theme.of(context).primaryColor)
+                        : null,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      final days = opt['days'] as int?;
+                      final expiry = days != null
+                          ? DateTime.now().add(Duration(days: days))
+                          : null;
+                      _setExpiry(opt['label'] as String, expiry);
+                    },
+                  )),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );

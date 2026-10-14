@@ -2629,21 +2629,23 @@ extension MainScreenProfileTab on _MainScreenState {
             ),
           ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildCalendarViewModeOption(
-                ctx,
-                'dot',
-                AppLocaleService.tr('calendar_mode_dot', _appLanguage),
-                AppLocaleService.tr('calendar_mode_dot_desc', _appLanguage)),
-            const SizedBox(height: 12),
-            _buildCalendarViewModeOption(
-                ctx,
-                'bar',
-                AppLocaleService.tr('calendar_mode_bar', _appLanguage),
-                AppLocaleService.tr('calendar_mode_bar_desc', _appLanguage)),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildCalendarViewModeOption(
+                  ctx,
+                  'dot',
+                  AppLocaleService.tr('calendar_mode_dot', _appLanguage),
+                  AppLocaleService.tr('calendar_mode_dot_desc', _appLanguage)),
+              const SizedBox(height: 12),
+              _buildCalendarViewModeOption(
+                  ctx,
+                  'bar',
+                  AppLocaleService.tr('calendar_mode_bar', _appLanguage),
+                  AppLocaleService.tr('calendar_mode_bar_desc', _appLanguage)),
+            ],
+          ),
         ),
         actions: [
           Center(
@@ -2968,21 +2970,23 @@ extension MainScreenProfileTab on _MainScreenState {
             ),
           ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSocialFeedLayoutOption(
-                ctx,
-                'card',
-                AppLocaleService.tr('feed_layout_card', _appLanguage),
-                AppLocaleService.tr('feed_layout_card_desc', _appLanguage)),
-            const SizedBox(height: 12),
-            _buildSocialFeedLayoutOption(
-                ctx,
-                'list',
-                AppLocaleService.tr('feed_layout_list', _appLanguage),
-                AppLocaleService.tr('feed_layout_list_desc', _appLanguage)),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSocialFeedLayoutOption(
+                  ctx,
+                  'card',
+                  AppLocaleService.tr('feed_layout_card', _appLanguage),
+                  AppLocaleService.tr('feed_layout_card_desc', _appLanguage)),
+              const SizedBox(height: 12),
+              _buildSocialFeedLayoutOption(
+                  ctx,
+                  'list',
+                  AppLocaleService.tr('feed_layout_list', _appLanguage),
+                  AppLocaleService.tr('feed_layout_list_desc', _appLanguage)),
+            ],
+          ),
         ),
         actions: [
           Center(
@@ -7072,7 +7076,7 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '最新發布',
-      'version': 'v1.8.5',
+      'version': 'v1.8.6',
       'date': '2026-09-21',
       'isPinned': true,
       'icon': Icons.auto_awesome_rounded,
@@ -7922,7 +7926,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.8.5',
+                                  'v1.8.6',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,

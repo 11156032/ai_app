@@ -14,6 +14,7 @@ import '../widgets/common_widgets.dart';
 import '../widgets/ai_action_cards.dart';
 import '../services/ai_intent_service.dart';
 import 'question_list_page.dart';
+import 'question_set_detail_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -83,6 +84,7 @@ typedef _NoteSummaryLoadingBubble = NoteSummaryLoadingBubble;
 class MainScreen extends StatefulWidget {
   final Map<String, dynamic> currentUser;
   final Future<void> Function() onLogout;
+  static final ValueNotifier<int?> tabSwitchNotifier = ValueNotifier<int?>(null);
   const MainScreen(
       {super.key, required this.currentUser, required this.onLogout});
   @override
@@ -197,7 +199,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _todayQuizData = []; // 今日測驗資料
   int _totalQuestionsAnswered = 0;
   String _latestQuizScore = tr('main_no_quiz_record');
-  String _appVersion = 'v1.8.5';
+  String _appVersion = 'v1.8.6';
   String _supportCategory = '全部';
   late DateTime _sessionStartTime;
 
@@ -384,9 +386,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
+  void _onTabSwitchRequested() {
+    final target = MainScreen.tabSwitchNotifier.value;
+    if (target != null && mounted) {
+      MainScreen.tabSwitchNotifier.value = null;
+      final titles = ['行程', '題庫', '社群', '', '個人檔案', '筆記', '首頁'];
+      final title = target < titles.length ? titles[target] : '';
+      _changePage(target, title);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    MainScreen.tabSwitchNotifier.addListener(_onTabSwitchRequested);
     _socialPageController = PageController(initialPage: _socialMainTab);
     WidgetsBinding.instance.addObserver(this);
     _sessionStartTime = DateTime.now();
@@ -1343,6 +1356,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    MainScreen.tabSwitchNotifier.removeListener(_onTabSwitchRequested);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     WidgetsBinding.instance.removeObserver(this);
     _recordAppUsageTime();
@@ -3470,50 +3484,44 @@ void _showLogoutDialog() {
 
                                     // 主題列表
                                     if (_userJoinedTopicIds.isEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: _isDarkMode
-                                              ? Colors.white
-                                                  .withValues(alpha: 0.02)
-                                              : Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.explore_outlined,
-                                                size: 14,
-                                                color: Colors.grey.shade500),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Text(
-                                                tr('social_no_followed'),
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: _isDarkMode
-                                                      ? Colors.white54
-                                                      : Colors.grey.shade600,
+                                      InkWell(
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          _showTopicExploreBottomSheet(
+                                              context);
+                                        },
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: _isDarkMode
+                                                ? Colors.white
+                                                    .withValues(alpha: 0.02)
+                                                : Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.explore_outlined,
+                                                  size: 14,
+                                                  color: Colors.grey.shade500),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  tr('social_no_followed'),
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: _isDarkMode
+                                                        ? Colors.white54
+                                                        : Colors.grey.shade600,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            InkWell(
-                                              onTap: () {
-                                                Navigator.pop(context);
-                                                _showTopicExploreBottomSheet(
-                                                    context);
-                                              },
-                                              child: Text(
-                                                tr('social_go_explore'),
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: primaryColor,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       )
                                     else
@@ -4383,21 +4391,27 @@ void _showLogoutDialog() {
                                               size: 18),
                                         ),
                                         const SizedBox(width: 12),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(tr('post_pick_datetime'),
-                                                style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14)),
-                                            SizedBox(height: 2),
-                                            Text(tr('post_pick_datetime_sub'),
-                                                style: TextStyle(
-                                                    color: Colors.white70,
-                                                    fontSize: 11)),
-                                          ],
+                                        Flexible(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(tr('post_pick_datetime'),
+                                                  style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis),
+                                              SizedBox(height: 2),
+                                              Text(tr('post_pick_datetime_sub'),
+                                                  style: TextStyle(
+                                                      color: Colors.white70,
+                                                      fontSize: 11),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis),
+                                            ],
+                                          ),
                                         ),
                                         const SizedBox(width: 16),
                                         const Icon(Icons.arrow_forward_ios,
@@ -6901,13 +6915,15 @@ void _showLogoutDialog() {
                                 showModalBottomSheet(
                                     context: context,
                                     backgroundColor: Colors.transparent,
-                                    builder: (ctx) => Container(
-                                        decoration: const BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.vertical(
-                                                top: Radius.circular(20))),
-                                        child: Column(
-                                            mainAxisSize: MainAxisSize.min,
+                                    builder: (ctx) => SafeArea(
+                                        child: SingleChildScrollView(
+                                            child: Container(
+                                                decoration: const BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.vertical(
+                                                        top: Radius.circular(20))),
+                                                child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
                                             children: [
                                               ListTile(
                                                   leading: Icon(Icons.copy,
@@ -6995,7 +7011,7 @@ void _showLogoutDialog() {
                                                     }
                                                   }),
                                               const SizedBox(height: 20)
-                                            ])));
+                                            ])))));
                               },
                               child: messageWidget,
                             );
@@ -11338,14 +11354,16 @@ void _showEditDeleteTodoDialog(Map<String, dynamic> item) {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('todo_manage')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: editCtrl,
-              decoration: InputDecoration(labelText: tr('common_content')),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: editCtrl,
+                decoration: InputDecoration(labelText: tr('common_content')),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -13991,8 +14009,9 @@ void _showAddTodoDialog() {
           padding:
               EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
               children: [
                 // Handle bar
                 Container(
@@ -14121,6 +14140,7 @@ void _showAddTodoDialog() {
               ],
             ),
           ),
+        ),
         );
       }),
     );
@@ -14867,18 +14887,20 @@ void _showAddTodoDialog() {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('profile_password')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-                controller: oldCtrl,
-                obscureText: true,
-                decoration: InputDecoration(labelText: tr('pwd_current'))),
-            TextField(
-                controller: newCtrl,
-                obscureText: true,
-                decoration: InputDecoration(labelText: tr('pwd_new'))),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                  controller: oldCtrl,
+                  obscureText: true,
+                  decoration: InputDecoration(labelText: tr('pwd_current'))),
+              TextField(
+                  controller: newCtrl,
+                  obscureText: true,
+                  decoration: InputDecoration(labelText: tr('pwd_new'))),
+            ],
+          ),
         ),
         actions: [
           TextButton(

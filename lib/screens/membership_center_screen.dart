@@ -248,37 +248,45 @@ class _MembershipCenterScreenState extends State<MembershipCenterScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.white24,
-                    radius: 20,
-                    child: Text(
-                      displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.white24,
+                      radius: 20,
+                      child: Text(
+                        displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            _expiresAtIso != null && _expiresAtIso!.isNotEmpty
+                                ? tr('mc_expires', [(_expiresAtIso!.split('T')[0]).toString()])
+                                : tr('mc_basic_forever'),
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      Text(
-                        _expiresAtIso != null && _expiresAtIso!.isNotEmpty
-                            ? tr('mc_expires', [(_expiresAtIso!.split('T')[0]).toString()])
-                            : tr('mc_basic_forever'),
-                        style: const TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               VipBadgeWidget(tierCode: _currentTier, fontSize: 12),
             ],

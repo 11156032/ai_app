@@ -7,7 +7,7 @@ import '../services/notebook_helper.dart';
 import '../utils/question_utils.dart';
 import 'question_edit_page.dart';
 import 'question_practice_page.dart';
-import 'question_discussion_page.dart';
+import 'main_screen.dart';
 import '../services/app_locale_service.dart';
 
 class QuestionSetDetailPage extends StatefulWidget {
@@ -20,6 +20,7 @@ class QuestionSetDetailPage extends StatefulWidget {
   final bool isCustomOnly; // 新增自訂題目篩選參數
   final List<String> allSubjects;
   final Map<String, List<String>> subjectChapters;
+  final List<Map<String, dynamic>>? initialQuestions;
 
   const QuestionSetDetailPage({
     super.key,
@@ -32,6 +33,7 @@ class QuestionSetDetailPage extends StatefulWidget {
     this.isCustomOnly = false,
     required this.allSubjects,
     required this.subjectChapters,
+    this.initialQuestions,
   });
 
   @override
@@ -68,7 +70,11 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       final db = await DatabaseHelper.instance.database;
       List<Map<String, Object?>> rows = [];
 
-      if (widget.isFavoriteOnly) {
+      if (widget.initialQuestions != null && widget.initialQuestions!.isNotEmpty) {
+        rows = widget.initialQuestions!
+            .map((q) => Map<String, Object?>.from(q))
+            .toList();
+      } else if (widget.isFavoriteOnly) {
         rows = await db.query('questions',
             where: 'bookmarked = 1', orderBy: 'created_at DESC');
       } else if (widget.isCustomOnly) {
@@ -196,7 +202,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
       ),
     );
   }
-
 
 
   Future<void> _openEditPage(Map<String, dynamic> question) async {
@@ -1122,6 +1127,17 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         title: Text(widget.title),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_rounded, size: 26),
+            tooltip: tr('qs_back_to_bank'),
+            onPressed: () {
+              MainScreen.tabSwitchNotifier.value = 1;
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: GestureDetector(
         onTap: () {

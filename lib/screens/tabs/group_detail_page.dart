@@ -18,6 +18,8 @@ import '../create_post_page.dart';
 import '../notes_screen.dart';
 import 'group_invite_page.dart';
 import '../../services/app_locale_service.dart';
+import '../question_set_detail_page.dart';
+import '../question_practice_page.dart';
 
 /// 群組詳細頁（動態牆 + 成員）
 class GroupDetailPage extends StatefulWidget {
@@ -1584,6 +1586,34 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                             return _buildSharedNoteCardInChat(
                                 attachedData, isMe, isDark, p);
                           }
+                          final bool isPaperPost = p['postType'] == 'paper' ||
+                              p['type'] == 'paper' ||
+                              attachedData['shared_type'] == 'paper';
+
+                          if (isPaperPost) {
+                            final String rawContent =
+                                (p['content'] ?? '').toString().trim();
+                            return Column(
+                              crossAxisAlignment: isMe
+                                  ? CrossAxisAlignment.end
+                                  : CrossAxisAlignment.start,
+                              children: [
+                                if (rawContent.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: Text(
+                                      rawContent,
+                                      style: TextStyle(
+                                          fontSize: 15,
+                                          color: textColor,
+                                          height: 1.3),
+                                    ),
+                                  ),
+                                _buildSharedPaperCardInChat(
+                                    attachedData, isMe, isDark, p),
+                              ],
+                            );
+                          }
 
                           final String rawContent =
                               (p['content'] ?? '').toString().trim();
@@ -2291,6 +2321,360 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         ),
       ),
     );
+  }
+
+  // ── 群組內題本卡片預覽、即時測驗與一鍵收錄（精簡版） ──────────────────────────
+  Widget _buildSharedPaperCardInChat(Map<String, dynamic> attached, bool isMe,
+      bool isDark, Map<String, dynamic> post) {
+    final String paperName = attached['paper_name'] ?? '精選題本';
+    final int questionCount = attached['question_count'] as int? ??
+        ((attached['question_ids'] as List?)?.length ?? 0);
+    final String creatorName = attached['creator_name'] ??
+        (post['author'] ?? post['sender_name'] ?? '同學');
+
+    final Color cardBg = isMe
+        ? Colors.black.withValues(alpha: 0.15)
+        : (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFFBF8F5));
+    final Color borderColor = isMe
+        ? Colors.white.withValues(alpha: 0.3)
+        : (isDark ? Colors.white12 : const Color(0xFFE2D6CA));
+    final Color titleColor =
+        isMe ? Colors.white : (isDark ? Colors.white : const Color(0xFF3E2723));
+
+    return InkWell(
+      onTap: () => _startPracticeFromPaper(attached, asQuiz: false),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 250,
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor, width: 1.0),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 標題與資訊列
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.auto_stories_rounded,
+                    size: 17,
+                    color: isMe ? Colors.white : Theme.of(context).primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '《$paperName》',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        '共 $questionCount 題 · $creatorName',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: isMe
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : (isDark
+                                  ? Colors.white60
+                                  : Colors.grey.shade600),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // 操作按鈕列：開始測驗 + 一鍵收錄
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 29,
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _startPracticeFromPaper(attached, asQuiz: true),
+                      icon: Icon(
+                        Icons.play_arrow_rounded,
+                        size: 14,
+                        color: isMe
+                            ? Theme.of(context).primaryColor
+                            : Colors.white,
+                      ),
+                      label: Text(
+                        '開始測驗',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isMe
+                            ? Theme.of(context).primaryColor
+                            : Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isMe
+                            ? Colors.white
+                            : Theme.of(context).primaryColor,
+                        foregroundColor: isMe
+                            ? Theme.of(context).primaryColor
+                            : Colors.white,
+                        padding: EdgeInsets.zero,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: SizedBox(
+                    height: 29,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _importSharedPaper(attached),
+                      icon: Icon(
+                        Icons.bookmark_add_rounded,
+                        size: 13,
+                        color: isMe
+                            ? Colors.white
+                            : Theme.of(context).primaryColor,
+                      ),
+                      label: Text(
+                        '一鍵收錄',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isMe
+                              ? Colors.white
+                              : Theme.of(context).primaryColor,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isMe
+                            ? Colors.white
+                            : Theme.of(context).primaryColor,
+                        side: BorderSide(
+                          color: isMe
+                              ? Colors.white70
+                              : Theme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.4),
+                          width: 0.9,
+                        ),
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 從分享的題本開始練習或檢視
+  Future<void> _startPracticeFromPaper(
+      Map<String, dynamic> attached, {bool asQuiz = true}) async {
+    final paperName = attached['paper_name'] as String? ?? '精選題本';
+    final dynamic qDataRaw = attached['questions_data'];
+    final dynamic qIdsRaw = attached['question_ids'];
+
+    List<Map<String, dynamic>> questions = [];
+    if (qDataRaw is List && qDataRaw.isNotEmpty) {
+      for (final q in qDataRaw) {
+        if (q is Map) {
+          questions.add(Map<String, dynamic>.from(q));
+        }
+      }
+    }
+
+    if (questions.isEmpty && qIdsRaw is List) {
+      final ids = qIdsRaw
+          .map((e) => int.tryParse(e.toString()) ?? 0)
+          .where((id) => id > 0)
+          .toList();
+      if (ids.isNotEmpty) {
+        try {
+          final db = await DatabaseHelper.instance.database;
+          final rows = await db.query(
+            'questions',
+            where: 'id IN (${List.filled(ids.length, '?').join(',')})',
+            whereArgs: ids,
+          );
+          questions = rows.map((r) => Map<String, dynamic>.from(r)).toList();
+        } catch (_) {}
+      }
+    }
+
+    if (questions.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            duration: Duration(milliseconds: 1500),
+            behavior: SnackBarBehavior.floating,
+            content: Text('題本內暫無題目可練習'),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    if (asQuiz) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => QuestionPracticePage(
+            questions: questions,
+            title: paperName,
+            currentUser: widget.currentUser,
+            isPaper: true,
+            saveResult: true,
+          ),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => QuestionSetDetailPage(
+            currentUser: widget.currentUser,
+            title: paperName,
+            paperId: attached['paper_id'] as int?,
+            allSubjects: const [],
+            subjectChapters: const {},
+            initialQuestions: questions,
+          ),
+        ),
+      );
+    }
+  }
+
+  /// 一鍵將群組分享的題本收錄至「我的題本」
+  void _importSharedPaper(Map<String, dynamic> attached) async {
+    final paperName = attached['paper_name'] as String? ?? '精選題本';
+    final dynamic qDataRaw = attached['questions_data'];
+    final dynamic qIdsRaw = attached['question_ids'];
+    final currentUid =
+        widget.currentUser['id']?.toString() ?? _currentUserId;
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+      List<int> targetQuestionIds = [];
+
+      if (qDataRaw is List && qDataRaw.isNotEmpty) {
+        for (final q in qDataRaw) {
+          if (q is Map) {
+            final text = q['text']?.toString() ?? '';
+            if (text.isEmpty) continue;
+            final existing = await db.query(
+              'questions',
+              where: 'text = ?',
+              whereArgs: [text],
+              limit: 1,
+            );
+            if (existing.isNotEmpty) {
+              targetQuestionIds.add(existing.first['id'] as int);
+            } else {
+              final optionsStr = q['options'] is String
+                  ? q['options']
+                  : jsonEncode(q['options'] ?? []);
+              final newQid = await db.insert('questions', <String, Object?>{
+                'user_id': currentUid,
+                'subject': q['subject'] ?? '一般',
+                'text': text,
+                'options': optionsStr,
+                'answer': (q['answer'] ?? 0).toString(),
+                'explanation': q['explanation'] ?? '',
+                'difficulty': q['difficulty'] ?? '中',
+                'type': q['type'] ?? '單選題',
+                'is_public': 0,
+                'bookmarked': 0,
+                'created_at': DateTime.now().toIso8601String(),
+              });
+              targetQuestionIds.add(newQid);
+            }
+          }
+        }
+      } else if (qIdsRaw is List) {
+        targetQuestionIds = qIdsRaw
+            .map((e) => int.tryParse(e.toString()) ?? 0)
+            .where((id) => id > 0)
+            .toList();
+      }
+
+      if (targetQuestionIds.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('題本內無有效題目可收錄')),
+          );
+        }
+        return;
+      }
+
+      await DatabaseHelper.instance.createPaper(
+        currentUid,
+        paperName,
+        targetQuestionIds,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              duration: const Duration(milliseconds: 1200),
+              behavior: SnackBarBehavior.floating,
+              content: Text(tr('ql_paper_imported', [paperName])),
+              backgroundColor: Theme.of(context).primaryColor,
+            ),
+          );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(milliseconds: 2000),
+            behavior: SnackBarBehavior.floating,
+            content: Text(tr('ql_paper_import_failed', [e.toString()])),
+          ),
+        );
+      }
+    }
   }
 
   void _showNotePreviewDialog(

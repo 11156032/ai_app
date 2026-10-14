@@ -76,7 +76,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
     try {
-      return utf8.decode(base64Decode('QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
+      return utf8.decode(base64Decode('QVEuQWI4Uk42S3hsa2Z2QlJaenFXSGpXamNlZmFtVzlEeEx6UjdZOWliX2c4aXZHRWRJNUE='));
     } catch (_) {
       return '';
     }
@@ -135,6 +135,45 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     return _kDefaultGeminiApiKey;
   }
 
+  // 考卷辨識專用 Gemini API Key（與題庫生成金鑰分開，額度互不影響）
+  Future<String> _getPaperApiKey() async {
+    // 1. Check user custom api key in db
+    try {
+      final uid =
+          (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+              .toString();
+      final db = await DatabaseHelper.instance.database;
+      final userRows =
+          await db.query('users', where: 'id = ?', whereArgs: [uid]);
+      if (userRows.isNotEmpty) {
+        final customKey = userRows.first['gemini_api_key'] as String?;
+        if (customKey != null && customKey.trim().isNotEmpty) {
+          return customKey.trim();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting user custom api key: $e');
+    }
+
+    // 2. Fallback to dotenv
+    try {
+      final key = dotenv.env['GEMINI_PAPER_API_KEY'];
+      if (key != null && key.isNotEmpty) return key;
+    } catch (_) {}
+
+    // 3. Fallback to fromEnvironment
+    const envKey = String.fromEnvironment('GEMINI_PAPER_API_KEY');
+    if (envKey.isNotEmpty) return envKey;
+
+    // 4. 內建考卷辨識專用 Gemini API Key
+    try {
+      return utf8.decode(base64Decode(
+          'QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
+    } catch (_) {
+      return '';
+    }
+  }
+
   /// 從 PDF 檔案二進位中提取文字內容（原生支援數位考卷直接解析）
   static String _extractTextFromPdfBytes(Uint8List bytes) {
     final buffer = StringBuffer();
@@ -186,7 +225,15 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       debugPrint('PDF text extraction error: $e');
     }
 
-    if (buffer.length < 20) {
+    // 品質驗證：檢查提取的文字是否為可讀內容（而非 glyph ID 亂碼）
+    final extracted = buffer.toString().trim();
+    if (extracted.isNotEmpty && !_isReadableText(extracted)) {
+      debugPrint('AiUploadPaper: PDF 提取文字品質不佳（可能為 glyph 編碼亂碼），捨棄並改用視覺辨識');
+      return '';
+    }
+
+    if (extracted.length < 20) {
+      final fallbackBuffer = StringBuffer();
       try {
         final utf8Text = utf8.decode(bytes, allowMalformed: true);
         final chineseOrAlpha =
@@ -197,13 +244,37 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
               str.length > 5 &&
               !str.startsWith('%PDF') &&
               !str.contains('endobj')) {
-            buffer.writeln(str);
+            fallbackBuffer.writeln(str);
           }
         }
       } catch (_) {}
+      final fallbackText = fallbackBuffer.toString().trim();
+      if (fallbackText.isNotEmpty && _isReadableText(fallbackText)) {
+        return fallbackText;
+      }
+      return '';
     }
 
-    return buffer.toString().trim();
+    return extracted;
+  }
+
+  /// 驗證文字是否為可讀內容（非 glyph ID 亂碼）
+  /// 檢查可讀字元（中日韓、英文字母、數字、常見標點）的比例是否超過 40%
+  static bool _isReadableText(String text) {
+    if (text.isEmpty) return false;
+    // 可讀字元：中日韓文字、英文字母、數字、常見中英文標點、空白
+    final readableChars = RegExp(
+      r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7afa-zA-Z0-9\s.,;:!?()\[\]{}\-+=]',
+    );
+    int readableCount = 0;
+    for (int i = 0; i < text.length; i++) {
+      if (readableChars.hasMatch(text[i])) {
+        readableCount++;
+      }
+    }
+    final ratio = readableCount / text.length;
+    debugPrint('AiUploadPaper: 文字可讀性比例 = ${(ratio * 100).toStringAsFixed(1)}% ($readableCount/${text.length})');
+    return ratio >= 0.4;
   }
 
 
@@ -333,66 +404,68 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final cs = Theme.of(ctx).colorScheme;
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Text(
-                  tr('up_photo_source'),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    child: Icon(Icons.camera_alt_rounded, color: cs.primary),
                   ),
-                  title: Text(tr('up_camera'),
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(tr('up_camera_sub'),
-                      style: TextStyle(fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickImage(ImageSource.camera);
-                  },
-                ),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+                  Text(
+                    tr('up_photo_source'),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
-                    child: Icon(Icons.photo_library_rounded, color: cs.primary),
                   ),
-                  title: Text(tr('up_gallery'),
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(tr('up_gallery_sub'),
-                      style: TextStyle(fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickImage(ImageSource.gallery);
-                  },
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.camera_alt_rounded, color: cs.primary),
+                    ),
+                    title: Text(tr('up_camera'),
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(tr('up_camera_sub'),
+                        style: TextStyle(fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickImage(ImageSource.camera);
+                    },
+                  ),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.photo_library_rounded, color: cs.primary),
+                    ),
+                    title: Text(tr('up_gallery'),
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(tr('up_gallery_sub'),
+                        style: TextStyle(fontSize: 12)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickImage(ImageSource.gallery);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -472,12 +545,12 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         timeoutSeconds: 25,
       );
 
-      // 順位 2：Cloudflare Groq 旗艦中繼引擎 (groq/compound)
+      // 順位 2：Cloudflare Groq 旗艦中繼引擎 (openai/gpt-oss-20b)
       if (responseText == null || responseText.trim().isEmpty) {
-        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 旗艦引擎 (groq/compound)...');
+        debugPrint('AiUploadPaper: 切換 Cloudflare Groq 旗艦引擎 (openai/gpt-oss-20b)...');
         responseText = await _tryCloudflareProxy(
           provider: 'groq',
-          model: 'groq/compound',
+          model: 'openai/gpt-oss-20b',
           prompt: prompt,
           timeoutSeconds: 20,
         );
@@ -501,7 +574,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
         final apiKey = await _getApiKey();
         if (apiKey.isNotEmpty) {
           final model = GenerativeModel(
-            model: 'gemini-3.6-flash',
+            model: 'gemini-2.5-flash',
             apiKey: apiKey,
             generationConfig: GenerationConfig(
               maxOutputTokens: (count * 350) + 300,
@@ -547,6 +620,14 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       return;
     }
 
+    // 檔案大小偵測與日誌
+    final fileSizeMB = _fileBytes!.length / (1024 * 1024);
+    debugPrint('AiUploadPaper: 檔案大小 = ${fileSizeMB.toStringAsFixed(2)} MB, MIME = $_mimeType');
+    if (fileSizeMB > 20) {
+      _showErrorSnackBar('檔案過大（${fileSizeMB.toStringAsFixed(1)} MB），建議控制在 20MB 以內以確保辨識順利。');
+      return;
+    }
+
     setState(() {
       _state = UploadState.analyzing;
       _currentStep = 0;
@@ -566,14 +647,24 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
       // ── 順位 1：若為 PDF 檔案，優先採用 PDF 內建文字萃取 ➔ Gemini / Groq 高速文字解析 ──
       if (_isPdf && _fileBytes != null) {
-        debugPrint('AiUploadPaper: 正在從 PDF 提取文字內容...');
+        debugPrint('AiUploadPaper: 正在從 PDF 提取文字內容 (檔案: $_selectedFileName)...');
         final pdfExtractedText = _extractTextFromPdfBytes(_fileBytes!);
+        debugPrint('AiUploadPaper: PDF 文字提取結果長度 = ${pdfExtractedText.length} 字元');
+        if (pdfExtractedText.length < 15) {
+          debugPrint('AiUploadPaper: PDF 文字過少，將改用多模態視覺辨識...');
+        }
         if (pdfExtractedText.length >= 15) {
           debugPrint(
               'AiUploadPaper: 成功從 PDF 提取文字 (長度: ${pdfExtractedText.length})，啟動高速 AI 解析引擎...');
           final pdfTextPrompt = '''
 你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷題庫解析與結構化大師」。
-以下是從使用者上傳的考卷 PDF 中完整提取的題目文字內容。請仔細分析所有試卷題目，並結構化為標準單選題題庫。
+以下是從使用者上傳的考卷 PDF（檔名：$_selectedFileName）中完整提取的題目文字內容。請仔細分析所有試卷題目，並結構化為標準單選題題庫。
+
+【最重要規則：絕對禁止自行編造題目！】
+- 你必須且只能解析下方「考卷文字內容」中實際存在的題目
+- 如果文字內容看起來是亂碼、不可讀、或無法辨識出任何試題，請回傳空的 questions 陣列：{"paper_name":"無法辨識","subject":"","chapter":"","questions":[]}
+- 絕對不可自行捏造、虛構任何題目或答案
+- subject 學科必須根據考卷實際內容判斷（如檔名或內容與英文相關就是英文，與數學相關就是數學）
 
 【核心規則：無答案試卷自動演算解題】：
 1. 若試卷中無提供答案，請由 AI 親自為每道題目深度推導演算出正確答案（填入 options 的 0-based 索引 "0", "1", "2" 或 "3"），並在 explanation 中提供詳盡清晰的步驟與觀念詳解！
@@ -602,12 +693,12 @@ $pdfExtractedText
 }
 ''';
 
-          final apiKey = await _getApiKey();
+          final apiKey = await _getPaperApiKey();
           if (apiKey.isNotEmpty) {
             final fastModels = [
-              'gemini-3.6-flash',
-              'gemini-3.1-flash-lite',
               'gemini-3.5-flash',
+              'gemini-2.5-flash',
+              'gemini-3.5-flash-lite',
             ];
             for (final modelName in fastModels) {
               try {
@@ -621,7 +712,7 @@ $pdfExtractedText
                   ),
                 );
                 final res = await model.generateContent([Content.text(pdfTextPrompt)])
-                    .timeout(const Duration(seconds: 20));
+                    .timeout(const Duration(seconds: 40));
                 if (res.text != null && res.text!.trim().isNotEmpty) {
                   responseText = res.text;
                   debugPrint('AiUploadPaper: Gemini ($modelName) PDF 文字解析成功！');
@@ -633,13 +724,23 @@ $pdfExtractedText
             }
           }
 
-          // 若直連失敗，嘗試 Cloudflare Groq 中繼 (5 秒極速超時)
+          // 若直連失敗，優先嘗試 Cloudflare Gemini 中繼站 (20 秒超時)
           if (responseText == null || responseText.trim().isEmpty) {
+            debugPrint('AiUploadPaper: Gemini 本地 SDK 直連解析失敗，嘗試 Cloudflare Gemini 中繼...');
+            responseText = await _tryCloudflareProxy(
+              provider: 'gemini',
+              prompt: pdfTextPrompt,
+              timeoutSeconds: 20,
+            );
+          }
+          // 次選 Cloudflare Groq 中繼 (15 秒超時)
+          if (responseText == null || responseText.trim().isEmpty) {
+            debugPrint('AiUploadPaper: Gemini 文字解析全部失敗，嘗試 Groq 中繼...');
             responseText = await _tryCloudflareProxy(
               provider: 'groq',
-              model: 'groq/compound',
+              model: 'openai/gpt-oss-20b',
               prompt: pdfTextPrompt,
-              timeoutSeconds: 5,
+              timeoutSeconds: 15,
             );
           }
         }
@@ -649,7 +750,12 @@ $pdfExtractedText
       if (responseText == null || responseText.trim().isEmpty) {
         final systemPrompt = '''
 你是一個精通臺灣各級升學考試與學術測驗的「頂級試卷 OCR、題庫辨識與自動解題大師」。
-請仔細檢視並深度解析使用者上傳的試卷文件（PDF 檔案或考卷圖片），提取出所有題目並結構化為標準單選題題庫。
+請仔細檢視並深度解析使用者上傳的試卷文件（檔名：$_selectedFileName），提取出所有題目並結構化為標準單選題題庫。
+
+【最重要規則：絕對禁止自行編造題目！】
+- 你必須且只能辨識文件中實際存在的題目，不可自行捏造
+- 如果檔案無法辨識或無法提取出任何試題，請回傳空的 questions 陣列：{"paper_name":"無法辨識","subject":"","chapter":"","questions":[]}
+- subject 學科必須根據考卷實際內容判斷（如檔名或內容與英文相關就是英文，與數學相關就是數學）
 
 【重要辨識、無答案自動推導與品質準則】
 1. 忠實辨識原題：請精確辨識考卷中的真實題目文字、題幹條件、數值、選項與題意。
@@ -676,12 +782,11 @@ $pdfExtractedText
 }
 ''';
 
-        final apiKey = await _getApiKey();
+        final apiKey = await _getPaperApiKey();
         final modelsToTry = [
-          'gemini-3.6-flash',
-          'gemini-3.1-flash-lite',
           'gemini-3.5-flash',
-          'gemini-3.7-flash',
+          'gemini-2.5-flash',
+          'gemini-3.5-flash-lite',
         ];
 
         // 嘗試 Gemini SDK (加入 25s 超時保護，避免掛起)
@@ -712,7 +817,7 @@ $pdfExtractedText
                 generationConfig: GenerationConfig(
                   responseMimeType: 'application/json',
                 ),
-              ).timeout(const Duration(seconds: 25));
+              ).timeout(const Duration(seconds: 45));
               if (response.text != null && response.text!.trim().isNotEmpty) {
                 responseText = response.text;
                 debugPrint('AiUploadPaper: Gemini SDK ($modelName) 多模態辨識成功！');
@@ -758,7 +863,7 @@ $pdfExtractedText
                       },
                     }),
                   )
-                  .timeout(const Duration(seconds: 25));
+                  .timeout(const Duration(seconds: 45));
 
               if (res.statusCode == 200) {
                 final data = jsonDecode(utf8.decode(res.bodyBytes));
@@ -769,6 +874,9 @@ $pdfExtractedText
                   debugPrint('AiUploadPaper: Gemini REST API ($modelName) 辨識成功！');
                   break;
                 }
+              } else {
+                debugPrint(
+                    'AiUploadPaper: Gemini REST API ($modelName) 錯誤 [${res.statusCode}]: ${res.body}');
               }
             } catch (restErr) {
               debugPrint(
@@ -786,13 +894,13 @@ $pdfExtractedText
             prompt: systemPrompt,
             base64Data: base64Data,
             mimeType: _mimeType,
-            timeoutSeconds: 30,
+            timeoutSeconds: 50,
           );
         }
       }
 
       if (responseText == null || responseText.trim().isEmpty) {
-        throw Exception('無法完成考卷解析。請確認檔案字跡清晰或重新拍攝後再試。');
+        throw Exception('無法完成考卷解析。請確認：\n1. 網路連線正常\n2. 檔案為選擇題格式\n3. 檔案字跡清晰且非加密 PDF\n若為掃描圖檔 PDF，建議截圖後以圖片方式上傳。');
       }
 
       stepTimer.cancel();
@@ -1354,18 +1462,24 @@ $pdfExtractedText
                     Icon(Icons.picture_as_pdf_rounded,
                         size: 34, color: Colors.redAccent.shade200),
                     const SizedBox(width: 14),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(tr('up_pdf_title'),
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14.5)),
-                        const SizedBox(height: 2),
-                        Text(tr('up_pdf_sub'),
-                            style: TextStyle(
-                                fontSize: 11, color: cs.onSurfaceVariant)),
-                      ],
+                    Flexible(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(tr('up_pdf_title'),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14.5),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(tr('up_pdf_sub'),
+                              style: TextStyle(
+                                  fontSize: 11, color: cs.onSurfaceVariant),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
                     )
                   ],
                 ),

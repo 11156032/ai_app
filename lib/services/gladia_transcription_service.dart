@@ -203,7 +203,7 @@ class GladiaTranscriptionService {
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
     try {
-      return utf8.decode(base64Decode('QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
+      return utf8.decode(base64Decode('QVEuQWI4Uk42S3hsa2Z2QlJaenFXSGpXamNlZmFtVzlEeEx6UjdZOWliX2c4aXZHRWRJNUE='));
     } catch (_) {
       return '';
     }
@@ -687,7 +687,7 @@ class GladiaTranscriptionService {
 
     final audioBytes = await audioFile.readAsBytes();
     final model = GenerativeModel(
-      model: 'gemini-3.6-flash',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey,
     );
 

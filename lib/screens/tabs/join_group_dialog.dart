@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../database/database_helper.dart';
 import 'group_detail_page.dart';
+import 'qr_scanner_page.dart';
 import '../../services/app_locale_service.dart';
 
 /// 加入群組彈窗（支援 4 碼數字即時比對、QR Code 掃描模擬、邀請連結）
@@ -141,6 +142,19 @@ class _JoinGroupDialogState extends State<JoinGroupDialog>
             ),
           );
       }
+    }
+  }
+
+  Future<void> _openCameraScanner() async {
+    final scannedCode = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const QrScannerPage(),
+      ),
+    );
+
+    if (scannedCode != null && scannedCode.isNotEmpty) {
+      _handlePastedText(scannedCode);
     }
   }
 
@@ -655,7 +669,7 @@ class _JoinGroupDialogState extends State<JoinGroupDialog>
   // ── QR Code 掃描 Tab ──
   Widget _buildQrScanTab(bool isDark, Color primaryColor) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.black.withValues(alpha: 0.25)
@@ -669,35 +683,60 @@ class _JoinGroupDialogState extends State<JoinGroupDialog>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.qr_code_scanner_rounded, size: 36, color: primaryColor),
+          InkWell(
+            onTap: _openCameraScanner,
+            borderRadius: BorderRadius.circular(30),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(Icons.qr_code_scanner_rounded, size: 40, color: primaryColor),
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             tr('jg_aim_qr'),
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: isDark ? Colors.white70 : Colors.black87,
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               ElevatedButton.icon(
-                onPressed: _pasteFromClipboard,
+                onPressed: _openCameraScanner,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                   elevation: 0,
                 ),
-                icon: const Icon(Icons.center_focus_strong_rounded, size: 15),
-                label: Text(tr('jg_read_qr'),
+                icon: const Icon(Icons.camera_alt_rounded, size: 16),
+                label: Text(tr('jg_open_camera_scan'),
                     style:
-                        TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+              OutlinedButton.icon(
+                onPressed: _pasteFromClipboard,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: primaryColor,
+                  side: BorderSide(color: primaryColor.withValues(alpha: 0.45)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.content_paste_rounded, size: 15),
+                label: Text(tr('jg_paste_from_clip'),
+                    style:
+                        const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
