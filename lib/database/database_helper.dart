@@ -140,6 +140,11 @@ class DatabaseHelper {
         )
       ''');
 
+      // 題庫難度欄位資料正規化（修復中英文難度不一致問題）
+      await db.execute("UPDATE questions SET difficulty = '易' WHERE difficulty IN ('easy', '簡單', '基礎')");
+      await db.execute("UPDATE questions SET difficulty = '中' WHERE difficulty IN ('medium', '中等', '一般')");
+      await db.execute("UPDATE questions SET difficulty = '難' WHERE difficulty IN ('hard', '困難', '進階')");
+
       var postCols = await db.rawQuery('PRAGMA table_info(posts)');
       if (!postCols.any((c) => c['name'] == 'is_edited')) {
         await db.execute(
@@ -717,7 +722,7 @@ class DatabaseHelper {
         explanation TEXT DEFAULT '',
         subject VARCHAR DEFAULT '',
         type VARCHAR DEFAULT '單選題',
-        difficulty VARCHAR DEFAULT 'easy',
+        difficulty VARCHAR DEFAULT '中',
         is_public BOOLEAN DEFAULT 0,
         bookmarked BOOLEAN DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

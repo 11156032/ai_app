@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import '../services/ai_diagnosis_service.dart';
+import '../utils/question_utils.dart';
 import 'question_discussion_page.dart';
 import '../services/app_locale_service.dart';
 
@@ -79,31 +80,9 @@ class _ReviewPageState extends State<ReviewPage>
     super.dispose();
   }
 
-  List<String> _parseOptions(dynamic raw) {
-    try {
-      if (raw is List) return raw.map((e) => e.toString()).toList();
-      if (raw is String && raw.trim().isNotEmpty) {
-        final d = jsonDecode(raw);
-        if (d is List) return d.map((e) => e.toString()).toList();
-      }
-    } catch (_) {}
-    if (raw is String) {
-      return raw
-          .replaceAll('[', '')
-          .replaceAll(']', '')
-          .replaceAll('"', '')
-          .split(',')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-    }
-    return [];
-  }
+  List<String> _parseOptions(dynamic raw) => QuestionUtils.parseOptions(raw);
 
-  int _correctIndex(Map<String, dynamic> q) {
-    final raw = q['answerIndex'] ?? q['answer'] ?? 0;
-    return int.tryParse(raw.toString()) ?? 0;
-  }
+  int _correctIndex(Map<String, dynamic> q) => QuestionUtils.getCorrectAnswerIndex(q);
 
   Future<void> _saveSelectedWrongAndNotes() async {
     setState(() => _saving = true);

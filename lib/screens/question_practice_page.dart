@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
+import '../utils/question_utils.dart';
 import 'review_page.dart';
 import 'question_discussion_page.dart';
 import '../services/app_locale_service.dart';
@@ -94,38 +95,11 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
     _scrollToCurrentIndex();
   }
 
-  List<String> _parseOptions(dynamic rawOptions) {
-    if (rawOptions is List) {
-      return rawOptions.map((item) => item.toString()).toList();
-    }
-    if (rawOptions is String && rawOptions.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rawOptions);
-        if (decoded is List) {
-          return decoded.map((item) => item.toString()).toList();
-        }
-      } catch (_) {
-        return rawOptions
-            .replaceAll('[', '')
-            .replaceAll(']', '')
-            .replaceAll('"', '')
-            .split(',')
-            .map((item) => item.trim())
-            .where((item) => item.isNotEmpty)
-            .toList();
-      }
-    }
-    return [];
-  }
+  List<String> _parseOptions(dynamic rawOptions) => QuestionUtils.parseOptions(rawOptions);
 
-  int _correctIndex(Map<String, dynamic> question) {
-    final raw = question['answerIndex'] ?? question['answer'] ?? 0;
-    return int.tryParse(raw.toString()) ?? 0;
-  }
+  int _correctIndex(Map<String, dynamic> question) => QuestionUtils.getCorrectAnswerIndex(question);
 
-  String _questionText(Map<String, dynamic> question) {
-    return (question['question'] ?? question['text'] ?? '').toString();
-  }
+  String _questionText(Map<String, dynamic> question) => QuestionUtils.getQuestionText(question);
 
   Widget _buildNavigationItem(ColorScheme cs, int index) {
     final isCurrent = index == _currentIndex;

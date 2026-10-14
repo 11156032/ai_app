@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import '../services/app_locale_service.dart';
+import '../utils/question_utils.dart';
 
 class QuestionDiscussionPage extends StatefulWidget {
   final Map<String, dynamic> questionData;
@@ -253,17 +253,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
     }
   }
 
-  List<String> _getOptions() {
-    final raw = widget.questionData['options'];
-    if (raw is List) return raw.map((e) => e.toString()).toList();
-    if (raw is String && raw.isNotEmpty) {
-      try {
-        final d = jsonDecode(raw);
-        if (d is List) return d.map((e) => e.toString()).toList();
-      } catch (_) {}
-    }
-    return [];
-  }
+  List<String> _getOptions() => QuestionUtils.parseOptions(widget.questionData['options']);
 
   String _formatTime(dynamic rawTime) {
     if (rawTime == null) return '';
@@ -281,18 +271,7 @@ class _QuestionDiscussionPageState extends State<QuestionDiscussionPage> {
     }
   }
 
-  Color _getDifficultyColor(String diff) {
-    switch (diff) {
-      case '易':
-        return const Color(0xFF10B981);
-      case '中':
-        return const Color(0xFFF59E0B);
-      case '難':
-        return const Color(0xFFEF4444);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
+  Color _getDifficultyColor(String diff) => QuestionUtils.getDifficultyColor(diff);
 
   @override
   Widget build(BuildContext context) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 // import 'dart:convert';
 import '../database/database_helper.dart';
+import '../services/add_to_paper_service.dart';
 import '../services/notebook_helper.dart';
 import '../widgets/tour_overlay.dart';
 import 'question_practice_page.dart';
@@ -275,7 +276,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   Future<void> _batchAddToPaper() async {
     if (_selected.isEmpty) return;
 
-    // 1. Get actual question IDs
+    // 組合實際的 question_id 清單
     final qids = <int>[];
     if (_currentMode == 0) {
       for (final r in _rows) {
@@ -291,134 +292,18 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
 
     if (qids.isEmpty) return;
 
-    try {
-      final uid =
-          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
-      final papers =
-          await DatabaseHelper.instance.getPapersForUser(uid.toString());
+    final uid =
+        widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
 
-      if (!mounted) return;
+    final result = await AddToPaperService.show(
+      context: context,
+      userId: uid.toString(),
+      questionIds: qids,
+    );
 
-      // Show selection dialog
-      final selectedPaper = await showDialog<Map<String, dynamic>>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(tr('wq_pick_paper')),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: papers.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return ListTile(
-                    leading: const Icon(Icons.add, color: Colors.blue),
-                    title: Text(tr('wq_new_paper_add'),
-                        style: TextStyle(
-                            color: Colors.blue, fontWeight: FontWeight.bold)),
-                    onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
-                  );
-                }
-                final p = papers[index - 1];
-                return ListTile(
-                  leading: const Icon(Icons.assignment_rounded,
-                      color: Colors.orange),
-                  title: Text(p['name'] ?? tr('wq_paper_unnamed')),
-                  onTap: () => Navigator.pop(ctx, p),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('btn_cancel')),
-            ),
-          ],
-        ),
-      );
-
-      if (selectedPaper == null) return;
-
-      if (selectedPaper['action'] == 'create_new') {
-        if (!mounted) return;
-        final newNameController = TextEditingController();
-        final defaultName = tr('wq_new_paper_n', [(papers.length + 1).toString()]);
-
-        final newPaperName = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(tr('wq_new_paper')),
-            content: TextField(
-              controller: newNameController,
-              decoration: InputDecoration(
-                labelText: tr('wq_paper_name'),
-                hintText: defaultName,
-              ),
-              autofocus: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('btn_cancel')),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final text = newNameController.text.trim();
-                  Navigator.pop(ctx, text.isEmpty ? defaultName : text);
-                },
-                child: Text(tr('confirm')),
-              ),
-            ],
-          ),
-        );
-
-        if (newPaperName == null) return;
-
-        await DatabaseHelper.instance.createPaper(
-          uid.toString(),
-          newPaperName,
-          qids,
-        );
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_created_added', [newPaperName.toString()]))),
-        );
-        _exitSelectionMode();
-        return;
-      }
-
-      final paperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
-      final paperName = selectedPaper['name'] ?? tr('wq_paper_unnamed');
-
-      final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
-      final int originalCount = ids.length;
-      final Set<int> mergedSet = {...ids, ...qids};
-      final int addedCount = mergedSet.length - originalCount;
-
-      await DatabaseHelper.instance
-          .updatePaper(paperId, paperName, mergedSet.toList());
-
-      if (!mounted) return;
-      if (addedCount == 0) {
-        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_already_in', [paperName.toString()]))),
-        );
-      } else {
-        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_added_n', [addedCount.toString(), paperName.toString()]))),
-        );
-      }
-      _exitSelectionMode();
-    } catch (e) {
-      debugPrint('批次加到題本失敗: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_add_failed'))),
-      );
-    }
+    if (result != null) _exitSelectionMode();
   }
+
 
   // void _shareQuestion(int qid) async {
   //   final confirm = await showDialog<bool>(

@@ -8,6 +8,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../database/database_helper.dart';
+import '../utils/question_utils.dart';
 import 'question_set_detail_page.dart';
 import '../services/app_locale_service.dart';
 
@@ -446,7 +447,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       "options": ["選項一", "選項二", "選項三", "選項四"],
       "answer": "0",
       "explanation": "極簡解析（30~60字以內，一兩句話說明解法關鍵即可）",
-      "difficulty": "${diff == '基礎' ? 'easy' : (diff == '進階' ? 'hard' : 'medium')}"
+      "difficulty": "${diff == '基礎' ? '易' : (diff == '進階' ? '難' : '中')}"
     }
   ]
 }
@@ -595,7 +596,7 @@ $pdfExtractedText
       "options": ["選項一", "選項二", "選項三", "選項四"],
       "answer": "0",
       "explanation": "深度解題步驟與觀念詳解（無答案試卷將由 AI 自動推導演算）",
-      "difficulty": "medium"
+      "difficulty": "中"
     }
   ]
 }
@@ -669,7 +670,7 @@ $pdfExtractedText
       "options": ["選項一", "選項二", "選項三", "選項四"],
       "answer": "0",
       "explanation": "深度解題步驟與觀念詳解",
-      "difficulty": "medium"
+      "difficulty": "中"
     }
   ]
 }
@@ -971,7 +972,7 @@ $pdfExtractedText
         'options': options,
         'answerIndex': ansIndex,
         'explanation': _cleanAiSymbols((q['explanation'] ?? '').toString()),
-        'difficulty': (q['difficulty'] ?? 'medium').toString(),
+        'difficulty': QuestionUtils.normalizeDifficulty(q['difficulty'], fallback: '中'),
       });
     }
 
@@ -1037,7 +1038,7 @@ $pdfExtractedText
         final List<String> opts = List<String>.from(q['options']);
         final int ansIndex = q['answerIndex'] as int;
         final String explanation = q['explanation'] as String;
-        final String difficulty = q['difficulty'] as String;
+        final String difficulty = QuestionUtils.normalizeDifficulty(q['difficulty'], fallback: '中');
 
         // Insert into questions table
         final qId = await db.insert('questions', {
@@ -1903,7 +1904,7 @@ $pdfExtractedText
                           'options': ['選項 A', '選項 B', '選項 C', '選項 D'],
                           'answerIndex': 0,
                           'explanation': '請輸入解析',
-                          'difficulty': 'medium',
+                          'difficulty': '中',
                         });
                       });
                     },
@@ -2042,17 +2043,17 @@ $pdfExtractedText
                   children: [
                     // Difficulty Selector
                     DropdownButton<String>(
-                      value: q['difficulty'],
+                      value: QuestionUtils.normalizeDifficulty(q['difficulty'], fallback: '中'),
                       items: [
                         DropdownMenuItem(
-                            value: 'easy',
-                            child: Text(tr('up_easy'), style: TextStyle(fontSize: 12))),
+                            value: '易',
+                            child: Text(tr('up_easy'), style: const TextStyle(fontSize: 12))),
                         DropdownMenuItem(
-                            value: 'medium',
-                            child: Text(tr('up_mid'), style: TextStyle(fontSize: 12))),
+                            value: '中',
+                            child: Text(tr('up_mid'), style: const TextStyle(fontSize: 12))),
                         DropdownMenuItem(
-                            value: 'hard',
-                            child: Text(tr('up_hard'), style: TextStyle(fontSize: 12))),
+                            value: '難',
+                            child: Text(tr('up_hard'), style: const TextStyle(fontSize: 12))),
                       ],
                       onChanged: (val) {
                         if (val != null) {

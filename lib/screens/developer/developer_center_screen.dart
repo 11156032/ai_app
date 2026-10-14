@@ -123,6 +123,9 @@ class DeveloperCenterScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
+          _buildArchitectureOverview(),
+          const SizedBox(height: 22),
+
           // 核心功能導航模組
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 8),
@@ -224,6 +227,114 @@ class DeveloperCenterScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildArchitectureOverview() {
+    const layers = [
+      (
+        label: 'Screens / Widgets',
+        description: '畫面、互動與共用元件',
+        icon: Icons.dashboard_customize_rounded,
+        color: Color(0xFF1E88E5),
+      ),
+      (
+        label: 'Services',
+        description: 'AI、語音、會員與推播邏輯',
+        icon: Icons.miscellaneous_services_rounded,
+        color: Color(0xFFE65100),
+      ),
+      (
+        label: 'Database',
+        description: 'SQLite 本機資料與 CRUD',
+        icon: Icons.storage_rounded,
+        color: Color(0xFF00897B),
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '目前架構分層',
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '資料由 UI 往下交給服務與本機資料層處理',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 14),
+          ...layers.asMap().entries.map((entry) {
+            final layer = entry.value;
+            final isLast = entry.key == layers.length - 1;
+            return Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: layer.color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(layer.icon, color: layer.color, size: 19),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            layer.label,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: layer.color),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            layer.description,
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (!isLast)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 18, top: 4, bottom: 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Icon(Icons.arrow_downward_rounded,
+                          size: 16, color: Colors.grey.shade400),
+                    ),
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFeatureCard({
     required BuildContext context,
     required String title,
@@ -271,33 +382,31 @@ class DeveloperCenterScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87),
-                            ),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87),
+                      ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: badgeColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              badge,
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  color: badgeColor,
-                                  fontWeight: FontWeight.bold),
-                            ),
+                          child: Text(
+                            badge,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: badgeColor,
+                                fontWeight: FontWeight.bold),
                           ),
-                        ],
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(

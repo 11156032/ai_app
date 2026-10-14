@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import '../services/app_locale_service.dart';
+import '../utils/question_utils.dart';
 
 class QuestionEditPage extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -46,7 +47,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
         (widget.allSubjects.isNotEmpty ? widget.allSubjects.first : '數學');
     type = widget.initialData?['type'] ?? '單選題';
     final rawDiff = widget.initialData?['difficulty'];
-    difficulty = (rawDiff == 'easy' || rawDiff == null) ? '無' : rawDiff.toString();
+    difficulty = QuestionUtils.normalizeDifficulty(rawDiff);
     if (!_difficulties.contains(difficulty)) {
       difficulty = '無';
     }
@@ -251,18 +252,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     });
   }
 
-  Color _getDifficultyColor(String diff) {
-    switch (diff) {
-      case '易':
-        return const Color(0xFF10B981);
-      case '中':
-        return const Color(0xFFF59E0B);
-      case '難':
-        return const Color(0xFFEF4444);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
+  Color _getDifficultyColor(String diff) => QuestionUtils.getDifficultyColor(diff);
 
   @override
   Widget build(BuildContext context) {

@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
+import '../services/add_to_paper_service.dart';
 import '../services/notebook_helper.dart';
+import '../utils/question_utils.dart';
 import 'question_edit_page.dart';
 import 'question_practice_page.dart';
 import 'question_discussion_page.dart';
@@ -195,146 +197,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     );
   }
 
-  Future<void> _showPracticeModeSelectionDialog() async {
-    final cs = Theme.of(context).colorScheme;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          children: [
-            Icon(Icons.psychology_rounded, color: cs.primary, size: 28),
-            const SizedBox(width: 12),
-            Text(
-              tr('qs_pick_mode'),
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              tr('qs_pick_mode_sub'),
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            // Card 1: 一般練習 (不記錄成績)
-            InkWell(
-              onTap: () {
-                Navigator.pop(ctx);
-                _openPractice(0,
-                    saveResult: false, isPaperMode: widget.paperId != null);
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
-                  color: cs.surfaceContainerLowest,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.menu_book_rounded,
-                          color: Colors.blue),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tr('qs_mode_practice'),
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            tr('qs_mode_practice_sub'),
-                            style: TextStyle(
-                                fontSize: 12, color: cs.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Card 2: 模擬測驗 (記錄成績)
-            InkWell(
-              onTap: () {
-                Navigator.pop(ctx);
-                if (widget.paperId != null) {
-                  _openPractice(0, saveResult: true, isPaperMode: true);
-                } else {
-                  // 不需要強制匯入自訂題本，直接開始作答並記錄成績
-                  _openPractice(0, saveResult: true, isPaperMode: false);
-                }
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
-                  color: cs.surfaceContainerLowest,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.assignment_turned_in_rounded,
-                          color: Colors.orange),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tr('qs_mode_exam'),
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.paperId != null
-                                ? tr('qs_mode_exam_sub_paper')
-                                : tr('qs_mode_exam_sub'),
-                            style: TextStyle(
-                                fontSize: 12, color: cs.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('btn_cancel')),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Future<void> _openEditPage(Map<String, dynamic> question) async {
     final result = await Navigator.push<bool>(
@@ -407,275 +270,41 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   }
 
   Future<void> _addQuestionToPaper(Map<String, dynamic> question) async {
-    try {
-      final uid =
-          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
-      final papers =
-          await DatabaseHelper.instance.getPapersForUser(uid.toString());
-      final questionId = int.tryParse(question['id'].toString()) ?? 0;
+    final uid =
+        widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+    final questionId = int.tryParse(question['id'].toString()) ?? 0;
+    if (questionId <= 0) return;
 
-      if (!mounted) return;
-
-      final selectedPaper = await showDialog<Map<String, dynamic>>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(tr('wq_pick_paper')),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: papers.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return ListTile(
-                    leading: const Icon(Icons.add, color: Colors.blue),
-                    title: Text(tr('wq_new_paper_add'),
-                        style: TextStyle(
-                            color: Colors.blue, fontWeight: FontWeight.bold)),
-                    onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
-                  );
-                }
-                final p = papers[index - 1];
-                return ListTile(
-                  leading: const Icon(Icons.assignment_rounded,
-                      color: Colors.orange),
-                  title: Text(p['name'] ?? tr('wq_paper_unnamed')),
-                  onTap: () => Navigator.pop(ctx, p),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('btn_cancel')),
-            ),
-          ],
-        ),
-      );
-
-      if (selectedPaper == null) return;
-
-      if (selectedPaper['action'] == 'create_new') {
-        if (!mounted) return;
-        final newNameController = TextEditingController();
-        final defaultName = tr('qs_paper_n', [(papers.length + 1).toString()]);
-
-        final newPaperName = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(tr('wq_new_paper')),
-            content: TextField(
-              controller: newNameController,
-              decoration: InputDecoration(
-                labelText: tr('wq_paper_name'),
-                hintText: defaultName,
-              ),
-              autofocus: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('btn_cancel')),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final text = newNameController.text.trim();
-                  Navigator.pop(ctx, text.isEmpty ? defaultName : text);
-                },
-                child: Text(tr('confirm')),
-              ),
-            ],
-          ),
-        );
-
-        if (newPaperName == null) return;
-
-        await DatabaseHelper.instance.createPaper(
-          uid.toString(),
-          newPaperName,
-          [questionId],
-        );
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_created_added', [newPaperName.toString()]))),
-        );
-        return;
-      }
-
-      final paperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
-      final paperName = selectedPaper['name'] ?? tr('wq_paper_unnamed');
-
-      final ids = await DatabaseHelper.instance.getQuestionIdsForPaper(paperId);
-      if (ids.contains(questionId)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_q_exists'))),
-        );
-      } else {
-        ids.add(questionId);
-        await DatabaseHelper.instance.updatePaper(paperId, paperName, ids);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_q_added', [paperName.toString()]))),
-        );
-      }
-    } catch (e) {
-      debugPrint('加到題本失敗: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('wq_add_failed'))),
-      );
-    }
+    await AddToPaperService.show(
+      context: context,
+      userId: uid.toString(),
+      questionIds: [questionId],
+    );
   }
 
   Future<Map<String, dynamic>?> _importAllQuestionsToPaper() async {
     if (_questions.isEmpty) return null;
-    try {
-      final uid =
-          widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
-      final papers =
-          await DatabaseHelper.instance.getPapersForUser(uid.toString());
-      final allIds = _questions
-          .map((q) => int.tryParse(q['id'].toString()) ?? 0)
-          .where((id) => id > 0)
-          .toList();
 
-      if (!mounted) return null;
+    final uid =
+        widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1';
+    final allIds = _questions
+        .map((q) => int.tryParse(q['id'].toString()) ?? 0)
+        .where((id) => id > 0)
+        .toList();
 
-      final selectedPaper = await showDialog<Map<String, dynamic>>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(tr('qs_pick_import')),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: papers.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return ListTile(
-                    leading: const Icon(Icons.add, color: Colors.blue),
-                    title: Text(tr('qs_new_paper_import'),
-                        style: TextStyle(
-                            color: Colors.blue, fontWeight: FontWeight.bold)),
-                    onTap: () => Navigator.pop(ctx, {'action': 'create_new'}),
-                  );
-                }
-                final p = papers[index - 1];
-                return ListTile(
-                  leading: const Icon(Icons.assignment_rounded,
-                      color: Colors.orange),
-                  title: Text(p['name'] ?? tr('wq_paper_unnamed')),
-                  onTap: () => Navigator.pop(ctx, p),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('btn_cancel')),
-            ),
-          ],
-        ),
-      );
-
-      if (selectedPaper == null) return null;
-
-      int finalPaperId = 0;
-      String finalPaperName = '';
-
-      if (selectedPaper['action'] == 'create_new') {
-        if (!mounted) return null;
-        final newNameController = TextEditingController();
-        final defaultName = tr('qs_copy_name', [widget.title.toString()]);
-
-        final newPaperName = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(tr('wq_new_paper')),
-            content: TextField(
-              controller: newNameController,
-              decoration: InputDecoration(
-                labelText: tr('wq_paper_name'),
-                hintText: defaultName,
-              ),
-              autofocus: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('btn_cancel')),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final text = newNameController.text.trim();
-                  Navigator.pop(ctx, text.isEmpty ? defaultName : text);
-                },
-                child: Text(tr('confirm')),
-              ),
-            ],
-          ),
-        );
-
-        if (newPaperName == null) return null;
-
-        finalPaperId = await DatabaseHelper.instance.createPaper(
-          uid.toString(),
-          newPaperName,
-          allIds,
-        );
-        finalPaperName = newPaperName;
-
-        if (!mounted) return null;
-        ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-          SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, 
-              content: Text(tr('qs_created_imported', [allIds.length.toString(), newPaperName.toString()]))),
-        );
-      } else {
-        finalPaperId = int.tryParse(selectedPaper['id'].toString()) ?? 0;
-        finalPaperName = selectedPaper['name'] ?? tr('wq_paper_unnamed');
-
-        final ids =
-            await DatabaseHelper.instance.getQuestionIdsForPaper(finalPaperId);
-        final int originalCount = ids.length;
-        final Set<int> mergedSet = {...ids, ...allIds};
-        final int addedCount = mergedSet.length - originalCount;
-
-        await DatabaseHelper.instance
-            .updatePaper(finalPaperId, finalPaperName, mergedSet.toList());
-
-        if (!mounted) return null;
-        if (addedCount == 0) {
-          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_all_exist', [finalPaperName.toString()]))),
-          );
-        } else {
-          ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-            SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_imported_n', [addedCount.toString(), finalPaperName.toString()]))),
-          );
-        }
-      }
-      return {'id': finalPaperId, 'name': finalPaperName};
-    } catch (e) {
-      debugPrint('整套匯入失敗: $e');
-      if (!mounted) return null;
-      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-        SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('qs_import_failed'))),
-      );
-      return null;
-    }
+    return AddToPaperService.show(
+      context: context,
+      userId: uid.toString(),
+      questionIds: allIds,
+      defaultNewName: tr('qs_copy_name', [widget.title.toString()]),
+    );
   }
+
 
   Widget _buildQuestionItem(BuildContext context, Map<String, dynamic> question,
       int index, ColorScheme cs) {
-    final options = question['options'] is List
-        ? (question['options'] as List).map((item) => item.toString()).toList()
-        : <String>[];
-
-    final answerIndex = question['answerIndex'] as int;
+    final options = QuestionUtils.parseOptions(question['options']);
+    final answerIndex = QuestionUtils.getCorrectAnswerIndex(question);
     final correctAnswerText = (answerIndex >= 0 && answerIndex < options.length)
         ? options[answerIndex]
         : tr('common_unknown');
@@ -1046,81 +675,120 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   Widget _buildActionBar(ColorScheme cs) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            flex: 4,
-            child: ElevatedButton.icon(
-              onPressed: _showPracticeModeSelectionDialog,
-              icon: const Icon(Icons.play_arrow_rounded, size: 22),
-              label: Text(tr('qs_start'),
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 1,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 3,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                setState(() {
-                  _showAnswers = !_showAnswers;
-                  // 切換解析顯示時同步清空個別展開記錄，確保狀態一致
-                  _expandedIndices.clear();
-                });
-              },
-              icon: Icon(
-                _showAnswers
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                size: 20,
-              ),
-              label: Text(_showAnswers ? tr('qs_hide_ans') : tr('qs_show_ans'),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: cs.primary,
-                side: BorderSide(color: cs.primary.withValues(alpha: 0.5)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
-          if (widget.paperId == null) ...[
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 3,
-              child: OutlinedButton.icon(
-                onPressed: _importAllQuestionsToPaper,
-                icon: const Icon(Icons.copy_all_rounded, size: 20),
-                label: Text(tr('qs_collect'),
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: cs.secondary,
-                  side: BorderSide(color: cs.secondary.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+          // ── 第一行：練習模式直選按鈕 ─────────────────────────
+          Row(
+            children: [
+              // 一般練習
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _questions.isEmpty
+                      ? null
+                      : () => _openPractice(0,
+                          saveResult: false,
+                          isPaperMode: widget.paperId != null),
+                  icon: const Icon(Icons.menu_book_rounded, size: 18),
+                  label: Text(tr('qs_mode_practice'),
+                      style:
+                          const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 1,
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              // 模擬測驗
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _questions.isEmpty
+                      ? null
+                      : () => _openPractice(0,
+                          saveResult: true,
+                          isPaperMode: widget.paperId != null),
+                  icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
+                  label: Text(tr('qs_mode_exam'),
+                      style:
+                          const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // ── 第二行：工具按鈕 ──────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _showAnswers = !_showAnswers;
+                      _expandedIndices.clear();
+                    });
+                  },
+                  icon: Icon(
+                    _showAnswers
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    size: 18,
+                  ),
+                  label: Text(_showAnswers ? tr('qs_hide_ans') : tr('qs_show_ans'),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: cs.primary,
+                    side: BorderSide(color: cs.primary.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.paperId == null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _importAllQuestionsToPaper,
+                    icon: const Icon(Icons.copy_all_rounded, size: 18),
+                    label: Text(tr('qs_collect'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: cs.secondary,
+                      side: BorderSide(
+                          color: cs.secondary.withValues(alpha: 0.5)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
   }
+
+
 
   Widget _buildCompactQuestionItem(BuildContext context,
       Map<String, dynamic> question, int index, ColorScheme cs) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/architecture_scanner_service.dart';
 
 class ArchitectureScreen extends StatefulWidget {
   const ArchitectureScreen({super.key});
@@ -9,8 +10,53 @@ class ArchitectureScreen extends StatefulWidget {
 
 class _ArchitectureScreenState extends State<ArchitectureScreen> {
   String? _expandedFolder = 'screens';
+  bool _isLoading = true;
+  bool _isDynamic = false;
+  List<Map<String, dynamic>> _folders = [];
 
-  final List<Map<String, dynamic>> _folders = [
+  static const Map<String, String> _knownFileDescriptions = {
+    'main.dart': 'App 啟動根入口，決定登入或主頁路由',
+    'main_screen.dart': '主頁框架、底部導航欄 (4 Tabs)',
+    'home_page.dart': '首頁快速捷徑與學習概覽',
+    'login_screen.dart': '登入與註冊頁面',
+    'notes_screen.dart': '筆記庫管理與心智圖模式',
+    'ai_training_page.dart': 'AI 弱點專屬特訓題目練習',
+    'ai_analysis_page.dart': '學習能力雷達圖與成效分析',
+    'ai_upload_paper_page.dart': '試卷拍照辨識與試題導入',
+    'paper_builder_page.dart': '組卷神器、自訂題庫試卷',
+    'review_page.dart': '艾賓浩斯記憶曲線複習',
+    'wrong_questions_page.dart': '個人錯題本管理',
+    'quiz_history_page.dart': '個人測驗歷史成績紀錄',
+    'create_post_page.dart': '社群貼文與 Learning Pack 發佈',
+    'post_reply_page.dart': '貼文多層留言討論區',
+    'membership_center_screen.dart': 'VIP 會員特權與點數管理',
+    'about_us_screen.dart': '關於我們與品牌故事',
+    'ai_diagnosis_service.dart': 'AI 學習弱點診斷與筆記重點整理',
+    'ai_intent_service.dart': '自然語言學習意圖分析',
+    'voice_recognition_service.dart': '本機即時語音辨識服務',
+    'voice_note_service.dart': '語音筆記資料管理與轉錄',
+    'gladia_transcription_service.dart': 'Gladia AI 高精度逐字稿 API',
+    'groq_whisper_service.dart': 'Groq Whisper 極速轉錄 API',
+    'membership_service.dart': 'VIP 會員機制與代幣點數管理',
+    'push_notification_service.dart': '本機通知與 Firebase 推播',
+    'app_locale_service.dart': '多國語系 (繁/簡/英/日) 切換',
+    'app_theme_service.dart': '深色模式與自訂色系主題服務',
+    'mascot_tip_service.dart': '吉祥物學習建議與關懷小貼士',
+    'database_helper.dart': 'SQLite 資料庫單例管理，包含所有資料表操作',
+    'common_widgets.dart': '全域通用 Avatar、AppBar 與小工具',
+    'voice_note_sheet.dart': '語音筆記底部錄音與即時文字抽屜',
+    'ai_assistant_panel.dart': 'AI 懸浮對話助理面板',
+    'mindmap_canvas.dart': '心智圖互動節點畫布',
+    'mascot_companion.dart': '吉祥物懸浮互動伴讀 Widget',
+    'point_recharge_dialog.dart': '點數儲值與方案選擇彈窗',
+    'tour_overlay.dart': '初次使用功能引導新手導覽',
+    'image_edit_dialogs.dart': '頭像裁切、AI 畫質修復、貼文焦點微調',
+    'note_organize_widgets.dart': 'AI 筆記整理選擇器與大綱結果卡片',
+    'ai_loading_indicators.dart': 'AI 生成動態提示與平滑進度條',
+    'image_enhancer.dart': '圖片畫質檢測演算法與 AI 視覺強化器',
+  };
+
+  static const List<Map<String, dynamic>> _defaultPresetFolders = [
     {
       'id': 'main',
       'folder': 'lib/main.dart',
@@ -131,9 +177,9 @@ class _ArchitectureScreenState extends State<ArchitectureScreen> {
         {'name': 'mascot_companion.dart', 'desc': '吉祥物懸浮互動伴讀 Widget'},
         {'name': 'point_recharge_dialog.dart', 'desc': '點數儲值與方案選擇彈窗'},
         {'name': 'tour_overlay.dart', 'desc': '初次使用功能引導新手導覽'},
-        {'name': 'dialogs/image_edit_dialogs.dart', 'desc': '頭像裁切、AI 畫質修復、貼文焦點微調'},
-        {'name': 'dialogs/note_organize_widgets.dart', 'desc': 'AI 筆記整理選擇器與大綱結果卡片'},
-        {'name': 'loading/ai_loading_indicators.dart', 'desc': 'AI 生成動態提示與平滑進度條'},
+        {'name': 'image_edit_dialogs.dart', 'desc': '頭像裁切、AI 畫質修復、貼文焦點微調'},
+        {'name': 'note_organize_widgets.dart', 'desc': 'AI 筆記整理選擇器與大綱結果卡片'},
+        {'name': 'ai_loading_indicators.dart', 'desc': 'AI 生成動態提示與平滑進度條'},
       ],
     },
     {
@@ -156,6 +202,94 @@ class _ArchitectureScreenState extends State<ArchitectureScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadScannedData();
+  }
+
+  Future<void> _loadScannedData() async {
+    try {
+      final allFiles = await ArchitectureScannerService.scanProjectFiles();
+      if (allFiles.isNotEmpty && mounted) {
+        // 將掃描到的實際檔案依照資料夾層級分組
+        final folderMap = <String, List<DartFileInfo>>{
+          'main': [],
+          'screens': [],
+          'services': [],
+          'database': [],
+          'widgets': [],
+          'utils': [],
+        };
+
+        for (final f in allFiles) {
+          if (f.relativePath == 'lib/main.dart') {
+            folderMap['main']!.add(f);
+          } else if (f.relativePath.startsWith('lib/screens/')) {
+            folderMap['screens']!.add(f);
+          } else if (f.relativePath.startsWith('lib/services/')) {
+            folderMap['services']!.add(f);
+          } else if (f.relativePath.startsWith('lib/database/')) {
+            folderMap['database']!.add(f);
+          } else if (f.relativePath.startsWith('lib/widgets/')) {
+            folderMap['widgets']!.add(f);
+          } else if (f.relativePath.startsWith('lib/utils/')) {
+            folderMap['utils']!.add(f);
+          }
+        }
+
+        // 構建動態 folder 清單，保留原有的職責與簡介，檔案清單更新為實際存在的檔案
+        final dynamicFolders = _defaultPresetFolders.map((preset) {
+          final id = preset['id'] as String;
+          final actualFiles = folderMap[id] ?? [];
+
+          // 排序：先排原本已有說明的核心檔案，再排新抽出的檔案
+          actualFiles.sort((a, b) {
+            final aHasDesc = _knownFileDescriptions.containsKey(a.name);
+            final bHasDesc = _knownFileDescriptions.containsKey(b.name);
+            if (aHasDesc && !bHasDesc) return -1;
+            if (!aHasDesc && bHasDesc) return 1;
+            return a.name.compareTo(b.name);
+          });
+
+          final fileEntries = actualFiles.map((f) {
+            final knownDesc = _knownFileDescriptions[f.name];
+            final desc = knownDesc != null
+                ? '$knownDesc (${f.lineCount} 行)'
+                : '${f.relativePath} (${f.lineCount} 行)';
+
+            return {
+              'name': f.name,
+              'desc': desc,
+            };
+          }).toList();
+
+          return {
+            ...preset,
+            'files': fileEntries.isNotEmpty ? fileEntries : preset['files'],
+          };
+        }).toList();
+
+        setState(() {
+          _folders = dynamicFolders;
+          _isDynamic = true;
+          _isLoading = false;
+        });
+        return;
+      }
+    } catch (_) {
+      // 發生異常安全回退
+    }
+
+    if (mounted) {
+      setState(() {
+        _folders = _defaultPresetFolders;
+        _isDynamic = false;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.primaryColor;
@@ -171,74 +305,132 @@ class _ArchitectureScreenState extends State<ArchitectureScreen> {
         iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text('專案目錄與架構分層',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 20),
+            color: Colors.black87,
+            tooltip: '重新掃描',
+            onPressed: () {
+              setState(() => _isLoading = true);
+              _loadScannedData();
+            },
+          ),
+        ],
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0.5,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          // 頂部說明卡片
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primaryColor, primaryColor.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      body: _isLoading
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(strokeWidth: 2.5),
+                  SizedBox(height: 16),
+                  Text(
+                    '正在即時掃描專案目錄與架構分層...',
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryColor.withValues(alpha: 0.25),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.account_tree_rounded,
-                        color: Colors.white, size: 22),
-                    SizedBox(width: 8),
-                    Text(
-                      'YeBang 架構設計原則',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
+                // 頂部說明卡片
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        primaryColor,
+                        primaryColor.withValues(alpha: 0.85)
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.account_tree_rounded,
+                              color: Colors.white, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'YeBang 架構設計原則',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '本專案嚴格遵循「Screens/Widgets (呈現) → Services (邏輯) → Database/Utils (儲存與計算)」的三層分工架構，保持程式碼清晰與各層低耦合。',
+                        style: TextStyle(
+                            color: Colors.white, fontSize: 13, height: 1.45),
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  '本專案嚴格遵循「Screens/Widgets (呈現) → Services (邏輯) → Database/Utils (儲存與計算)」的三層分工架構，保持程式碼清晰與各層低耦合。',
-                  style: TextStyle(
-                      color: Colors.white, fontSize: 13, height: 1.45),
+                const SizedBox(height: 18),
+
+                // 核心目錄導覽標題
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '核心資料夾職責詳解 (點擊展開)',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87),
+                      ),
+                      if (_isDynamic)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFA5D6A7)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.bolt,
+                                  size: 12, color: Color(0xFF2E7D32)),
+                              SizedBox(width: 3),
+                              Text(
+                                '即時掃描',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2E7D32)),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
+
+                ..._folders.map((f) => _buildFolderCard(f, primaryColor)),
               ],
             ),
-          ),
-          const SizedBox(height: 18),
-
-          // 核心目錄導覽
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              '核心資料夾職責詳解 (點擊展開)',
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87),
-            ),
-          ),
-
-          ..._folders.map((f) => _buildFolderCard(f, primaryColor)),
-        ],
-      ),
     );
   }
 
@@ -318,7 +510,7 @@ class _ArchitectureScreenState extends State<ArchitectureScreen> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                '${files.length} 個主要檔案',
+                                '${files.length} 個檔案',
                                 style: TextStyle(
                                     fontSize: 10, color: Colors.grey.shade700),
                               ),
@@ -392,7 +584,7 @@ class _ArchitectureScreenState extends State<ArchitectureScreen> {
                   const SizedBox(height: 14),
 
                   // 包含主要檔案列表
-                  const Text('包含主要檔案：',
+                  const Text('包含檔案清單：',
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
