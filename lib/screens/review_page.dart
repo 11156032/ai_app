@@ -13,6 +13,7 @@ class ReviewPage extends StatefulWidget {
   final Map<int, int> selectedAnswers;
   final Map<String, dynamic>? currentUser;
   final bool saveResult;
+  final bool isPaper;
 
   const ReviewPage({
     super.key,
@@ -20,6 +21,7 @@ class ReviewPage extends StatefulWidget {
     required this.selectedAnswers,
     this.currentUser,
     this.saveResult = false,
+    this.isPaper = false,
   });
 
   @override
@@ -938,7 +940,7 @@ class _ReviewPageState extends State<ReviewPage>
                         ),
                       ),
                     ),
-                    if (widget.currentUser != null) ...[
+                    if (widget.currentUser != null && !widget.isPaper) ...[
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(

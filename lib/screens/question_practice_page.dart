@@ -247,7 +247,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         actions: [
-          if (widget.currentUser != null)
+          if (widget.currentUser != null && !widget.isPaper && widget.paperId == null)
             IconButton(
               icon: const Icon(Icons.forum_outlined),
               tooltip: tr('qp_discussion'),
@@ -553,7 +553,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                                 height: 1.6,
                               ),
                             ),
-                          if (widget.currentUser != null) ...[
+                          if (widget.currentUser != null && !widget.isPaper && widget.paperId == null) ...[
                             const SizedBox(height: 12),
                             InkWell(
                               borderRadius: BorderRadius.circular(10),
@@ -770,6 +770,7 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
           selectedAnswers: sel,
           currentUser: widget.currentUser,
           saveResult: widget.saveResult,
+          isPaper: widget.isPaper || widget.paperId != null,
         ),
       ),
     );

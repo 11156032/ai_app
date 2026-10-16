@@ -44,9 +44,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _questions = [];
   bool _showAnswers = false;
-  bool _isFloatingNavExpanded = false;
   final ScrollController _scrollController = ScrollController();
-  final ScrollController _horizontalScrollController = ScrollController();
   List<GlobalKey> _itemKeys = [];
   final Set<int> _expandedIndices = {};
 
@@ -60,7 +58,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _horizontalScrollController.dispose();
     super.dispose();
   }
 
@@ -161,7 +158,6 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
         _questions = mapped;
         _isLoading = false;
         _showAnswers = widget.paperId == null;
-        _isFloatingNavExpanded = false;
         _itemKeys = List.generate(mapped.length, (_) => GlobalKey());
       });
     } catch (e) {
@@ -172,6 +168,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
   }
 
   void _openDiscussion(Map<String, dynamic> question) {
+    if (widget.paperId != null || widget.isCustomOnly) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -401,13 +398,18 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       question['user_id']?.toString() == currentUserId;
 
                   final items = <PopupMenuEntry<String>>[];
-                  items.add(PopupMenuItem(value: 'discussion', child: Row(
-                    children: [
-                      Icon(Icons.forum_outlined, size: 16, color: Color(0xFF4F46E5)),
-                      SizedBox(width: 8),
-                      Text(tr('qp_discussion')),
-                    ],
-                  )));
+                  if (widget.paperId == null && !widget.isCustomOnly) {
+                    items.add(PopupMenuItem(
+                      value: 'discussion',
+                      child: Row(
+                        children: [
+                          Icon(Icons.forum_outlined, size: 16, color: cs.primary),
+                          const SizedBox(width: 8),
+                          Text(tr('qp_discussion')),
+                        ],
+                      ),
+                    ));
+                  }
                   if (isOwner) {
                     items.add(PopupMenuItem(
                         value: 'edit', child: Text(tr('qs_edit_q'))));
@@ -558,10 +560,11 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 14),
+      color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.outline.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
       child: !_showAnswers
           ? InkWell(
@@ -577,101 +580,120 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     );
   }
 
-  Widget _buildHeroHeader(ColorScheme cs) {
+  Widget _buildInfoBar(ColorScheme cs) {
+    final subText = widget.isCustomOnly
+        ? tr('qs_custom_personal')
+        : (widget.paperId != null
+            ? tr('qs_custom_paper')
+            : (widget.subject != null ? trv(widget.subject!) : tr('qs_public_bank')));
+    final chapterText = widget.chapter ?? tr('qs_all_chapters');
+    final favCount = _questions.where((q) => q['isFavorite'] == true).length;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            cs.primary,
-            cs.primary.withValues(alpha: 0.82),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: cs.primary.withValues(alpha: 0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              widget.paperId != null
+                  ? Icons.menu_book_rounded
+                  : Icons.folder_open_rounded,
+              color: cs.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: cs.onPrimary.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: cs.onSurface,
                   ),
-                  child: Icon(
-                    widget.paperId != null
-                        ? Icons.assignment_rounded
-                        : Icons.folder_open_rounded,
-                    color: cs.onPrimary,
-                    size: 32,
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: TextStyle(
-                          color: cs.onPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.isCustomOnly
-                            ? tr('qs_custom_personal')
-                            : (widget.paperId != null
-                                ? tr('qs_custom_paper')
-                                : tr('qs_header_sub', [widget.subject != null ? trv(widget.subject!) : tr('qs_public_bank'), widget.chapter ?? tr('qs_all_chapters')])),
-                        style: TextStyle(
-                          color: cs.onPrimary.withValues(alpha: 0.8),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 2),
+                Text(
+                  widget.paperId != null ? subText : '$subText • $chapterText',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                tr('qs_total'),
-                style: TextStyle(
-                  color: cs.onPrimary.withValues(alpha: 0.7),
-                  fontSize: 12,
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.quiz_outlined, size: 14, color: cs.primary),
+                const SizedBox(width: 4),
+                Text(
+                  tr('qs_n', [_questions.length.toString()]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: cs.primary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                tr('qs_n', [_questions.length.toString()]),
-                style: TextStyle(
-                  color: cs.onPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
+          if (favCount > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                  const SizedBox(width: 2),
+                  Text(
+                    '$favCount',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -679,131 +701,114 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
 
   Widget _buildActionBar(ColorScheme cs) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      child: Column(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
         children: [
-          // ── 第一行：練習模式直選按鈕 ─────────────────────────
-          Row(
-            children: [
-              // 一般練習
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _questions.isEmpty
-                      ? null
-                      : () => _openPractice(0,
-                          saveResult: false,
-                          isPaperMode: widget.paperId != null),
-                  icon: const Icon(Icons.menu_book_rounded, size: 18),
-                  label: Text(tr('qs_mode_practice'),
-                      style:
-                          const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 1,
+          // 一般練習 (高對比亮藍色實心按鈕)
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _questions.isEmpty
+                    ? null
+                    : () => _openPractice(0,
+                        saveResult: false,
+                        isPaperMode: widget.paperId != null),
+                icon: const Icon(Icons.play_circle_filled_rounded, size: 19, color: Colors.white),
+                label: Text(
+                  tr('qs_mode_practice'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
                 ),
               ),
-              const SizedBox(width: 10),
-              // 模擬測驗
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _questions.isEmpty
-                      ? null
-                      : () => _openPractice(0,
-                          saveResult: true,
-                          isPaperMode: widget.paperId != null),
-                  icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
-                  label: Text(tr('qs_mode_exam'),
-                      style:
-                          const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 1,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          // ── 第二行：工具按鈕 ──────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _showAnswers = !_showAnswers;
-                      _expandedIndices.clear();
-                    });
-                  },
-                  icon: Icon(
-                    _showAnswers
-                        ? Icons.visibility_off_rounded
-                        : Icons.visibility_rounded,
-                    size: 18,
+          const SizedBox(width: 10),
+          // 模擬測驗 (高對比醒目橘色實心按鈕)
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFEA580C).withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
-                  label: Text(_showAnswers ? tr('qs_hide_ans') : tr('qs_show_ans'),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 13)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: cs.primary,
-                    side: BorderSide(color: cs.primary.withValues(alpha: 0.5)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _questions.isEmpty
+                    ? null
+                    : () => _openPractice(0,
+                        saveResult: true,
+                        isPaperMode: widget.paperId != null),
+                icon: const Icon(Icons.assignment_turned_in_rounded, size: 19, color: Colors.white),
+                label: Text(
+                  tr('qs_mode_exam'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEA580C),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  elevation: 0,
                 ),
               ),
-              if (widget.paperId == null) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _importAllQuestionsToPaper,
-                    icon: const Icon(Icons.copy_all_rounded, size: 18),
-                    label: Text(tr('qs_collect'),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: cs.secondary,
-                      side: BorderSide(
-                          color: cs.secondary.withValues(alpha: 0.5)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
+          if (widget.paperId == null) ...[
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: IconButton(
+                onPressed: _importAllQuestionsToPaper,
+                icon: const Icon(Icons.copy_all_rounded, size: 20, color: Color(0xFF475569)),
+                tooltip: tr('qs_collect'),
+                padding: const EdgeInsets.all(12),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-
-
   Widget _buildCompactQuestionItem(BuildContext context,
       Map<String, dynamic> question, int index, ColorScheme cs) {
     final snippet = question['question']?.toString() ?? '';
     return Card(
-      elevation: 0,
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: 0.05),
       margin: const EdgeInsets.only(bottom: 12),
+      color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.outline.withValues(alpha: 0.08)),
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -821,13 +826,14 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: cs.secondaryContainer,
+                  color: const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFC7D2FE)),
                 ),
                 child: Text(
                   '${index + 1}',
-                  style: TextStyle(
-                    color: cs.onSecondaryContainer,
+                  style: const TextStyle(
+                    color: Color(0xFF4338CA),
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -840,30 +846,59 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   children: [
                     Text(
                       snippet,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
+                        color: Color(0xFF0F172A),
                         height: 1.4,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
+                    Row(
                       children: [
                         if ((question['difficulty'] ?? '')
                             .toString()
-                            .isNotEmpty)
+                            .isNotEmpty) ...[
                           _buildMiniTag(question['difficulty'].toString(),
-                              cs.tertiary, cs),
+                              const Color(0xFF0D9488), cs),
+                          const SizedBox(width: 6),
+                        ],
+                        _buildMiniTag(
+                            question['type'] ?? '單選題',
+                            const Color(0xFF6366F1),
+                            cs),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '點擊展開',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2563EB),
+                                ),
+                              ),
+                              SizedBox(width: 2),
+                              Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: Color(0xFF2563EB)),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
@@ -873,7 +908,8 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       : Icons.star_outline_rounded,
                   color: question['isFavorite'] == true
                       ? Colors.amber
-                      : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      : const Color(0xFF94A3B8),
+                  size: 22,
                 ),
                 onPressed: () async {
                   final messenger = ScaffoldMessenger.of(context);
@@ -894,9 +930,9 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                   }
                 },
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant),
+                icon: const Icon(Icons.more_vert, color: Color(0xFF64748B)),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 onSelected: (value) {
@@ -927,7 +963,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                     items.add(PopupMenuItem(
                         value: 'delete',
                         child:
-                            Text(tr('qs_remove_q'), style: TextStyle(color: Colors.red))));
+                            Text(tr('qs_remove_q'), style: const TextStyle(color: Colors.red))));
                   } else {
                     items.add(PopupMenuItem(
                         value: 'add_to_paper', child: Text(tr('qs_add_to_paper'))));
@@ -937,7 +973,7 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
                       items.add(PopupMenuItem(
                           value: 'delete',
                           child: Text(tr('qs_delete_q'),
-                              style: TextStyle(color: Colors.red))));
+                              style: const TextStyle(color: Colors.red))));
                     }
                   }
                   return items;
@@ -954,167 +990,152 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: baseColor.withValues(alpha: 0.08),
+        color: baseColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: baseColor.withValues(alpha: 0.15)),
+        border: Border.all(color: baseColor.withValues(alpha: 0.2)),
       ),
       child: Text(
         text,
         style: TextStyle(
           color: baseColor,
-          fontSize: 10,
+          fontSize: 10.5,
           fontWeight: FontWeight.bold,
         ),
       ),
     );
   }
 
-  Widget _buildNavigationItem(ColorScheme cs, int index) {
-    return InkWell(
-      onTap: () {
-        if (!_showAnswers) {
-          setState(() {
-            _expandedIndices.add(index);
-          });
-        }
-        setState(() {
-          _isFloatingNavExpanded = false;
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final targetCtx = _itemKeys[index].currentContext;
-          if (targetCtx != null) {
-            Scrollable.ensureVisible(
-              targetCtx,
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOut,
-            );
-          }
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.secondaryContainer.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
-        ),
-        child: Center(
-          child: Text(
-            '${index + 1}',
-            style: TextStyle(
-              color: cs.onSecondaryContainer,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-        ),
+  void _showQuestionJumpSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-    );
-  }
-
-  Widget _buildFloatingNavigator(ColorScheme cs) {
-    final double maxExpandedHeight =
-        (_questions.length * 48.0 + 56.0).clamp(100.0, 320.0);
-    final double targetHeight =
-        _isFloatingNavExpanded ? maxExpandedHeight : 56.0;
-    final double bottomPadding = MediaQuery.of(context).padding.bottom;
-
-    return Positioned(
-      bottom: 16 + bottomPadding,
-      right: 16,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        width: 56.0,
-        height: targetHeight,
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _isFloatingNavExpanded
-                  ? null
-                  : () {
-                      setState(() {
-                        _isFloatingNavExpanded = true;
-                      });
-                    },
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // 收合狀態：題單圖示
-                  AnimatedOpacity(
-                    opacity: _isFloatingNavExpanded ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: _isFloatingNavExpanded
-                        ? const SizedBox.shrink()
-                        : Icon(
-                            Icons.format_list_numbered_rounded,
-                            color: cs.primary,
-                            size: 24,
-                          ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  // 展開狀態：滑動題號面板 (直式)
-                  AnimatedOpacity(
-                    opacity: _isFloatingNavExpanded ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: !_isFloatingNavExpanded
-                        ? const SizedBox.shrink()
-                        : Column(
-                            children: [
-                              const SizedBox(height: 8),
-                              Expanded(
-                                child: ListView.builder(
-                                  controller: _horizontalScrollController,
-                                  scrollDirection: Axis.vertical,
-                                  itemCount: _questions.length,
-                                  itemBuilder: (context, index) {
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
-                                      child: SizedBox(
-                                        width: 40,
-                                        height: 40,
-                                        child: _buildNavigationItem(cs, index),
-                                      ),
-                                    );
-                                  },
-                                ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '題目快速跳轉',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      '共 ${_questions.length} 題',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.45,
+                  ),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 6,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.0,
+                    ),
+                    itemCount: _questions.length,
+                    itemBuilder: (context, idx) {
+                      final isFav = _questions[idx]['isFavorite'] == true;
+                      return InkWell(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          if (!_showAnswers) {
+                            setState(() {
+                              _expandedIndices.add(idx);
+                            });
+                          }
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            final targetCtx = _itemKeys[idx].currentContext;
+                            if (targetCtx != null) {
+                              Scrollable.ensureVisible(
+                                targetCtx,
+                                duration: const Duration(milliseconds: 350),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isFav
+                                  ? Colors.amber.shade600
+                                  : const Color(0xFFCBD5E1),
+                              width: isFav ? 1.5 : 1.0,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
                               ),
-                              const Divider(height: 1, indent: 8, endIndent: 8),
-                              IconButton(
-                                icon: const Icon(
-                                    Icons.keyboard_arrow_down_rounded),
-                                onPressed: () {
-                                  setState(() {
-                                    _isFloatingNavExpanded = false;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 4),
                             ],
                           ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Text(
+                                '${idx + 1}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: isFav ? Colors.amber.shade900 : const Color(0xFF1E293B),
+                                ),
+                              ),
+                              if (isFav)
+                                const Positioned(
+                                  top: 3,
+                                  right: 3,
+                                  child: Icon(Icons.star_rounded,
+                                      size: 11, color: Colors.amber),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1123,82 +1144,110 @@ class _QuestionSetDetailPageState extends State<QuestionSetDetailPage> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: Text(widget.title),
         backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          widget.title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+        ),
+        elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.home_rounded, size: 26),
-            tooltip: tr('qs_back_to_bank'),
-            onPressed: () {
-              MainScreen.tabSwitchNotifier.value = 1;
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 3),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: IconButton(
+              icon: Icon(
+                _showAnswers
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              tooltip: _showAnswers ? tr('qs_hide_ans') : tr('qs_show_ans'),
+              onPressed: () {
+                setState(() {
+                  _showAnswers = !_showAnswers;
+                  _expandedIndices.clear();
+                });
+              },
+            ),
           ),
-          const SizedBox(width: 4),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 3),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.format_list_numbered_rounded, color: Colors.white, size: 20),
+              tooltip: '題號導覽',
+              onPressed: () => _showQuestionJumpSheet(context),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 3),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.home_rounded, size: 20, color: Colors.white),
+              tooltip: tr('qs_back_to_bank'),
+              onPressed: () {
+                MainScreen.tabSwitchNotifier.value = 1;
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: GestureDetector(
-        onTap: () {
-          if (_isFloatingNavExpanded) {
-            setState(() {
-              _isFloatingNavExpanded = false;
-            });
-          }
-        },
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _questions.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.folder_open,
-                            size: 64, color: cs.primary.withValues(alpha: 0.5)),
-                        const SizedBox(height: 16),
-                        Text(tr('qs_folder_empty'),
-                            style: TextStyle(
-                                color: cs.onSurfaceVariant, fontSize: 16)),
-                      ],
-                    ),
-                  )
-                : Stack(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _questions.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Column(
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              controller: _scrollController,
-                              padding: EdgeInsets.fromLTRB(16, 16, 16,
-                                  100 + MediaQuery.of(context).padding.bottom),
-                              child: Column(
-                                children: [
-                                  _buildHeroHeader(cs),
-                                  _buildActionBar(cs),
-                                  ...List.generate(_questions.length, (qIdx) {
-                                    final question = _questions[qIdx];
-                                    final isExpanded = _showAnswers ||
-                                        _expandedIndices.contains(qIdx);
-                                    return Container(
-                                      key: _itemKeys[qIdx],
-                                      child: isExpanded
-                                          ? _buildQuestionItem(
-                                              context, question, qIdx, cs)
-                                          : _buildCompactQuestionItem(
-                                              context, question, qIdx, cs),
-                                    );
-                                  }),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      _buildFloatingNavigator(cs),
+                      Icon(Icons.folder_open,
+                          size: 64, color: cs.primary.withValues(alpha: 0.5)),
+                      const SizedBox(height: 16),
+                      Text(tr('qs_folder_empty'),
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 16)),
                     ],
                   ),
-      ),
+                )
+              : SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: EdgeInsets.fromLTRB(16, 16, 16,
+                      80 + MediaQuery.of(context).padding.bottom),
+                  child: Column(
+                    children: [
+                      _buildInfoBar(cs),
+                      _buildActionBar(cs),
+                      ...List.generate(_questions.length, (qIdx) {
+                        final question = _questions[qIdx];
+                        final isExpanded = _showAnswers ||
+                            _expandedIndices.contains(qIdx);
+                        return Container(
+                          key: _itemKeys[qIdx],
+                          child: isExpanded
+                              ? _buildQuestionItem(
+                                  context, question, qIdx, cs)
+                              : _buildCompactQuestionItem(
+                                  context, question, qIdx, cs),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
       floatingActionButton: widget.paperId == null
           ? FloatingActionButton(
               heroTag: 'add_question_fab',

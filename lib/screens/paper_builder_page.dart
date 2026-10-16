@@ -6,7 +6,6 @@ import '../utils/question_utils.dart';
 import 'question_edit_page.dart';
 import 'ai_upload_paper_page.dart';
 import 'question_set_detail_page.dart';
-import 'question_discussion_page.dart';
 import '../services/app_locale_service.dart';
 
 class PaperBuilderPage extends StatefulWidget {
@@ -284,18 +283,6 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
         SnackBar(duration: const Duration(milliseconds: 1500), behavior: SnackBarBehavior.floating, content: Text(tr('pb_save_failed', [e.toString()]))),
       );
     }
-  }
-
-  void _openDiscussion(Map<String, dynamic> question) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QuestionDiscussionPage(
-          questionData: question,
-          currentUser: widget.currentUser,
-        ),
-      ),
-    );
   }
 
   @override
@@ -664,30 +651,6 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                                       ),
                                     ),
                                     const Spacer(),
-
-                                    // 討論串按鈕
-                                    InkWell(
-                                      borderRadius: BorderRadius.circular(8),
-                                      onTap: () => _openDiscussion(q),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF1F5F9),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.forum_outlined, size: 14, color: Color(0xFF4F46E5)),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              tr('pb_discussion'),
-                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
