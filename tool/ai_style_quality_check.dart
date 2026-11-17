@@ -155,13 +155,15 @@ String cleanRawMarkdown(String raw) {
 }
 
 Future<void> main(List<String> args) async {
-  // 可選參數: --model xxx --max-tokens N --style 風格名稱 --transcript meeting|real
+  // 可選參數: --model xxx --provider groq|openrouter --max-tokens N --style 風格名稱 --transcript meeting|real
   var model = 'openai/gpt-oss-20b';
+  var provider = 'groq';
   int? maxTokens;
   var onlyStyle = '';
   var transcript = _transcriptMeeting;
   for (var i = 0; i < args.length; i++) {
     if (args[i] == '--model' && i + 1 < args.length) model = args[++i];
+    if (args[i] == '--provider' && i + 1 < args.length) provider = args[++i];
     if (args[i] == '--max-tokens' && i + 1 < args.length) {
       maxTokens = int.tryParse(args[++i]);
     }
@@ -195,13 +197,13 @@ Future<void> main(List<String> args) async {
       req.headers.set('Content-Type', 'application/json; charset=utf-8');
       req.headers.set('x-app-secret', secret);
       final payloadMap = <String, dynamic>{
-        'provider': 'groq',
+        'provider': provider,
         'model': model,
         'prompt': _buildPrompt(entry.value, transcript),
       };
       if (maxTokens != null) payloadMap['max_tokens'] = maxTokens;
       final payload = jsonEncode(payloadMap);
-      stdout.writeln('（模型: $model${maxTokens != null ? ', max_tokens: $maxTokens' : ''}）');
+      stdout.writeln('（模型: $provider / $model${maxTokens != null ? ', max_tokens: $maxTokens' : ''}）');
       req.add(utf8.encode(payload));
       final res = await req.close().timeout(const Duration(seconds: 60));
       final body = await res.transform(utf8.decoder).join();

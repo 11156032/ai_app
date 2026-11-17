@@ -394,7 +394,8 @@ class VoiceNoteService {
     final prompt = _buildPrompt(transcript, style, detailLevel);
 
     // ============================================================
-    // 優先使用 Cloudflare 雲端中繼站 (Gemini 優先 -> Groq -> OpenRouter)
+    // 優先使用 Cloudflare 雲端中繼站 (Gemini 優先 -> OpenRouter -> Groq)
+    // Groq 免費層限流嚴格 (OTPM 1000)，降為後備引擎避免整理中斷
     // ============================================================
     // 順位 1：Cloudflare Gemini 旗艦引擎 (中繼站優先)
     debugPrint('VoiceNoteService: 優先啟動 Cloudflare 雲端中繼站 (Gemini 引擎)...');
@@ -404,7 +405,18 @@ class VoiceNoteService {
       timeoutSeconds: 15,
     );
 
-    // 順位 2-A：Cloudflare Groq 繁中加強引擎 (qwen3.8-27b，無思考 token 開銷，JSON 完整度最高)
+    // 順位 2：Cloudflare OpenRouter 免費引擎 (無嚴格分鐘限流，穩定)
+    if (responseText == null || responseText.trim().isEmpty) {
+      debugPrint('VoiceNoteService: 切換 Cloudflare OpenRouter 引擎中繼...');
+      responseText = await _tryCloudflareProxy(
+        provider: 'openrouter',
+        model: 'baidu/ernie-5.5-flash-preview:free',
+        prompt: prompt,
+        timeoutSeconds: 10,
+      );
+    }
+
+    // 順位 3-A：Cloudflare Groq 繁中加強引擎 (qwen3.8-27b，無思考 token 開銷，JSON 完整度最高)
     if (responseText == null || responseText.trim().isEmpty) {
       debugPrint(
           'VoiceNoteService: 切換 Cloudflare Groq 繁中引擎 (qwen/qwen3.8-27b)...');
@@ -416,7 +428,7 @@ class VoiceNoteService {
       );
     }
 
-    // 順位 2-B：Cloudflare Groq 快速引擎 (openai/gpt-oss-20b)
+    // 順位 3-B：Cloudflare Groq 快速引擎 (openai/gpt-oss-20b)
     if (responseText == null || responseText.trim().isEmpty) {
       debugPrint(
           'VoiceNoteService: 切換 Cloudflare Groq 極速引擎 (openai/gpt-oss-20b)...');
@@ -428,7 +440,7 @@ class VoiceNoteService {
       );
     }
 
-    // 順位 2-B：Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)
+    // 順位 3-C：Cloudflare Groq 深度引擎 (openai/gpt-oss-120b)
     if (responseText == null || responseText.trim().isEmpty) {
       debugPrint(
           'VoiceNoteService: 切換 Cloudflare Groq 深度模型 (openai/gpt-oss-120b)...');
@@ -437,17 +449,6 @@ class VoiceNoteService {
         model: 'openai/gpt-oss-120b',
         prompt: prompt,
         timeoutSeconds: 25,
-      );
-    }
-
-    // 順位 3：Cloudflare OpenRouter 引擎
-    if (responseText == null || responseText.trim().isEmpty) {
-      debugPrint('VoiceNoteService: 切換 Cloudflare OpenRouter 引擎中繼...');
-      responseText = await _tryCloudflareProxy(
-        provider: 'openrouter',
-        model: 'baidu/ernie-5.5-flash-preview:free',
-        prompt: prompt,
-        timeoutSeconds: 10,
       );
     }
 
