@@ -35,38 +35,27 @@ const _styleInstructions = <String, String>{
 ''',
   '極速速讀摘要': '''
 【整理風格：⚡ 極速速讀摘要】
-以極致降噪、快速決策為核心，請在 content 中輸出以下結構：
+以極致降噪、快速決策為核心，請在 content 中輸出以下結構（全部使用條列，嚴禁使用表格語法）：
 # ⚡ [精華速讀標題]
-## 🎯 30秒核心金句（3 條具體數據／關鍵事實）
+## 🎯 30秒核心金句
+3~5 條「重新提煉」的關鍵事實，每條一句話，嚴禁照抄逐字稿原文、嚴禁殘留贅字或時間戳：
 1. [具體事實／數據 1]
 2. [具體事實／數據 2]
 3. [具體事實／數據 3]
-## 📊 核心論點與觀點對比表
-強制使用 Markdown 表格進行梳理：
-| 分析維度 | 核心觀點／現況 | 考量點／潛在挑戰 |
-| :--- | :--- | :--- |
-| [維度 1] | [內容描述] | [考量點] |
-| [維度 2] | [內容描述] | [考量點] |
+## 📊 重點聚焦
+- **[主題 1]**：[核心內容一句話] → [後續動向或注意事項]
+- **[主題 2]**：[核心內容一句話] → [後續動向或注意事項]
+- **[主題 3]**：[核心內容一句話] → [後續動向或注意事項]
 ''',
   '架構拆解與心智圖': '''
 【整理風格：🧠 架構拆解與心智圖】
-以層級結構化拓撲為核心，請在 content 中輸出階層大綱與 Mermaid 思維導圖語法：
+以層級結構化拓撲為核心，請在 content 中輸出純文字階層大綱（嚴禁使用 mermaid 或任何程式碼區塊）：
 # 🧠 [核心架構主題]
 ## 🌳 階層化知識大綱
 嚴格使用最多三層之標題與符號：
 - # 一級架構
   - ## 二級子模組
     - ### 三級要點解析
-## 🗺️ Mermaid 思維導圖
-```mermaid
-mindmap
-  root(([主題名稱]))
-    分支一
-      子點1
-      子點2
-    分支二
-      子點3
-```
 （同時將樹狀階層結構完整填入 JSON 的 mindmap 欄位，供 App 互動式心智圖畫布展示）
 ''',
   '靈感閃念與隨筆': '''
@@ -83,19 +72,28 @@ mindmap
 ''',
 };
 
-const _transcript =
+const _transcriptMeeting =
     '呃那個我們今天來討論一下那個期中專題的方向啦痾就是就是那個語音筆記功能'
     '我我我想說可以加入那個AI自動整理，然後那個小明你負責UI的部分下禮拜五之前給我原型'
     '然後大發你去看一下那個Whisper的API文件，我們禮拜三要demo給教授看'
     '那個預算大概就五千塊左右OK那先這樣痾對了下次開會是禮拜三下午兩點在B302教室';
 
-String _buildPrompt(String styleInstruction) {
+/// 模擬真實單人獨白逐字稿（含時間戳與說話者標籤，無明確待辦）——對應實機回報的失敗案例
+const _transcriptRealCase =
+    '[00:00] 說話者 1: 畫面上一樣是穿著這個卡洛芙的鞋子。好不好看總共有三種款式耿鬼皮卡丘還有胖丁通通都是免費給玩家兌換領取的'
+    '只要到官方的商城兌換優惠裡面輸入這三組序號就能免費兌換請大家趕快換起來那這個鞋子是有出實體版本的'
+    '有興趣的朋友可以關注一下它的購買方式。再來第二件事情就是悠遊看直播領取獎勵的活動啦就在這個禮拜五的晚上8點'
+    'Pokemon GO的Twitch直播台將會直播PVP對戰請記得到時候鎖定頻道那我們就下次見拜拜';
+
+String _buildPrompt(String styleInstruction, String transcript) {
   return '你是一位頂級的語音筆記整理與逐字稿語意校正專家，擅長把口語化、中英夾雜的逐字稿進行專業校正，'
       '並轉換為自然、清晰、有條理的專業結構化筆記。\n\n'
       '【核心原則】\n'
       '1. 說話者分離 (Diarization) 與標點符號完整校正：\n'
       '   - 說話者辨識 (Diarization)：若輸入語音逐字稿含有多位說話者或時間戳（例如 [00:15] 說話者 1: ... 或對話語境），'
-      '請在 "corrected_transcript" 與 "content" 中明確保留與區分「說話者 1」、「說話者 2」或角色名稱。\n'
+      '請在 "corrected_transcript" 中明確保留與區分「說話者 1」、「說話者 2」或角色名稱。\n'
+      '   - content 是整理後的筆記，不是逐字稿：除非是多人對話且區分發言者對理解不可或缺，'
+      '否則嚴禁在 content 段落中直接貼入時間戳（如 [00:00]）或「說話者 1:」標籤。\n'
       '   - 標點符號完整化：強制為所有語句補充輸出語言對應的正確標點符號，嚴禁輸出完全無標點符號的連續文字。\n'
       '   - 精確校正中英文專有名詞、專業術語、同音錯字（例如將「摸豆」校正為「Model」、「API」、「Flutter」等），'
       '並剔除口語贅字（如「呃、啊、那個」）。\n'
@@ -105,8 +103,13 @@ String _buildPrompt(String styleInstruction) {
       '3. 防通靈與防空標籤規範：\n'
       '   - 嚴禁通靈未在語音中提及的人名、日期或數據。若未提及負責人標註「[未指定]」，未提及期限標註「[待定]」。\n'
       '   - 若語音中完全無待辦事項，action_items 必須回傳空陣列 []，嚴禁生成「無」、「無待辦」等佔位文字。\n'
-      '4. 【長度適配】：請依據內容長度適當展開，條理清晰、重點分明。\n'
-      '5. 【微調層級：📚 詳盡 (Detailed)】：完整梳理邏輯脈絡、推導過程、論述細節與因果關係。\n\n'
+      '4. 防偷懶與防原始符號規範（最高優先）：\n'
+      '   - title 必須是概括主題的精煉標題，嚴禁直接複製逐字稿開頭，嚴禁包含時間戳（如 [00:00]）、「說話者 1」等標籤或「0000」等雜訊。\n'
+      '   - content 各段落必須是重新提煉、重新組織後的筆記文字，嚴禁整段照抄逐字稿原文；時間戳與說話者標籤只允許出現在 corrected_transcript。\n'
+      '   - 嚴禁使用「詳見上方」、「如上所述」等空泛佔位句，每個段落都必須有實質內容。\n'
+      '   - 嚴禁在 content 中使用 Markdown 表格語法（| 分欄）或 ``` 程式碼區塊（App 編輯器不會渲染，使用者只會看到原始符號）。\n'
+      '5. 【長度適配】：請依據內容長度適當展開，條理清晰、重點分明。\n'
+      '6. 【微調層級：📚 詳盡 (Detailed)】：完整梳理邏輯脈絡、推導過程、論述細節與因果關係。\n\n'
       '$styleInstruction\n\n'
       '【JSON 輸出格式規範】\n'
       '你必須只回傳一個乾淨、標準的 JSON 物件，不得包含任何 Markdown 代碼塊前後包裝，直接以 { 開頭以 } 結尾：\n\n'
@@ -123,7 +126,7 @@ String _buildPrompt(String styleInstruction) {
       '  "corrected_transcript": "校正後的逐字稿",\n'
       '  "tags": ["關鍵標籤1", "關鍵標籤2"]\n'
       '}\n\n'
-      '【原始語音轉文字稿】：\n$_transcript\n\n'
+      '【原始語音轉文字稿】：\n$transcript\n\n'
       '請使用繁體中文（台灣用語）回答。\n';
 }
 
@@ -152,17 +155,22 @@ String cleanRawMarkdown(String raw) {
 }
 
 Future<void> main(List<String> args) async {
-  // 可選參數: --model xxx --max-tokens N --style 風格名稱
+  // 可選參數: --model xxx --max-tokens N --style 風格名稱 --transcript meeting|real
   var model = 'openai/gpt-oss-20b';
   int? maxTokens;
   var onlyStyle = '';
+  var transcript = _transcriptMeeting;
   for (var i = 0; i < args.length; i++) {
     if (args[i] == '--model' && i + 1 < args.length) model = args[++i];
     if (args[i] == '--max-tokens' && i + 1 < args.length) {
       maxTokens = int.tryParse(args[++i]);
     }
     if (args[i] == '--style' && i + 1 < args.length) onlyStyle = args[++i];
+    if (args[i] == '--transcript' && i + 1 < args.length) {
+      transcript = args[++i] == 'real' ? _transcriptRealCase : _transcriptMeeting;
+    }
   }
+  stdout.writeln('（逐字稿: ${transcript == _transcriptRealCase ? '真實案例獨白' : '混亂會議'}）');
 
   final secret = File('assets/keys.env')
       .readAsLinesSync()
@@ -189,7 +197,7 @@ Future<void> main(List<String> args) async {
       final payloadMap = <String, dynamic>{
         'provider': 'groq',
         'model': model,
-        'prompt': _buildPrompt(entry.value),
+        'prompt': _buildPrompt(entry.value, transcript),
       };
       if (maxTokens != null) payloadMap['max_tokens'] = maxTokens;
       final payload = jsonEncode(payloadMap);
@@ -242,19 +250,38 @@ Future<void> main(List<String> args) async {
         // ── 品質檢查 ──
         if (title.isEmpty) issues.add('標題為空');
         if (title.length > 30) issues.add('標題過長($title)');
+        if (RegExp(r'說話者\s*\d|\[\d{2}:\d{2}\]|0000').hasMatch(title)) {
+          issues.add('標題含時間戳/說話者標籤/雜訊: $title');
+        }
         if (content.trim().isEmpty) issues.add('內容為空');
-        if (content.trim().length < _transcript.length ~/ 4) {
+        if (content.trim().length < transcript.length ~/ 4) {
           issues.add('內容過短(${content.trim().length}字)，疑似沒有實質整理');
+        }
+        // 逐字稿開頭 12 字原樣出現在內容中 → AI 照抄原文沒整理
+        final head = transcript.replaceAll(RegExp(r'^\[.*?\]\s*說話者\s*\d[:：]\s*'), '');
+        if (content.contains(head.substring(0, head.length.clamp(0, 12)))) {
+          issues.add('內容整段照抄逐字稿原文（金句未重新提煉）');
         }
         if (!content.contains('#')) issues.add('內容缺乏 Markdown 標題結構');
         if (content.contains('</think>')) issues.add('內容殘留思考標籤');
         final fillers = RegExp('[痾呃]').allMatches(content).length;
         if (fillers > 1) issues.add('內容殘留口語贅字 $fillers 處');
         if (RegExp(r'[\uFFFD]').hasMatch(content)) issues.add('內容含亂碼字元');
-        if (content.contains('```') && styleName != '架構拆解與心智圖') {
-          issues.add('非心智圖風格卻含代碼塊，App 會顯示原始碼');
+        if (content.contains('```')) {
+          issues.add('內容含程式碼塊，App 編輯器不渲染會顯示原始碼');
         }
-        if (actionItems.isEmpty && _transcript.contains('負責')) {
+        if (RegExp(r'^\s*\|', multiLine: true).hasMatch(content)) {
+          issues.add('內容含 Markdown 表格符號(|)，App 編輯器不渲染');
+        }
+        if (content.contains('詳見') || content.contains('如上所述')) {
+          issues.add('內容含空泛佔位句（詳見/如上所述）');
+        }
+        if ((RegExp(r'說話者\s*\d').hasMatch(content) ||
+                RegExp(r'\[\d{2}:\d{2}\]').hasMatch(content)) &&
+            styleName != '敏捷商務會議') {
+          issues.add('content 殘留時間戳/說話者標籤（只允許在 corrected_transcript）');
+        }
+        if (actionItems.isEmpty && transcript.contains('負責')) {
           issues.add('逐字稿明確有任務指派，但 action_items 為空');
         }
         if (tags.isEmpty) issues.add('標籤為空');

@@ -710,7 +710,8 @@ class VoiceNoteService {
 
 【核心原則】
 1. 說話者分離 (Diarization) 與標點符號完整校正：
-   - 說話者辨識 (Diarization)：若輸入語音逐字稿含有多位說話者或時間戳（例如 [00:15] 說話者 1: ... 或對話語境），請在 "corrected_transcript" 與 "content" 中明確保留與區分「說話者 1」、「說話者 2」或角色名稱。
+   - 說話者辨識 (Diarization)：若輸入語音逐字稿含有多位說話者或時間戳（例如 [00:15] 說話者 1: ... 或對話語境），請在 "corrected_transcript" 中明確保留與區分「說話者 1」、「說話者 2」或角色名稱。
+   - content 是整理後的筆記，不是逐字稿：除非是多人對話且區分發言者對理解不可或缺，否則嚴禁在 content 段落中直接貼入時間戳（如 [00:00]）或「說話者 1:」標籤，一律改以整理後的筆記文字呈現。
    - 標點符號完整化：強制為所有語句補充輸出語言對應的正確標點符號，嚴禁輸出完全無標點符號的連續文字。
    - 精確校正中英文專有名詞、專業術語、同音錯字（例如將「摸豆」校正為「Model」、「API」、「Flutter」等），並剔除口語贅字（如「呃、啊、那個」）。
 2. 術語規範（僅在輸出語言為繁體中文時適用）：
@@ -729,8 +730,13 @@ class VoiceNoteService {
 3. 防通靈與防空標籤規範：
    - 嚴禁通靈未在語音中提及的人名、日期或數據。若未提及負責人標註「[未指定]」，未提及期限標註「[待定]」（這兩個佔位詞請原樣保留不翻譯）。
    - 若語音中完全無待辦事項，action_items 必須回傳空陣列 []，嚴禁生成「無」、「無待辦」等佔位文字。
-4. $lengthHint
-5. $detailHint
+4. 防偷懶與防原始符號規範（最高優先）：
+   - title 必須是概括主題的精煉標題，嚴禁直接複製逐字稿開頭，嚴禁包含時間戳（如 [00:00]）、「說話者 1」等標籤或「0000」等雜訊。
+   - content 各段落必須是重新提煉、重新組織後的筆記文字，嚴禁整段照抄逐字稿原文；時間戳與說話者標籤只允許出現在 corrected_transcript 欄位，嚴禁出現在 title、summary、content。
+   - 嚴禁使用「詳見上方」、「如上所述」等空泛佔位句，每個段落都必須有實質內容。
+   - 嚴禁在 content 中使用 Markdown 表格語法（| 分欄）或 ``` 程式碼區塊（App 編輯器不會渲染，使用者只會看到原始符號）。
+5. $lengthHint
+6. $detailHint
 
 $styleInstruction
 
@@ -801,40 +807,29 @@ $langInstruction
       case VoiceNoteStyle.speedSummary:
         return '''
 【整理風格：⚡ 極速速讀摘要】
-以極致降噪、快速決策為核心，請在 content 中輸出以下結構：
+以極致降噪、快速決策為核心，請在 content 中輸出以下結構（全部使用條列，嚴禁使用表格語法）：
 # ⚡ [精華速讀標題]
-## 🎯 30秒核心金句（3 條具體數據／關鍵事實）
+## 🎯 30秒核心金句
+3~5 條「重新提煉」的關鍵事實，每條一句話，嚴禁照抄逐字稿原文、嚴禁殘留贅字或時間戳：
 1. [具體事實／數據 1]
 2. [具體事實／數據 2]
 3. [具體事實／數據 3]
-## 📊 核心論點與觀點對比表
-強制使用 Markdown 表格進行梳理：
-| 分析維度 | 核心觀點／現況 | 考量點／潛在挑戰 |
-| :--- | :--- | :--- |
-| [維度 1] | [內容描述] | [考量點] |
-| [維度 2] | [內容描述] | [考量點] |
+## 📊 重點聚焦
+- **[主題 1]**：[核心內容一句話] → [後續動向或注意事項]
+- **[主題 2]**：[核心內容一句話] → [後續動向或注意事項]
+- **[主題 3]**：[核心內容一句話] → [後續動向或注意事項]
 ''';
 
       case VoiceNoteStyle.structureMindmap:
         return '''
 【整理風格：🧠 架構拆解與心智圖】
-以層級結構化拓撲為核心，請在 content 中輸出階層大綱與 Mermaid 思維導圖語法：
+以層級結構化拓撲為核心，請在 content 中輸出純文字階層大綱（嚴禁使用 mermaid 或任何程式碼區塊）：
 # 🧠 [核心架構主題]
 ## 🌳 階層化知識大綱
 嚴格使用最多三層之標題與符號：
 - # 一級架構
   - ## 二級子模組
     - ### 三級要點解析
-## 🗺️ Mermaid 思維導圖
-```mermaid
-mindmap
-  root(([主題名稱]))
-    分支一
-      子點1
-      子點2
-    分支二
-      子點3
-```
 （同時將樹狀階層結構完整填入 JSON 的 mindmap 欄位，供 App 互動式心智圖畫布展示）
 ''';
 
@@ -955,7 +950,13 @@ mindmap
   }
 
   String _generateFallbackTitle(String transcript, VoiceNoteStyle style) {
-    final words = transcript.trim().split(RegExp(r'\s+'));
+    // 去除時間戳、說話者標籤等雜訊後，取逐字稿前段作為標題預覽
+    final cleaned = transcript
+        .trim()
+        .replaceAll(RegExp(r'\[\d{1,2}:\d{2}(?::\d{2})?\]'), '')
+        .replaceAll(RegExp(r'說話者\s*\d\s*[:：]'), '')
+        .replaceAll(RegExp(r'^(OK|ok|Okay)\s*[,，。]?\s*'), '');
+    final words = cleaned.split(RegExp(r'\s+'));
     final preview =
         words.take(8).join('').replaceAll(RegExp(r'[^\u4e00-\u9fff\w]'), '');
     final truncated =
@@ -1001,10 +1002,7 @@ mindmap
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
         buffer.writeln();
-        buffer.writeln(tr('vs_off_table_h'));
-        buffer.writeln(tr('vs_off_table_cols'));
-        buffer.writeln('| :--- | :--- | :--- |');
-        buffer.writeln(tr('vs_off_table_row'));
+        buffer.writeln(tr('vs_off_footer'));
         break;
       case VoiceNoteStyle.structureMindmap:
         buffer.writeln(tr('vs_off_mindmap_h', [style.emoji.toString()]));
@@ -1012,14 +1010,6 @@ mindmap
         buffer.writeln(tr('vs_off_outline'));
         buffer.writeln();
         _appendParagraphs(buffer, transcript);
-        buffer.writeln();
-        buffer.writeln(tr('vs_off_mermaid'));
-        buffer.writeln('```mermaid');
-        buffer.writeln('mindmap');
-        buffer.writeln('  root((${style.label}))');
-        buffer.writeln('    核心要點');
-        buffer.writeln('      重點細節');
-        buffer.writeln('```');
         break;
       case VoiceNoteStyle.inspirationJournal:
         buffer.writeln(tr('vs_off_journal_h', [style.emoji.toString()]));
