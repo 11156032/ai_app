@@ -41,7 +41,7 @@ jobs:
       # 動態生成 keys.env (安全性處理)
       - name: Generate keys.env file
         env:
-          KEYS_ENV_CONTENT: ${{ secrets.KEYS_ENV_CONTENT }}
+          KEYS_ENV_CONTENT: ${{ secrets.KEYS_ENV }}
         run: |
           mkdir -p assets
           echo "$KEYS_ENV_CONTENT" > assets/keys.env
