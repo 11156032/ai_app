@@ -4841,7 +4841,8 @@ extension MainScreenProfileTab on _MainScreenState {
     List<XFile>? attachments,
   }) async {
     String apiUrl = 'https://api.web3forms.com/submit';
-    String accessKey = '84030ade-dd9c-4a22-a16c-dd1a55d6c4d2';
+    // 安全性：存取金鑰一律由 keys.env 提供（WEB3FORMS_ACCESS_KEY）
+    String accessKey = '';
     try {
       if (dotenv.isInitialized) {
         if (dotenv.env['FEEDBACK_API_URL']?.isNotEmpty == true) {

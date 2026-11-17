@@ -356,7 +356,8 @@ class VoiceNoteService {
     } catch (_) {}
     const envSecret = String.fromEnvironment('APP_CLIENT_SECRET');
     if (envSecret.isNotEmpty) return envSecret;
-    return 'K/Qk9-gt2P.E9qa';
+    // 安全性：中繼站通行證不再寫死於程式碼
+    return '';
   }
 
   static String get _kGeminiApiKey {
@@ -366,11 +367,8 @@ class VoiceNoteService {
     } catch (_) {}
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
-    try {
-      return utf8.decode(base64Decode('QVEuQWI4Uk42S3hsa2Z2QlJaenFXSGpXamNlZmFtVzlEeEx6UjdZOWliX2c4aXZHRWRJNUE='));
-    } catch (_) {
-      return '';
-    }
+    // 安全性：不再內建任何真實金鑰
+    return '';
   }
 
   // ----------------------------------------------------------

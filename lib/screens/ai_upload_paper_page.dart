@@ -64,7 +64,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     } catch (_) {}
     const envSecret = String.fromEnvironment('APP_CLIENT_SECRET');
     if (envSecret.isNotEmpty) return envSecret;
-    return 'K/Qk9-gt2P.E9qa';
+    // 安全性：中繼站通行證不再寫死於程式碼
+    return '';
   }
 
   // 內建系統 Gemini API Key (支援多模態視覺直連)
@@ -75,11 +76,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     } catch (_) {}
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
-    try {
-      return utf8.decode(base64Decode('QVEuQWI4Uk42S3hsa2Z2QlJaenFXSGpXamNlZmFtVzlEeEx6UjdZOWliX2c4aXZHRWRJNUE='));
-    } catch (_) {
-      return '';
-    }
+    // 安全性：不再內建任何真實金鑰
+    return '';
   }
 
   // Loading Steps Simulation
@@ -165,13 +163,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     const envKey = String.fromEnvironment('GEMINI_PAPER_API_KEY');
     if (envKey.isNotEmpty) return envKey;
 
-    // 4. 內建考卷辨識專用 Gemini API Key
-    try {
-      return utf8.decode(base64Decode(
-          'QVEuQWI4Uk42SXg2NEUtQWdKQm51dm9DM1Vxcmh6QkUtM004TWRRR1NPYXZBcGdLMG1VOEE='));
-    } catch (_) {
-      return '';
-    }
+    // 4. 安全性：不再內建考卷辨識專用金鑰，請於 keys.env 設定 GEMINI_PAPER_API_KEY
+    return '';
   }
 
   /// 從 PDF 檔案二進位中提取文字內容（原生支援數位考卷直接解析）
