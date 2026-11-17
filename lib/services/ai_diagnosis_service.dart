@@ -541,6 +541,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
       debugPrint('代理人助理：切換 Cloudflare OpenRouter 引擎中繼...');
       final proxyText = await _tryCloudflareProxy(
         provider: 'openrouter',
+        model: 'baidu/ernie-5.5-flash-preview:free',
         prompt: fullPrompt,
         timeoutSeconds: 6,
       );
@@ -1283,6 +1284,7 @@ ${AppLocaleService.getAiLanguageInstruction()}
         debugPrint('學習建議：Groq 中繼站無回應，切換 OpenRouter 中繼站...');
         proxyText = await _tryCloudflareProxy(
           provider: 'openrouter',
+          model: 'baidu/ernie-5.5-flash-preview:free',
           prompt: prompt,
           timeoutSeconds: 6,
         );

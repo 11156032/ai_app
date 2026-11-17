@@ -142,6 +142,36 @@ class VoiceRecognitionService {
 
   bool get isListening => _shouldKeepListening || _speech.isListening;
 
+  /// 將單次定稿文字安全累積進總文字
+  /// 自動偵測與結尾重複重疊的部分並去除，避免底層引擎重送同一句造成文字重複顯示
+  void _appendFinalWords(String words) {
+    final add = words.trim();
+    if (add.isEmpty) return;
+
+    final base = _accumulatedFinalText.trim();
+    if (base.isEmpty) {
+      _accumulatedFinalText = add;
+      return;
+    }
+
+    // 1. 完全相同，或新內容已完整包含在結尾 → 同句重複送達，直接丟棄
+    if (base == add || base.endsWith(add)) return;
+
+    // 2. 部分重疊：找出總文字尾端與新內容開頭的最大重疊（≥2 字才算），只補上未重複部分
+    final maxK =
+        add.length < base.length ? add.length : base.length;
+    for (int k = maxK; k >= 2; k--) {
+      if (base.endsWith(add.substring(0, k))) {
+        final rest = add.substring(k);
+        if (rest.trim().isEmpty) return;
+        _accumulatedFinalText = joinText(_accumulatedFinalText, rest);
+        return;
+      }
+    }
+
+    _accumulatedFinalText = joinText(_accumulatedFinalText, add);
+  }
+
   /// 當前累積所有已定稿與臨時辨識字詞的即時完整文字
   String get fullRecognizedText => joinText(_accumulatedFinalText, _currentInterimWords);
 
@@ -221,14 +251,15 @@ class VoiceRecognitionService {
         'VoiceRecognitionService 狀態變更: $status (shouldKeepListening: $_shouldKeepListening)');
 
     // 若底層 Session 結束（notListening / done），但最後辨識出的文字尚未定稿，強制累積合併
+    // 注意：此處提升後，底層隨後補送的 finalResult 若為同一句，_appendFinalWords 會自動去重複
     if (_currentInterimWords.trim().isNotEmpty) {
-      _accumulatedFinalText = joinText(_accumulatedFinalText, _currentInterimWords);
+      _appendFinalWords(_currentInterimWords);
       _currentInterimWords = '';
       _lastRecognizedWords = '';
       _lastWasFinal = true;
       _onResultCallback?.call(_accumulatedFinalText, true);
     } else if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
-      _accumulatedFinalText = joinText(_accumulatedFinalText, _lastRecognizedWords);
+      _appendFinalWords(_lastRecognizedWords);
       _lastRecognizedWords = '';
       _lastWasFinal = true;
       _onResultCallback?.call(_accumulatedFinalText, true);
@@ -286,7 +317,8 @@ class VoiceRecognitionService {
 
           if (result.finalResult) {
             if (words.isNotEmpty) {
-              _accumulatedFinalText = joinText(_accumulatedFinalText, words);
+              // 透過防重複累積，避免底層重送同一句造成文字重複顯示
+              _appendFinalWords(words);
             }
             _currentInterimWords = '';
             _onResultCallback?.call(_accumulatedFinalText, true);
@@ -329,10 +361,10 @@ class VoiceRecognitionService {
     _restartTimer = null;
 
     if (_currentInterimWords.trim().isNotEmpty) {
-      _accumulatedFinalText = joinText(_accumulatedFinalText, _currentInterimWords);
+      _appendFinalWords(_currentInterimWords);
       _currentInterimWords = '';
     } else if (_lastRecognizedWords.trim().isNotEmpty && !_lastWasFinal) {
-      _accumulatedFinalText = joinText(_accumulatedFinalText, _lastRecognizedWords);
+      _appendFinalWords(_lastRecognizedWords);
       _lastRecognizedWords = '';
     }
     _lastWasFinal = true;

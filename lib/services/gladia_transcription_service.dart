@@ -81,25 +81,26 @@ class GladiaTranscriptionResult {
   /// 輸出標準說話者+時間戳格式文字 (提供給 LLM 進行結構化提煉，並自動優化單一說話者與連續說話體驗)
   String toFormattedDiarizedText() {
     if (utterances.isEmpty) {
-      return VoiceRecognitionService.ensureChinesePunctuation(fullTranscript.trim());
+      return VoiceRecognitionService.cleanFillerWords(fullTranscript.trim());
     }
 
     // 統計不同的說話者數量
     final validUtterances =
         utterances.where((u) => u.text.trim().isNotEmpty).toList();
     if (validUtterances.isEmpty) {
-      return VoiceRecognitionService.ensureChinesePunctuation(fullTranscript.trim());
+      return VoiceRecognitionService.cleanFillerWords(fullTranscript.trim());
     }
 
     final uniqueSpeakers = validUtterances.map((u) => u.speaker).toSet();
 
     // 1. 若只有一位說話者 (單人錄音)：直接輸出乾淨流暢的逐字稿，不重複添加「說話者 1」
+    //    透過 cleanFillerWords 去除口吃重複字與相鄰重複語句，避免字詞重複顯示
     if (uniqueSpeakers.length <= 1) {
       if (fullTranscript.trim().isNotEmpty) {
-        return VoiceRecognitionService.ensureChinesePunctuation(fullTranscript.trim());
+        return VoiceRecognitionService.cleanFillerWords(fullTranscript.trim());
       }
       final concatenated = validUtterances.map((u) => u.text.trim()).join(' ');
-      return VoiceRecognitionService.ensureChinesePunctuation(concatenated);
+      return VoiceRecognitionService.cleanFillerWords(concatenated);
     }
 
     // 2. 若有多位說話者 (雙人/多人對話)：合併同一說話者的連續發言，僅在說話者輪替時標註

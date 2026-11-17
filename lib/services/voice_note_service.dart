@@ -435,6 +435,7 @@ class VoiceNoteService {
       debugPrint('VoiceNoteService: 切換 Cloudflare OpenRouter 引擎中繼...');
       responseText = await _tryCloudflareProxy(
         provider: 'openrouter',
+        model: 'baidu/ernie-5.5-flash-preview:free',
         prompt: prompt,
         timeoutSeconds: 10,
       );
