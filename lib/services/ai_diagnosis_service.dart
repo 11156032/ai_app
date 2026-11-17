@@ -135,28 +135,53 @@ class AiDiagnosisService {
           )
           .timeout(Duration(seconds: timeoutSeconds));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        String? rawText;
-        if (provider == 'groq' || provider == 'openrouter') {
-          rawText = data['choices']?[0]?['message']?['content'] as String?;
-        } else {
-          rawText = data['candidates']?[0]?['content']?['parts']?[0]?['text']
-              as String?;
-        }
-        if (rawText != null) {
-          return _cleanMarkdown(rawText);
-        }
-        return null;
-      } else {
-        debugPrint(
-            'Cloudflare Proxy Error [${response.statusCode}]: ${response.body}');
-        return null;
+      // 免費引擎常有分鐘級限流 (HTTP 429)，短暫等待後重試一次可大幅提升成功率
+      if (response.statusCode == 429) {
+        debugPrint('Cloudflare Proxy 429 限流，等待 8 秒後重試一次...');
+        await Future.delayed(const Duration(seconds: 8));
+        final retry = await http
+            .post(
+              Uri.parse(_kCloudflareProxyUrl),
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                _kAppSecretHeader: _kAppClientSecret,
+              },
+              body: jsonEncode({
+                'provider': provider,
+                if (model != null) 'model': model,
+                'prompt': prompt,
+              }),
+            )
+            .timeout(Duration(seconds: timeoutSeconds));
+        return _parseCloudflareResponse(retry, provider);
       }
+
+      return _parseCloudflareResponse(response, provider);
     } catch (e) {
       debugPrint('Cloudflare Proxy Exception: $e');
       return null;
     }
+  }
+
+  /// 解析中繼站回應（供 429 重試與一般流程共用）
+  static String? _parseCloudflareResponse(http.Response response, String provider) {
+    if (response.statusCode != 200) {
+      debugPrint(
+          'Cloudflare Proxy Error [${response.statusCode}]: ${response.body}');
+      return null;
+    }
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    String? rawText;
+    if (provider == 'groq' || provider == 'openrouter') {
+      rawText = data['choices']?[0]?['message']?['content'] as String?;
+    } else {
+      rawText = data['candidates']?[0]?['content']?['parts']?[0]?['text']
+          as String?;
+    }
+    if (rawText != null) {
+      return _cleanMarkdown(rawText);
+    }
+    return null;
   }
 
   /// 自動將簡體字與大陸術語轉換為繁體中文與台灣慣用語

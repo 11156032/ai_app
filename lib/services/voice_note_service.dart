@@ -404,7 +404,19 @@ class VoiceNoteService {
       timeoutSeconds: 15,
     );
 
-    // 順位 2-A：Cloudflare Groq 快速引擎 (openai/gpt-oss-20b)
+    // 順位 2-A：Cloudflare Groq 繁中加強引擎 (qwen3.8-27b，無思考 token 開銷，JSON 完整度最高)
+    if (responseText == null || responseText.trim().isEmpty) {
+      debugPrint(
+          'VoiceNoteService: 切換 Cloudflare Groq 繁中引擎 (qwen/qwen3.8-27b)...');
+      responseText = await _tryCloudflareProxy(
+        provider: 'groq',
+        model: 'qwen/qwen3.8-27b',
+        prompt: prompt,
+        timeoutSeconds: 15,
+      );
+    }
+
+    // 順位 2-B：Cloudflare Groq 快速引擎 (openai/gpt-oss-20b)
     if (responseText == null || responseText.trim().isEmpty) {
       debugPrint(
           'VoiceNoteService: 切換 Cloudflare Groq 極速引擎 (openai/gpt-oss-20b)...');
@@ -448,94 +460,223 @@ class VoiceNoteService {
 
     // 解析 AI 回傳的 JSON（支援新欄位：summary, key_points, action_items, mindmap）
     if (responseText != null && responseText.trim().isNotEmpty) {
-      try {
-        // 清理思考標籤與 markdown 程式碼區塊
-        String cleanedResponse =
-            AiDiagnosisService.cleanThinkingTags(responseText).trim();
-        if (cleanedResponse.startsWith('```')) {
-          cleanedResponse = cleanedResponse
-              .replaceFirst(RegExp(r'^```[a-z]*\n?'), '')
-              .replaceFirst(RegExp(r'\n?```$'), '')
-              .trim();
-        }
-
-        final decoded = jsonDecode(cleanedResponse) as Map<String, dynamic>;
-
-        // ── 基礎欄位 ──
-        final rawTitle = (decoded['title'] as String? ?? '').trim();
-        final rawCategory = (decoded['category'] as String? ?? '').trim();
-        final rawContent = (decoded['content'] as String? ?? '').trim();
-        final rawTags = decoded['tags'];
-        final tags = rawTags is List
-            ? rawTags
-                .map((e) =>
-                    AiDiagnosisService.toTraditionalChinese(e.toString()))
-                .toList()
-            : <String>[];
-
-        // ── 新增欄位：summary ──
-        final rawSummary = decoded['summary'] as String?;
-        final summary = rawSummary != null
-            ? AiDiagnosisService.toTraditionalChinese(rawSummary.trim())
-            : null;
-
-        // ── 新增欄位：key_points ──
-        final rawKeyPoints = decoded['key_points'];
-        final keyPoints = rawKeyPoints is List
-            ? rawKeyPoints
-                .map((e) =>
-                    AiDiagnosisService.toTraditionalChinese(e.toString()))
-                .toList()
-            : null;
-
-        // ── 新增欄位：action_items ──
-        final rawActionItems = decoded['action_items'];
-        List<ActionItem>? actionItems;
-        if (rawActionItems is List && rawActionItems.isNotEmpty) {
-          actionItems = rawActionItems
-              .whereType<Map<String, dynamic>>()
-              .map((e) => ActionItem.fromJson(e))
-              .where((a) => a.task.isNotEmpty)
-              .toList();
-        }
-
-        // ── 新增欄位：mindmap ──
-        final mindmapJson = decoded['mindmap'] as Map<String, dynamic>?;
-
-        // ── 新增欄位：corrected_transcript (語意校正後之逐字稿) ──
-        final rawCorrected = decoded['corrected_transcript'] as String?;
-        final correctedTranscript = rawCorrected != null && rawCorrected.trim().isNotEmpty
-            ? AiDiagnosisService.toTraditionalChinese(rawCorrected.trim())
-            : null;
-
-        final title = AiDiagnosisService.toTraditionalChinese(rawTitle);
-        final cleanedContent = cleanRawMarkdown(rawContent);
-        final markdownContent =
-            AiDiagnosisService.toTraditionalChinese(cleanedContent);
-
-        return VoiceNoteResult(
-          title:
-              title.isEmpty ? _generateFallbackTitle(transcript, style) : title,
-          category: _validateCategory(rawCategory, style),
-          markdownContent: markdownContent.isEmpty
-              ? _buildFallbackContent(transcript, style)
-              : markdownContent,
-          tags: tags,
-          rawTranscript: transcript,
-          isAiGenerated: true,
-          summary: summary,
-          keyPoints: keyPoints,
-          actionItems: actionItems,
-          mindmapJson: mindmapJson,
-          correctedTranscript: correctedTranscript,
-        );
-      } catch (e) {
-        debugPrint('VoiceNoteService JSON parse error: $e\nRaw: $responseText');
-      }
+      final result = _tryParseAiResult(responseText, transcript, style);
+      if (result != null) return result;
     }
 
     // 最終降級：本地規則式整理
     return _localFallback(transcript, style);
+  }
+
+  // ----------------------------------------------------------
+  // 私有方法：AI 回應解析（含截斷 JSON 搶救機制）
+  // ----------------------------------------------------------
+
+  /// 嘗試解析 AI 回應；遇到截斷的 JSON（免費模型輸出上限常見）時，
+  /// 先透過 [_repairTruncatedJson] 搶救已完成欄位後重新解析，仍失敗才回傳 null（交由本地降級）。
+  VoiceNoteResult? _tryParseAiResult(
+    String responseText,
+    String transcript,
+    VoiceNoteStyle style,
+  ) {
+    try {
+      // 清理思考標籤與 markdown 程式碼區塊
+      String cleanedResponse =
+          AiDiagnosisService.cleanThinkingTags(responseText).trim();
+      if (cleanedResponse.startsWith('```')) {
+        cleanedResponse = cleanedResponse
+            .replaceFirst(RegExp(r'^```[a-z]*\n?'), '')
+            .replaceFirst(RegExp(r'\n?```$'), '')
+            .trim();
+      }
+
+      Map<String, dynamic> decoded;
+      try {
+        decoded = jsonDecode(cleanedResponse) as Map<String, dynamic>;
+      } on FormatException catch (e) {
+        // JSON 疑似被截斷 → 啟動搶救機制，保留已完成欄位
+        debugPrint('VoiceNoteService: JSON 疑似截斷，啟動搶救機制 ($e)');
+        final repaired = _repairTruncatedJson(cleanedResponse);
+        if (repaired == null) return null;
+        decoded = jsonDecode(repaired) as Map<String, dynamic>;
+
+        // 搶救結果必須有實質內容（標題或內文至少其一），否則視同失敗
+        final hasTitle = (decoded['title'] as String? ?? '').trim().isNotEmpty;
+        final hasContent =
+            (decoded['content'] as String? ?? '').trim().isNotEmpty;
+        if (!hasTitle && !hasContent) {
+          debugPrint('VoiceNoteService: 搶救結果無實質內容，改用本地降級');
+          return null;
+        }
+        debugPrint('VoiceNoteService: 截斷 JSON 搶救成功（部分欄位保留）');
+      }
+
+      return _buildResultFromJson(decoded, transcript, style);
+    } catch (e) {
+      debugPrint('VoiceNoteService JSON parse error: $e');
+      return null;
+    }
+  }
+
+  /// 將解析後的 JSON 組裝為 VoiceNoteResult（正常解析與搶救解析共用）
+  VoiceNoteResult _buildResultFromJson(
+    Map<String, dynamic> decoded,
+    String transcript,
+    VoiceNoteStyle style,
+  ) {
+    // ── 基礎欄位 ──
+    final rawTitle = (decoded['title'] as String? ?? '').trim();
+    final rawCategory = (decoded['category'] as String? ?? '').trim();
+    final rawContent = (decoded['content'] as String? ?? '').trim();
+    final rawTags = decoded['tags'];
+    final tags = rawTags is List
+        ? rawTags
+            .map((e) => AiDiagnosisService.toTraditionalChinese(e.toString()))
+            .toList()
+        : <String>[];
+
+    // ── 新增欄位：summary ──
+    final rawSummary = decoded['summary'] as String?;
+    final summary = rawSummary != null
+        ? AiDiagnosisService.toTraditionalChinese(rawSummary.trim())
+        : null;
+
+    // ── 新增欄位：key_points ──
+    final rawKeyPoints = decoded['key_points'];
+    final keyPoints = rawKeyPoints is List
+        ? rawKeyPoints
+            .map((e) => AiDiagnosisService.toTraditionalChinese(e.toString()))
+            .toList()
+        : null;
+
+    // ── 新增欄位：action_items ──
+    final rawActionItems = decoded['action_items'];
+    List<ActionItem>? actionItems;
+    if (rawActionItems is List && rawActionItems.isNotEmpty) {
+      actionItems = rawActionItems
+          .whereType<Map<String, dynamic>>()
+          .map((e) => ActionItem.fromJson(e))
+          .where((a) => a.task.isNotEmpty)
+          .toList();
+    }
+
+    // ── 新增欄位：mindmap ──
+    final mindmapJson = decoded['mindmap'] as Map<String, dynamic>?;
+
+    // ── 新增欄位：corrected_transcript (語意校正後之逐字稿) ──
+    final rawCorrected = decoded['corrected_transcript'] as String?;
+    final correctedTranscript =
+        rawCorrected != null && rawCorrected.trim().isNotEmpty
+            ? AiDiagnosisService.toTraditionalChinese(rawCorrected.trim())
+            : null;
+
+    final title = AiDiagnosisService.toTraditionalChinese(rawTitle);
+    final cleanedContent = cleanRawMarkdown(rawContent);
+    final markdownContent =
+        AiDiagnosisService.toTraditionalChinese(cleanedContent);
+
+    return VoiceNoteResult(
+      title: title.isEmpty ? _generateFallbackTitle(transcript, style) : title,
+      category: _validateCategory(rawCategory, style),
+      markdownContent: markdownContent.isEmpty
+          ? _buildFallbackContent(transcript, style)
+          : markdownContent,
+      tags: tags,
+      rawTranscript: transcript,
+      isAiGenerated: true,
+      summary: summary,
+      keyPoints: keyPoints,
+      actionItems: actionItems,
+      mindmapJson: mindmapJson,
+      correctedTranscript: correctedTranscript,
+    );
+  }
+
+  /// 嘗試搶救被截斷的 AI JSON 回應：
+  /// 掃描字串與括號狀態，在最後一個安全逗號（元素邊界）處截斷，
+  /// 丟棄最後未完成的元素後補齊右側括號，回傳可解析的前綴；無法搶救時回傳 null。
+  static String? _repairTruncatedJson(String raw) {
+    try {
+      var s = raw.trim();
+      if (s.isEmpty) return null;
+
+      // 結構掃描：追蹤未關閉括號、字串狀態，以及最後一個安全逗號位置
+      final stack = <String>[]; // 未關閉的 '{' 或 '['
+      var inString = false;
+      var escaped = false;
+      var lastSafeCut = -1; // 最後一個元素邊界逗號（其前所有元素皆完整）
+
+      for (var i = 0; i < s.length; i++) {
+        final c = s[i];
+        if (inString) {
+          if (escaped) {
+            escaped = false;
+          } else if (c == r'\') {
+            escaped = true;
+          } else if (c == '"') {
+            inString = false;
+          }
+          continue;
+        }
+        if (c == '"') {
+          inString = true;
+        } else if (c == '{' || c == '[') {
+          stack.add(c);
+        } else if (c == '}' || c == ']') {
+          if (stack.isNotEmpty) stack.removeLast();
+        } else if (c == ',') {
+          lastSafeCut = i;
+        }
+      }
+
+      if (!inString && stack.isEmpty) {
+        return null; // 結構其實完整，問題不在截斷，交回原解析流程處理
+      }
+
+      if (inString) {
+        // 最後一個字串值被攔腰截斷 → 在最後一個安全逗號處截斷（丟棄該未完成元素）
+        if (lastSafeCut <= 0) return null;
+        s = s.substring(0, lastSafeCut);
+      } else {
+        // 括號未補齊但元素本身完整：清理懸空的 "key": / "key" / 尾隨逗號
+        s = s.replaceFirst(RegExp(r',?\s*"[^"]*"\s*:\s*$'), '');
+        s = s.trimRight();
+        if (s.endsWith(',')) s = s.substring(0, s.length - 1);
+      }
+
+      // 重新掃描前綴，補齊右側未關閉的括號
+      final open = <String>[];
+      var str = false;
+      var esc = false;
+      for (var i = 0; i < s.length; i++) {
+        final c = s[i];
+        if (str) {
+          if (esc) {
+            esc = false;
+          } else if (c == r'\') {
+            esc = true;
+          } else if (c == '"') {
+            str = false;
+          }
+          continue;
+        }
+        if (c == '"') {
+          str = true;
+        } else if (c == '{' || c == '[') {
+          open.add(c);
+        } else if (c == '}' || c == ']') {
+          if (open.isNotEmpty) open.removeLast();
+        }
+      }
+
+      final buf = StringBuffer(s);
+      for (var i = open.length - 1; i >= 0; i--) {
+        buf.write(open[i] == '{' ? '}' : ']');
+      }
+      return buf.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   // ----------------------------------------------------------
@@ -722,21 +863,37 @@ mindmap
     required String prompt,
     int timeoutSeconds = 15,
   }) async {
+    Map<String, String> headers() => {
+          'Content-Type': 'application/json; charset=utf-8',
+          _kAppSecretHeader: _kAppClientSecret,
+        };
+    String bodyText() => jsonEncode({
+          'provider': provider,
+          if (model != null) 'model': model,
+          'prompt': prompt,
+        });
+
     try {
-      final response = await http
+      var response = await http
           .post(
             Uri.parse(_kCloudflareProxyUrl),
-            headers: {
-              'Content-Type': 'application/json; charset=utf-8',
-              _kAppSecretHeader: _kAppClientSecret,
-            },
-            body: jsonEncode({
-              'provider': provider,
-              if (model != null) 'model': model,
-              'prompt': prompt,
-            }),
+            headers: headers(),
+            body: bodyText(),
           )
           .timeout(Duration(seconds: timeoutSeconds));
+
+      // 免費引擎常有分鐘級限流 (HTTP 429)，短暫等待後重試一次可大幅提升成功率
+      if (response.statusCode == 429) {
+        debugPrint('VoiceNoteService: Cloudflare 429 限流，等待 8 秒後重試一次...');
+        await Future.delayed(const Duration(seconds: 8));
+        response = await http
+            .post(
+              Uri.parse(_kCloudflareProxyUrl),
+              headers: headers(),
+              body: bodyText(),
+            )
+            .timeout(Duration(seconds: timeoutSeconds));
+      }
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
