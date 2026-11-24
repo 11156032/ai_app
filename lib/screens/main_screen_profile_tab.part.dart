@@ -4854,6 +4854,12 @@ extension MainScreenProfileTab on _MainScreenState {
       }
     } catch (_) {}
 
+    // Web 版 keys.env 為空，改由建置參數注入（Web3Forms 金鑰設計為前端公開使用）
+    if (accessKey.isEmpty) {
+      const envKey = String.fromEnvironment('WEB3FORMS_ACCESS_KEY');
+      if (envKey.isNotEmpty) accessKey = envKey;
+    }
+
     try {
       final userId = widget.currentUser['id']?.toString() ?? 'u1';
       final userName =
