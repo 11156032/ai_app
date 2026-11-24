@@ -5129,6 +5129,7 @@ class _RemedialMaterialSheetState extends State<_RemedialMaterialSheet> {
     }
 
     return RichText(
+      textScaler: MediaQuery.textScalerOf(context),
       text: TextSpan(
         style: defaultStyle,
         children: spans,
@@ -6213,6 +6214,8 @@ class _FaqAndCustomerSupportSheetState
     }
 
     return RichText(
+      // RichText 預設不隨系統／APP 字體大小縮放，需明確帶入。
+      textScaler: MediaQuery.textScalerOf(context),
       text: TextSpan(
         style: TextStyle(
           fontSize: 14,
@@ -6312,7 +6315,7 @@ class _FaqAndCustomerSupportSheetState
                         Text(
                           AppLocaleService.tr('faq_sheet_subtitle', lang),
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color:
                                 isDark ? Colors.white54 : Colors.grey.shade600,
                           ),
@@ -6451,7 +6454,7 @@ class _FaqAndCustomerSupportSheetState
                             return ChoiceChip(
                               label: Text(catLabel,
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     fontWeight: isSel
                                         ? FontWeight.bold
                                         : FontWeight.normal,
@@ -6567,7 +6570,7 @@ class _FaqAndCustomerSupportSheetState
                                                     AppLocaleService.tr(
                                                         'faq_footer_sub', lang),
                                                     style: TextStyle(
-                                                        fontSize: 11,
+                                                        fontSize: 12,
                                                         color: isDark
                                                             ? Colors.white60
                                                             : Colors.grey
@@ -6729,7 +6732,7 @@ class _FaqAndCustomerSupportSheetState
                             Text(
                               AppLocaleService.tr('support_agent_online', lang),
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: isDark
                                     ? Colors.white70
@@ -6748,7 +6751,7 @@ class _FaqAndCustomerSupportSheetState
                               label: Text(
                                   AppLocaleService.tr(
                                       'support_transfer_btn', lang),
-                                  style: TextStyle(fontSize: 11)),
+                                  style: TextStyle(fontSize: 12)),
                               onPressed: widget.onOpenFeedback,
                             ),
                           ],
@@ -6768,7 +6771,7 @@ class _FaqAndCustomerSupportSheetState
                             return ActionChip(
                               label: Text(_quickPrompts[i],
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     color: isDark
                                         ? Colors.white.withValues(alpha: 0.85)
                                         : Colors.black87,
@@ -7760,6 +7763,9 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
                                           ),
                                           Expanded(
                                             child: RichText(
+                                              textScaler:
+                                                  MediaQuery.textScalerOf(
+                                                      context),
                                               text: TextSpan(
                                                 children: [
                                                   TextSpan(
@@ -8279,6 +8285,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: RichText(
+                        textScaler: MediaQuery.textScalerOf(context),
                         text: TextSpan(
                           children: [
                             TextSpan(

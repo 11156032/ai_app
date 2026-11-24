@@ -27,6 +27,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/push_notification_service.dart';
 import '../services/app_locale_service.dart';
 import '../services/app_theme_service.dart';
+import '../utils/assistant_text_formatter.dart';
 import '../widgets/tour_overlay.dart';
 import '../widgets/welcome_splash.dart';
 import '../widgets/mascot_companion.dart';
@@ -4029,8 +4030,10 @@ void _showLogoutDialog() {
     final boldColor = isAI
         ? (isDark ? Colors.amber.shade200 : const Color(0xFF4E342E))
         : Colors.white;
+    final textScaler = MediaQuery.textScalerOf(context);
 
-    final lines = text.split('\n');
+    final lines =
+        isAI ? AssistantTextFormatter.format(text) : text.split('\n');
     final List<Widget> lineWidgets = [];
 
     for (int i = 0; i < lines.length; i++) {
@@ -4064,33 +4067,50 @@ void _showLogoutDialog() {
 
         if (match.group(1) != null || match.group(2) != null) {
           final keyword = match.group(1) ?? match.group(2) ?? '';
-          spans.add(WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
-              decoration: BoxDecoration(
-                color: isAI
-                    ? primaryColor.withValues(alpha: isDark ? 0.25 : 0.12)
-                    : Colors.white.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isAI
-                    ? primaryColor.withValues(alpha: isDark ? 0.4 : 0.25)
-                    : Colors.white38,
-                  width: 0.8,
+          if (keyword.isNotEmpty) {
+            if (AssistantTextFormatter.shouldUseChip(keyword)) {
+              spans.add(WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Container(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: isAI
+                        ? primaryColor.withValues(alpha: isDark ? 0.25 : 0.12)
+                        : Colors.white.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isAI
+                          ? primaryColor.withValues(alpha: isDark ? 0.4 : 0.25)
+                          : Colors.white38,
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    keyword,
+                    style: TextStyle(
+                      fontSize: 15.0,
+                      fontWeight: FontWeight.bold,
+                      color: isAI ? boldColor : Colors.white,
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                keyword,
+              ));
+            } else {
+              // 長關鍵詞改用粗體文字，避免 WidgetSpan 在窄螢幕或放大字體時溢出。
+              spans.add(TextSpan(
+                text: keyword,
                 style: TextStyle(
-                  fontSize: 15.0,
+                  fontSize: 15.5,
                   fontWeight: FontWeight.bold,
-                  color: isAI ? boldColor : Colors.white,
+                  color: boldColor,
+                  height: 1.55,
                 ),
-              ),
-            ),
-          ));
+              ));
+            }
+          }
         } else if (match.group(3) != null) {
           spans.add(TextSpan(
             text: ' ➜ ',
@@ -4122,6 +4142,7 @@ void _showLogoutDialog() {
           left: isBullet ? 2 : 0,
         ),
         child: RichText(
+          textScaler: textScaler,
           text: TextSpan(children: spans),
         ),
       ));
@@ -4252,12 +4273,16 @@ void _showLogoutDialog() {
         builder: (context) {
           return StatefulBuilder(
               builder: (BuildContext context, StateSetter setModalState) {
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.9,
-              decoration: const BoxDecoration(
-                  color: Color(0xFFF5F0EE),
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(25))),
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(_fontSizeFactor),
+              ),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.9,
+                decoration: const BoxDecoration(
+                    color: Color(0xFFF5F0EE),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(25))),
               child: SafeArea(
                 child: Column(
                   children: [
@@ -7029,9 +7054,14 @@ void _showLogoutDialog() {
                     Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 4),
-                      child: Text(tr('agent_disclaimer'),
-                          style: TextStyle(
-                              color: Colors.grey.shade400, fontSize: 11)),
+                      child: Text(
+                        tr('agent_disclaimer'),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
                     ),
                     if (isVoiceListening)
                       Container(
@@ -7292,7 +7322,8 @@ void _showLogoutDialog() {
                   ],
                 ),
               ),
-            );
+            ),
+          );
           });
         }).whenComplete(() {
       if (isVoiceListening) {
