@@ -7086,9 +7086,40 @@ class _SystemAnnouncementsSheetState extends State<_SystemAnnouncementsSheet> {
   final List<Map<String, dynamic>> _announcements = [
     {
       'tag': '最新發布',
+      'version': 'v1.8.8',
+      'date': '2026-11-24',
+      'isPinned': true,
+      'icon': Icons.auto_awesome_rounded,
+      'title': tr('ann_t0'),
+      'summary': tr('ann_s0'),
+      'highlights': [
+        {
+          'icon': Icons.psychology_alt_rounded,
+          'title': tr('ann_h0a'),
+          'desc': tr('ann_d0a'),
+        },
+        {
+          'icon': Icons.smart_toy_rounded,
+          'title': tr('ann_h0b'),
+          'desc': tr('ann_d0b'),
+        },
+        {
+          'icon': Icons.qr_code_scanner_rounded,
+          'title': tr('ann_h0c'),
+          'desc': tr('ann_d0c'),
+        },
+        {
+          'icon': Icons.security_rounded,
+          'title': tr('ann_h0d'),
+          'desc': tr('ann_d0d'),
+        },
+      ],
+    },
+    {
+      'tag': '功能更新',
       'version': 'v1.8.6',
       'date': '2026-09-21',
-      'isPinned': true,
+      'isPinned': false,
       'icon': Icons.auto_awesome_rounded,
       'title': tr('ann_t1'),
       'summary': tr('ann_s1'),
@@ -7939,7 +7970,7 @@ class _TermsAndPrivacySheetState extends State<_TermsAndPrivacySheet> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'v1.8.6',
+                                  'v1.8.8',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
