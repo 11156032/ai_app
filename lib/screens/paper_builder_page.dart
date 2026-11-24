@@ -78,6 +78,16 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
 
       _allBankQuestions = formatted;
 
+      final existingSubs = formatted
+          .map((q) => q['subject']?.toString().trim() ?? '')
+          .where((s) => s.isNotEmpty && s != '一般' && s != '其他')
+          .toSet();
+      for (final s in existingSubs) {
+        if (!_subjects.contains(s)) {
+          _subjects.insert(_subjects.length - 1, s);
+        }
+      }
+
       if (widget.paperId != null) {
         // 1. Edit existing paper
         final p = await DatabaseHelper.instance.getPaperById(widget.paperId!);
@@ -620,34 +630,49 @@ class _PaperBuilderPageState extends State<PaperBuilderPage> {
                                     ),
                                     const SizedBox(width: 10),
 
-                                    // Subject badge
+                                    // 一體成型精緻微膠囊（整合科目與難度指標）
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
+                                        color: const Color(0xFFF8FAFC),
                                         borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
                                       ),
-                                      child: Text(
-                                        sub,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF4F46E5),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-
-                                    // Difficulty badge
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: diffColor.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        tr('pb_diff_n', [diff.toString()]),
-                                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: diffColor),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            sub,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF334155),
+                                            ),
+                                          ),
+                                          Container(
+                                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                                            width: 1,
+                                            height: 10,
+                                            color: const Color(0xFFCBD5E1),
+                                          ),
+                                          Container(
+                                            width: 5.5,
+                                            height: 5.5,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: diffColor,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            tr('pb_diff_n', [diff.toString()]),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: diffColor,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                     const Spacer(),

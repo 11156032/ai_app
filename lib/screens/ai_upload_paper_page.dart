@@ -18,12 +18,14 @@ class AiUploadPaperPage extends StatefulWidget {
   final Map<String, dynamic> currentUser;
   final List<String> allSubjects;
   final Map<String, List<String>> subjectChapters;
+  final int initialTab;
 
   const AiUploadPaperPage({
     super.key,
     required this.currentUser,
     required this.allSubjects,
     required this.subjectChapters,
+    this.initialTab = 0,
   });
 
   @override
@@ -32,7 +34,7 @@ class AiUploadPaperPage extends StatefulWidget {
 
 class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   UploadState _state = UploadState.initial;
-  int _activeTab = 0; // 0: 上傳考卷解析, 1: 智慧主題命題出卷
+  late int _activeTab; // 0: 上傳考卷解析, 1: 智慧主題命題出卷
 
   // File Upload State
   String? _selectedFilePath;
@@ -41,8 +43,9 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   String? _mimeType;
 
   // Topic Generation State
-  late String _selectedTopicSubject;
+  final TextEditingController _topicSubjectCtrl = TextEditingController();
   final TextEditingController _topicChapterCtrl = TextEditingController();
+  final TextEditingController _topicCountCtrl = TextEditingController(text: '5');
   int _topicQuestionCount = 5;
   String _topicDifficulty = '中等';
 
@@ -92,8 +95,20 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   @override
   void initState() {
     super.initState();
-    _selectedTopicSubject =
+    _activeTab = widget.initialTab;
+    _topicSubjectCtrl.text =
         widget.allSubjects.isNotEmpty ? widget.allSubjects.first : '數學';
+  }
+
+  @override
+  void dispose() {
+    _topicSubjectCtrl.dispose();
+    _topicChapterCtrl.dispose();
+    _topicCountCtrl.dispose();
+    _paperNameCtrl.dispose();
+    _subjectCtrl.dispose();
+    _chapterCtrl.dispose();
+    super.dispose();
   }
 
   // For displaying file preview
@@ -473,8 +488,12 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     final chapter = _topicChapterCtrl.text.trim().isNotEmpty
         ? _topicChapterCtrl.text.trim()
         : tr('up_core_quiz');
-    final subject = _selectedTopicSubject;
-    final count = _topicQuestionCount;
+    final subject = _topicSubjectCtrl.text.trim().isNotEmpty
+        ? _topicSubjectCtrl.text.trim()
+        : '綜合學科';
+    final parsedCount =
+        int.tryParse(_topicCountCtrl.text.trim()) ?? _topicQuestionCount;
+    final count = parsedCount.clamp(1, 20);
     final diff = _topicDifficulty;
 
     setState(() {
@@ -1039,7 +1058,7 @@ $pdfExtractedText
         (parsedData['paper_name'] ?? 'AI 智慧生成題本').toString();
     final String paperName = _cleanAiSymbols(rawPaperName);
     final String subject = _cleanAiSymbols(
-        (parsedData['subject'] ?? _selectedTopicSubject).toString());
+        (parsedData['subject'] ?? _topicSubjectCtrl.text.trim()).toString());
     final String chapter =
         _cleanAiSymbols((parsedData['chapter'] ?? 'AI 核心單元').toString());
     final List<dynamic> qList = parsedData['questions'] ?? [];
@@ -1083,7 +1102,8 @@ $pdfExtractedText
 
     setState(() {
       _paperNameCtrl.text = paperName;
-      _subjectCtrl.text = subject.isNotEmpty ? subject : _selectedTopicSubject;
+      _subjectCtrl.text =
+          subject.isNotEmpty ? subject : _topicSubjectCtrl.text.trim();
       _chapterCtrl.text = chapter.isNotEmpty ? chapter : '考卷解析單元';
       _questions = questions;
       _state = UploadState.preview;
@@ -1521,38 +1541,103 @@ $pdfExtractedText
                           fontWeight: FontWeight.bold,
                           color: cs.onSurface)),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: cs.outline.withValues(alpha: 0.2)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        isExpanded: true,
-                        value:
-                            widget.allSubjects.contains(_selectedTopicSubject)
-                                ? _selectedTopicSubject
-                                : (widget.allSubjects.isNotEmpty
-                                    ? widget.allSubjects.first
-                                    : '數學'),
-                        items: (widget.allSubjects.isNotEmpty
-                                ? widget.allSubjects
-                                : ['數學', '英文', '國文', '理化', '歷史', '地理', '資訊管理'])
-                            .map((sub) => DropdownMenuItem(
-                                  value: sub,
-                                  child: Text(trv(sub),
-                                      style: const TextStyle(fontSize: 14)),
-                                ))
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _selectedTopicSubject = val);
-                          }
-                        },
+                  TextField(
+                    controller: _topicSubjectCtrl,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: '可自由輸入或點選下方學科（例：數學、生物、日文、經濟學...）',
+                      hintStyle: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                      filled: true,
+                      fillColor: Theme.of(context).scaffoldBackgroundColor,
+                      prefixIcon: Icon(Icons.school_outlined, size: 20, color: cs.primary),
+                      suffixIcon: _topicSubjectCtrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.cancel_rounded, size: 16),
+                              onPressed: () {
+                                setState(() {
+                                  _topicSubjectCtrl.clear();
+                                });
+                              },
+                            )
+                          : null,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: cs.outline.withValues(alpha: 0.2)),
                       ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ...{
+                          ...widget.allSubjects,
+                          '數學',
+                          '英文',
+                          '國文',
+                          '理化',
+                          '生物',
+                          '歷史',
+                          '地理',
+                          '公民',
+                          '地球科學',
+                          '資訊管理',
+                        }.map((sub) {
+                          final isSelected =
+                              _topicSubjectCtrl.text.trim() == sub;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _topicSubjectCtrl.text = sub;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? cs.primary
+                                      : cs.primary.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? cs.primary
+                                        : cs.primary.withValues(alpha: 0.2),
+                                  ),
+                                ),
+                                child: Text(
+                                  trv(sub),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : cs.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1590,23 +1675,104 @@ $pdfExtractedText
                   const SizedBox(height: 16),
 
                   // 3. 命題數量
-                  Text(
-                    tr('up_s3'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: cs.onSurface,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        tr('up_s3'),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      Text(
+                        '可自由填寫 1 ~ 20 題',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _buildCountOption(cs, 3, tr('up_3q')),
-                      const SizedBox(width: 8),
-                      _buildCountOption(cs, 5, tr('up_5q')),
-                      const SizedBox(width: 8),
-                      _buildCountOption(cs, 10, tr('up_10q')),
-                    ],
+                  TextField(
+                    controller: _topicCountCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      hintText: '輸入自訂題數 (例如 8 或 12)',
+                      hintStyle: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                      prefixIcon: const Icon(Icons.tag_rounded, size: 20),
+                      suffixText: '題',
+                      suffixStyle: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.bold),
+                      filled: true,
+                      fillColor: Theme.of(context).scaffoldBackgroundColor,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                            color: cs.outline.withValues(alpha: 0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                            color: cs.outline.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                    onChanged: (val) {
+                      final n = int.tryParse(val.trim());
+                      if (n != null) {
+                        setState(() => _topicQuestionCount = n);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [3, 5, 10, 15, 20].map((c) {
+                        final isSel = _topicQuestionCount == c;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text('$c 題'),
+                            selected: isSel,
+                            onSelected: (_) {
+                              setState(() {
+                                _topicQuestionCount = c;
+                                _topicCountCtrl.text = c.toString();
+                              });
+                            },
+                            labelStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight:
+                                  isSel ? FontWeight.bold : FontWeight.w500,
+                              color: isSel ? cs.onPrimary : cs.onSurface,
+                            ),
+                            selectedColor: cs.primary,
+                            backgroundColor: cs.surfaceContainerHighest
+                                .withValues(alpha: 0.35),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                color: isSel
+                                    ? cs.primary
+                                    : cs.outline.withValues(alpha: 0.15),
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 0),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -1654,54 +1820,6 @@ $pdfExtractedText
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildCountOption(ColorScheme cs, int count, String title) {
-    final isSel = _topicQuestionCount == count;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _topicQuestionCount = count),
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSel
-                ? cs.primary
-                : (isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : cs.surfaceContainerHighest.withValues(alpha: 0.4)),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSel ? cs.primary : cs.outline.withValues(alpha: 0.18),
-              width: isSel ? 1.8 : 1.0,
-            ),
-            boxShadow: isSel
-                ? [
-                    BoxShadow(
-                      color: cs.primary.withValues(alpha: 0.28),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    )
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
-                color: isSel ? cs.onPrimary : cs.onSurface,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

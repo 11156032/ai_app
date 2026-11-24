@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 import '../services/ai_diagnosis_service.dart';
+import '../services/add_to_paper_service.dart';
+import '../services/notebook_helper.dart';
 import '../utils/question_utils.dart';
 import 'question_discussion_page.dart';
+import 'question_practice_page.dart';
 import '../services/app_locale_service.dart';
 
 class ReviewPage extends StatefulWidget {
@@ -14,6 +17,9 @@ class ReviewPage extends StatefulWidget {
   final Map<String, dynamic>? currentUser;
   final bool saveResult;
   final bool isPaper;
+  final String title;
+  final String? subject;
+  final int? paperId;
 
   const ReviewPage({
     super.key,
@@ -22,6 +28,9 @@ class ReviewPage extends StatefulWidget {
     this.currentUser,
     this.saveResult = false,
     this.isPaper = false,
+    this.title = '題目練習',
+    this.subject,
+    this.paperId,
   });
 
   @override
@@ -30,7 +39,7 @@ class ReviewPage extends StatefulWidget {
 
 class _ReviewPageState extends State<ReviewPage>
     with SingleTickerProviderStateMixin {
-  final Set<int> _toSaveWrong = {};
+  final Set<int> _collapsedIndices = {};
   final Map<int, TextEditingController> _noteCtrls = {};
   bool _saving = false;
   // bool _isAnalyzing = false;
@@ -50,13 +59,6 @@ class _ReviewPageState extends State<ReviewPage>
     for (int i = 0; i < widget.questions.length; i++) {
       _noteCtrls[i] = TextEditingController();
       final q = widget.questions[i];
-
-      // 答錯或未答題目預設加入錯題本勾選集合
-      final correct = _correctIndex(q);
-      final chosen = widget.selectedAnswers[i];
-      if (chosen == null || chosen != correct) {
-        _toSaveWrong.add(i);
-      }
 
       final isFav = q['isFavorite'] == true ||
           q['bookmarked'] == 1 ||
@@ -86,7 +88,8 @@ class _ReviewPageState extends State<ReviewPage>
 
   int _correctIndex(Map<String, dynamic> q) => QuestionUtils.getCorrectAnswerIndex(q);
 
-  Future<void> _saveSelectedWrongAndNotes() async {
+  Future<void> _saveSelectedWrongAndNotes({bool showFeedback = true}) async {
+    if (_saving) return;
     setState(() => _saving = true);
     final uid = widget.currentUser?['id'] ?? widget.currentUser?['user_id'];
     if (uid != null) {
@@ -95,27 +98,22 @@ class _ReviewPageState extends State<ReviewPage>
         final qid = q['id'] is int
             ? q['id'] as int
             : int.tryParse(q['id'].toString()) ?? 0;
+
+        // 自動將答錯或未作答的題目存入錯題本
         if (qid > 0) {
-          if (_toSaveWrong.contains(i)) {
+          final correct = _correctIndex(q);
+          final chosen = widget.selectedAnswers[i];
+          if (chosen == null || chosen != correct) {
             try {
               await DatabaseHelper.instance.addWrongQuestion(
                   uid.toString(), qid,
                   note: _noteCtrls[i]?.text ?? '');
             } catch (_) {}
-          } else {
-            // 如果使用者手動取消勾選，則將其自資料庫的錯題本移除
-            try {
-              final db = await DatabaseHelper.instance.database;
-              await db.delete(
-                'wrong_questions',
-                where: 'user_id = ? AND question_id = ?',
-                whereArgs: [uid.toString(), qid],
-              );
-            } catch (_) {}
           }
         }
+
         final noteText = _noteCtrls[i]?.text.trim();
-        if (noteText != null && noteText.isNotEmpty) {
+        if (qid > 0 && noteText != null && noteText.isNotEmpty) {
           try {
             await DatabaseHelper.instance
                 .createNote(uid.toString(), '筆記：題 $qid', noteText);
@@ -123,20 +121,52 @@ class _ReviewPageState extends State<ReviewPage>
         }
       }
     }
-    setState(() => _saving = false);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
-      SnackBar(duration: const Duration(milliseconds: 1500), 
-        content: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            SizedBox(width: 10),
-            Text(tr('rv_saved')),
-          ],
+    if (mounted) {
+      setState(() => _saving = false);
+    }
+    if (showFeedback && mounted) {
+      ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
+        SnackBar(duration: const Duration(milliseconds: 1500), 
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 10),
+              Text(tr('rv_saved')),
+            ],
+          ),
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        backgroundColor: Colors.green.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      );
+    }
+  }
+
+  Future<void> _finishAndExit() async {
+    await _saveSelectedWrongAndNotes(showFeedback: false);
+    if (!mounted) return;
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
+  Future<void> _retakeQuiz() async {
+    await _saveSelectedWrongAndNotes(showFeedback: false);
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => QuestionPracticePage(
+          questions: widget.questions,
+          title: widget.title,
+          currentUser: widget.currentUser,
+          isPaper: widget.isPaper,
+          saveResult: widget.saveResult,
+          subject: widget.subject,
+          paperId: widget.paperId,
+        ),
       ),
     );
   }
@@ -224,25 +254,35 @@ class _ReviewPageState extends State<ReviewPage>
     final total = widget.questions.length;
     final score = total == 0 ? 0 : (correctCount / total * 100).round();
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title:
-            Text(tr('rv_title'), style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            tooltip: tr('rv_back_bank'),
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          _saveSelectedWrongAndNotes(showFeedback: false);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: AppBar(
+          title:
+              Text(tr('rv_title'), style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: cs.primary,
+          foregroundColor: cs.onPrimary,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.home_outlined),
+              tooltip: tr('rv_back_bank'),
+              onPressed: () async {
+                await _saveSelectedWrongAndNotes(showFeedback: false);
+                if (context.mounted) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
+              },
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
         children: [
@@ -375,48 +415,83 @@ class _ReviewPageState extends State<ReviewPage>
           ],
         ],
       ),
-      bottomNavigationBar: widget.saveResult
-          ? Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _saving ? null : _retakeQuiz,
+                    icon: const Icon(Icons.refresh_rounded, size: 20),
+                    label: Text(
+                      tr('tr_again'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      foregroundColor: cs.primary,
+                      side: BorderSide(color: cs.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _saving ? null : _saveSelectedWrongAndNotes,
+                    onPressed: _saving ? null : _finishAndExit,
                     icon: _saving
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.save_rounded),
-                    label: Text(_saving ? tr('common_saving') : tr('rv_save_wrong_notes'),
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check_circle_outline_rounded, size: 20),
+                    label: Text(
+                      tr('common_done'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: Theme.of(context).primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      backgroundColor: cs.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                       elevation: 0,
                     ),
                   ),
                 ),
-              ),
-            )
-          : null,
-    );
-  }
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
   /*
   Widget _buildCallToAction(ColorScheme cs) {
@@ -680,6 +755,7 @@ class _ReviewPageState extends State<ReviewPage>
     final bool isFav = qid > 0 && _bookmarkedQids.contains(qid);
     final bool isUnanswered = chosen == null;
     final bool isCorrect = chosen != null && chosen == correct;
+    final bool isCollapsed = _collapsedIndices.contains(qIdx);
 
     // Define colors/icons based on state
     final Color borderClr;
@@ -733,87 +809,132 @@ class _ReviewPageState extends State<ReviewPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Question header
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            decoration: BoxDecoration(
-              color: headerBgClr,
-              borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16), topRight: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: badgeBgClr,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    statusIcon,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(tr('rv_q_n', [(qIdx + 1).toString()]),
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: statusTextColor)),
-                const Spacer(),
-                Text(statusText,
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: statusTextColor)),
-                if (qid > 0) ...[
-                  const SizedBox(width: 8),
-                  IconButton(
-                    iconSize: 20,
-                    visualDensity: VisualDensity.compact,
-                    tooltip: isFav ? tr('wq_unfav') : tr('rv_fav'),
-                    onPressed: () async {
-                      try {
-                        final db = await DatabaseHelper.instance.database;
-                        final nextVal = isFav ? 0 : 1;
-                        await db.update('questions',
-                            <String, Object?>{'bookmarked': nextVal},
-                            where: 'id = ?', whereArgs: [qid]);
-                        setState(() {
-                          if (isFav) {
-                            _bookmarkedQids.remove(qid);
-                          } else {
-                            _bookmarkedQids.add(qid);
-                          }
-                        });
-                      } catch (e) {
-                        debugPrint('切換收藏失敗: $e');
-                      }
-                    },
-                    icon: Icon(
-                      isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+          // Question header (Tap to collapse/expand)
+          InkWell(
+            borderRadius: isCollapsed
+                ? BorderRadius.circular(16)
+                : const BorderRadius.only(
+                    topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+            onTap: () {
+              setState(() {
+                if (_collapsedIndices.contains(qIdx)) {
+                  _collapsedIndices.remove(qIdx);
+                } else {
+                  _collapsedIndices.add(qIdx);
+                }
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              decoration: BoxDecoration(
+                color: headerBgClr,
+                borderRadius: isCollapsed
+                    ? BorderRadius.circular(16)
+                    : const BorderRadius.only(
+                        topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: badgeBgClr,
+                      shape: BoxShape.circle,
                     ),
-                    color: isFav
-                        ? Colors.amber.shade700
-                        : statusTextColor.withValues(alpha: 0.6),
+                    child: Icon(
+                      statusIcon,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
+                  const SizedBox(width: 10),
+                  Text(tr('rv_q_n', [(qIdx + 1).toString()]),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: statusTextColor)),
+                  if (isCollapsed) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        (q['question'] ?? q['text'] ?? '').toString(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ] else ...[
+                    const Spacer(),
+                  ],
+                  const SizedBox(width: 8),
+                  Text(statusText,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: statusTextColor)),
+                  if (qid > 0) ...[
+                    IconButton(
+                      iconSize: 20,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: isFav ? tr('wq_unfav') : tr('rv_fav'),
+                      onPressed: () async {
+                        try {
+                          final db = await DatabaseHelper.instance.database;
+                          final nextVal = isFav ? 0 : 1;
+                          await db.update('questions',
+                              <String, Object?>{'bookmarked': nextVal},
+                              where: 'id = ?', whereArgs: [qid]);
+                          setState(() {
+                            if (isFav) {
+                              _bookmarkedQids.remove(qid);
+                            } else {
+                              _bookmarkedQids.add(qid);
+                            }
+                          });
+                        } catch (e) {
+                          debugPrint('切換收藏失敗: $e');
+                        }
+                      },
+                      icon: Icon(
+                        isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                      ),
+                      color: isFav
+                          ? Colors.amber.shade700
+                          : statusTextColor.withValues(alpha: 0.6),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
 
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text((q['question'] ?? q['text'] ?? '').toString(),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        height: 1.55)),
+          if (!isCollapsed)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      setState(() {
+                        _collapsedIndices.add(qIdx);
+                      });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text((q['question'] ?? q['text'] ?? '').toString(),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              height: 1.55)),
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 if (options.isNotEmpty)
                   ...options.asMap().entries.map((e) {
@@ -918,6 +1039,7 @@ class _ReviewPageState extends State<ReviewPage>
                     ),
                   ),
                 ],
+                const SizedBox(height: 14),
                 Row(
                   children: [
                     Expanded(
@@ -940,19 +1062,15 @@ class _ReviewPageState extends State<ReviewPage>
                         ),
                       ),
                     ),
-                    if (widget.currentUser != null && !widget.isPaper) ...[
+                    if (widget.currentUser != null) ...[
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            Navigator.push(
+                            QuestionDiscussionPage.showAsBottomSheet(
                               context,
-                              MaterialPageRoute(
-                                builder: (_) => QuestionDiscussionPage(
-                                  questionData: q,
-                                  currentUser: widget.currentUser!,
-                                ),
-                              ),
+                              questionData: q,
+                              currentUser: widget.currentUser!,
                             );
                           },
                           icon: const Icon(Icons.forum_outlined,
@@ -975,6 +1093,55 @@ class _ReviewPageState extends State<ReviewPage>
                     ],
                   ],
                 ),
+                if (qid > 0 && widget.currentUser != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () async {
+                          final uid = (widget.currentUser!['id'] ??
+                                  widget.currentUser!['user_id'] ??
+                                  'u1')
+                              .toString();
+                          await AddToPaperService.show(
+                            context: context,
+                            userId: uid,
+                            questionIds: [qid],
+                          );
+                        },
+                        icon: const Icon(Icons.post_add_rounded, size: 16),
+                        label: Text(tr('qs_add_to_paper'),
+                            style: const TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: cs.onSurfaceVariant,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton.icon(
+                        onPressed: () {
+                          NotebookHelper.showAddToNotebookDialog(
+                            context,
+                            widget.currentUser!,
+                            q,
+                          );
+                        },
+                        icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+                        label: Text(tr('wq_add_notebook'),
+                            style: const TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: cs.onSurfaceVariant,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 if (widget.saveResult) ...[
                   const SizedBox(height: 12),
                   TextField(
@@ -994,36 +1161,6 @@ class _ReviewPageState extends State<ReviewPage>
                           horizontal: 12, vertical: 10),
                       prefixIcon: const Icon(Icons.edit_note_rounded, size: 18),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Transform.scale(
-                        scale: 0.9,
-                        child: Checkbox(
-                          value: _toSaveWrong.contains(qIdx),
-                          activeColor: const Color(0xFF5C6BC0),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4)),
-                          onChanged: (v) => setState(() {
-                            if (v == true) {
-                              _toSaveWrong.add(qIdx);
-                            } else {
-                              _toSaveWrong.remove(qIdx);
-                            }
-                          }),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.bookmark_add_outlined,
-                          size: 16, color: Color(0xFF5C6BC0)),
-                      const SizedBox(width: 6),
-                      Text(tr('rv_add_wrong'),
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF5C6BC0))),
-                    ],
                   ),
                 ],
               ],

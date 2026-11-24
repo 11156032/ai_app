@@ -6,7 +6,6 @@ import 'question_set_detail_page.dart';
 import 'paper_builder_page.dart';
 import 'wrong_questions_page.dart';
 import 'subject_chapters_page.dart';
-import 'question_edit_page.dart';
 import 'ai_upload_paper_page.dart';
 import '../services/app_locale_service.dart';
 
@@ -813,6 +812,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                // 1. AI 智慧主題命題出卷
                 ListTile(
                   leading: Container(
                     padding: const EdgeInsets.all(10),
@@ -823,8 +823,43 @@ class _QuestionListPageState extends State<QuestionListPage> {
                     child: const Icon(Icons.auto_awesome_rounded,
                         color: Colors.purple, size: 24),
                   ),
+                  title: Text(tr('ql_ai_topic_gen'),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(tr('ql_ai_topic_gen_sub')),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final result = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AiUploadPaperPage(
+                          currentUser: widget.currentUser,
+                          allSubjects: widget.allSubjects,
+                          subjectChapters: widget.subjectChapters,
+                          initialTab: 1,
+                        ),
+                      ),
+                    );
+                    if (result == true) {
+                      _loadData();
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                // 2. AI 拍照 / 考卷文件解析
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.document_scanner_rounded,
+                        color: Colors.indigo, size: 24),
+                  ),
                   title: Text(tr('ql_ai_import'),
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(tr('ql_ai_import_sub')),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
@@ -837,6 +872,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                           currentUser: widget.currentUser,
                           allSubjects: widget.allSubjects,
                           subjectChapters: widget.subjectChapters,
+                          initialTab: 0,
                         ),
                       ),
                     );
@@ -846,39 +882,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                   },
                 ),
                 const SizedBox(height: 8),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.edit_note_rounded,
-                        color: cs.primary, size: 24),
-                  ),
-                  title: Text(tr('ql_manual_add'),
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(tr('ql_manual_add_sub')),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    final result = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => QuestionEditPage(
-                          currentUser: widget.currentUser,
-                          allSubjects: widget.allSubjects,
-                          subjectChapters: widget.subjectChapters,
-                        ),
-                      ),
-                    );
-                    if (result == true) {
-                      _loadData();
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
+                // 3. 從題庫挑選組卷
                 ListTile(
                   leading: Container(
                     padding: const EdgeInsets.all(10),
@@ -890,7 +894,7 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         color: Colors.orange, size: 24),
                   ),
                   title: Text(tr('ql_from_bank'),
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(tr('ql_from_bank_sub')),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
@@ -1576,11 +1580,6 @@ class _QuestionListPageState extends State<QuestionListPage> {
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF111827),
                       ),
-                    ),
-                    subtitle: Text(
-                      tr('ql_by_unit'),
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade500),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,

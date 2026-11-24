@@ -6,6 +6,7 @@ import '../services/add_to_paper_service.dart';
 import '../services/notebook_helper.dart';
 import '../widgets/tour_overlay.dart';
 import 'question_practice_page.dart';
+import 'question_discussion_page.dart';
 import '../services/app_locale_service.dart';
 
 class WrongQuestionsPage extends StatefulWidget {
@@ -29,6 +30,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
   List<Map<String, dynamic>> _rows =
       []; // wrong questions or favorites merged in-memory
   final Set<int> _selected = {};
+  final Set<int> _collapsedQids = {};
   bool _isSelectionMode = false; // 新增多選模式狀態
 
   late int _currentMode;
@@ -302,6 +304,41 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
     );
 
     if (result != null) _exitSelectionMode();
+  }
+
+  void _openDiscussion(Map<String, dynamic> r) {
+    final qid = int.tryParse((r['question_id'] ?? r['id']).toString()) ?? 0;
+    final questionMap = {
+      'id': qid,
+      'text': r['text'] ?? r['question'] ?? '',
+      'question': r['text'] ?? r['question'] ?? '',
+      'options': r['options'],
+      'answer': r['answer'] ?? r['answerIndex'] ?? 0,
+      'answerIndex': r['answerIndex'] ?? r['answer'] ?? 0,
+      'explanation': r['explanation'] ?? '',
+      'subject': r['subject'] ?? '一般',
+      'difficulty': r['difficulty'] ?? '中',
+      'type': r['type'] ?? '單選題',
+    };
+    QuestionDiscussionPage.showAsBottomSheet(
+      context,
+      questionData: questionMap,
+      currentUser: widget.currentUser,
+    );
+  }
+
+  Future<void> _addSingleToPaper(Map<String, dynamic> r) async {
+    final uid =
+        (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
+            .toString();
+    final qid = int.tryParse((r['question_id'] ?? r['id']).toString()) ?? 0;
+    if (qid <= 0) return;
+
+    await AddToPaperService.show(
+      context: context,
+      userId: uid,
+      questionIds: [qid],
+    );
   }
 
 
@@ -649,6 +686,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                           // Checkbox key: for wrong questions it's rid; for favorites it's qid
                           final selectionKey = _currentMode == 0 ? rid : qid;
                           final isSelected = _selected.contains(selectionKey);
+                          final isCollapsed = _collapsedQids.contains(qid);
 
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 8),
@@ -692,7 +730,15 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                         }
                                       });
                                     }
-                                  : null,
+                                  : () {
+                                      setState(() {
+                                        if (_collapsedQids.contains(qid)) {
+                                          _collapsedQids.remove(qid);
+                                        } else {
+                                          _collapsedQids.add(qid);
+                                        }
+                                      });
+                                    },
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
                                 child: Column(
@@ -842,10 +888,13 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14.5,
                                           height: 1.45),
+                                      maxLines: isCollapsed ? 2 : null,
+                                      overflow: isCollapsed ? TextOverflow.ellipsis : null,
                                     ),
-                                    const SizedBox(height: 14),
+                                    if (!isCollapsed) ...[
+                                      const SizedBox(height: 14),
 
-                                    // Compact options view (highlighting the correct option)
+                                      // Compact options view (highlighting the correct option)
                                     if (options.isNotEmpty)
                                       Column(
                                         children: List.generate(options.length,
@@ -1007,21 +1056,68 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                       ),
                                     ],
 
-                                    const SizedBox(height: 12),
-                                    const Divider(height: 1, thickness: 0.5),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 10),
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(10),
+                                      onTap: () => _openDiscussion(r),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEEF2FF),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(
+                                              color: const Color(0xFFC7D2FE)),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(Icons.forum_outlined,
+                                                size: 16,
+                                                color: Color(0xFF4F46E5)),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              tr('qs_go_discussion'),
+                                              style: const TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF4F46E5),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
 
-                                    // Action buttons row
-                                    Row(
+                                  const SizedBox(height: 10),
+                                  const Divider(height: 1, thickness: 0.5),
+                                  const SizedBox(height: 4),
+
+                                  // Action buttons row
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        // Add to notebook
-                                        IconButton(
-                                          tooltip: tr('wq_add_notebook'),
-                                          icon: Icon(Icons.note_add_outlined,
-                                              color: cs.primary
-                                                  .withValues(alpha: 0.8),
-                                              size: 18),
+                                        // 1. 加入題本
+                                        TextButton.icon(
+                                          onPressed: () => _addSingleToPaper(r),
+                                          icon: const Icon(Icons.post_add_rounded, size: 16),
+                                          label: Text(tr('qs_add_to_paper'),
+                                              style: const TextStyle(fontSize: 12)),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: cs.onSurfaceVariant,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 6),
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        // 2. 加入筆記本
+                                        TextButton.icon(
                                           onPressed: () {
                                             final questionMap = {
                                               'subject': subject,
@@ -1037,14 +1133,36 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                                     widget.currentUser,
                                                     questionMap);
                                           },
+                                          icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+                                          label: Text(tr('wq_add_notebook'),
+                                              style: const TextStyle(fontSize: 12)),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: cs.onSurfaceVariant,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 6),
+                                            visualDensity: VisualDensity.compact,
+                                          ),
                                         ),
-                                        const SizedBox(width: 12),
-                                        // Delete single (or Unfavorite)
-                                        IconButton(
-                                          tooltip: _currentMode == 0
-                                              ? tr('wq_remove_wrong')
-                                              : tr('wq_unfav'),
-                                          onPressed: () async {
+                                        const SizedBox(width: 4),
+                                        // 3. 移出錯題 / 取消收藏
+                                        TextButton.icon(
+                                          icon: Icon(Icons.delete_outline_rounded,
+                                              color: Colors.red.shade400, size: 16),
+                                          label: Text(
+                                            _currentMode == 0
+                                                ? tr('wq_remove_wrong')
+                                                : tr('wq_unfav'),
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.red.shade400),
+                                          ),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: Colors.red.shade400,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 6),
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                        onPressed: () async {
                                             final messenger =
                                                 ScaffoldMessenger.of(context);
                                             try {
@@ -1105,13 +1223,10 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                                               debugPrint('操作失敗: $e');
                                             }
                                           },
-                                          icon: const Icon(
-                                              Icons.delete_outline_rounded,
-                                              color: Colors.redAccent,
-                                              size: 18),
                                         ),
                                       ],
                                     ),
+                                  ),
                                   ],
                                 ),
                               ),
@@ -1157,7 +1272,7 @@ class WrongQuestionsPageState extends State<WrongQuestionsPage> {
                         const SizedBox(width: 4),
                         IconButton(
                           tooltip: tr('wq_batch_to_paper'),
-                          icon: const Icon(Icons.create_new_folder_outlined,
+                          icon: const Icon(Icons.post_add_rounded,
                               color: Colors.orange),
                           onPressed: _batchAddToPaper,
                         ),

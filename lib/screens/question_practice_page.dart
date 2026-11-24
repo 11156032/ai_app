@@ -247,22 +247,6 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         actions: [
-          if (widget.currentUser != null && !widget.isPaper && widget.paperId == null)
-            IconButton(
-              icon: const Icon(Icons.forum_outlined),
-              tooltip: tr('qp_discussion'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => QuestionDiscussionPage(
-                      questionData: currentQuestion,
-                      currentUser: widget.currentUser!,
-                    ),
-                  ),
-                );
-              },
-            ),
           TextButton(
             onPressed: _selectedAnswers.isEmpty ? null : _submitPaper,
             child: Text(
@@ -351,29 +335,69 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                                 fontSize: 12,
                               ),
                             ),
-                            IconButton(
-                              iconSize: 20,
-                              visualDensity: VisualDensity.compact,
-                              tooltip: _flagged.contains(_currentIndex)
-                                  ? tr('qp_unflag')
-                                  : tr('qp_flag'),
-                              onPressed: () {
-                                setState(() {
-                                  if (_flagged.contains(_currentIndex)) {
-                                    _flagged.remove(_currentIndex);
-                                  } else {
-                                    _flagged.add(_currentIndex);
-                                  }
-                                });
-                              },
-                              icon: Icon(
-                                _flagged.contains(_currentIndex)
-                                    ? Icons.flag_rounded
-                                    : Icons.flag_outlined,
-                              ),
-                              color: _flagged.contains(_currentIndex)
-                                  ? Colors.orange.shade700
-                                  : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  iconSize: 20,
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: currentQuestion['isFavorite'] == true
+                                      ? tr('post_unbookmarked')
+                                      : tr('wq_faved'),
+                                  onPressed: () async {
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    try {
+                                      final db = await DatabaseHelper.instance.database;
+                                      final isFav = currentQuestion['isFavorite'] == true;
+                                      final nextVal = isFav ? 0 : 1;
+                                      final qid = int.tryParse((currentQuestion['question_id'] ?? currentQuestion['id'] ?? 0).toString()) ?? 0;
+                                      if (qid > 0) {
+                                        await db.update('questions', {'bookmarked': nextVal}, where: 'id = ?', whereArgs: [qid]);
+                                      }
+                                      setState(() {
+                                        currentQuestion['isFavorite'] = nextVal == 1;
+                                      });
+                                      messenger..hideCurrentSnackBar()..showSnackBar(
+                                        SnackBar(duration: const Duration(milliseconds: 1000), behavior: SnackBarBehavior.floating, content: Text(nextVal == 1 ? tr('wq_faved') : tr('post_unbookmarked'))),
+                                      );
+                                    } catch (e) {
+                                      debugPrint('收藏失敗: $e');
+                                    }
+                                  },
+                                  icon: Icon(
+                                    currentQuestion['isFavorite'] == true
+                                        ? Icons.star_rounded
+                                        : Icons.star_outline_rounded,
+                                    color: currentQuestion['isFavorite'] == true
+                                        ? Colors.amber
+                                        : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                IconButton(
+                                  iconSize: 20,
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: _flagged.contains(_currentIndex)
+                                      ? tr('qp_unflag')
+                                      : tr('qp_flag'),
+                                  onPressed: () {
+                                    setState(() {
+                                      if (_flagged.contains(_currentIndex)) {
+                                        _flagged.remove(_currentIndex);
+                                      } else {
+                                        _flagged.add(_currentIndex);
+                                      }
+                                    });
+                                  },
+                                  icon: Icon(
+                                    _flagged.contains(_currentIndex)
+                                        ? Icons.flag_rounded
+                                        : Icons.flag_outlined,
+                                  ),
+                                  color: _flagged.contains(_currentIndex)
+                                      ? Colors.orange.shade700
+                                      : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -558,14 +582,10 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
                             InkWell(
                               borderRadius: BorderRadius.circular(10),
                               onTap: () {
-                                Navigator.push(
+                                QuestionDiscussionPage.showAsBottomSheet(
                                   context,
-                                  MaterialPageRoute(
-                                    builder: (_) => QuestionDiscussionPage(
-                                      questionData: currentQuestion,
-                                      currentUser: widget.currentUser!,
-                                    ),
-                                  ),
+                                  questionData: currentQuestion,
+                                  currentUser: widget.currentUser!,
                                 );
                               },
                               child: Container(
@@ -771,6 +791,9 @@ class _QuestionPracticePageState extends State<QuestionPracticePage> {
           currentUser: widget.currentUser,
           saveResult: widget.saveResult,
           isPaper: widget.isPaper || widget.paperId != null,
+          title: widget.title,
+          subject: widget.subject,
+          paperId: widget.paperId,
         ),
       ),
     );
