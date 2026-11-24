@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -56,6 +57,20 @@ class _QrScannerPageState extends State<QrScannerPage>
   }
 
   Future<void> _pickImageFromGallery() async {
+    // mobile_scanner 的 analyzeImage 目前不支援 Web，直接提示改用手動輸入
+    if (kIsWeb) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(tr('qr_web_gallery_unsupported')),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
+      return;
+    }
     try {
       final picker = ImagePicker();
       final file = await picker.pickImage(source: ImageSource.gallery);
@@ -144,11 +159,19 @@ class _QrScannerPageState extends State<QrScannerPage>
                         style: const TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: 20),
-                      ElevatedButton.icon(
-                        onPressed: _pickImageFromGallery,
-                        icon: const Icon(Icons.photo_library_rounded),
-                        label: Text(tr('qr_gallery_pick')),
-                      ),
+                      if (kIsWeb)
+                        Text(
+                          tr('qr_web_camera_hint'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13),
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed: _pickImageFromGallery,
+                          icon: const Icon(Icons.photo_library_rounded),
+                          label: Text(tr('qr_gallery_pick')),
+                        ),
                     ],
                   ),
                 ),
@@ -305,13 +328,14 @@ class _QrScannerPageState extends State<QrScannerPage>
                         isActive: _isTorchOn,
                         onTap: _toggleTorch,
                       ),
-                      // 相簿選取
-                      _buildCircleButton(
-                        icon: Icons.photo_library_rounded,
-                        label: tr('qr_gallery_pick'),
-                        isActive: false,
-                        onTap: _pickImageFromGallery,
-                      ),
+                      // 相簿選取（Web 版不支援 analyzeImage，隱藏）
+                      if (!kIsWeb)
+                        _buildCircleButton(
+                          icon: Icons.photo_library_rounded,
+                          label: tr('qr_gallery_pick'),
+                          isActive: false,
+                          onTap: _pickImageFromGallery,
+                        ),
                       // 切換鏡頭
                       _buildCircleButton(
                         icon: Icons.flip_camera_ios_rounded,

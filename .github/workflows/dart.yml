@@ -99,11 +99,24 @@ jobs:
           flutter-version: '3.41.9'
           cache: true
 
-      # 安全防禦：Web 編譯建立空白 keys.env 避免 pubspec 資源缺失報錯，絕不注入敏感金鑰
+      # 安全防禦：Web 編譯建立空白 keys.env 避免 pubspec 資源缺失報錯，絕不注入供應商金鑰
       - name: Prepare Safe Web Assets
         run: |
           mkdir -p assets
           touch assets/keys.env
+
+      # Web 版 AI 走 Cloudflare 中繼站，只需要中繼站通行證（不注入 Gemini/OpenRouter/Groq 金鑰）
+      - name: Extract Relay Secret for Web
+        env:
+          KEYS_ENV_CONTENT: ${{ secrets.KEYS_ENV }}
+        run: |
+          SECRET=$(printf '%s\n' "$KEYS_ENV_CONTENT" | sed -n 's/^APP_CLIENT_SECRET=//p' | head -n1 | tr -d '\r')
+          if [ -z "$SECRET" ]; then
+            echo "::error::KEYS_ENV 中缺少 APP_CLIENT_SECRET，Web 版 AI 將無法通過中繼站驗證"
+            exit 1
+          fi
+          echo "::add-mask::$SECRET"
+          echo "APP_CLIENT_SECRET=$SECRET" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: flutter pub get
@@ -114,6 +127,7 @@ jobs:
           flutter build web --release \
             --tree-shake-icons \
             --no-source-maps \
+            --dart-define=APP_CLIENT_SECRET="$APP_CLIENT_SECRET" \
             -O4
 
       # 2. 安全防護：徹底清除 Web 輸出目錄中可能殘留之 .env 與設定檔
@@ -129,7 +143,7 @@ jobs:
             X-Content-Type-Options: nosniff
             X-Frame-Options: SAMEORIGIN
             Referrer-Policy: strict-origin-when-cross-origin
-            Permissions-Policy: camera=(), microphone=*, geolocation=()
+            Permissions-Policy: camera=(self), microphone=(self), geolocation=()
           
           # 靜態資源與 wasm 啟用永久快取
           /assets/*

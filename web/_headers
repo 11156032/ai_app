@@ -1,6 +1,7 @@
 /*
   X-Content-Type-Options: nosniff
   Access-Control-Allow-Origin: *
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=()
 
 /og-image.png
   Cache-Control: public, max-age=604800
