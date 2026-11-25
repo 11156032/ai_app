@@ -125,6 +125,13 @@ jobs:
             echo "WEB3FORMS_ACCESS_KEY=$FEEDBACK_KEY" >> "$GITHUB_ENV"
           fi
 
+          # Firebase Client API Key（需於 GCP 設定網域/App 限制，不寫死於公開程式碼）
+          FB_KEY=$(printf '%s\n' "$KEYS_ENV_CONTENT" | sed -n 's/^FIREBASE_API_KEY=//p' | head -n1 | tr -d '\r')
+          if [ -n "$FB_KEY" ]; then
+            echo "::add-mask::$FB_KEY"
+            echo "FIREBASE_API_KEY=$FB_KEY" >> "$GITHUB_ENV"
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -136,6 +143,7 @@ jobs:
             --no-source-maps \
             --dart-define=APP_CLIENT_SECRET="$APP_CLIENT_SECRET" \
             --dart-define=WEB3FORMS_ACCESS_KEY="${WEB3FORMS_ACCESS_KEY:-}" \
+            --dart-define=FIREBASE_API_KEY="${FIREBASE_API_KEY:-}" \
             -O4
 
       # 2. 安全防護：徹底清除 Web 輸出目錄中可能殘留之 .env 與設定檔

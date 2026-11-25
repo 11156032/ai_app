@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 enum AppUpdateType {
@@ -17,9 +18,17 @@ class AppConfigService {
 
   FirebaseRemoteConfig? _remoteConfig;
 
-  // Firebase Remote Config REST API 連線設定（確保 Web / 手機皆能 100% 成功同步）
-  static const String _kFirebaseApiKey =
-      'AIzaSyCAySIqHo7X9sSmfsDunHxQMnLDiifVTks';
+  // Firebase Remote Config REST API 連線設定（金鑰由 keys.env 或建置參數提供，不再寫死於程式碼）
+  static String get _kFirebaseApiKey {
+    try {
+      if (dotenv.isInitialized) {
+        final key = dotenv.env['FIREBASE_API_KEY'];
+        if (key != null && key.isNotEmpty) return key;
+      }
+    } catch (_) {}
+    const envKey = String.fromEnvironment('FIREBASE_API_KEY');
+    return envKey;
+  }
   static const String _kFirebaseProjectId = 'ai-app-493608';
   static const String _kFirebaseAppId =
       '1:789026077383:android:5fd946ddc995cb3f761ce2';
@@ -107,9 +116,11 @@ class AppConfigService {
 
   /// 透過 Firebase Remote Config REST API 直連拉取最新參數（Web 專用與 SDK 雙重備援）
   Future<bool> _fetchFromRemoteConfigRest() async {
+    final apiKey = _kFirebaseApiKey;
+    if (apiKey.isEmpty) return false;
     try {
       final url = Uri.parse(
-        'https://firebaseremoteconfig.googleapis.com/v1/projects/$_kFirebaseProjectId/namespaces/firebase:fetch?key=$_kFirebaseApiKey',
+        'https://firebaseremoteconfig.googleapis.com/v1/projects/$_kFirebaseProjectId/namespaces/firebase:fetch?key=$apiKey',
       );
       final response = await http
           .post(
