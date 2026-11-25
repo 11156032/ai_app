@@ -220,9 +220,11 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     'gemini-3.5-flash',
     'gemini-2.5-flash',
     'gemini-3.5-flash-lite',
+    'gemma-4-26b-a4b-it',
+    'gemma-4-31b-it',
   ];
 
-  /// 透過多組候選金鑰與多組可用 Gemini 模型進行直連解析（支援純文字與圖片/PDF 多模態）
+  /// 透過多組候選金鑰與多組可用 Gemini / Gemma 視覺模型進行直連解析（支援純文字與圖片/PDF 多模態）
   Future<({String? text, bool hitRateLimit})> _tryDirectGeminiWithKeys({
     required List<String> apiKeys,
     required String prompt,
@@ -249,8 +251,9 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
                 }
               },
           ];
+          final isGemma = modelName.startsWith('gemma-');
           final genConfig = <String, dynamic>{
-            'responseMimeType': 'application/json',
+            if (!isGemma) 'responseMimeType': 'application/json',
             if (temperature != null) 'temperature': temperature,
           };
           final res = await http
@@ -460,6 +463,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       'gemini-2.5-flash-lite',
       'gemini-3.5-flash',
       'gemini-2.5-flash',
+      'gemma-4-26b-a4b-it',
+      'gemma-4-31b-it',
       null,
     ];
     bool hitRateLimit = false;
@@ -1015,7 +1020,7 @@ $pdfExtractedText
       if (responseText == null || responseText.trim().isEmpty) {
         if (hitRateLimit) {
           throw Exception(
-            '目前 AI 辨識服務免費額度已達暫時上限（HTTP 429）。\n請稍後再試，或至「個人檔案 → 設定 Gemini API Key」填入您個人的 Gemini API Key 即可立即恢復辨識！',
+            '目前 AI 辨識服務請求人數較多（已達暫時上限），請稍候片刻再試一次。',
           );
         }
         throw Exception('無法完成考卷解析。請確認：\n1. 網路連線正常\n2. 檔案為選擇題格式\n3. 檔案字跡清晰且非加密 PDF\n若為掃描圖檔 PDF，建議截圖後以圖片方式上傳。');
