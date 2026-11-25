@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
@@ -98,6 +99,27 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     _activeTab = widget.initialTab;
     _topicSubjectCtrl.text =
         widget.allSubjects.isNotEmpty ? widget.allSubjects.first : '數學';
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _recoverLostCameraImage();
+      });
+    }
+  }
+
+  /// Android 系統相機開啟時若背景 Activity 被系統回收，透過 retrieveLostData 找回剛拍的照片
+  Future<void> _recoverLostCameraImage() async {
+    try {
+      final picker = ImagePicker();
+      final response = await picker.retrieveLostData();
+      if (response.isEmpty) return;
+      if (response.file != null) {
+        await _processPickedXFile(response.file!);
+      } else if (response.exception != null && mounted) {
+        _handleImagePickException(response.exception!);
+      }
+    } catch (e) {
+      debugPrint('AiUploadPaper: retrieveLostData 失敗: $e');
+    }
   }
 
   @override
@@ -347,7 +369,7 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         Uint8List? bytes = file.bytes;
-        if (bytes == null && file.path != null) {
+        if (bytes == null && file.path != null && !kIsWeb) {
           try {
             bytes = await File(file.path!).readAsBytes();
           } catch (_) {}
@@ -380,25 +402,65 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       );
 
       if (image != null) {
-        final bytes = await image.readAsBytes();
-        final ext = image.name.split('.').last.toLowerCase();
-        String mimeType = 'image/jpeg';
-        if (ext == 'png') mimeType = 'image/png';
-        if (ext == 'webp') mimeType = 'image/webp';
-        if (ext == 'heic' || ext == 'heif') mimeType = 'image/jpeg';
-
-        setState(() {
-          _selectedFilePath = image.path;
-          _selectedFileName = image.name;
-          _fileBytes = bytes;
-          _mimeType = mimeType;
-        });
-
-        // Automatically start AI recognition
-        _startAiRecognition();
+        await _processPickedXFile(image);
       }
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      _handleImagePickException(e);
     } catch (e) {
+      if (!mounted) return;
       _showErrorSnackBar(tr('image_pick_failed_e', [e.toString()]));
+    }
+  }
+
+  Future<void> _processPickedXFile(XFile image) async {
+    final bytes = await image.readAsBytes();
+    if (!mounted) return;
+    if (bytes.isEmpty) {
+      _showErrorSnackBar('讀取相片失敗（檔案內容為空），請重新拍攝或從相簿選取。');
+      return;
+    }
+
+    String mimeType = 'image/jpeg';
+    final rawMime = image.mimeType?.toLowerCase() ?? '';
+    if (rawMime == 'image/png' ||
+        rawMime == 'image/webp' ||
+        rawMime == 'image/jpeg') {
+      mimeType = rawMime;
+    } else {
+      final ext = image.name.split('.').last.toLowerCase();
+      if (ext == 'png') mimeType = 'image/png';
+      if (ext == 'webp') mimeType = 'image/webp';
+      if (ext == 'heic' || ext == 'heif') mimeType = 'image/jpeg';
+    }
+
+    setState(() {
+      _selectedFilePath = image.path;
+      _selectedFileName =
+          image.name.isNotEmpty ? image.name : 'camera_exam.jpg';
+      _fileBytes = bytes;
+      _mimeType = mimeType;
+    });
+
+    // Automatically start AI recognition
+    _startAiRecognition();
+  }
+
+  void _handleImagePickException(PlatformException e) {
+    final code = e.code.toLowerCase();
+    if (code.contains('camera_access_denied') || code.contains('permission')) {
+      _showErrorDialog(
+        '需要相機權限',
+        '無法使用相機拍照，請前往裝置或瀏覽器的「權限設定」開啟相機存取權限，或改用「從相簿選取」。',
+      );
+    } else if (code.contains('no_available_camera')) {
+      _showErrorDialog(
+        '找不到可用相機',
+        '目前裝置沒有可用的相機鏡頭，請改用「從相簿選取」上傳考卷照片。',
+      );
+    } else {
+      _showErrorSnackBar(
+          tr('image_pick_failed_e', [e.message ?? e.code]));
     }
   }
 
@@ -617,8 +679,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   // 核心功能 2：上傳考卷文件/PDF/圖片辨識（支援無答案試卷自動運算推導與多模型備援）
   // --------------------------------------------------------------------------
   Future<void> _startAiRecognition() async {
-    // 檢查檔案資料
-    if (_fileBytes == null && _selectedFilePath != null) {
+    // 檢查檔案資料（Web 版不支援 dart:io File 讀取本地路徑）
+    if (_fileBytes == null && _selectedFilePath != null && !kIsWeb) {
       try {
         _fileBytes = await File(_selectedFilePath!).readAsBytes();
       } catch (e) {
