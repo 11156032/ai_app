@@ -357,6 +357,34 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     }
   }
 
+  /// 依序嘗試多個 Gemini 模型透過 Cloudflare 中繼站辨識（避免預設模型達 429 限流時直接失敗）
+  static Future<String?> _tryCloudflareGeminiWithFallback({
+    required String prompt,
+    String? base64Data,
+    String? mimeType,
+    int timeoutSeconds = 30,
+  }) async {
+    const models = <String?>[
+      'gemini-3.5-flash',
+      'gemini-2.5-flash',
+      null,
+    ];
+    for (final model in models) {
+      final text = await _tryCloudflareProxy(
+        provider: 'gemini',
+        model: model,
+        prompt: prompt,
+        base64Data: base64Data,
+        mimeType: mimeType,
+        timeoutSeconds: timeoutSeconds,
+      );
+      if (text != null && text.trim().isNotEmpty) {
+        return text;
+      }
+    }
+    return null;
+  }
+
   // Pick PDF
   Future<void> _pickPdf() async {
     try {
@@ -798,13 +826,12 @@ $pdfExtractedText
             }
           }
 
-          // 若直連失敗，優先嘗試 Cloudflare Gemini 中繼站 (20 秒超時)
+          // 若直連失敗，優先嘗試 Cloudflare Gemini 中繼站 (依序切換可用模型)
           if (responseText == null || responseText.trim().isEmpty) {
             debugPrint('AiUploadPaper: Gemini 本地 SDK 直連解析失敗，嘗試 Cloudflare Gemini 中繼...');
-            responseText = await _tryCloudflareProxy(
-              provider: 'gemini',
+            responseText = await _tryCloudflareGeminiWithFallback(
               prompt: pdfTextPrompt,
-              timeoutSeconds: 20,
+              timeoutSeconds: 25,
             );
           }
           // 次選 Cloudflare Groq 中繼 (15 秒超時)
@@ -959,12 +986,11 @@ $pdfExtractedText
           }
         }
 
-        // 嘗試 Cloudflare 雲端中繼站
+        // 嘗試 Cloudflare 雲端中繼站 (依序切換可用模型)
         if (responseText == null || responseText.trim().isEmpty) {
           debugPrint('AiUploadPaper: 切換 Cloudflare 雲端中繼站 (Gemini 多模態引擎)...');
           final base64Data = base64Encode(_fileBytes!);
-          responseText = await _tryCloudflareProxy(
-            provider: 'gemini',
+          responseText = await _tryCloudflareGeminiWithFallback(
             prompt: systemPrompt,
             base64Data: base64Data,
             mimeType: _mimeType,
@@ -1115,7 +1141,16 @@ $pdfExtractedText
       cleanText = cleanText.substring(firstBrace, lastBrace + 1);
     }
 
-    final Map<String, dynamic> parsedData = jsonDecode(cleanText.trim());
+    Map<String, dynamic> parsedData;
+    try {
+      parsedData = jsonDecode(cleanText.trim()) as Map<String, dynamic>;
+    } catch (_) {
+      // 修正 AI 回傳的 LaTeX 單反斜線（例如 \frac, \times）導致 JSON 解析失敗
+      final repaired = cleanText
+          .trim()
+          .replaceAllMapped(RegExp(r'\\(?!["\\/bfnrtu])'), (_) => r'\\');
+      parsedData = jsonDecode(repaired) as Map<String, dynamic>;
+    }
     final String rawPaperName =
         (parsedData['paper_name'] ?? 'AI 智慧生成題本').toString();
     final String paperName = _cleanAiSymbols(rawPaperName);
