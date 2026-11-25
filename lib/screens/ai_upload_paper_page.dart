@@ -170,9 +170,17 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
     return _kDefaultGeminiApiKey;
   }
 
-  // 考卷辨識專用 Gemini API Key（與題庫生成金鑰分開，額度互不影響）
-  Future<String> _getPaperApiKey() async {
-    // 1. Check user custom api key in db
+  // 考卷辨識候選 Gemini API Keys（依序嘗試：使用者自訂 -> 考卷專用 -> 全域預設，自動去重）
+  Future<List<String>> _getCandidatePaperApiKeys() async {
+    final keys = <String>[];
+    void addKey(String? k) {
+      final trimmed = k?.trim() ?? '';
+      if (trimmed.isNotEmpty && !keys.contains(trimmed)) {
+        keys.add(trimmed);
+      }
+    }
+
+    // 1. User custom api key in db
     try {
       final uid =
           (widget.currentUser['id'] ?? widget.currentUser['user_id'] ?? 'u1')
@@ -181,27 +189,107 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
       final userRows =
           await db.query('users', where: 'id = ?', whereArgs: [uid]);
       if (userRows.isNotEmpty) {
-        final customKey = userRows.first['gemini_api_key'] as String?;
-        if (customKey != null && customKey.trim().isNotEmpty) {
-          return customKey.trim();
-        }
+        addKey(userRows.first['gemini_api_key'] as String?);
       }
     } catch (e) {
       debugPrint('Error getting user custom api key: $e');
     }
 
-    // 2. Fallback to dotenv
+    // 2. Paper-specific key from dotenv / dart-define
     try {
-      final key = dotenv.env['GEMINI_PAPER_API_KEY'];
-      if (key != null && key.isNotEmpty) return key;
+      addKey(dotenv.env['GEMINI_PAPER_API_KEY']);
     } catch (_) {}
+    const envPaperKey = String.fromEnvironment('GEMINI_PAPER_API_KEY');
+    addKey(envPaperKey);
 
-    // 3. Fallback to fromEnvironment
-    const envKey = String.fromEnvironment('GEMINI_PAPER_API_KEY');
-    if (envKey.isNotEmpty) return envKey;
+    // 3. General key fallback from dotenv / dart-define
+    try {
+      addKey(dotenv.env['GEMINI_API_KEY']);
+    } catch (_) {}
+    const envGeneralKey = String.fromEnvironment('GEMINI_API_KEY');
+    addKey(envGeneralKey);
 
-    // 4. 安全性：不再內建考卷辨識專用金鑰，請於 keys.env 設定 GEMINI_PAPER_API_KEY
-    return '';
+    return keys;
+  }
+
+  static const List<String> _kGeminiPaperModels = [
+    'gemini-3-flash-preview',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash',
+    'gemini-2.5-flash',
+    'gemini-3.5-flash-lite',
+  ];
+
+  /// 透過多組候選金鑰與多組可用 Gemini 模型進行直連解析（支援純文字與圖片/PDF 多模態）
+  Future<({String? text, bool hitRateLimit})> _tryDirectGeminiWithKeys({
+    required List<String> apiKeys,
+    required String prompt,
+    String? base64Data,
+    String? mimeType,
+    double? temperature,
+    int timeoutSeconds = 40,
+  }) async {
+    bool hitRateLimit = false;
+    for (final apiKey in apiKeys) {
+      for (final modelName in _kGeminiPaperModels) {
+        try {
+          debugPrint('AiUploadPaper: 嘗試 Gemini REST API ($modelName)...');
+          final url = Uri.parse(
+            'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey',
+          );
+          final parts = <Map<String, dynamic>>[
+            {'text': prompt},
+            if (base64Data != null && mimeType != null)
+              {
+                'inline_data': {
+                  'mime_type': mimeType,
+                  'data': base64Data,
+                }
+              },
+          ];
+          final genConfig = <String, dynamic>{
+            'responseMimeType': 'application/json',
+            if (temperature != null) 'temperature': temperature,
+          };
+          final res = await http
+              .post(
+                url,
+                headers: {'Content-Type': 'application/json; charset=utf-8'},
+                body: jsonEncode({
+                  'contents': [
+                    {'parts': parts}
+                  ],
+                  'generationConfig': genConfig,
+                }),
+              )
+              .timeout(Duration(seconds: timeoutSeconds));
+
+          if (res.statusCode == 200) {
+            final data = jsonDecode(utf8.decode(res.bodyBytes));
+            final text = data['candidates']?[0]?['content']?['parts']?[0]
+                ?['text'] as String?;
+            if (text != null && text.trim().isNotEmpty) {
+              debugPrint('AiUploadPaper: Gemini ($modelName) 辨識成功！');
+              return (text: text, hitRateLimit: hitRateLimit);
+            }
+          } else {
+            debugPrint(
+                'AiUploadPaper: Gemini ($modelName) 錯誤 [${res.statusCode}]: ${res.body}');
+            if (res.statusCode == 429) {
+              hitRateLimit = true;
+            } else if (res.statusCode == 401 || res.statusCode == 403) {
+              // 金鑰無效或停用，直接跳換下一組金鑰
+              break;
+            }
+          }
+        } catch (e) {
+          debugPrint('AiUploadPaper: Gemini ($modelName) 例外: $e');
+        }
+      }
+    }
+    return (text: null, hitRateLimit: hitRateLimit);
   }
 
   /// 從 PDF 檔案二進位中提取文字內容（原生支援數位考卷直接解析）
@@ -358,31 +446,59 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
   }
 
   /// 依序嘗試多個 Gemini 模型透過 Cloudflare 中繼站辨識（避免預設模型達 429 限流時直接失敗）
-  static Future<String?> _tryCloudflareGeminiWithFallback({
+  static Future<({String? text, bool hitRateLimit})>
+      _tryCloudflareGeminiWithFallback({
     required String prompt,
     String? base64Data,
     String? mimeType,
     int timeoutSeconds = 30,
   }) async {
     const models = <String?>[
+      'gemini-flash-latest',
+      'gemini-3-flash-preview',
+      'gemini-3.1-flash-lite',
+      'gemini-2.5-flash-lite',
       'gemini-3.5-flash',
       'gemini-2.5-flash',
       null,
     ];
+    bool hitRateLimit = false;
     for (final model in models) {
-      final text = await _tryCloudflareProxy(
-        provider: 'gemini',
-        model: model,
-        prompt: prompt,
-        base64Data: base64Data,
-        mimeType: mimeType,
-        timeoutSeconds: timeoutSeconds,
-      );
-      if (text != null && text.trim().isNotEmpty) {
-        return text;
+      try {
+        final response = await http
+            .post(
+              Uri.parse(_kCloudflareProxyUrl),
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                _kAppSecretHeader: _kAppClientSecret,
+              },
+              body: jsonEncode({
+                'provider': 'gemini',
+                if (model != null) 'model': model,
+                'prompt': prompt,
+                if (base64Data != null) 'data': base64Data,
+                if (mimeType != null) 'mime_type': mimeType,
+              }),
+            )
+            .timeout(Duration(seconds: timeoutSeconds));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          final rawText = data['candidates']?[0]?['content']?['parts']?[0]
+              ?['text'] as String?;
+          if (rawText != null && rawText.trim().isNotEmpty) {
+            return (text: rawText, hitRateLimit: hitRateLimit);
+          }
+        } else {
+          if (response.statusCode == 429) hitRateLimit = true;
+          debugPrint(
+              'Cloudflare Relay Error (${model ?? 'default'}) [${response.statusCode}]: ${response.body}');
+        }
+      } catch (e) {
+        debugPrint('Cloudflare Relay Exception (${model ?? 'default'}): $e');
       }
     }
-    return null;
+    return (text: null, hitRateLimit: hitRateLimit);
   }
 
   // Pick PDF
@@ -746,6 +862,8 @@ class _AiUploadPaperPageState extends State<AiUploadPaperPage> {
 
     try {
       String? responseText;
+      bool hitRateLimit = false;
+      final candidateKeys = await _getCandidatePaperApiKeys();
 
       // ── 順位 1：若為 PDF 檔案，優先採用 PDF 內建文字萃取 ➔ Gemini / Groq 高速文字解析 ──
       if (_isPdf && _fileBytes != null) {
@@ -795,44 +913,26 @@ $pdfExtractedText
 }
 ''';
 
-          final apiKey = await _getPaperApiKey();
-          if (apiKey.isNotEmpty) {
-            final fastModels = [
-              'gemini-3.5-flash',
-              'gemini-2.5-flash',
-              'gemini-3.5-flash-lite',
-            ];
-            for (final modelName in fastModels) {
-              try {
-                debugPrint('AiUploadPaper: 嘗試使用 Gemini 文字引擎 ($modelName) 高速解析 PDF...');
-                final model = GenerativeModel(
-                  model: modelName,
-                  apiKey: apiKey,
-                  generationConfig: GenerationConfig(
-                    responseMimeType: 'application/json',
-                    temperature: 0.1,
-                  ),
-                );
-                final res = await model.generateContent([Content.text(pdfTextPrompt)])
-                    .timeout(const Duration(seconds: 40));
-                if (res.text != null && res.text!.trim().isNotEmpty) {
-                  responseText = res.text;
-                  debugPrint('AiUploadPaper: Gemini ($modelName) PDF 文字解析成功！');
-                  break;
-                }
-              } catch (e) {
-                debugPrint('AiUploadPaper: Gemini ($modelName) 文字解析失敗: $e');
-              }
-            }
+          if (candidateKeys.isNotEmpty) {
+            final directRes = await _tryDirectGeminiWithKeys(
+              apiKeys: candidateKeys,
+              prompt: pdfTextPrompt,
+              temperature: 0.1,
+              timeoutSeconds: 40,
+            );
+            responseText = directRes.text;
+            hitRateLimit = hitRateLimit || directRes.hitRateLimit;
           }
 
           // 若直連失敗，優先嘗試 Cloudflare Gemini 中繼站 (依序切換可用模型)
           if (responseText == null || responseText.trim().isEmpty) {
-            debugPrint('AiUploadPaper: Gemini 本地 SDK 直連解析失敗，嘗試 Cloudflare Gemini 中繼...');
-            responseText = await _tryCloudflareGeminiWithFallback(
+            debugPrint('AiUploadPaper: Gemini 本地直連解析失敗，嘗試 Cloudflare Gemini 中繼...');
+            final proxyRes = await _tryCloudflareGeminiWithFallback(
               prompt: pdfTextPrompt,
               timeoutSeconds: 25,
             );
+            responseText = proxyRes.text;
+            hitRateLimit = hitRateLimit || proxyRes.hitRateLimit;
           }
           // 次選 Cloudflare Groq 中繼 (15 秒超時)
           if (responseText == null || responseText.trim().isEmpty) {
@@ -883,123 +983,41 @@ $pdfExtractedText
 }
 ''';
 
-        final apiKey = await _getPaperApiKey();
-        final modelsToTry = [
-          'gemini-3.5-flash',
-          'gemini-2.5-flash',
-          'gemini-3.5-flash-lite',
-        ];
+        final base64Data = base64Encode(_fileBytes!);
 
-        // 嘗試 Gemini SDK (加入 25s 超時保護，避免掛起)
-        if (apiKey.isNotEmpty) {
-          for (final modelName in modelsToTry) {
-            try {
-              debugPrint('AiUploadPaper: 啟動 Gemini SDK 多模態辨識 ($modelName)...');
-              final model = GenerativeModel(
-                model: modelName,
-                apiKey: apiKey,
-                safetySettings: [
-                  SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
-                  SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
-                  SafetySetting(
-                      HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
-                  SafetySetting(
-                      HarmCategory.dangerousContent, HarmBlockThreshold.none),
-                ],
-              );
-              final content = [
-                Content.multi([
-                  TextPart(systemPrompt),
-                  DataPart(_mimeType!, _fileBytes!),
-                ])
-              ];
-              final response = await model.generateContent(
-                content,
-                generationConfig: GenerationConfig(
-                  responseMimeType: 'application/json',
-                ),
-              ).timeout(const Duration(seconds: 45));
-              if (response.text != null && response.text!.trim().isNotEmpty) {
-                responseText = response.text;
-                debugPrint('AiUploadPaper: Gemini SDK ($modelName) 多模態辨識成功！');
-                break;
-              }
-            } catch (sdkErr) {
-              debugPrint('Gemini SDK ($modelName) 多模態解析例外: $sdkErr');
-            }
-          }
-        }
-
-        // 嘗試 Gemini 原生 REST API
-        if ((responseText == null || responseText.trim().isEmpty) &&
-            apiKey.isNotEmpty) {
-          final base64Data = base64Encode(_fileBytes!);
-          for (final modelName in modelsToTry) {
-            try {
-              debugPrint(
-                  'AiUploadPaper: 嘗試 Gemini 原生 REST API 多模態直連 ($modelName)...');
-              final url = Uri.parse(
-                'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey',
-              );
-              final res = await http
-                  .post(
-                    url,
-                    headers: {'Content-Type': 'application/json; charset=utf-8'},
-                    body: jsonEncode({
-                      'contents': [
-                        {
-                          'parts': [
-                            {'text': systemPrompt},
-                            {
-                              'inline_data': {
-                                'mime_type': _mimeType!,
-                                'data': base64Data,
-                              }
-                            }
-                          ]
-                        }
-                      ],
-                      'generationConfig': {
-                        'responseMimeType': 'application/json',
-                      },
-                    }),
-                  )
-                  .timeout(const Duration(seconds: 45));
-
-              if (res.statusCode == 200) {
-                final data = jsonDecode(utf8.decode(res.bodyBytes));
-                final text = data['candidates']?[0]?['content']?['parts']?[0]
-                    ?['text'] as String?;
-                if (text != null && text.trim().isNotEmpty) {
-                  responseText = text;
-                  debugPrint('AiUploadPaper: Gemini REST API ($modelName) 辨識成功！');
-                  break;
-                }
-              } else {
-                debugPrint(
-                    'AiUploadPaper: Gemini REST API ($modelName) 錯誤 [${res.statusCode}]: ${res.body}');
-              }
-            } catch (restErr) {
-              debugPrint(
-                  'AiUploadPaper: Gemini REST API ($modelName) 例外: $restErr');
-            }
-          }
+        // 優先使用候選 Gemini API Keys 多模型直連（支援多模態圖片與掃描 PDF）
+        if (candidateKeys.isNotEmpty) {
+          final directRes = await _tryDirectGeminiWithKeys(
+            apiKeys: candidateKeys,
+            prompt: systemPrompt,
+            base64Data: base64Data,
+            mimeType: _mimeType ?? 'image/jpeg',
+            timeoutSeconds: 45,
+          );
+          responseText = directRes.text;
+          hitRateLimit = hitRateLimit || directRes.hitRateLimit;
         }
 
         // 嘗試 Cloudflare 雲端中繼站 (依序切換可用模型)
         if (responseText == null || responseText.trim().isEmpty) {
           debugPrint('AiUploadPaper: 切換 Cloudflare 雲端中繼站 (Gemini 多模態引擎)...');
-          final base64Data = base64Encode(_fileBytes!);
-          responseText = await _tryCloudflareGeminiWithFallback(
+          final proxyRes = await _tryCloudflareGeminiWithFallback(
             prompt: systemPrompt,
             base64Data: base64Data,
-            mimeType: _mimeType,
+            mimeType: _mimeType ?? 'image/jpeg',
             timeoutSeconds: 50,
           );
+          responseText = proxyRes.text;
+          hitRateLimit = hitRateLimit || proxyRes.hitRateLimit;
         }
       }
 
       if (responseText == null || responseText.trim().isEmpty) {
+        if (hitRateLimit) {
+          throw Exception(
+            '目前 AI 辨識服務免費額度已達暫時上限（HTTP 429）。\n請稍後再試，或至「個人檔案 → 設定 Gemini API Key」填入您個人的 Gemini API Key 即可立即恢復辨識！',
+          );
+        }
         throw Exception('無法完成考卷解析。請確認：\n1. 網路連線正常\n2. 檔案為選擇題格式\n3. 檔案字跡清晰且非加密 PDF\n若為掃描圖檔 PDF，建議截圖後以圖片方式上傳。');
       }
 
