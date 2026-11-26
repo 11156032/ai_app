@@ -437,6 +437,7 @@ class DatabaseHelper {
         await _seedAllChapterMockQuestions(db);
       }
       await _healOrphanedGroups(db);
+      await _seedCareDemoAccount(db);
     } catch (e) {
       debugPrint('Error checking/adding dynamic columns or cleaning up: $e');
     }
@@ -1811,6 +1812,370 @@ class DatabaseHelper {
   Future<void> deleteNoteByKey(String noteKey) async {
     final db = await database;
     await db.delete('notes', where: 'note_key = ?', whereArgs: [noteKey]);
+  }
+
+  /// 確保「向陽助學體驗生 (u7)」帳號與示範資料存在並回傳該使用者資料
+  Future<Map<String, dynamic>> ensureCareDemoUser() async {
+    final db = await database;
+    await _seedCareDemoAccount(db);
+    final rows = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: ['u7'],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      return Map<String, dynamic>.from(rows.first);
+    }
+    return {
+      'id': 'u7',
+      'username': '向陽共學體驗生',
+      'display_name': '向陽共學體驗生',
+      'email': 'sunshine_demo@yebang.app',
+      'membership_tier': 'vip',
+      'points_balance': 300,
+    };
+  }
+
+  /// 植入關懷弱勢族群／教育平權示範帳號 (u7) 與跨模組預載資料（幂等執行，不影響既有資料）
+  Future<void> _seedCareDemoAccount(Database db) async {
+    try {
+      await db.insert(
+        'users',
+        <String, Object?>{
+          'id': 'u7',
+          'username': '向陽共學體驗生',
+          'email': 'sunshine_demo@yebang.app',
+          'hashed_password': 'demo_password',
+          'display_name': '向陽共學體驗生',
+          'bio': '運用免費 AI 家教自主補強數理與英文，把每次錯題變成進步的階梯 🌱',
+          'tags': jsonEncode(['數學', '英文', '理化', '國文']),
+          'avatar_color': 2,
+          'is_email_verified': 1,
+          'membership_tier': 'vip',
+          'points_balance': 300,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+
+      final existingQuiz = await db.query(
+        'quiz_results',
+        columns: ['id'],
+        where: 'user_id = ?',
+        whereArgs: ['u7'],
+        limit: 1,
+      );
+      final existingNotes = await db.query(
+        'notes',
+        columns: ['id'],
+        where: 'user_id = ?',
+        whereArgs: ['u7'],
+        limit: 1,
+      );
+      if (existingQuiz.isNotEmpty && existingNotes.isNotEmpty) {
+        return;
+      }
+
+      String fmtDate(DateTime dt) =>
+          '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      String fmtDateTime(DateTime dt) =>
+          '${fmtDate(dt)} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:00';
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      // 1. 行事曆讀書計畫（今日與明日，展現時間軸管理）
+      final existingCal = await db.query(
+        'calendar_events',
+        columns: ['id'],
+        where: 'user_id = ?',
+        whereArgs: ['u7'],
+        limit: 1,
+      );
+      if (existingCal.isEmpty) {
+        await db.insert('calendar_events', {
+          'user_id': 'u7',
+          'title': '數學｜二次函數錯題補強（15分鐘微練習）',
+          'description': '利用晚間零碎時間複習頂點公式與判別式錯題',
+          'start_time': fmtDateTime(today.add(const Duration(hours: 19))),
+          'end_time':
+              fmtDateTime(today.add(const Duration(hours: 19, minutes: 30))),
+          'color': '0xFFFFE082',
+        });
+        await db.insert('calendar_events', {
+          'user_id': 'u7',
+          'title': '英文｜核心句型語音筆記複習',
+          'description': '重溫 AI 整理的心智圖與五大基本句型重點',
+          'start_time': fmtDateTime(today.add(const Duration(hours: 20))),
+          'end_time':
+              fmtDateTime(today.add(const Duration(hours: 20, minutes: 30))),
+          'color': '0xFF81D4FA',
+        });
+        await db.insert('calendar_events', {
+          'user_id': 'u7',
+          'title': '理化｜牛頓運動定律免費模擬測驗',
+          'description': '運用系統題庫進行自我檢測，記錄需加強觀念',
+          'start_time':
+              fmtDateTime(today.add(const Duration(days: 1, hours: 18, minutes: 30))),
+          'end_time':
+              fmtDateTime(today.add(const Duration(days: 1, hours: 19, minutes: 15))),
+          'color': '0xFFA5D6A7',
+        });
+      }
+
+      // 2. 待辦事項
+      final existingTodos = await db.query(
+        'todos',
+        columns: ['id'],
+        where: 'user_id = ?',
+        whereArgs: ['u7'],
+        limit: 1,
+      );
+      if (existingTodos.isEmpty) {
+        await db.insert('todos', {
+          'user_id': 'u7',
+          'text': '完成「數學二次函數」AI 錯題補強 3 題',
+          'done': 0,
+          'created_at': fmtDateTime(now),
+        });
+        await db.insert('todos', {
+          'user_id': 'u7',
+          'text': '用語音速記整理英文文法心智圖筆記',
+          'done': 1,
+          'done_at': fmtDateTime(now.subtract(const Duration(hours: 3))),
+          'created_at': fmtDateTime(now.subtract(const Duration(days: 1))),
+        });
+        await db.insert('todos', {
+          'user_id': 'u7',
+          'text': '將考前重點筆記分享給共學群組同學',
+          'done': 0,
+          'created_at': fmtDateTime(now),
+        });
+      }
+
+      // 3. 測驗歷程、錯題本與補強練習卷
+      final qRows = await db.query('questions', columns: ['id', 'subject'], limit: 20);
+      final qIds = qRows.map((r) => r['id'] as int).toList();
+      if (existingQuiz.isEmpty) {
+        final demoQuizzes = [
+          (subject: '數學', total: 10, correct: 6, daysAgo: 4, dur: 480),
+          (subject: '英文', total: 10, correct: 8, daysAgo: 3, dur: 420),
+          (subject: '理化', total: 10, correct: 7, daysAgo: 2, dur: 510),
+          (subject: '國文', total: 10, correct: 9, daysAgo: 1, dur: 360),
+          (subject: '數學', total: 10, correct: 8, daysAgo: 0, dur: 410),
+        ];
+        for (var i = 0; i < demoQuizzes.length; i++) {
+          final qz = demoQuizzes[i];
+          final wrongIds = qIds.isNotEmpty
+              ? [qIds[i % qIds.length], qIds[(i + 1) % qIds.length]]
+              : <int>[];
+          await db.insert('quiz_results', {
+            'user_id': 'u7',
+            'subject': qz.subject,
+            'total': qz.total,
+            'correct': qz.correct,
+            'wrong_question_ids': jsonEncode(wrongIds),
+            'duration_seconds': qz.dur,
+            'timestamp': fmtDateTime(
+                now.subtract(Duration(days: qz.daysAgo, hours: 2))),
+          });
+        }
+      }
+
+      final existingWrong = await db.query(
+        'wrong_questions',
+        columns: ['id'],
+        where: 'user_id = ?',
+        whereArgs: ['u7'],
+        limit: 1,
+      );
+      if (existingWrong.isEmpty && qIds.isNotEmpty) {
+        final notes = [
+          '忘記配方法求頂點座標公式，需再透過 AI 解析確認步驟',
+          '注意時態與主詞單複數一致性',
+          '加速度與作用力方向容易搞混，再做一次補強練習',
+        ];
+        for (var i = 0; i < 3 && i < qIds.length; i++) {
+          await db.insert('wrong_questions', {
+            'user_id': 'u7',
+            'question_id': qIds[i],
+            'note': notes[i],
+            'created_at': fmtDateTime(now.subtract(Duration(days: i))),
+          });
+        }
+      }
+
+      final existingPaper = await db.query(
+        'user_papers',
+        columns: ['id'],
+        where: 'user_id = ?',
+        whereArgs: ['u7'],
+        limit: 1,
+      );
+      if (existingPaper.isEmpty && qIds.isNotEmpty) {
+        await db.insert('user_papers', {
+          'user_id': 'u7',
+          'name': '🌱 向陽基礎補強練習卷',
+          'question_ids': jsonEncode(qIds.take(5).toList()),
+          'created_at': fmtDateTime(now.subtract(const Duration(days: 1))),
+        });
+      }
+
+      // 4. AI 語音筆記與心智圖
+      if (existingNotes.isEmpty) {
+        final mathMindmap = {
+          'id': 'root',
+          'label': '二次函數核心重點',
+          'color': '#673AB7',
+          'children': [
+            {
+              'id': 'm1',
+              'label': '標準式與頂點式',
+              'color': '#3F51B5',
+              'children': [
+                {'id': 'm1_1', 'label': 'y = a(x-h)² + k，頂點 (h, k)', 'color': '#2196F3', 'children': []},
+                {'id': 'm1_2', 'label': 'a > 0 開口向上（有最小值）', 'color': '#2196F3', 'children': []},
+              ],
+            },
+            {
+              'id': 'm2',
+              'label': '與 X 軸交點判別',
+              'color': '#00897B',
+              'children': [
+                {'id': 'm2_1', 'label': 'b² - 4ac > 0：兩相異交點', 'color': '#4CAF50', 'children': []},
+                {'id': 'm2_2', 'label': 'b² - 4ac = 0：相切於一點', 'color': '#4CAF50', 'children': []},
+              ],
+            },
+          ],
+        };
+        final mathActions = [
+          {'task': '重算一次配方法例題並核對頂點座標', 'owner': '向陽共學體驗生', 'due_date': '今日晚間', 'is_completed': false},
+          {'task': '完成數學補強測驗 5 題', 'owner': '向陽共學體驗生', 'due_date': '本週五', 'is_completed': true},
+        ];
+        final mathContent = '''
+> **核心摘要**：整理二次函數頂點式推導、開口方向判斷與判別式交點個數，不用補習也能快速抓住大考必考重點。
+
+# 🎓 二次函數核心公式與解題心法
+
+## 📖 核心名詞與公式解析
+- **頂點式 `y = a(x - h)² + k`**：直接讀出拋物線頂點座標 `(h, k)` 與對稱軸 `x = h`。
+- **開口方向與極值**：當 `a > 0` 開口向上，在頂點有**最小值 `k`**；當 `a < 0` 開口向下，有**最大值 `k`**。
+
+## 🧠 課堂脈絡與考點梳理
+1. 看到一般式 `y = ax² + bx + c`，先用配方法轉成頂點式。
+2. 判斷圖形與 x 軸交點數時，直接檢查判別式 `D = b² - 4ac`。
+
+## ❓ 自我檢測問答 (Active Recall)
+- **Q1**：若 `y = 2(x - 3)² + 5`，頂點座標與最小值為何？
+  - **A**：頂點為 `(3, 5)`，因 `a = 2 > 0`，最小值為 `5`。
+
+## ✅ 待辦行動清單
+- [ ] 重算一次配方法例題並核對頂點座標 (期限: 今日晚間)
+- [x] 完成數學補強測驗 5 題 (期限: 本週五)
+
+---
+## 🎙️ 語音逐字稿
+今天複習二次函數，老師提醒把一般式配方成 y 等於 a 倍 x 減 h 的平方加 k 就能直接看出頂點 h 跟 k，判別式大於零代表跟 x 軸有兩個交點，回家要多練幾題錯題本裡的題目。
+''';
+        await db.insert('notes', {
+          'note_key': 'care_demo_math',
+          'user_id': 'u7',
+          'title': '🎓 二次函數核心公式與解題心法',
+          'content': mathContent.trim(),
+          'category': '學習',
+          'mindmap_json': jsonEncode(mathMindmap),
+          'action_items_json': jsonEncode(mathActions),
+          'updated_at': now.toIso8601String(),
+        });
+
+        final engMindmap = {
+          'id': 'root',
+          'label': '英文五大基本句型',
+          'color': '#0288D1',
+          'children': [
+            {'id': 'e1', 'label': 'S + V / S + V + SC（連綴動詞）', 'color': '#26A69A', 'children': []},
+            {'id': 'e2', 'label': 'S + V + O / S + V + IO + DO（授與動詞）', 'color': '#5C6BC0', 'children': []},
+            {'id': 'e3', 'label': 'S + V + O + OC（受詞補語）', 'color': '#8E24AA', 'children': []},
+          ],
+        };
+        const engContent = '''
+> **核心摘要**：用語音速記快速梳理英文五大基本句型與常見連綴動詞，方便零碎時間複習閱讀測驗拆句。
+
+# ⚡ 英文五大句型與考前速記
+
+## 🎯 核心重點
+1. **S + V + SC**：常見連綴動詞（look, sound, feel, become）後接形容詞或名詞作主詞補語。
+2. **S + V + IO + DO**：授與動詞（give, send, teach）可改寫為介系詞 `to` 或 `for` 結構。
+3. **S + V + O + OC**：使役／感官動詞後面常考原形不定詞或分詞搭配。
+
+---
+## 🎙️ 語音逐字稿
+英文長句子其實都是五大句型延伸出來的，看到連綴動詞後面要選形容詞，授與動詞要分清楚是用 to 還是 for，考前把這幾組常見動詞記熟就不容易失分。
+''';
+        await db.insert('notes', {
+          'note_key': 'care_demo_eng',
+          'user_id': 'u7',
+          'title': '⚡ 英文五大句型與考前速記',
+          'content': engContent.trim(),
+          'category': '學習',
+          'mindmap_json': jsonEncode(engMindmap),
+          'updated_at':
+              now.subtract(const Duration(hours: 6)).toIso8601String(),
+        });
+      }
+
+      // 5. 學習日記（傳達希望與自主成長）
+      final existingDiaries = await db.query(
+        'diaries',
+        columns: ['id'],
+        where: 'user_id = ?',
+        whereArgs: ['u7'],
+        limit: 1,
+      );
+      if (existingDiaries.isEmpty) {
+        await db.insert('diaries', {
+          'user_id': 'u7',
+          'date': fmtDate(now.subtract(const Duration(days: 2))),
+          'content':
+              '雖然家裡附近沒有補習班資源，但今天透過錯題本搭配 AI 弱項補強，終於把二次函數頂點公式弄懂了，感覺自己也能跟上進度！',
+        });
+        await db.insert('diaries', {
+          'user_id': 'u7',
+          'date': fmtDate(now),
+          'content':
+              '把上課重點用 AI 語音筆記整理成心智圖，搭車和睡前 15 分鐘就能拿出來複習，明天繼續挑戰理化練習卷！',
+        });
+      }
+
+      // 6. 社群公益共學分享貼文
+      final existingPosts = await db.query(
+        'posts',
+        columns: ['id'],
+        where: 'user_id = ?',
+        whereArgs: ['u7'],
+        limit: 1,
+      );
+      if (existingPosts.isEmpty) {
+        await db.insert('posts', {
+          'user_id': 'u7',
+          'content':
+              '我整理了一份《二次函數核心公式筆記》，分享給同樣靠自學準備考試的夥伴！就算沒有補習資源，我們也可以透過共享筆記一起進步 🌱',
+          'likes': 18,
+          'type': 'share',
+          'attached_data': jsonEncode({
+            'shared_type': 'note',
+            'title': '🎓 二次函數核心公式與解題心法',
+            'category': '學習',
+            'content':
+                '# 🎓 二次函數核心公式與解題心法\n- 頂點式 y = a(x - h)² + k\n- a > 0 開口向上有最小值\n- 判別式 D = b² - 4ac 判斷與 x 軸交點數',
+          }),
+          'created_at':
+              now.subtract(const Duration(hours: 5)).toIso8601String(),
+        });
+      }
+    } catch (e) {
+      debugPrint('Error seeding care demo account (u7): $e');
+    }
   }
 
   Future<void> _seedDatabase(Database db) async {

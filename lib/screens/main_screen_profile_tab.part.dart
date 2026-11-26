@@ -4324,16 +4324,6 @@ extension MainScreenProfileTab on _MainScreenState {
             const Divider(height: 20),
             _buildProfileTile(
               context: context,
-              icon: Icons.ondemand_video_outlined,
-              label: AppLocaleService.tr('tutorial_video_label', _appLanguage),
-              value: AppLocaleService.tr('tutorial_video_sub', _appLanguage),
-              onTap: () {
-                TutorialVideoPlayer.showTutorialChooserDialog(context);
-              },
-            ),
-            const Divider(height: 20),
-            _buildProfileTile(
-              context: context,
               icon: Icons.explore_outlined,
               label: AppLocaleService.tr('tour_label', _appLanguage),
               value: AppLocaleService.tr('tour_value', _appLanguage),
@@ -4364,15 +4354,6 @@ extension MainScreenProfileTab on _MainScreenState {
 
           // 條款與資訊分類
           if (showLegal) ...[
-            _buildProfileTile(
-              context: context,
-              icon: Icons.developer_mode_rounded,
-              label: tr('dev_center_label'),
-              value: tr('dev_center_value'),
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const DeveloperCenterScreen())),
-            ),
-            const Divider(height: 20),
             _buildProfileTile(
               context: context,
               icon: Icons.info_outline_rounded,

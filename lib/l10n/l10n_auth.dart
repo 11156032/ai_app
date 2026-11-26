@@ -182,10 +182,15 @@ const Map<String, Map<String, String>> l10nAuth = {
     'ja': 'Googleで登録',
     'ko': 'Google 계정으로 가입',
   },
+  'login_care_demo': {
+    'zh_TW': '弱勢助學示範',
+    'ja': '学習支援デモ',
+    'ko': '학습 지원 데모',
+  },
   'login_guest': {
-    'zh_TW': '以訪客身份直接登入',
-    'ja': 'ゲストとしてログイン',
-    'ko': '게스트로 로그인',
+    'zh_TW': '訪客登入',
+    'ja': 'ゲストログイン',
+    'ko': '게스트 로그인',
   },
   'login_hint': {
     'zh_TW': '提示',

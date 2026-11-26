@@ -20,6 +20,7 @@ void main() {
     // 3. 驗證 UI 元素
     // 注意：請確保這些文字在您最新的 UI 版本中依然存在
     expect(find.text('YeBang 家教'), findsOneWidget);
-    expect(find.text('以訪客身份直接登入'), findsOneWidget);
+    expect(find.text('訪客登入'), findsOneWidget);
+    expect(find.text('弱勢助學示範'), findsOneWidget);
   });
 }

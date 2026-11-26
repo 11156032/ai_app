@@ -1193,66 +1193,144 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // 訪客登入
-                          SizedBox(
-                            width: double.infinity,
-                            height: 54,
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor:
-                                    Colors.white.withValues(alpha: 0.35),
-                                side: BorderSide(
-                                    color: Color(0xFF8D6E63)
-                                        .withValues(alpha: 0.4),
-                                    width: 1.2),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16)),
-                                elevation: 0,
+                          // 訪客登入（左）與 向陽助學體驗（右）
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 54,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10),
+                                      backgroundColor:
+                                          Colors.white.withValues(alpha: 0.35),
+                                      side: BorderSide(
+                                          color: const Color(0xFF8D6E63)
+                                              .withValues(alpha: 0.4),
+                                          width: 1.2),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      elevation: 0,
+                                    ),
+                                    icon: const Icon(
+                                        Icons.person_outline_rounded,
+                                        color: Color(0xFF8D6E63),
+                                        size: 18),
+                                    label: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        tr('login_guest'),
+                                        maxLines: 1,
+                                        style: const TextStyle(
+                                            color: Color(0xFF8D6E63),
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      try {
+                                        final db = await DatabaseHelper
+                                            .instance.database;
+                                        final res = await db.query('users',
+                                            where: 'username = ?',
+                                            whereArgs: ['訪客']);
+                                        if (!mounted) return;
+                                        if (res.isNotEmpty) {
+                                          final userMap =
+                                              Map<String, dynamic>.from(
+                                                  res.first);
+                                          userMap['session_post_ids'] = <int>{};
+                                          userMap['session_comment_ids'] =
+                                              <int>{};
+                                          _showSuccessOverlay(userMap);
+                                        } else {
+                                          _showSuccessOverlay({
+                                            'id': 'u4',
+                                            'username': '訪客',
+                                            'display_name': '訪客',
+                                            'session_post_ids': <int>{},
+                                            'session_comment_ids': <int>{},
+                                          });
+                                        }
+                                      } catch (e) {
+                                        debugPrint('訪客登入失敗: $e');
+                                        if (!mounted) return;
+                                        _showSuccessOverlay({
+                                          'id': 'u4',
+                                          'username': '訪客',
+                                          'display_name': '訪客',
+                                          'session_post_ids': <int>{},
+                                          'session_comment_ids': <int>{},
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
                               ),
-                              icon: const Icon(Icons.person_outline_rounded,
-                                  color: Color(0xFF8D6E63), size: 20),
-                              label: Text(
-                                tr('login_guest'),
-                                style: TextStyle(
-                                    color: Color(0xFF8D6E63),
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 54,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10),
+                                      backgroundColor: const Color(0xFFFFF8E1)
+                                          .withValues(alpha: 0.85),
+                                      side: BorderSide(
+                                          color: const Color(0xFFF57C00)
+                                              .withValues(alpha: 0.55),
+                                          width: 1.3),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      elevation: 0,
+                                    ),
+                                    icon: const Icon(Icons.wb_sunny_rounded,
+                                        color: Color(0xFFE65100), size: 18),
+                                    label: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        tr('login_care_demo'),
+                                        maxLines: 1,
+                                        style: const TextStyle(
+                                            color: Color(0xFFE65100),
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.3),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      try {
+                                        final userMap = await DatabaseHelper
+                                            .instance
+                                            .ensureCareDemoUser();
+                                        if (!mounted) return;
+                                        userMap['session_post_ids'] = <int>{};
+                                        userMap['session_comment_ids'] =
+                                            <int>{};
+                                        _showSuccessOverlay(userMap);
+                                      } catch (e) {
+                                        debugPrint('向陽助學體驗登入失敗: $e');
+                                        if (!mounted) return;
+                                        _showSuccessOverlay({
+                                          'id': 'u7',
+                                          'username': '向陽共學體驗生',
+                                          'display_name': '向陽共學體驗生',
+                                          'membership_tier': 'vip',
+                                          'points_balance': 300,
+                                          'session_post_ids': <int>{},
+                                          'session_comment_ids': <int>{},
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
                               ),
-                              onPressed: () async {
-                                try {
-                                  final db =
-                                      await DatabaseHelper.instance.database;
-                                  final res = await db.query('users',
-                                      where: 'username = ?', whereArgs: ['訪客']);
-                                  if (!mounted) return;
-                                  if (res.isNotEmpty) {
-                                    final userMap =
-                                        Map<String, dynamic>.from(res.first);
-                                    userMap['session_post_ids'] = <int>{};
-                                    userMap['session_comment_ids'] = <int>{};
-                                    _showSuccessOverlay(userMap);
-                                  } else {
-                                    _showSuccessOverlay({
-                                      'id': 'u4',
-                                      'username': '訪客',
-                                      'display_name': '訪客',
-                                      'session_post_ids': <int>{},
-                                      'session_comment_ids': <int>{},
-                                    });
-                                  }
-                                } catch (e) {
-                                  debugPrint('訪客登入失敗: $e');
-                                  if (!mounted) return;
-                                  _showSuccessOverlay({
-                                    'id': 'u4',
-                                    'username': '訪客',
-                                    'display_name': '訪客',
-                                    'session_post_ids': <int>{},
-                                    'session_comment_ids': <int>{},
-                                  });
-                                }
-                              },
-                            ),
+                            ],
                           ),
                         ],
                       ),

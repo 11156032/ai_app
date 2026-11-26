@@ -433,7 +433,7 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                 ),
                 const SizedBox(height: 36),
 
-                // ✏️ [修改處 5] 設計初衷 — 交錯飛入
+                // ✏️ [修改處 5] 設計初衷 & 科技向善理念 — 交錯飛入
                 _RevealOnScroll(
                   scrollController: _scrollController,
                   slideBegin: const Offset(-0.10, 0),
@@ -441,9 +441,11 @@ class _AboutUsScreenState extends State<AboutUsScreen>
                   curve: Curves.easeOutCubic,
                   child: _sectionLabel(tr('about_origin'), '💡', primaryColor, isDark),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 _buildDesignIntentGrid(primaryColor, isDark),
-                const SizedBox(height: 36),
+                const SizedBox(height: 28),
+                _buildValuePillarsCard(primaryColor, isDark),
+                const SizedBox(height: 32),
 
                 // ✏️ [修改處 6] 核心功能 — 交錯左右飛入
                 _RevealOnScroll(
@@ -720,6 +722,84 @@ class _AboutUsScreenState extends State<AboutUsScreen>
           ),
         ),
       ],
+    );
+  }
+
+  /// 精簡呈現「三好・四給・教育平權」核心傳達概念（2x2 視覺膠囊卡）
+  Widget _buildValuePillarsCard(Color primaryColor, bool isDark) {
+    final pillars = [
+      (Icons.auto_fix_high_rounded, '給人方便', '拍考卷・語音速記一鍵整理', const Color(0xFF00897B)),
+      (Icons.trending_up_rounded, '給人信心', '弱項診斷・錯題補強看見進步', const Color(0xFF1E88E5)),
+      (Icons.favorite_rounded, '給人歡喜', '伴學精靈・社群共學暖心打氣', const Color(0xFFE53935)),
+      (Icons.wb_sunny_rounded, '給人希望', '隨身 AI 家教・實現教育平權', const Color(0xFFFB8C00)),
+    ];
+
+    return _RevealOnScroll(
+      scrollController: _scrollController,
+      delay: const Duration(milliseconds: 120),
+      slideBegin: const Offset(0, 0.08),
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionLabel('三好四給・科技向善', '🌱', primaryColor, isDark),
+          const SizedBox(height: 14),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.75,
+            children: pillars.map((p) {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? p.$4.withValues(alpha: 0.12)
+                      : p.$4.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: p.$4.withValues(alpha: isDark ? 0.3 : 0.22),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(p.$1, size: 16, color: p.$4),
+                        const SizedBox(width: 6),
+                        Text(
+                          p.$2,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF1E2022),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      p.$3,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        height: 1.35,
+                        color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 
