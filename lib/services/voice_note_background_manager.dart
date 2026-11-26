@@ -117,11 +117,17 @@ class VoiceNoteBackgroundManager extends ChangeNotifier {
         if (!NotesDatabase.categories.contains(effectiveCategory)) {
           NotesDatabase.categories.add(effectiveCategory);
         }
+        final fullContent = VoiceNoteService.buildPersistableMarkdown(
+          result: result,
+          editedContent: result.markdownContent,
+          editedActionItems: result.actionItems,
+          rawTranscript: transcript,
+        );
         final newNote = Note(
           id: 'note_${DateTime.now().millisecondsSinceEpoch}',
           userId: userId,
           title: result.title.isEmpty ? tr('notes_voice_default_title') : result.title,
-          content: result.markdownContent,
+          content: fullContent,
           category: effectiveCategory,
           strokes: [],
           updatedAt: DateTime.now(),
@@ -129,6 +135,7 @@ class VoiceNoteBackgroundManager extends ChangeNotifier {
           actionItems: result.actionItems,
         );
         NotesDatabase.notes.insert(0, newNote);
+        await NotesDatabase.persistNote(newNote);
         _lastCreatedNote = newNote;
       }
 

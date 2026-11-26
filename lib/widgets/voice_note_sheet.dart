@@ -1113,9 +1113,15 @@ class _VoiceNoteSheetState extends State<VoiceNoteSheet>
     final title = _titleEditController.text.trim().isEmpty
         ? _result?.title ?? tr('notes_voice_default_title')
         : _titleEditController.text.trim();
-    final content = _contentEditController.text.trim().isEmpty
+    final baseContent = _contentEditController.text.trim().isEmpty
         ? (_result?.markdownContent ?? _transcriptController.text)
         : _contentEditController.text;
+    final content = VoiceNoteService.buildPersistableMarkdown(
+      result: _result,
+      editedContent: baseContent,
+      editedActionItems: _editableActionItems,
+      rawTranscript: _transcriptController.text,
+    );
     final category = _editableCategory;
 
     await _clearDraftStorage();

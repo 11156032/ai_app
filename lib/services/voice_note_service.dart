@@ -345,6 +345,63 @@ class VoiceNoteService {
     return content.trim();
   }
 
+  /// 組合可完整持久化儲存至筆記本的 Markdown（保留摘要、待辦清單與校正後逐字稿）
+  static String buildPersistableMarkdown({
+    required VoiceNoteResult? result,
+    required String editedContent,
+    List<ActionItem>? editedActionItems,
+    String? rawTranscript,
+  }) {
+    var content = editedContent.trim();
+    if (content.isEmpty && result != null) {
+      content = result.markdownContent.trim();
+    }
+
+    final buf = StringBuffer();
+    final summary = result?.summary?.trim() ?? '';
+    if (summary.isNotEmpty && !content.contains(summary)) {
+      buf.writeln('> **核心摘要**：$summary');
+      buf.writeln();
+    }
+
+    if (content.isNotEmpty) {
+      buf.writeln(content);
+    }
+
+    final items = editedActionItems ?? result?.actionItems ?? const <ActionItem>[];
+    if (items.isNotEmpty &&
+        !content.contains('待辦行動清單') &&
+        !content.contains('- [ ]') &&
+        !content.contains('- [x]')) {
+      buf.writeln();
+      buf.writeln('## ✅ 待辦行動清單');
+      for (final item in items) {
+        final box = item.isCompleted ? '[x]' : '[ ]';
+        final meta = <String>[];
+        if (item.owner.isNotEmpty && item.owner != '未指定') {
+          meta.add('負責人: ${item.owner}');
+        }
+        if (item.dueDate.isNotEmpty && item.dueDate != '無') {
+          meta.add('期限: ${item.dueDate}');
+        }
+        final suffix = meta.isNotEmpty ? ' (${meta.join(' | ')})' : '';
+        buf.writeln('- $box ${item.task}$suffix');
+      }
+    }
+
+    final transcript = (result?.correctedTranscript?.trim().isNotEmpty == true)
+        ? result!.correctedTranscript!.trim()
+        : (rawTranscript?.trim() ?? '');
+    if (transcript.isNotEmpty && !content.contains('語音逐字稿')) {
+      buf.writeln();
+      buf.writeln('---');
+      buf.writeln('## 🎙️ 語音逐字稿');
+      buf.writeln(transcript);
+    }
+
+    return buf.toString().trim();
+  }
+
   static const String _kCloudflareProxyUrl =
       'https://ai-app-proxy.adenlee36.workers.dev';
 
@@ -397,12 +454,12 @@ class VoiceNoteService {
     // 優先使用 Cloudflare 雲端中繼站 (Gemini 優先 -> OpenRouter -> Groq)
     // Groq 免費層限流嚴格 (OTPM 1000)，降為後備引擎避免整理中斷
     // ============================================================
-    // 順位 1：Cloudflare Gemini 旗艦引擎 (中繼站優先)
+    // 順位 1：Cloudflare Gemini 旗艦引擎 (中繼站優先，給予 25 秒避免思考鏈逾時)
     debugPrint('VoiceNoteService: 優先啟動 Cloudflare 雲端中繼站 (Gemini 引擎)...');
     String? responseText = await _tryCloudflareProxy(
       provider: 'gemini',
       prompt: prompt,
-      timeoutSeconds: 15,
+      timeoutSeconds: 25,
     );
 
     // 順位 2：Cloudflare OpenRouter 免費引擎 (無嚴格分鐘限流，穩定)
@@ -550,13 +607,20 @@ class VoiceNoteService {
             .toList()
         : null;
 
-    // ── 新增欄位：action_items ──
+    // ── 新增欄位：action_items（相容物件陣列與純字串陣列） ──
     final rawActionItems = decoded['action_items'];
     List<ActionItem>? actionItems;
     if (rawActionItems is List && rawActionItems.isNotEmpty) {
       actionItems = rawActionItems
-          .whereType<Map<String, dynamic>>()
-          .map((e) => ActionItem.fromJson(e))
+          .map((e) {
+            if (e is Map<String, dynamic>) {
+              return ActionItem.fromJson(e);
+            }
+            final str = e.toString().trim();
+            if (str.isEmpty) return null;
+            return ActionItem(task: str);
+          })
+          .whereType<ActionItem>()
           .where((a) => a.task.isNotEmpty)
           .toList();
     }
@@ -707,67 +771,50 @@ class VoiceNoteService {
         : '【微調層級：📚 詳盡 (Detailed)】：完整梳理邏輯脈絡、推導過程、論述細節與因果關係，結構豐富完備。';
 
     return '''
-你是一位頂級的語音筆記整理與逐字稿語意校正專家，擅長把口語化、中英夾雜的逐字稿進行專業校正，並轉換為自然、清晰、有條理的專業結構化筆記。
+你是一位精準的語音筆記整理專家，請「完全根據」下方【原始語音轉文字稿】的實際內容進行語意校正與結構化整理。
 
-【核心原則】
-1. 說話者分離 (Diarization) 與標點符號完整校正：
-   - 說話者辨識 (Diarization)：若輸入語音逐字稿含有多位說話者或時間戳（例如 [00:15] 說話者 1: ... 或對話語境），請在 "corrected_transcript" 中明確保留與區分「說話者 1」、「說話者 2」或角色名稱。
-   - content 是整理後的筆記，不是逐字稿：除非是多人對話且區分發言者對理解不可或缺，否則嚴禁在 content 段落中直接貼入時間戳（如 [00:00]）或「說話者 1:」標籤，一律改以整理後的筆記文字呈現。
-   - 標點符號完整化：強制為所有語句補充輸出語言對應的正確標點符號，嚴禁輸出完全無標點符號的連續文字。
-   - 精確校正中英文專有名詞、專業術語、同音錯字（例如將「摸豆」校正為「Model」、「API」、「Flutter」等），並剔除口語贅字（如「呃、啊、那個」）。
-2. 術語規範（僅在輸出語言為繁體中文時適用）：
-   - 專案（嚴禁使用「項目」稱呼 Project）
-   - 使用者（嚴禁使用「用戶」）
-   - 資料庫（嚴禁使用「數據庫」）
-   - 程式碼（嚴禁使用「代碼」）
-   - 伺服器（嚴禁使用「服務器」）
-   - 支援（嚴禁使用「支持」表示功能支援）
-   - 透過（嚴禁使用「通過」表示手段途徑）
-   - 資訊（嚴禁使用「信息」指稱 Data/Info）
-   - 預設（嚴禁使用「默認」）
-   - 即時（嚴禁使用「實時」）
-   - 最佳化（嚴禁使用「優化」）
-   - 雲端（嚴禁使用「雲」）
-3. 防通靈與防空標籤規範：
-   - 嚴禁通靈未在語音中提及的人名、日期或數據。若未提及負責人標註「[未指定]」，未提及期限標註「[待定]」（這兩個佔位詞請原樣保留不翻譯）。
-   - 若語音中完全無待辦事項，action_items 必須回傳空陣列 []，嚴禁生成「無」、「無待辦」等佔位文字。
-4. 防偷懶與防原始符號規範（最高優先）：
-   - title 必須是概括主題的精煉標題，嚴禁直接複製逐字稿開頭，嚴禁包含時間戳（如 [00:00]）、「說話者 1」等標籤或「0000」等雜訊。
-   - content 各段落必須是重新提煉、重新組織後的筆記文字，嚴禁整段照抄逐字稿原文；時間戳與說話者標籤只允許出現在 corrected_transcript 欄位，嚴禁出現在 title、summary、content。
-   - 嚴禁使用「詳見上方」、「如上所述」等空泛佔位句，每個段落都必須有實質內容。
-   - 嚴禁在 content 中使用 Markdown 表格語法（| 分欄）或 ``` 程式碼區塊（App 編輯器不會渲染，使用者只會看到原始符號）。
-5. $lengthHint
-6. $detailHint
+【原始語音轉文字稿】（所有整理內容必須 100% 源自此段文字）：
+$transcript
+
+【最高優先原則：嚴禁偏題與杜撰】
+1. 忠於逐字稿：title、summary、key_points、mindmap、content 與 tags 的每一項內容，都必須嚴格根據上方【原始語音轉文字稿】的實際主題與事實撰寫。
+2. 嚴禁腦補無關內容：絕對不可自行編造逐字稿中未提及的概念、背景知識、專有名詞、人名、日期或數據；若逐字稿內容簡短或屬於日常對話，請直接就現有內容精簡整理，不得硬塞與逐字稿無關的範例或假設內容。
+3. 說話者分離與標點校正：
+   - 若逐字稿含多位說話者或時間戳（如 [00:15] 說話者 1: ...），請在 "corrected_transcript" 中保留區分。
+   - content 為整理後筆記，嚴禁直接貼入時間戳或「說話者 1:」標籤，也嚴禁整段照抄原文。
+   - 強制補充正確標點符號，校正同音錯字與中英夾雜專有名詞，並剔除「呃、啊、那個」等口語贅字。
+4. 繁體中文用語規範（輸出繁中時適用）：使用「專案、使用者、資料庫、程式碼、伺服器、支援、透過、資訊、預設、即時、最佳化、雲端」。
+5. 防空標籤與格式限制：
+   - 未提及負責人填「[未指定]」、未提及期限填「[待定]」；完全無待辦事項時 action_items 必須回傳空陣列 []。
+   - 嚴禁使用「詳見上方」等佔位句，嚴禁在 content 中使用 Markdown 表格（|）或 ``` 程式碼區塊。
+6. $lengthHint
+7. $detailHint
 
 $styleInstruction
 
 【JSON 輸出格式規範】
-你必須只回傳一個乾淨、標準的 JSON 物件，不得包含任何 Markdown 代碼塊（```json）前後包裝，直接以 { 開頭以 } 結尾：
-
+請只回傳一個乾淨的 JSON 物件（不要 ```json 包裹，直接以 { 開頭 } 結尾）：
 {
-  "title": "簡短精確的筆記標題（15字以內）",
+  "title": "根據逐字稿主題產生的簡短標題（15字以內）",
   "category": "${style.suggestedCategory}",
-  "summary": "核心情境摘要（1~2句，讓人一眼看懂這是什麼內容）",
-  "key_points": ["關鍵重點1", "關鍵重點2", "關鍵重點3"],
+  "summary": "根據逐字稿內容撰寫的核心摘要（1~2句）",
+  "key_points": ["逐字稿重點1", "逐字稿重點2"],
   "action_items": [
-    { "task": "動作描述", "owner": "負責人（無則填未指定）", "due_date": "期限（無則填待定）", "is_completed": false }
+    { "task": "逐字稿中的具體待辦", "owner": "負責人（無則填未指定）", "due_date": "期限（無則填待定）", "is_completed": false }
   ],
   "mindmap": {
     "id": "root",
-    "label": "核心主題",
+    "label": "逐字稿核心主題",
     "color": "#673AB7",
     "children": [
-      { "id": "n1", "label": "核心要點", "color": "#3F51B5",
-        "children": [{ "id": "n1_1", "label": "細節解析", "color": "#2196F3", "children": [] }] }
+      { "id": "n1", "label": "逐字稿子主題", "color": "#3F51B5",
+        "children": [{ "id": "n1_1", "label": "逐字稿細節", "color": "#2196F3", "children": [] }] }
     ]
   },
-  "content": "完整的 Markdown 筆記內容（請嚴格依照風格指示排版）",
+  "content": "完整的 Markdown 筆記內容（嚴格依照上述風格結構與逐字稿內容撰寫）",
   "corrected_transcript": "校正後的逐字稿（保留說話者標籤與時間戳格式，若無時間戳則輸出校正後文稿）",
-  "tags": ["關鍵標籤1", "關鍵標籤2", "關鍵標籤3"]
+  "tags": ["逐字稿相關標籤1", "逐字稿相關標籤2"]
 }
-
-【原始語音轉文字稿】：
-$transcript
 
 $langInstruction
 ''';
@@ -915,21 +962,34 @@ $langInstruction
   // 私有方法：直連 Gemini API
   // ----------------------------------------------------------
   Future<String?> _tryDirectGemini(String prompt) async {
-    try {
-      final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
-        apiKey: _kGeminiApiKey,
-      );
-      final response = await model.generateContent(
-          [Content.text(prompt)]).timeout(const Duration(seconds: 25));
-      return response.text;
-    } on GenerativeAIException catch (e) {
-      debugPrint('VoiceNoteService Gemini direct error: $e');
-      return null;
-    } catch (e) {
-      debugPrint('VoiceNoteService Gemini direct exception: $e');
-      return null;
+    const models = [
+      'gemini-3-flash-preview',
+      'gemini-3.1-flash-lite',
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-flash',
+    ];
+    for (final modelName in models) {
+      try {
+        final model = GenerativeModel(
+          model: modelName,
+          apiKey: _kGeminiApiKey,
+          generationConfig: GenerationConfig(
+            temperature: 0.2,
+            maxOutputTokens: 2048,
+            responseMimeType: 'application/json',
+          ),
+        );
+        final response = await model
+            .generateContent([Content.text(prompt)])
+            .timeout(const Duration(seconds: 25));
+        if (response.text != null && response.text!.trim().isNotEmpty) {
+          return response.text;
+        }
+      } catch (e) {
+        debugPrint('VoiceNoteService Gemini direct ($modelName) error: $e');
+      }
     }
+    return null;
   }
 
   // ----------------------------------------------------------

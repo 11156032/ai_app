@@ -92,6 +92,111 @@ class Note {
 class NotesDatabase {
   static List<String> categories = ['全部', '未分類', '學習', '工作', '生活'];
   static List<Note> notes = [];
+  static final Set<String> _loadedUsers = {};
+
+  /// 從 SQLite 載入該使用者的持久化筆記（若為空則寫入預設範例筆記）
+  static Future<void> loadFromDb(String userId) async {
+    if (_loadedUsers.contains(userId)) return;
+    try {
+      final rows = await DatabaseHelper.instance.getNotesForUser(userId);
+      if (rows.isNotEmpty) {
+        final loaded = <Note>[];
+        for (final r in rows) {
+          final noteKey =
+              (r['note_key'] as String?) ?? 'db_${r['id']}';
+          final category = (r['category'] as String?) ?? '未分類';
+          if (category.isNotEmpty && !categories.contains(category)) {
+            categories.add(category);
+          }
+          Map<String, dynamic>? mindmap;
+          final rawMindmap = r['mindmap_json'] as String?;
+          if (rawMindmap != null && rawMindmap.isNotEmpty) {
+            try {
+              mindmap = jsonDecode(rawMindmap) as Map<String, dynamic>;
+            } catch (_) {}
+          }
+          List<ActionItem>? actionItems;
+          final rawActions = r['action_items_json'] as String?;
+          if (rawActions != null && rawActions.isNotEmpty) {
+            try {
+              actionItems = (jsonDecode(rawActions) as List)
+                  .whereType<Map<String, dynamic>>()
+                  .map(ActionItem.fromJson)
+                  .toList();
+            } catch (_) {}
+          }
+          List<Stroke> strokes = [];
+          final rawStrokes = r['strokes_json'] as String?;
+          if (rawStrokes != null && rawStrokes.isNotEmpty) {
+            try {
+              strokes = (jsonDecode(rawStrokes) as List)
+                  .whereType<Map<String, dynamic>>()
+                  .map(Stroke.fromJson)
+                  .toList();
+            } catch (_) {}
+          }
+          loaded.add(Note(
+            id: noteKey,
+            userId: (r['user_id'] ?? userId).toString(),
+            title: (r['title'] ?? '').toString(),
+            content: (r['content'] ?? '').toString(),
+            category: category,
+            strokes: strokes,
+            updatedAt: DateTime.tryParse((r['updated_at'] ?? '').toString()) ??
+                DateTime.now(),
+            mindmapJson: mindmap,
+            actionItems: actionItems,
+          ));
+        }
+        notes.removeWhere((n) => n.userId == userId);
+        notes.addAll(loaded);
+        _loadedUsers.add(userId);
+        return;
+      }
+      initializeForUser(userId);
+      for (final n in notes.where((n) => n.userId == userId)) {
+        await persistNote(n);
+      }
+      _loadedUsers.add(userId);
+    } catch (e) {
+      debugPrint('NotesDatabase.loadFromDb error: $e');
+      initializeForUser(userId);
+    }
+  }
+
+  /// 將單筆筆記持久化至 SQLite
+  static Future<void> persistNote(Note note) async {
+    try {
+      await DatabaseHelper.instance.upsertNoteByKey(
+        noteKey: note.id,
+        userId: note.userId,
+        title: note.title,
+        content: note.content,
+        category: note.category,
+        mindmapJson:
+            note.mindmapJson != null ? jsonEncode(note.mindmapJson) : null,
+        actionItemsJson: note.actionItems != null
+            ? jsonEncode(note.actionItems!.map((a) => a.toJson()).toList())
+            : null,
+        strokesJson: note.strokes.isNotEmpty
+            ? jsonEncode(note.strokes.map((s) => s.toJson()).toList())
+            : null,
+        updatedAt: note.updatedAt.toIso8601String(),
+      );
+    } catch (e) {
+      debugPrint('NotesDatabase.persistNote error: $e');
+    }
+  }
+
+  /// 從記憶體與 SQLite 一併刪除筆記
+  static Future<void> removeNote(Note note) async {
+    notes.remove(note);
+    try {
+      await DatabaseHelper.instance.deleteNoteByKey(note.id);
+    } catch (e) {
+      debugPrint('NotesDatabase.removeNote error: $e');
+    }
+  }
 
   // 初始化使用者的預設範例筆記
   static void initializeForUser(String userId) {
@@ -456,7 +561,9 @@ class _NotesScreenState extends State<NotesScreen> {
   @override
   void initState() {
     super.initState();
-    NotesDatabase.initializeForUser(widget.currentUser['id']);
+    final uid = widget.currentUser['id']?.toString() ?? 'u1';
+    NotesDatabase.initializeForUser(uid);
+    NotesDatabase.loadFromDb(uid).then((_) => _refresh());
     VoiceNoteBackgroundManager.instance
         .addListener(_handleBackgroundManagerUpdate);
   }
@@ -588,6 +695,7 @@ class _NotesScreenState extends State<NotesScreen> {
               actionItems: actionItems,
             );
             NotesDatabase.notes.insert(0, newNote);
+            NotesDatabase.persistNote(newNote);
             _refresh();
             if (mounted) {
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
@@ -919,7 +1027,7 @@ class _NotesScreenState extends State<NotesScreen> {
             ),
             onPressed: () {
               setState(() {
-                NotesDatabase.notes.remove(note);
+                NotesDatabase.removeNote(note);
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
@@ -1577,6 +1685,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     widget.note.category = _currentCategory;
     widget.note.strokes = List.from(_strokes);
     widget.note.updatedAt = DateTime.now();
+    NotesDatabase.persistNote(widget.note);
   }
 
   void _shareNote() async {
@@ -2059,7 +2168,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
     }
 
     if (_isBlank) {
-      NotesDatabase.notes.remove(widget.note);
+      NotesDatabase.removeNote(widget.note);
       if (mounted) {
         ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
           SnackBar(
@@ -2105,7 +2214,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
             ),
             onPressed: () {
               _isExplicitlyDeleted = true;
-              NotesDatabase.notes.remove(widget.note);
+              NotesDatabase.removeNote(widget.note);
               Navigator.pop(ctx);
               Navigator.pop(context);
               ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(
@@ -2160,9 +2269,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen>
               widget.note.mindmapJson = mindmapJson;
               widget.note.actionItems = actionItems;
               _initMindMap();
-              if (_hasMindMap && _tabController.length == 2) {
+              if (_hasMindMap && _tabController.length == 1) {
                 _tabController.dispose();
-                _tabController = TabController(length: 3, vsync: this);
+                _tabController = TabController(length: 2, vsync: this);
               }
             }
             // 儲存

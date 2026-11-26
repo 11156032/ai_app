@@ -281,6 +281,21 @@ class DatabaseHelper {
             'Dynamic migration: Added show_floating_nav_bar column to users table.');
       }
 
+      // Dynamic migration for notes table (persisted AI notes, mindmap & strokes)
+      final notesCols = await db.rawQuery('PRAGMA table_info(notes)');
+      for (final colDef in [
+        ('note_key', 'TEXT'),
+        ('category', "TEXT DEFAULT '未分類'"),
+        ('mindmap_json', 'TEXT'),
+        ('action_items_json', 'TEXT'),
+        ('strokes_json', 'TEXT'),
+      ]) {
+        if (!notesCols.any((c) => c['name'] == colDef.$1)) {
+          await db.execute(
+              'ALTER TABLE notes ADD COLUMN ${colDef.$1} ${colDef.$2}');
+        }
+      }
+
       if (!userCols.any((c) => c['name'] == 'has_seen_tour')) {
         await db.execute(
             'ALTER TABLE users ADD COLUMN has_seen_tour INTEGER DEFAULT 0');
@@ -1741,6 +1756,61 @@ class DatabaseHelper {
       'title': title,
       'content': content,
     });
+  }
+
+  /// 取得指定使用者的所有持久化筆記（依更新時間新到舊排序）
+  Future<List<Map<String, dynamic>>> getNotesForUser(String userId) async {
+    final db = await database;
+    return await db.query(
+      'notes',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'updated_at DESC, id DESC',
+    );
+  }
+
+  /// 新增或更新指定 noteKey 的筆記至 SQLite
+  Future<void> upsertNoteByKey({
+    required String noteKey,
+    required String userId,
+    required String title,
+    required String content,
+    required String category,
+    String? mindmapJson,
+    String? actionItemsJson,
+    String? strokesJson,
+    required String updatedAt,
+  }) async {
+    final db = await database;
+    final existing = await db.query(
+      'notes',
+      columns: ['id'],
+      where: 'note_key = ?',
+      whereArgs: [noteKey],
+      limit: 1,
+    );
+    final row = <String, Object?>{
+      'note_key': noteKey,
+      'user_id': userId,
+      'title': title,
+      'content': content,
+      'category': category,
+      'mindmap_json': mindmapJson,
+      'action_items_json': actionItemsJson,
+      'strokes_json': strokesJson,
+      'updated_at': updatedAt,
+    };
+    if (existing.isNotEmpty) {
+      await db.update('notes', row, where: 'note_key = ?', whereArgs: [noteKey]);
+    } else {
+      await db.insert('notes', row);
+    }
+  }
+
+  /// 依 noteKey 刪除 SQLite 中的筆記
+  Future<void> deleteNoteByKey(String noteKey) async {
+    final db = await database;
+    await db.delete('notes', where: 'note_key = ?', whereArgs: [noteKey]);
   }
 
   Future<void> _seedDatabase(Database db) async {
