@@ -145,10 +145,10 @@ class MyApp extends StatelessWidget {
 
                     return MediaQuery(
                       data: effectiveMq,
-                      child: Listener(
+                      child: GestureDetector(
                         behavior: HitTestBehavior.translucent,
-                        onPointerDown: (event) {
-                          // 點擊空白處時立即平滑收起鍵盤，避免 iOS 留下未關閉焦點造成跳動
+                        onTap: () {
+                          // 僅在點擊空白處（未被輸入框或複製貼上選單攔截）時收起鍵盤，避免影響連點選字與複製貼上
                           final focus = FocusManager.instance.primaryFocus;
                           if (focus != null && focus.hasFocus) {
                             focus.unfocus();
