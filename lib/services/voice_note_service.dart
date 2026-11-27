@@ -454,13 +454,25 @@ class VoiceNoteService {
     // 優先使用 Cloudflare 雲端中繼站 (Gemini 優先 -> OpenRouter -> Groq)
     // Groq 免費層限流嚴格 (OTPM 1000)，降為後備引擎避免整理中斷
     // ============================================================
-    // 順位 1：Cloudflare Gemini 旗艦引擎 (中繼站優先，給予 25 秒避免思考鏈逾時)
-    debugPrint('VoiceNoteService: 優先啟動 Cloudflare 雲端中繼站 (Gemini 引擎)...');
+    // 順位 1-A：Cloudflare Gemini 引擎（指定可用模型 gemini-3-flash-preview，避免預設模型 429 延遲）
+    debugPrint('VoiceNoteService: 優先啟動 Cloudflare 雲端中繼站 (gemini-3-flash-preview)...');
     String? responseText = await _tryCloudflareProxy(
       provider: 'gemini',
+      model: 'gemini-3-flash-preview',
       prompt: prompt,
       timeoutSeconds: 25,
     );
+
+    // 順位 1-B：Cloudflare Gemini 備援模型 (gemini-flash-latest)
+    if (responseText == null || responseText.trim().isEmpty) {
+      debugPrint('VoiceNoteService: 切換 Cloudflare Gemini (gemini-flash-latest)...');
+      responseText = await _tryCloudflareProxy(
+        provider: 'gemini',
+        model: 'gemini-flash-latest',
+        prompt: prompt,
+        timeoutSeconds: 20,
+      );
+    }
 
     // 順位 2：Cloudflare OpenRouter 免費引擎 (無嚴格分鐘限流，穩定)
     if (responseText == null || responseText.trim().isEmpty) {
